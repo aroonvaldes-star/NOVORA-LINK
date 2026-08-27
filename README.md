@@ -1,35 +1,46 @@
-# NOVORA-LINK
+# NOVORA
 
-Repositorio principal oficial de NOVORA.
+**NOVORA es gratis. Cualquier usuario puede descargarlo y utilizarlo sin costo.**
 
-## Base
+NOVORA es una herramienta para **conectar, visualizar y controlar dispositivos Android desde Windows**.
 
-**NOVORA 1.2** es la base estable de esta línea de desarrollo.
+## Funciones
 
-Las futuras versiones parten de este repositorio y sus releases oficiales.
+- 📱 Visualización de la pantalla de Android en el PC.
+- 🎮 Control del dispositivo desde Windows.
+- 🔌 Conexión mediante USB.
+- 📡 Conexión mediante Wi-Fi / ADB.
+- 🌐 Reverse tethering con Gnirehtet.
+- 🖥️ Detección y adaptación a monitores y resoluciones.
+- ⚙️ Perfiles de salida y control de bitrate.
+- 🔄 Recuperación de la conexión y herramientas de diagnóstico.
+- 🧪 Modo de prueba para comprobar funciones y conexión.
+- 🚀 Actualizaciones automáticas mediante GitHub Releases.
 
-## Copyright
+## Descarga
 
-**Copyright © 2026 Aaron Yair Galarza Valdes. All rights reserved.**
+**NOVORA puede ser descargado GRATIS por cualquier usuario.**
 
-NOVORA es software propietario, salvo los componentes de terceros identificados en `THIRD-PARTY-NOTICES.md`.
+Las versiones oficiales se publican en **Releases** de este repositorio.
 
-## Agradecimientos
+## NOVORA 1.2
 
-NOVORA utiliza herramientas de código abierto como **scrcpy**, **Gnirehtet** y **ADB**. Se agradece a **Genymobile**, **Romain Vimont** y al **Android Open Source Project** por sus respectivos proyectos y contribuciones.
+**NOVORA 1.2 es la base estable actual.**
 
-Consulta `ACKNOWLEDGEMENTS.md` y `THIRD-PARTY-NOTICES.md` para los créditos y licencias correspondientes.
+Las futuras versiones se desarrollarán desde **NOVORA-LINK**.
 
-## Actualizaciones
+## Créditos
 
-Las versiones oficiales de NOVORA se distribuyen mediante GitHub Releases de este repositorio. El sistema de actualización comprueba releases oficiales y no commits de desarrollo.
+NOVORA utiliza herramientas de código abierto como **scrcpy**, **Gnirehtet** y **ADB**.
 
-El asset de actualización debe ser un ZIP binario compilado que contenga `NOVORA.exe`.
+Gracias a **Genymobile**, **Romain Vimont** y **Android Open Source Project** por sus proyectos y contribuciones.
 
-## Estructura legal
+Consulta:
+- `LICENSE`
+- `COPYRIGHT.md`
+- `ACKNOWLEDGEMENTS.md`
+- `THIRD-PARTY-NOTICES.md`
 
-- `LICENSE` — licencia propietaria de NOVORA.
-- `COPYRIGHT.md` — aviso de copyright.
-- `ACKNOWLEDGEMENTS.md` — agradecimientos y atribución.
-- `THIRD-PARTY-NOTICES.md` — componentes y licencias de terceros.
-- `.github/CODEOWNERS` — propietario del código.
+---
+
+**NOVORA © 2026 Aaron Yair Galarza Valdes — All Rights Reserved.**
