@@ -2,6 +2,8 @@ name: NOVORA Release
 
 on:
   push:
+    branches:
+      - "release/1.3"
     tags:
       - "v*.*"
 
@@ -11,31 +13,52 @@ permissions:
 jobs:
   build-release:
     runs-on: windows-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
-      - name: Read version from tag
+
+      - name: Resolve release version
         id: version
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          if (-not $tag.StartsWith("v")) { throw "El tag debe comenzar con v." }
-          $version = $tag.Substring(1)
-          if ($version -notmatch '^\d+\.\d+$') { throw "Usa tags como v1.3, v1.4 o v2.0." }
+          if ("${{ github.ref_type }}" -eq "tag") {
+              $tag = "${{ github.ref_name }}"
+              if (-not $tag.StartsWith("v")) {
+                  throw "El tag debe comenzar con v."
+              }
+
+              $version = $tag.Substring(1)
+          }
+          else {
+              $version = "1.3"
+              $tag = "v1.3"
+          }
+
+          if ($version -notmatch '^\d+\.\d+$') {
+              throw "Formato inválido: $version. Usa versiones como 1.3, 1.4 o 2.0."
+          }
+
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "TAG=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
       - name: Restore verified runtime tools
         shell: pwsh
         run: .\scripts\Setup-Tools.ps1
+
       - name: Restore
         run: dotnet restore .\NOVORA.sln
+
       - name: Publish NOVORA
         shell: pwsh
         run: |
           $publishDir = "${{ github.workspace }}\artifacts\publish\win-x64"
+
           dotnet publish .\src\NOVORA\NOVORA.csproj `
             -c Release `
             -r win-x64 `
@@ -45,32 +68,79 @@ jobs:
             -p:FileVersion=${{ steps.version.outputs.VERSION }}.0.0 `
             -p:InformationalVersion=${{ steps.version.outputs.VERSION }} `
             -o $publishDir
+
       - name: Ensure Inno Setup
         shell: pwsh
         run: |
           $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $iscc) { choco install innosetup --yes --no-progress }
+
+          if (-not $iscc) {
+              choco install innosetup --yes --no-progress
+          }
+
       - name: Build installer
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.VERSION }}"
           $publishDir = "${{ github.workspace }}\artifacts\publish\win-x64"
-          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe" | Select-Object -First 1
-          if (-not $iscc) { throw "No se encontró ISCC.exe." }
-          & $iscc.FullName "/DAppVersion=$version" "/DPublishDir=$publishDir" ".\Installer\NOVORA.Installer.iss"
-          if ($LASTEXITCODE -ne 0) { throw "Inno Setup terminó con código $LASTEXITCODE." }
+          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+
+          if (-not $iscc) {
+              throw "No se encontró ISCC.exe."
+          }
+
+          & $iscc.FullName `
+              "/DAppVersion=$version" `
+              "/DPublishDir=$publishDir" `
+              ".\Installer\NOVORA.Installer.iss"
+
+          if ($LASTEXITCODE -ne 0) {
+              throw "Inno Setup terminó con código $LASTEXITCODE."
+          }
+
           $installer = "${{ github.workspace }}\Installer\output\NOVORA-Setup-$version.exe"
-          if (-not (Test-Path $installer)) { throw "No se generó $installer" }
+
+          if (-not (Test-Path $installer)) {
+              throw "No se generó $installer"
+          }
+
           "INSTALLER=$installer" | Out-File -FilePath $env:GITHUB_ENV -Append
+
       - name: Generate SHA-256
         shell: pwsh
         run: |
           $hash = Get-FileHash -Path "$env:INSTALLER" -Algorithm SHA256
-          $hash.Hash.ToLowerInvariant() | Out-File -FilePath "$env:INSTALLER.sha256" -Encoding ascii -NoNewline
-      - name: Create GitHub Release
+
+          $hash.Hash.ToLowerInvariant() |
+              Out-File `
+                  -FilePath "$env:INSTALLER.sha256" `
+                  -Encoding ascii `
+                  -NoNewline
+
+      - name: Publish NOVORA-LINK 1.3 Release
+        if: steps.version.outputs.VERSION == '1.3'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          target_commitish: ${{ github.sha }}
+          name: NOVORA-LINK 1.3
+          body_path: RELEASE_NOTES_1.3.md
+          draft: false
+          prerelease: false
+          make_latest: true
+          files: |
+            ${{ env.INSTALLER }}
+            ${{ env.INSTALLER }}.sha256
+
+      - name: Publish future tagged release
+        if: steps.version.outputs.VERSION != '1.3'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
+          draft: false
+          prerelease: false
           files: |
             ${{ env.INSTALLER }}
             ${{ env.INSTALLER }}.sha256
