@@ -3,7 +3,7 @@ name: NOVORA Release
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v*.*"
 
 permissions:
   contents: write
@@ -33,8 +33,8 @@ jobs:
 
           $version = $tag.Substring(1)
 
-          if ($version -notmatch '^\d+\.\d+\.\d+$') {
-              throw "Formato de versión inválido: $version"
+          if ($version -notmatch '^\d+\.\d+$') {
+              throw "Formato de versión inválido: $version. Usa v1.1, v1.2, v2.0, etc."
           }
 
           "VERSION=$version" | Out-File `
@@ -52,8 +52,8 @@ jobs:
             -r win-x64 `
             --self-contained false `
             -p:Version=${{ steps.version.outputs.VERSION }} `
-            -p:AssemblyVersion=${{ steps.version.outputs.VERSION }}.0 `
-            -p:FileVersion=${{ steps.version.outputs.VERSION }}.0 `
+            -p:AssemblyVersion=${{ steps.version.outputs.VERSION }}.0.0 `
+            -p:FileVersion=${{ steps.version.outputs.VERSION }}.0.0 `
             -p:InformationalVersion=${{ steps.version.outputs.VERSION }} `
             -o "${{ github.workspace }}\publish"
 
