@@ -11,92 +11,66 @@ permissions:
 jobs:
   build-release:
     runs-on: windows-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup .NET
+      - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
-
       - name: Read version from tag
         id: version
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
-
-          if (-not $tag.StartsWith("v")) {
-              throw "El tag debe comenzar con v."
-          }
-
+          if (-not $tag.StartsWith("v")) { throw "El tag debe comenzar con v." }
           $version = $tag.Substring(1)
-
-          if ($version -notmatch '^\d+\.\d+$') {
-              throw "Formato de versión inválido: $version. Usa v1.1, v1.2, v2.0, etc."
-          }
-
-          "VERSION=$version" | Out-File `
-              -FilePath $env:GITHUB_OUTPUT `
-              -Append
-
+          if ($version -notmatch '^\d+\.\d+$') { throw "Usa tags como v1.3, v1.4 o v2.0." }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+      - name: Restore verified runtime tools
+        shell: pwsh
+        run: .\scripts\Setup-Tools.ps1
       - name: Restore
-        run: dotnet restore
-
+        run: dotnet restore .\NOVORA.sln
       - name: Publish NOVORA
         shell: pwsh
         run: |
-          dotnet publish `
+          $publishDir = "${{ github.workspace }}\artifacts\publish\win-x64"
+          dotnet publish .\src\NOVORA\NOVORA.csproj `
             -c Release `
             -r win-x64 `
-            --self-contained false `
+            --self-contained true `
             -p:Version=${{ steps.version.outputs.VERSION }} `
             -p:AssemblyVersion=${{ steps.version.outputs.VERSION }}.0.0 `
             -p:FileVersion=${{ steps.version.outputs.VERSION }}.0.0 `
             -p:InformationalVersion=${{ steps.version.outputs.VERSION }} `
-            -o "${{ github.workspace }}\publish"
-
-      - name: Create update package
+            -o $publishDir
+      - name: Ensure Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) { choco install innosetup --yes --no-progress }
+      - name: Build installer
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.VERSION }}"
-
-          $zipName = "NOVORA-LINK-$version-win-x64.zip"
-          $zipPath = "${{ github.workspace }}\$zipName"
-
-          Compress-Archive `
-            -Path "${{ github.workspace }}\publish\*" `
-            -DestinationPath $zipPath `
-            -CompressionLevel Optimal
-
-          "ZIP_NAME=$zipName" |
-            Out-File `
-              -FilePath $env:GITHUB_ENV `
-              -Append
-
-          "ZIP_PATH=$zipPath" |
-            Out-File `
-              -FilePath $env:GITHUB_ENV `
-              -Append
-
+          $publishDir = "${{ github.workspace }}\artifacts\publish\win-x64"
+          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe" | Select-Object -First 1
+          if (-not $iscc) { throw "No se encontró ISCC.exe." }
+          & $iscc.FullName "/DAppVersion=$version" "/DPublishDir=$publishDir" ".\Installer\NOVORA.Installer.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup terminó con código $LASTEXITCODE." }
+          $installer = "${{ github.workspace }}\Installer\output\NOVORA-Setup-$version.exe"
+          if (-not (Test-Path $installer)) { throw "No se generó $installer" }
+          "INSTALLER=$installer" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Generate SHA-256
         shell: pwsh
         run: |
-          $hash = Get-FileHash `
-            -Path "$env:ZIP_PATH" `
-            -Algorithm SHA256
-
-          $hash.Hash.ToLowerInvariant() |
-            Out-File `
-              -FilePath "$env:ZIP_PATH.sha256" `
-              -Encoding ascii `
-              -NoNewline
-
+          $hash = Get-FileHash -Path "$env:INSTALLER" -Algorithm SHA256
+          $hash.Hash.ToLowerInvariant() | Out-File -FilePath "$env:INSTALLER.sha256" -Encoding ascii -NoNewline
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            ${{ env.ZIP_PATH }}
-            ${{ env.ZIP_PATH }}.sha256
+            ${{ env.INSTALLER }}
+            ${{ env.INSTALLER }}.sha256

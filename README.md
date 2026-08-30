@@ -1,45 +1,49 @@
-# NOVORA
+# NOVORA-LINK 1.3
 
-**NOVORA es gratis. Cualquier usuario puede descargarlo y utilizarlo sin costo.**
+NOVORA-LINK es una aplicación WPF para conectar, visualizar y controlar dispositivos Android desde Windows mediante ADB, scrcpy y Gnirehtet.
 
-NOVORA es una herramienta para **conectar, visualizar y controlar dispositivos Android desde Windows**.
+## Base estable de desarrollo
 
-## Funciones
+**NOVORA-LINK 1.3 es la base actual del repositorio.**
 
-- 📱 Visualización de la pantalla de Android en el PC.
-- 🎮 Control del dispositivo desde Windows.
-- 🔌 Conexión mediante USB.
-- 📡 Conexión mediante Wi-Fi / ADB.
-- 🌐 Reverse tethering con Gnirehtet.
-- 🖥️ Detección y adaptación a monitores y resoluciones.
-- ⚙️ Perfiles de salida y control de bitrate.
-- 🔄 Recuperación de la conexión y herramientas de diagnóstico.
-- 🧪 Modo de prueba para comprobar funciones y conexión.
-- 🚀 Actualizaciones automáticas mediante GitHub Releases.
+La solución principal está en:
 
-## Descarga
+- `NOVORA.sln`
+- `src/NOVORA/NOVORA.csproj`
 
-**NOVORA puede ser descargado GRATIS por cualquier usuario.**
+## Estructura
 
-Las versiones oficiales se publican en **Releases** de este repositorio.
+- `src/NOVORA/` — aplicación WPF y servicios.
+- `src/NOVORA/Tools/` — herramientas de ejecución restauradas por `scripts/Setup-Tools.ps1`.
+- `Installer/` — instalador Inno Setup.
+- `scripts/` — preparación reproducible de dependencias.
+- `docs/` — arquitectura y estructura técnica.
+- `.github/workflows/` — compilación y publicación de releases.
 
-## NOVORA 1.2
+## Dependencias de ejecución
 
-**NOVORA 1.2 es la base estable actual.**
+Los binarios de terceros no se versionan dentro del repositorio. `scripts/Setup-Tools.ps1` descarga versiones fijadas y verifica SHA-256 antes de colocarlas en `src/NOVORA/Tools/`.
 
-Las futuras versiones se desarrollarán desde **NOVORA-LINK**.
+Versiones fijadas para 1.3:
 
-## Créditos
+- scrcpy 4.1 (Windows x64)
+- Gnirehtet 2.5.1 (Rust, Windows x64)
 
-NOVORA utiliza herramientas de código abierto como **scrcpy**, **Gnirehtet** y **ADB**.
+## Compilar
 
-Gracias a **Genymobile**, **Romain Vimont** y **Android Open Source Project** por sus proyectos y contribuciones.
+```powershell
+pwsh -File .\scripts\Setup-Tools.ps1
+dotnet restore .\NOVORA.sln
+dotnet build .\NOVORA.sln -c Release
+```
 
-Consulta:
-- `LICENSE`
-- `COPYRIGHT.md`
-- `ACKNOWLEDGEMENTS.md`
-- `THIRD-PARTY-NOTICES.md`
+## Releases
+
+Las releases oficiales usan tags de dos componentes, por ejemplo `v1.3` o `v1.4`. GitHub Actions publica un instalador `NOVORA-Setup-<version>.exe` y su SHA-256.
+
+## Créditos y licencias
+
+NOVORA utiliza proyectos de terceros como scrcpy, Gnirehtet y Android Debug Bridge. Consulta `LICENSE`, `COPYRIGHT.md`, `ACKNOWLEDGEMENTS.md` y `THIRD-PARTY-NOTICES.md`.
 
 ---
 

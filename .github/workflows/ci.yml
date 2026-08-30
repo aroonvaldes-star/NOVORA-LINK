@@ -1,0 +1,32 @@
+name: NOVORA CI
+
+on:
+  push:
+    branches:
+      - "NOVORA-LINK"
+      - "restructure/**"
+      - "release/**"
+  pull_request:
+    branches:
+      - "NOVORA-LINK"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Restore verified runtime tools
+        shell: pwsh
+        run: .\scripts\Setup-Tools.ps1
+      - name: Restore
+        run: dotnet restore .\NOVORA.sln
+      - name: Build
+        run: dotnet build .\NOVORA.sln -c Release --no-restore
