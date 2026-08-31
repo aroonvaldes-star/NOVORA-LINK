@@ -1,11 +1,10 @@
-﻿using NOVORA.Models;
+using NOVORA.Models;
 using NOVORA.Services;
 using NOVORA.ViewModels;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Threading;
 
 namespace NOVORA;
 
@@ -14,17 +13,23 @@ public partial class MainWindow : Window
     private static readonly TimeSpan RecoveryCooldown =
         TimeSpan.FromMinutes(2);
 
-    private readonly NovoraPaths _paths = new();
+    private readonly NovoraPaths _paths =
+        new();
 
-    private readonly SettingsService _settingsService = new();
+    private readonly SettingsService _settingsService =
+        new();
 
-    private readonly MonitorService _monitorService = new();
+    private readonly MonitorService _monitorService =
+        new();
 
-    private readonly OutputProfileService _outputProfileService = new();
+    private readonly OutputProfileService _outputProfileService =
+        new();
 
-    private readonly UpdateService _updateService = new();
+    private readonly UpdateService _updateService =
+        new();
 
-    private readonly MainViewModel _viewModel = new();
+    private readonly MainViewModel _viewModel =
+        new();
 
     private readonly AdbService _adb;
 
@@ -36,27 +41,26 @@ public partial class MainWindow : Window
 
     private readonly DeviceStateService _deviceState;
 
+    private readonly NCP _pollingCenter;
+
     private readonly ScrcpyService _scrcpy;
 
     private readonly GnirehtetService _gnirehtet;
 
     private readonly GnirehtetRecoveryService _gnirehtetRecovery;
 
-    private readonly DispatcherTimer _statusTimer;
-
     private DateTimeOffset _lastRecoveryAttemptUtc =
         DateTimeOffset.MinValue;
 
     private bool _closing;
-
-    private bool _refreshingStatus;
 
     public MainWindow()
     {
         InitializeComponent();
 
         _adb =
-            new AdbService(_paths);
+            new AdbService(
+                _paths);
 
         _deviceIdentity =
             new DeviceIdentityService(
@@ -64,40 +68,49 @@ public partial class MainWindow : Window
                 _settingsService);
 
         _networkService =
-            new NetworkService(_adb);
+            new NetworkService(
+                _adb);
 
         _metricsService =
-            new DeviceMetricsService(_adb);
+            new DeviceMetricsService(
+                _adb);
 
         _deviceState =
             new DeviceStateService(
                 _networkService,
                 _metricsService);
 
+        /*
+         * NCP sustituye al DispatcherTimer local.
+         *
+         * Un solo centro de polling.
+         * 30 segundos.
+         * Una sola lectura compartida.
+         */
+        _pollingCenter =
+            new NCP(
+                _deviceState,
+                () => _viewModel.Device,
+                TimeSpan.FromSeconds(30));
+
+        _pollingCenter.SnapshotUpdated +=
+            PollingCenter_SnapshotUpdated;
+
         _scrcpy =
-            new ScrcpyService(_paths);
+            new ScrcpyService(
+                _paths);
 
         _gnirehtet =
-            new GnirehtetService(_paths);
+            new GnirehtetService(
+                _paths);
 
         _gnirehtetRecovery =
             new GnirehtetRecoveryService(
                 _adb,
                 _gnirehtet);
 
-        _statusTimer =
-            new DispatcherTimer(
-                DispatcherPriority.Background)
-            {
-                Interval =
-                    TimeSpan.FromSeconds(30)
-            };
-
-        _statusTimer.Tick +=
-            async (_, _) =>
-                await RefreshStatusAsync();
-
-        DataContext = _viewModel;
+        DataContext =
+            _viewModel;
 
         _viewModel.PropertyChanged +=
             ViewModel_PropertyChanged;
@@ -120,9 +133,11 @@ public partial class MainWindow : Window
 
             UpdateRuntimeButtons();
 
-            _statusTimer.Start();
-
-            await RefreshStatusAsync();
+            /*
+             * Start() hace una primera lectura inmediata.
+             * Después continúa cada 30 segundos.
+             */
+            _pollingCenter.Start();
         }
         catch (Exception ex)
         {
@@ -214,7 +229,8 @@ public partial class MainWindow : Window
                 devices.FirstOrDefault();
 
             _viewModel.Device =
-                selected ?? new DeviceInfo();
+                selected ??
+                new DeviceInfo();
 
             _viewModel.ConnectionStatus =
                 selected is null
@@ -223,12 +239,19 @@ public partial class MainWindow : Window
 
             _deviceState.Invalidate();
 
+            _pollingCenter.Invalidate();
+
             _lastRecoveryAttemptUtc =
                 DateTimeOffset.MinValue;
 
             UpdateOutputProfile();
 
             UpdateRuntimeButtons();
+
+            if (_pollingCenter.IsRunning)
+            {
+                await RefreshPollingNowSafeAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -250,63 +273,37 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task RefreshStatusAsync()
+    /*
+     * NCP puede publicar desde un hilo que no es el Dispatcher de WPF.
+     * El evento entra aquí y enviamos únicamente la actualización visual
+     * al hilo de interfaz.
+     */
+    private async void PollingCenter_SnapshotUpdated(
+        object? sender,
+        NovoraCenterPollingSnapshot snapshot)
     {
-        if (_refreshingStatus)
+        if (_closing)
+        {
             return;
-
-        _refreshingStatus = true;
+        }
 
         try
         {
-            var device =
-                _viewModel.Device;
+            await Dispatcher.InvokeAsync(
+                () =>
+                    ApplyPollingSnapshot(
+                        snapshot));
 
-            UpdateRuntimeButtons();
-
-            if (device is null ||
-                !device.Connected)
+            if (_closing ||
+                !snapshot.HasDevice ||
+                snapshot.Device is null ||
+                snapshot.Network is null)
             {
-                _redStatus.Text =
-                    "Sin dispositivo conectado.";
-
-                _performanceStatus.Text =
-                    "Esperando dispositivo...";
-
                 return;
             }
 
-            NetworkStatus? network = null;
-
-            DeviceMetrics? metrics = null;
-
-            string? networkError = null;
-
-            string? metricsError = null;
-
-            try
-            {
-                network =
-                    await _deviceState.GetNetworkAsync(
-                        device);
-            }
-            catch (Exception ex)
-            {
-                networkError =
-                    ex.Message;
-            }
-
-            try
-            {
-                metrics =
-                    await _deviceState.GetMetricsAsync(
-                        device);
-            }
-            catch (Exception ex)
-            {
-                metricsError =
-                    ex.Message;
-            }
+            var device =
+                snapshot.Device;
 
             var tunnelForThisDevice =
                 _gnirehtet.IsActive &&
@@ -315,101 +312,193 @@ public partial class MainWindow : Window
                     device.Serial,
                     StringComparison.OrdinalIgnoreCase);
 
-            if (network is not null &&
-                tunnelForThisDevice &&
-                !network.InternetAvailable &&
-                await TryRecoverGnirehtetAsync(device))
+            /*
+             * Conservamos el recovery que ya tenía MainWindow.
+             * Sólo se activa cuando:
+             *
+             * - Gnirehtet está activo para ESTE dispositivo.
+             * - Internet dejó de responder.
+             * - Se cumple el cooldown.
+             */
+            if (tunnelForThisDevice &&
+                !snapshot.Network.InternetAvailable &&
+                await TryRecoverGnirehtetAsync(
+                    device))
             {
                 _deviceState.Invalidate(
                     device.Serial);
 
-                try
-                {
-                    network =
-                        await _deviceState.GetNetworkAsync(
-                            device);
-
-                    networkError =
-                        null;
-                }
-                catch (Exception ex)
-                {
-                    network =
-                        null;
-
-                    networkError =
-                        ex.Message;
-                }
-            }
-
-            if (network is null)
-            {
-                _redStatus.Text =
-                    string.IsNullOrWhiteSpace(
-                        networkError)
-                        ? "Estado de red no disponible."
-                        : "Red no disponible Â· " +
-                          networkError;
-            }
-            else
-            {
-                var internet =
-                    network.InternetAvailable
-                        ? "Internet OK"
-                        : "Internet sin respuesta";
-
-                var latency =
-                    network.LatencyMs >= 0
-                        ? $"{network.LatencyMs} ms"
-                        : "â€”";
-
-                tunnelForThisDevice =
-                    _gnirehtet.IsActive &&
-                    string.Equals(
-                        _gnirehtet.ActiveSerial,
-                        device.Serial,
-                        StringComparison.OrdinalIgnoreCase);
-
-                var tunnel =
-                    tunnelForThisDevice
-                        ? "Internet USB activo"
-                        : "Internet USB inactivo";
-
-                _redStatus.Text =
-                    $"{device.ConnectionType} Â· " +
-                    $"{internet} Â· " +
-                    $"{latency} Â· " +
-                    $"{tunnel}";
-            }
-
-            if (metrics is null)
-            {
-                _performanceStatus.Text =
-                    string.IsNullOrWhiteSpace(
-                        metricsError)
-                        ? "Datos no disponibles."
-                        : "Rendimiento no disponible.";
-            }
-            else
-            {
-                var memory =
-                    metrics.TotalMemoryKb > 0
-                        ? $"RAM {metrics.UsedMemoryKb / (1024d * 1024d):0.0}/{metrics.TotalMemoryKb / (1024d * 1024d):0.0} GB"
-                        : "RAM â€”";
-
-                _performanceStatus.Text =
-                    $"CPU {metrics.CpuPercent:0.#}% Â· " +
-                    $"{memory} Â· " +
-                    $"BaterÃ­a {metrics.BatteryPercent}% Â· " +
-                    $"{metrics.BatteryTemperatureC:0.#} Â°C";
+                await RefreshPollingNowSafeAsync();
             }
         }
-        finally
+        catch
         {
-            UpdateRuntimeButtons();
+            /*
+             * El polling no debe tumbar la interfaz.
+             */
+        }
+    }
 
-            _refreshingStatus =
-                false;
+    private void ApplyPollingSnapshot(
+        NovoraCenterPollingSnapshot snapshot)
+    {
+        if (_closing)
+        {
+            return;
+        }
+
+        UpdateRuntimeButtons();
+
+        var device =
+            snapshot.Device;
+
+        if (device is null ||
+            !device.Connected ||
+            string.IsNullOrWhiteSpace(
+                device.Serial))
+        {
+            _redStatus.Text =
+                "Sin dispositivo conectado.";
+
+            _performanceStatus.Text =
+                "Esperando dispositivo...";
+
+            return;
+        }
+
+        ApplyNetworkStatus(
+            device,
+            snapshot.Network,
+            snapshot.Error);
+
+        ApplyPerformanceStatus(
+            snapshot.Metrics,
+            snapshot.Error);
+    }
+
+    private void ApplyNetworkStatus(
+        DeviceInfo device,
+        NetworkStatus? network,
+        string? error)
+    {
+        if (network is null)
+        {
+            _redStatus.Text =
+                string.IsNullOrWhiteSpace(
+                    error)
+                    ? "Estado de red no disponible."
+                    : "Red no disponible · " +
+                      error;
+
+            return;
+        }
+
+        var internet =
+            network.InternetAvailable
+                ? "Internet OK"
+                : "Internet sin respuesta";
+
+        var latency =
+            network.LatencyMs >= 0
+                ? $"{network.LatencyMs} ms"
+                : "—";
+
+        var tunnelForThisDevice =
+            _gnirehtet.IsActive &&
+            string.Equals(
+                _gnirehtet.ActiveSerial,
+                device.Serial,
+                StringComparison.OrdinalIgnoreCase);
+
+        var tunnel =
+            tunnelForThisDevice
+                ? "Internet USB activo"
+                : "Internet USB inactivo";
+
+        _redStatus.Text =
+            $"{device.ConnectionType} · " +
+            $"{internet} · " +
+            $"{latency} · " +
+            $"{tunnel}";
+    }
+
+    private void ApplyPerformanceStatus(
+        DeviceMetrics? metrics,
+        string? error)
+    {
+        if (metrics is null)
+        {
+            _performanceStatus.Text =
+                string.IsNullOrWhiteSpace(
+                    error)
+                    ? "Datos no disponibles."
+                    : "Rendimiento no disponible.";
+
+            return;
+        }
+
+        /*
+         * DeviceMetricsService devuelve KB.
+         *
+         * KB -> MB = / 1024
+         * KB -> GB = / 1024 / 1024
+         */
+        var usedMemoryGb =
+            metrics.UsedMemoryKb /
+            1024d /
+            1024d;
+
+        var totalMemoryGb =
+            metrics.TotalMemoryKb /
+            1024d /
+            1024d;
+
+        var memory =
+            metrics.TotalMemoryKb > 0
+                ? $"RAM {usedMemoryGb:0.00}/{totalMemoryGb:0.00} GB"
+                : "RAM —";
+
+        _performanceStatus.Text =
+            $"CPU {metrics.CpuPercent:0.#}% · " +
+            $"{memory} · " +
+            $"Batería {metrics.BatteryPercent}% · " +
+            $"{metrics.BatteryTemperatureC:0.#} °C";
+    }
+
+    private async Task RefreshPollingNowSafeAsync()
+    {
+        if (_closing)
+        {
+            return;
+        }
+
+        try
+        {
+            await _pollingCenter.RefreshNowAsync();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            if (_closing)
+            {
+                return;
+            }
+
+            try
+            {
+                await Dispatcher.InvokeAsync(
+                    () =>
+                        _viewModel.ConnectionStatus =
+                            ex.Message);
+            }
+            catch
+            {
+            }
         }
     }
 
@@ -437,8 +526,9 @@ public partial class MainWindow : Window
 
         try
         {
-            return await _gnirehtetRecovery.RecoverAsync(
-                device.Serial);
+            return await
+                _gnirehtetRecovery.RecoverAsync(
+                    device.Serial);
         }
         catch
         {
@@ -571,6 +661,12 @@ public partial class MainWindow : Window
                 "ADB Wi-Fi conectado. Ya puedes retirar el USB.";
 
             SaveSelection();
+
+            _deviceState.Invalidate();
+
+            _pollingCenter.Invalidate();
+
+            await RefreshPollingNowSafeAsync();
         }
         catch (Exception ex)
         {
@@ -594,7 +690,14 @@ public partial class MainWindow : Window
         object sender,
         SelectionChangedEventArgs e)
     {
+        if (_closing)
+        {
+            return;
+        }
+
         _deviceState.Invalidate();
+
+        _pollingCenter.Invalidate();
 
         _lastRecoveryAttemptUtc =
             DateTimeOffset.MinValue;
@@ -603,9 +706,13 @@ public partial class MainWindow : Window
 
         SaveSelection();
 
-        _ = RefreshStatusAsync();
-
         UpdateRuntimeButtons();
+
+        if (_pollingCenter.IsRunning)
+        {
+            _ =
+                RefreshPollingNowSafeAsync();
+        }
     }
 
     private void Monitor_SelectionChanged(
@@ -730,7 +837,8 @@ public partial class MainWindow : Window
                     await _gnirehtet.StartAsync(
                         device,
                         _viewModel.Devices.Count(
-                            item => item.Connected));
+                            item =>
+                                item.Connected));
 
                 _viewModel.GnirehtetStatus =
                     result.Message;
@@ -753,7 +861,7 @@ public partial class MainWindow : Window
             _deviceState.Invalidate(
                 device.Serial);
 
-            await RefreshStatusAsync();
+            await RefreshPollingNowSafeAsync();
         }
         catch (Exception ex)
         {
@@ -922,7 +1030,9 @@ public partial class MainWindow : Window
         CancelEventArgs e)
     {
         if (_closing)
+        {
             return;
+        }
 
         e.Cancel =
             true;
@@ -930,9 +1040,22 @@ public partial class MainWindow : Window
         _closing =
             true;
 
-        _statusTimer.Stop();
-
         SaveSelection();
+
+        /*
+         * Primero detenemos NCP para que no siga solicitando
+         * métricas mientras cerramos ADB/Gnirehtet/scrcpy.
+         */
+        try
+        {
+            await _pollingCenter.StopAsync();
+        }
+        catch
+        {
+        }
+
+        _pollingCenter.SnapshotUpdated -=
+            PollingCenter_SnapshotUpdated;
 
         try
         {
@@ -954,6 +1077,14 @@ public partial class MainWindow : Window
         _scrcpy.Dispose();
 
         _gnirehtet.Dispose();
+
+        try
+        {
+            await _pollingCenter.DisposeAsync();
+        }
+        catch
+        {
+        }
 
         _deviceState.Dispose();
 
