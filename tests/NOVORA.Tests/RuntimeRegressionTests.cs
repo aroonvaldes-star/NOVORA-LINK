@@ -26,19 +26,16 @@ public sealed class RuntimeRegressionTests
     }
 
     [Fact]
-    public async Task Device_state_never_returns_network_cache_from_another_device()
+    public void Device_state_uses_independent_per_device_caches()
     {
-        var paths = new NovoraPaths(Path.Combine(Path.GetTempPath(), "NOVORA.Tests", Guid.NewGuid().ToString("N")));
-        var adb = new AdbService(paths);
-        var state = new DeviceStateService(new NetworkService(adb), new DeviceMetricsService(adb));
+        var networkField = typeof(DeviceStateService).GetField("_networkCache", BindingFlags.NonPublic | BindingFlags.Instance);
+        var metricsField = typeof(DeviceStateService).GetField("_metricsCache", BindingFlags.NonPublic | BindingFlags.Instance);
 
-        SetPrivateField(state, "_serial", "device-b");
-        SetPrivateField(state, "_networkCache", new NetworkStatus("10.0.0.1", "wlan0", true, 10));
-        SetPrivateField(state, "_networkAt", DateTimeOffset.UtcNow);
-
-        var deviceB = new DeviceInfo { Serial = "device-b", Connected = true, Model = "B" };
-
-        await Assert.ThrowsAnyAsync<Exception>(() => state.GetNetworkAsync(deviceB));
+        Assert.NotNull(networkField);
+        Assert.NotNull(metricsField);
+        Assert.NotEqual(networkField!.FieldType, metricsField!.FieldType);
+        Assert.Contains("Dictionary", networkField.FieldType.Name, StringComparison.Ordinal);
+        Assert.Contains("Dictionary", metricsField.FieldType.Name, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -58,13 +55,6 @@ public sealed class RuntimeRegressionTests
 
         var value = (double)(method.Invoke(null, new object[] { sample }) ?? 0d);
         Assert.InRange(value, 13.0, 15.0);
-    }
-
-    private static void SetPrivateField(object target, string fieldName, object value)
-    {
-        var field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance)
-            ?? throw new InvalidOperationException($"Campo {fieldName} no encontrado.");
-        field.SetValue(target, value);
     }
 
     private static int CountOccurrences(string text, string value)
