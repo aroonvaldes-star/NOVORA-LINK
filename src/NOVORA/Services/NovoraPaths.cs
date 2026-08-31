@@ -21,16 +21,62 @@ public sealed class NovoraPaths
 
     public void ValidateRequiredTools()
     {
-        var required = new[] { Adb, Scrcpy, ScrcpyServer };
-        var missing = required.Where(p => !File.Exists(p)).Select(Path.GetFileName).ToArray();
-        if (missing.Length > 0) throw new FileNotFoundException("Faltan herramientas de NOVORA: " + string.Join(", ", missing));
+        ValidateScreenMirroringTools();
+    }
+
+    public void ValidateScreenMirroringTools()
+    {
+        var required = new[]
+        {
+            Adb,
+            Scrcpy,
+            ScrcpyServer
+        };
+
+        var missing = required
+            .Where(path => !File.Exists(path))
+            .Select(Path.GetFileName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToArray();
+
+        if (missing.Length == 0)
+            return;
+
+        var missingList = string.Join(", ", missing);
+
+        throw new FileNotFoundException(
+            "Screen Mirroring no está disponible porque faltan componentes de NOVORA: " +
+            missingList + ".\n\n" +
+            "Windows Security o tu antivirus puede haber bloqueado o puesto en cuarentena alguno de estos archivos.\n\n" +
+            "Abre Seguridad de Windows > Protección contra virus y amenazas > Historial de protección, " +
+            "comprueba si el componente pertenece a NOVORA-LINK y restáuralo/permítelo únicamente si coincide con tu instalación oficial.\n\n" +
+            "No es necesario desactivar Microsoft Defender ni excluir toda la carpeta de NOVORA.\n\n" +
+            "Después vuelve a NOVORA y presiona PLAY otra vez.");
     }
 
     public void ValidateGnirehtetTools()
     {
         ValidateRequiredTools();
-        var required = new[] { Gnirehtet, GnirehtetApk };
-        var missing = required.Where(p => !File.Exists(p)).Select(Path.GetFileName).ToArray();
-        if (missing.Length > 0) throw new FileNotFoundException("Faltan herramientas de Gnirehtet: " + string.Join(", ", missing));
+
+        var required = new[]
+        {
+            Gnirehtet,
+            GnirehtetApk
+        };
+
+        var missing = required
+            .Where(path => !File.Exists(path))
+            .Select(Path.GetFileName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToArray();
+
+        if (missing.Length > 0)
+        {
+            throw new FileNotFoundException(
+                "Internet USB no está disponible porque faltan herramientas de Gnirehtet: " +
+                string.Join(", ", missing) + ".\n\n" +
+                "Windows Security o tu antivirus puede haber bloqueado o puesto en cuarentena alguno de estos archivos. " +
+                "Revisa el Historial de protección antes de volver a intentarlo.");
+        }
     }
 }
