@@ -1,4 +1,4 @@
-using NOVORA.Models;
+﻿using NOVORA.Models;
 using NOVORA.Services;
 using NOVORA.ViewModels;
 using System.ComponentModel;
@@ -348,7 +348,7 @@ public partial class MainWindow : Window
                     string.IsNullOrWhiteSpace(
                         networkError)
                         ? "Estado de red no disponible."
-                        : "Red no disponible · " +
+                        : "Red no disponible Â· " +
                           networkError;
             }
             else
@@ -361,7 +361,7 @@ public partial class MainWindow : Window
                 var latency =
                     network.LatencyMs >= 0
                         ? $"{network.LatencyMs} ms"
-                        : "—";
+                        : "â€”";
 
                 tunnelForThisDevice =
                     _gnirehtet.IsActive &&
@@ -376,9 +376,9 @@ public partial class MainWindow : Window
                         : "Internet USB inactivo";
 
                 _redStatus.Text =
-                    $"{device.ConnectionType} · " +
-                    $"{internet} · " +
-                    $"{latency} · " +
+                    $"{device.ConnectionType} Â· " +
+                    $"{internet} Â· " +
+                    $"{latency} Â· " +
                     $"{tunnel}";
             }
 
@@ -394,14 +394,14 @@ public partial class MainWindow : Window
             {
                 var memory =
                     metrics.TotalMemoryKb > 0
-                        ? $"RAM {metrics.UsedMemoryKb / 1024d:0}/{metrics.TotalMemoryKb / 1024d:0} MB"
-                        : "RAM —";
+                        ? $"RAM {metrics.UsedMemoryKb / (1024d * 1024d):0.0}/{metrics.TotalMemoryKb / (1024d * 1024d):0.0} GB"
+                        : "RAM â€”";
 
                 _performanceStatus.Text =
-                    $"CPU {metrics.CpuPercent:0.#}% · " +
-                    $"{memory} · " +
-                    $"Batería {metrics.BatteryPercent}% · " +
-                    $"{metrics.BatteryTemperatureC:0.#} °C";
+                    $"CPU {metrics.CpuPercent:0.#}% Â· " +
+                    $"{memory} Â· " +
+                    $"BaterÃ­a {metrics.BatteryPercent}% Â· " +
+                    $"{metrics.BatteryTemperatureC:0.#} Â°C";
             }
         }
         finally
@@ -530,8 +530,8 @@ public partial class MainWindow : Window
             MessageBox.Show(
                 device?.IsWifiConnection == true
                     ? "El dispositivo ya usa ADB por Wi-Fi."
-                    : "Conecta primero el teléfono por USB.",
-                "NOVORA — ADB Wi-Fi",
+                    : "Conecta primero el telÃ©fono por USB.",
+                "NOVORA â€” ADB Wi-Fi",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
 
@@ -576,7 +576,7 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 ex.Message,
-                "NOVORA — ADB Wi-Fi",
+                "NOVORA â€” ADB Wi-Fi",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
 
@@ -669,7 +669,7 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 ex.Message,
-                "NOVORA — Screen Mirroring",
+                "NOVORA â€” Screen Mirroring",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -694,7 +694,7 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 "Selecciona un dispositivo conectado.",
-                "NOVORA — Internet USB",
+                "NOVORA â€” Internet USB",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
 
@@ -739,7 +739,7 @@ public partial class MainWindow : Window
                 {
                     MessageBox.Show(
                         result.Message,
-                        "NOVORA — Internet USB",
+                        "NOVORA â€” Internet USB",
                         MessageBoxButton.OK,
                         MessageBoxImage.Warning);
                 }
@@ -759,7 +759,7 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 ex.Message,
-                "NOVORA — Internet USB",
+                "NOVORA â€” Internet USB",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -797,12 +797,12 @@ public partial class MainWindow : Window
 
         MainActionButton.Content =
             mirroring
-                ? "■  STOP"
-                : "▶  PLAY";
+                ? "â–   STOP"
+                : "â–¶  PLAY";
 
         InternetUsbButton.Content =
             internetUsb
-                ? "■  DETENER INTERNET USB"
+                ? "â–   DETENER INTERNET USB"
                 : "INTERNET USB";
     }
 
@@ -837,8 +837,8 @@ public partial class MainWindow : Window
             if (update is null)
             {
                 MessageBox.Show(
-                    $"NOVORA {_updateService.CurrentVersion} ya está actualizado.",
-                    "NOVORA — Actualización",
+                    $"NOVORA {_updateService.CurrentVersion} ya estÃ¡ actualizado.",
+                    "NOVORA â€” ActualizaciÃ³n",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
 
@@ -846,8 +846,8 @@ public partial class MainWindow : Window
             }
 
             if (MessageBox.Show(
-                    $"Disponible NOVORA {update.LatestVersion}.\n\n¿Descargar e instalar ahora?",
-                    "NOVORA — Actualización",
+                    $"Disponible NOVORA {update.LatestVersion}.\n\nÂ¿Descargar e instalar ahora?",
+                    "NOVORA â€” ActualizaciÃ³n",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Question)
                 != MessageBoxResult.Yes)
@@ -859,7 +859,7 @@ public partial class MainWindow : Window
                 new Progress<int>(
                     value =>
                         _viewModel.ConnectionStatus =
-                            $"Descargando actualización... {value}%");
+                            $"Descargando actualizaciÃ³n... {value}%");
 
             await _updateService.InstallAndRestartAsync(
                 update,
@@ -869,7 +869,7 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 ex.Message,
-                "NOVORA — Actualización",
+                "NOVORA â€” ActualizaciÃ³n",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
 
