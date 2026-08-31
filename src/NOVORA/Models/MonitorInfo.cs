@@ -23,11 +23,19 @@ public sealed record MonitorInfo(
     {
         get
         {
-            var name = string.IsNullOrWhiteSpace(FriendlyName) ? DeviceName : FriendlyName.Trim();
-            name = name.Replace(" · PRINCIPAL", string.Empty, StringComparison.OrdinalIgnoreCase)
-                       .Replace(" (Principal)", string.Empty, StringComparison.OrdinalIgnoreCase)
-                       .Trim();
-            return $"{name} — {Width}x{Height} @ {RefreshRateHz:0.#} Hz" + (IsPrimary ? " (Principal)" : string.Empty);
+            var name = string.IsNullOrWhiteSpace(FriendlyName)
+                ? DeviceName
+                : FriendlyName.Trim();
+
+            name = name
+                .Replace(" · PRINCIPAL", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace(" (Principal)", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Trim();
+
+            return $"{name} — {Width}x{Height} @ {RefreshRateHz:0.#} Hz" +
+                   (IsPrimary ? " (Principal)" : string.Empty);
         }
     }
+
+    public override string ToString() => DisplayLabel;
 }
