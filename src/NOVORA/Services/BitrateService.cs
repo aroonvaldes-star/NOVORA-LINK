@@ -48,7 +48,11 @@ public static class BitrateService
             return false;
 
         var number = match.Groups["value"].Value.Replace(',', '.');
-        if (!double.TryParse(number, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var numeric))
+        if (!double.TryParse(
+                number,
+                NumberStyles.AllowDecimalPoint,
+                CultureInfo.InvariantCulture,
+                out var numeric))
             return false;
 
         var unit = match.Groups["unit"].Value;
@@ -59,21 +63,25 @@ public static class BitrateService
             case "bit/s":
                 mbps = numeric / 1_000_000d;
                 break;
+
             case "Mbps":
             case "Mb/s":
             case "Mbit/s":
-            case "MBPS":
+            case "MBPS": // Compatibilidad con la serialización antigua de "Mbps".
             case "M":
                 mbps = numeric;
                 break;
+
             case "MB/s":
                 mbps = numeric;
                 isBytes = true;
                 break;
+
             case "MiB/s":
                 mbps = numeric * 1_048_576d / 1_000_000d;
                 isBytes = true;
                 break;
+
             default:
                 return false;
         }
@@ -82,5 +90,7 @@ public static class BitrateService
     }
 
     private static string FormatScrcpy(double mbps)
-        => mbps.ToString("0.###", CultureInfo.InvariantCulture) + "M";
+    {
+        return mbps.ToString("0.###", CultureInfo.InvariantCulture) + "M";
+    }
 }

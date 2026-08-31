@@ -8,5 +8,6 @@ public sealed record OutputProfile(
     string Bitrate,
     int MaxSize)
 {
-    public string Summary => $"{Width}x{Height} @ {TargetFps} FPS · {Bitrate}";
+    public string Summary =>
+        $"{Width}x{Height} @ {TargetFps} FPS · {Bitrate}";
 }
