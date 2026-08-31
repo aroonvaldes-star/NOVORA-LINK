@@ -14,9 +14,9 @@ public sealed class RegressionTests
     {
         var device = new DeviceInfo
         {
+            Serial = "R58TEST",
             Model = "SM-A566E",
-            Connected = true,
-            ConnectionType = "USB"
+            Connected = true
         };
 
         Assert.Equal("SM-A566E • USB", device.DisplayLabel);
