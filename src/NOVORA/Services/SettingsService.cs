@@ -7,6 +7,7 @@ public sealed class NovoraSettings
 {
     public bool AudioEnabled { get; set; } = true;
     public string? SelectedMonitorLabel { get; set; }
+    public string? SelectedMonitorDeviceName { get; set; }
     public string? SelectedDeviceSerial { get; set; }
     public string Bitrate { get; set; } = "10M";
     public int TargetFps { get; set; } = 60;
