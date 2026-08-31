@@ -9,7 +9,14 @@ public sealed class DeviceInfo
     public bool Connected { get; init; }
     public string CustomName { get; init; } = string.Empty;
     public string ConnectionType { get; init; } = "USB";
-    public string DisplayLabel => $"{(string.IsNullOrWhiteSpace(CustomName) ? Model : CustomName)} • {ConnectionType}";
+
+    public string DisplayLabel =>
+        $"{(string.IsNullOrWhiteSpace(CustomName) ? Model : CustomName)} • {ConnectionType}";
+
     public DisplayModeInfo? BestDisplayMode { get; set; }
-    public IReadOnlyList<DisplayModeInfo> SupportedDisplayModes { get; set; } = Array.Empty<DisplayModeInfo>();
+
+    public IReadOnlyList<DisplayModeInfo> SupportedDisplayModes { get; set; } =
+        Array.Empty<DisplayModeInfo>();
+
+    public override string ToString() => DisplayLabel;
 }
