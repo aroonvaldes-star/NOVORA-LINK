@@ -12,15 +12,32 @@ public sealed class MonitorService
     private static extern bool EnumDisplaySettings(string? deviceName, int modeNum, ref DevMode devMode);
 
     public IReadOnlyList<MonitorInfo> GetMonitors()
-        => Screen.AllScreens.Select(screen => new MonitorInfo(
-            screen.DeviceName,
-            screen.Primary ? $"{screen.DeviceName} · PRINCIPAL" : screen.DeviceName,
-            screen.WorkingArea.Left,
-            screen.WorkingArea.Top,
-            screen.WorkingArea.Width,
-            screen.WorkingArea.Height,
-            GetRefreshRate(screen.DeviceName),
-            screen.Primary)).ToArray();
+    {
+        var screens = Screen.AllScreens;
+        var monitors = new List<MonitorInfo>(screens.Length);
+
+        for (var i = 0; i < screens.Length; i++)
+        {
+            var screen = screens[i];
+            var bounds = screen.Bounds;
+            var working = screen.WorkingArea;
+            monitors.Add(new MonitorInfo(
+                screen.DeviceName,
+                $"Monitor {i + 1}",
+                bounds.Left,
+                bounds.Top,
+                bounds.Width,
+                bounds.Height,
+                GetRefreshRate(screen.DeviceName),
+                screen.Primary,
+                working.Left,
+                working.Top,
+                working.Width,
+                working.Height));
+        }
+
+        return monitors;
+    }
 
     public MonitorInfo? GetBestMonitor(IReadOnlyList<MonitorInfo> monitors)
         => monitors is null || monitors.Count == 0 ? null : monitors.FirstOrDefault(x => x.IsPrimary) ?? monitors[0];
