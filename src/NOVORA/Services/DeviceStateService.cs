@@ -2,264 +2,111 @@ using NOVORA.Models;
 
 namespace NOVORA.Services;
 
-/// <summary>
-/// Estado dinámico compartido del dispositivo Android.
-///
-/// Centraliza y cachea las lecturas de red y métricas para evitar que NCP,
-/// MainWindow u otros consumidores generen consultas ADB duplicadas.
-/// </summary>
+/// <summary>Estado dinámico compartido con caché independiente por dispositivo.</summary>
 public sealed class DeviceStateService : IDisposable
 {
+    private static readonly TimeSpan CacheLifetime = TimeSpan.FromSeconds(2);
     private readonly NetworkService _network;
     private readonly DeviceMetricsService _metrics;
-    private readonly TimeSpan _cacheDuration;
-
-    private readonly object _cacheGate = new();
+    private readonly object _gate = new();
     private readonly SemaphoreSlim _networkGate = new(1, 1);
     private readonly SemaphoreSlim _metricsGate = new(1, 1);
-
-    private string? _networkSerial;
-    private NetworkStatus? _networkCache;
-    private DateTimeOffset _networkAt;
-
-    private string? _metricsSerial;
-    private DeviceMetrics? _metricsCache;
-    private DateTimeOffset _metricsAt;
-
+    private readonly Dictionary<string, CacheEntry<NetworkStatus>> _networkCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, CacheEntry<DeviceMetrics>> _metricsCache = new(StringComparer.OrdinalIgnoreCase);
     private bool _disposed;
 
-    public DeviceStateService(
-        NetworkService network,
-        DeviceMetricsService metrics,
-        TimeSpan? cacheDuration = null)
+    public DeviceStateService(NetworkService network, DeviceMetricsService metrics)
     {
         _network = network ?? throw new ArgumentNullException(nameof(network));
         _metrics = metrics ?? throw new ArgumentNullException(nameof(metrics));
-
-        _cacheDuration = cacheDuration ?? TimeSpan.FromSeconds(2);
-
-        if (_cacheDuration < TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(cacheDuration),
-                "La duración de caché no puede ser negativa.");
-        }
     }
 
-    /// <summary>
-    /// Duración durante la cual una lectura puede reutilizarse sin volver a ADB.
-    /// </summary>
-    public TimeSpan CacheDuration => _cacheDuration;
-
-    /// <summary>
-    /// Obtiene el estado de red del dispositivo.
-    /// Reutiliza una lectura reciente y evita consultas concurrentes duplicadas.
-    /// </summary>
-    public async Task<NetworkStatus> GetNetworkAsync(
-        DeviceInfo device,
-        CancellationToken cancellationToken = default)
+    public async Task<NetworkStatus> GetNetworkAsync(DeviceInfo device, CancellationToken ct = default)
     {
         ThrowIfDisposed();
-        ValidateDevice(device);
+        var serial = RequireSerial(device);
+        if (TryGetFresh(_networkCache, serial, out var cached)) return cached;
 
-        if (TryGetNetworkCache(device.Serial, out var cached))
-        {
-            return cached;
-        }
-
-        await _networkGate
-            .WaitAsync(cancellationToken)
-            .ConfigureAwait(false);
-
+        await _networkGate.WaitAsync(ct);
         try
         {
-            // Otro consumidor pudo haber llenado la caché mientras esperábamos.
-            if (TryGetNetworkCache(device.Serial, out cached))
-            {
-                return cached;
-            }
-
-            var value = await _network
-                .GetAsync(device, cancellationToken)
-                .ConfigureAwait(false);
-
-            lock (_cacheGate)
-            {
-                _networkSerial = device.Serial;
-                _networkCache = value;
-                _networkAt = DateTimeOffset.UtcNow;
-            }
-
+            if (TryGetFresh(_networkCache, serial, out cached)) return cached;
+            var value = await _network.GetAsync(device, ct);
+            lock (_gate) _networkCache[serial] = new CacheEntry<NetworkStatus>(value, DateTimeOffset.UtcNow);
             return value;
         }
-        finally
-        {
-            _networkGate.Release();
-        }
+        finally { _networkGate.Release(); }
     }
 
-    /// <summary>
-    /// Obtiene CPU, RAM, batería y temperatura del dispositivo.
-    /// Reutiliza una lectura reciente y evita consultas concurrentes duplicadas.
-    /// </summary>
-    public async Task<DeviceMetrics> GetMetricsAsync(
-        DeviceInfo device,
-        CancellationToken cancellationToken = default)
+    public async Task<DeviceMetrics> GetMetricsAsync(DeviceInfo device, CancellationToken ct = default)
     {
         ThrowIfDisposed();
-        ValidateDevice(device);
+        var serial = RequireSerial(device);
+        if (TryGetFresh(_metricsCache, serial, out var cached)) return cached;
 
-        if (TryGetMetricsCache(device.Serial, out var cached))
-        {
-            return cached;
-        }
-
-        await _metricsGate
-            .WaitAsync(cancellationToken)
-            .ConfigureAwait(false);
-
+        await _metricsGate.WaitAsync(ct);
         try
         {
-            // Otro consumidor pudo haber llenado la caché mientras esperábamos.
-            if (TryGetMetricsCache(device.Serial, out cached))
-            {
-                return cached;
-            }
-
-            var value = await _metrics
-                .GetAsync(device, cancellationToken)
-                .ConfigureAwait(false);
-
-            lock (_cacheGate)
-            {
-                _metricsSerial = device.Serial;
-                _metricsCache = value;
-                _metricsAt = DateTimeOffset.UtcNow;
-            }
-
+            if (TryGetFresh(_metricsCache, serial, out cached)) return cached;
+            var value = await _metrics.GetAsync(device, ct);
+            lock (_gate) _metricsCache[serial] = new CacheEntry<DeviceMetrics>(value, DateTimeOffset.UtcNow);
             return value;
         }
-        finally
-        {
-            _metricsGate.Release();
-        }
+        finally { _metricsGate.Release(); }
     }
 
-    /// <summary>
-    /// Invalida las cachés dinámicas.
-    ///
-    /// Si serial es null, limpia todo.
-    /// Si se proporciona un serial, solo limpia datos pertenecientes a ese
-    /// dispositivo.
-    /// </summary>
     public void Invalidate(string? serial = null)
     {
         ThrowIfDisposed();
-
-        lock (_cacheGate)
+        lock (_gate)
         {
-            if (serial is null ||
-                string.Equals(
-                    _networkSerial,
-                    serial,
-                    StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(serial))
             {
-                _networkSerial = null;
-                _networkCache = null;
-                _networkAt = default;
+                _networkCache.Clear();
+                _metricsCache.Clear();
+                return;
             }
-
-            if (serial is null ||
-                string.Equals(
-                    _metricsSerial,
-                    serial,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                _metricsSerial = null;
-                _metricsCache = null;
-                _metricsAt = default;
-            }
+            _networkCache.Remove(serial.Trim());
+            _metricsCache.Remove(serial.Trim());
         }
     }
 
-    private bool TryGetNetworkCache(
-        string serial,
-        out NetworkStatus value)
+    private bool TryGetFresh<T>(Dictionary<string, CacheEntry<T>> cache, string serial, out T value)
     {
-        lock (_cacheGate)
+        lock (_gate)
         {
-            if (_networkCache is not null &&
-                string.Equals(
-                    _networkSerial,
-                    serial,
-                    StringComparison.OrdinalIgnoreCase) &&
-                IsFresh(_networkAt))
+            if (cache.TryGetValue(serial, out var entry) && DateTimeOffset.UtcNow - entry.CreatedAt < CacheLifetime)
             {
-                value = _networkCache;
+                value = entry.Value;
                 return true;
             }
         }
-
-        value = null!;
+        value = default!;
         return false;
     }
 
-    private bool TryGetMetricsCache(
-        string serial,
-        out DeviceMetrics value)
+    private static string RequireSerial(DeviceInfo device)
     {
-        lock (_cacheGate)
-        {
-            if (_metricsCache is not null &&
-                string.Equals(
-                    _metricsSerial,
-                    serial,
-                    StringComparison.OrdinalIgnoreCase) &&
-                IsFresh(_metricsAt))
-            {
-                value = _metricsCache;
-                return true;
-            }
-        }
-
-        value = null!;
-        return false;
+        if (device is null || !device.Connected || string.IsNullOrWhiteSpace(device.Serial))
+            throw new InvalidOperationException("No hay un dispositivo Android conectado.");
+        return device.Serial.Trim();
     }
 
-    private bool IsFresh(DateTimeOffset timestamp)
-    {
-        return timestamp != default &&
-               DateTimeOffset.UtcNow - timestamp < _cacheDuration;
-    }
-
-    private static void ValidateDevice(DeviceInfo? device)
-    {
-        if (device is null ||
-            !device.Connected ||
-            string.IsNullOrWhiteSpace(device.Serial))
-        {
-            throw new InvalidOperationException(
-                "No hay un dispositivo Android conectado.");
-        }
-    }
-
-    private void ThrowIfDisposed()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-    }
+    private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 
     public void Dispose()
     {
-        if (_disposed)
-        {
-            return;
-        }
-
+        if (_disposed) return;
         _disposed = true;
-
         _networkGate.Dispose();
         _metricsGate.Dispose();
-
+        lock (_gate)
+        {
+            _networkCache.Clear();
+            _metricsCache.Clear();
+        }
         GC.SuppressFinalize(this);
     }
+
+    private sealed record CacheEntry<T>(T Value, DateTimeOffset CreatedAt);
 }

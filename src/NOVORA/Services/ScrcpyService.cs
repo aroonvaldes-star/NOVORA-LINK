@@ -97,7 +97,7 @@ public sealed class ScrcpyService : IDisposable
     {
         ThrowIfDisposed();
 
-        _paths.ValidateRequiredTools();
+        _paths.ValidateScreenMirroringTools();
 
         ValidateDevice(device);
         ValidateMonitor(monitor);
