@@ -4,7 +4,8 @@
         Title="Configuración — NOVORA 1.3"
         Width="560" Height="560" MinWidth="520" MinHeight="500"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
-        Background="{DynamicResource WindowBrush}">
+        Background="{DynamicResource WindowBrush}"
+        Closing="SettingsWindow_Closing">
     <Border BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="22" Background="{DynamicResource WindowBrush}">
         <Grid>
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -16,7 +17,7 @@
                         <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Tema" VerticalAlignment="Center" FontSize="14"/>
                         <ComboBox Grid.Column="1" ItemsSource="{Binding ThemeOptions}" SelectedValue="{Binding Theme, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Value" SelectionChanged="Theme_SelectionChanged">
-                            <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}"/></DataTemplate></ComboBox.ItemTemplate>
+                            <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" Foreground="{DynamicResource InputForegroundBrush}"/></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
                     </Grid>
                     <TextBlock Text="SALIDA DE VIDEO" Style="{StaticResource SmallLabel}"/>
@@ -24,17 +25,17 @@
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Bitrate" VerticalAlignment="Center"/>
-                        <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding BitrateOptions}" SelectedValue="{Binding Bitrate, Mode=TwoWay}" SelectedValuePath="Value" Margin="0,0,0,8"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+                        <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding BitrateOptions}" SelectedValue="{Binding Bitrate, Mode=TwoWay}" SelectedValuePath="Value" Margin="0,0,0,8"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" Foreground="{DynamicResource InputForegroundBrush}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="FPS" VerticalAlignment="Center"/>
-                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding FpsOptions}" SelectedValue="{Binding TargetFps, Mode=TwoWay}" SelectedValuePath="Value" Margin="0,0,0,8"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding FpsOptions}" SelectedValue="{Binding TargetFps, Mode=TwoWay}" SelectedValuePath="Value" Margin="0,0,0,8"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" Foreground="{DynamicResource InputForegroundBrush}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Resolución máxima" VerticalAlignment="Center"/>
-                        <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding ResolutionOptions}" SelectedValue="{Binding MaxSize, Mode=TwoWay}" SelectedValuePath="Value" Margin="0,0,0,8"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+                        <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding ResolutionOptions}" SelectedValue="{Binding MaxSize, Mode=TwoWay}" SelectedValuePath="Value" Margin="0,0,0,8"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" Foreground="{DynamicResource InputForegroundBrush}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
                         <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" IsChecked="{Binding AudioEnabled, Mode=TwoWay}" Content="Audio de scrcpy" Margin="0,5,0,0"/>
                     </Grid>
                     <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
                         <StackPanel>
                             <TextBlock Text="BASE 1.3" Style="{StaticResource SectionTitle}"/>
-                            <TextBlock Text="Los paneles RED y RENDIMIENTO forman parte de la ventana principal. Se retiró el sistema de widgets antiguos para reducir polling, duplicación de servicios y estados ambiguos." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/>
+                            <TextBlock Text="RED y RENDIMIENTO son paneles permanentes. Las opciones de FPS y resolución se ajustan a las capacidades detectadas del teléfono." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

@@ -24,18 +24,17 @@ public sealed class DeviceIdentityService
             Build = device.Build,
             Connected = device.Connected,
             CustomName = _settings.GetDeviceName(device.Serial) ?? device.CustomName,
-            ConnectionType = device.Serial.Contains(':') ? "Wi-Fi" : "USB",
             BestDisplayMode = device.BestDisplayMode,
-            SupportedDisplayModes = device.SupportedDisplayModes
+            SupportedDisplayModes = device.SupportedDisplayModes,
+            Capabilities = device.Capabilities
         }).ToArray();
     }
 
     public string GetDisplayName(DeviceInfo? device)
     {
         if (device is null) return "Dispositivo no detectado";
-        var custom = _settings.GetDeviceName(device.Serial);
-        if (!string.IsNullOrWhiteSpace(custom)) return custom;
-        if (!string.IsNullOrWhiteSpace(device.CustomName)) return device.CustomName;
-        return string.IsNullOrWhiteSpace(device.Model) ? "Dispositivo Android" : device.Model;
+        var custom = string.IsNullOrWhiteSpace(device.Serial) ? null : _settings.GetDeviceName(device.Serial);
+        if (!string.IsNullOrWhiteSpace(custom)) return custom.Trim().Replace('_', ' ');
+        return device.FriendlyName;
     }
 }
