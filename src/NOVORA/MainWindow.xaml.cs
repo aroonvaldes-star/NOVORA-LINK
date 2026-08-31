@@ -54,6 +54,7 @@ public partial class MainWindow : Window
             LoadMonitors();
             await RefreshDevicesAsync(force: true);
             UpdateOutputProfile();
+            UpdateRuntimeButtons();
             _statusTimer.Start();
             await RefreshStatusAsync();
         }
@@ -78,8 +79,9 @@ public partial class MainWindow : Window
     {
         var monitors = _monitorService.GetMonitors();
         _viewModel.Monitors = monitors;
-        var saved = _settingsService.Load().SelectedMonitorLabel;
-        _viewModel.SelectedMonitor = monitors.FirstOrDefault(x => string.Equals(x.DisplayLabel, saved, StringComparison.OrdinalIgnoreCase))
+        var settings = _settingsService.Load();
+        _viewModel.SelectedMonitor = monitors.FirstOrDefault(x => string.Equals(x.DeviceName, settings.SelectedMonitorDeviceName, StringComparison.OrdinalIgnoreCase))
+            ?? monitors.FirstOrDefault(x => string.Equals(x.DisplayLabel, settings.SelectedMonitorLabel, StringComparison.OrdinalIgnoreCase))
             ?? _monitorService.GetBestMonitor(monitors);
     }
 
@@ -109,12 +111,14 @@ public partial class MainWindow : Window
             _viewModel.ConnectionStatus = selected is null ? "Sin dispositivo Android." : $"{_deviceIdentity.GetDisplayName(selected)} conectado por {selected.ConnectionType}.";
             _deviceState.Invalidate();
             UpdateOutputProfile();
+            UpdateRuntimeButtons();
         }
         catch (Exception ex)
         {
             _viewModel.Devices = Array.Empty<DeviceInfo>();
             _viewModel.Device = new DeviceInfo();
             _viewModel.ConnectionStatus = ex.Message;
+            UpdateRuntimeButtons();
         }
         finally { RefreshDevicesButton.IsEnabled = true; }
     }
@@ -126,31 +130,56 @@ public partial class MainWindow : Window
         try
         {
             var device = _viewModel.Device;
+            UpdateRuntimeButtons();
+
             if (device is null || !device.Connected)
             {
                 _redStatus.Text = "Sin dispositivo conectado.";
                 _performanceStatus.Text = "Esperando dispositivo...";
                 return;
             }
+
             NetworkStatus? network = null;
             DeviceMetrics? metrics = null;
-            try { network = await _deviceState.GetNetworkAsync(device); } catch { }
-            try { metrics = await _deviceState.GetMetricsAsync(device); } catch { }
-            var internet = network?.InternetAvailable == true ? "Internet OK" : "Internet sin respuesta";
-            var latency = network is { LatencyMs: >= 0 } ? $"{network.LatencyMs} ms" : "—";
-            var tunnel = _gnirehtet.IsActive ? "Gnirehtet activo" : "Gnirehtet inactivo";
-            _redStatus.Text = $"{device.ConnectionType} · {internet} · {latency} · {tunnel}";
-            if (metrics is null)
+            string? networkError = null;
+            string? metricsError = null;
+
+            try { network = await _deviceState.GetNetworkAsync(device); }
+            catch (Exception ex) { networkError = ex.Message; }
+
+            try { metrics = await _deviceState.GetMetricsAsync(device); }
+            catch (Exception ex) { metricsError = ex.Message; }
+
+            if (network is null)
             {
-                _performanceStatus.Text = "Datos no disponibles.";
+                _redStatus.Text = string.IsNullOrWhiteSpace(networkError) ? "Estado de red no disponible." : "Red no disponible · " + networkError;
             }
             else
             {
-                var memory = metrics.TotalMemoryKb > 0 ? $"RAM {metrics.UsedMemoryKb / 1024d:0}/{metrics.TotalMemoryKb / 1024d:0} MB" : "RAM —";
+                var internet = network.InternetAvailable ? "Internet OK" : "Internet sin respuesta";
+                var latency = network.LatencyMs >= 0 ? $"{network.LatencyMs} ms" : "—";
+                var tunnelForThisDevice = _gnirehtet.IsActive && string.Equals(_gnirehtet.ActiveSerial, device.Serial, StringComparison.OrdinalIgnoreCase);
+                var tunnel = tunnelForThisDevice ? "Internet USB activo" : "Internet USB inactivo";
+                _redStatus.Text = $"{device.ConnectionType} · {internet} · {latency} · {tunnel}";
+            }
+
+            if (metrics is null)
+            {
+                _performanceStatus.Text = string.IsNullOrWhiteSpace(metricsError) ? "Datos no disponibles." : "Rendimiento no disponible.";
+            }
+            else
+            {
+                var memory = metrics.TotalMemoryKb > 0
+                    ? $"RAM {metrics.UsedMemoryKb / 1024d:0}/{metrics.TotalMemoryKb / 1024d:0} MB"
+                    : "RAM —";
                 _performanceStatus.Text = $"CPU {metrics.CpuPercent:0.#}% · {memory} · Batería {metrics.BatteryPercent}% · {metrics.BatteryTemperatureC:0.#} °C";
             }
         }
-        finally { _refreshingStatus = false; }
+        finally
+        {
+            UpdateRuntimeButtons();
+            _refreshingStatus = false;
+        }
     }
 
     private void UpdateOutputProfile()
@@ -172,6 +201,7 @@ public partial class MainWindow : Window
         var settings = _settingsService.Load();
         settings.SelectedDeviceSerial = _viewModel.Device?.Serial;
         settings.SelectedMonitorLabel = _viewModel.SelectedMonitor?.DisplayLabel;
+        settings.SelectedMonitorDeviceName = _viewModel.SelectedMonitor?.DeviceName;
         settings.AudioEnabled = _viewModel.AudioEnabled;
         settings.Bitrate = _viewModel.Bitrate;
         settings.TargetFps = _viewModel.TargetFps;
@@ -215,7 +245,7 @@ public partial class MainWindow : Window
         UpdateOutputProfile();
         SaveSelection();
         _ = RefreshStatusAsync();
-        UpdateMainActionButton();
+        UpdateRuntimeButtons();
     }
 
     private void Monitor_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -245,19 +275,17 @@ public partial class MainWindow : Window
                 if (_viewModel.OutputProfile is null) throw new InvalidOperationException("No se pudo calcular el perfil de salida.");
                 _scrcpy.StartOptimized(device, _viewModel.SelectedMonitor, _viewModel.OutputProfile, _viewModel.AudioEnabled);
             }
-            UpdateMainActionButton();
+            UpdateRuntimeButtons();
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "NOVORA — Scrcpy", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(ex.Message, "NOVORA — Screen Mirroring", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
-        finally { MainActionButton.IsEnabled = true; }
-    }
-
-    private void UpdateMainActionButton()
-    {
-        var running = _viewModel.Device is { Connected: true } device && _scrcpy.IsRunning(device.Serial);
-        MainActionButton.Content = running ? "■  STOP" : "▶  PLAY";
+        finally
+        {
+            MainActionButton.IsEnabled = true;
+            UpdateRuntimeButtons();
+        }
     }
 
     private async void Gnirehtet_Click(object sender, RoutedEventArgs e)
@@ -270,7 +298,9 @@ public partial class MainWindow : Window
         }
         try
         {
-            if (_gnirehtet.IsActive)
+            InternetUsbButton.IsEnabled = false;
+            var activeForThisDevice = _gnirehtet.IsActive && string.Equals(_gnirehtet.ActiveSerial, device.Serial, StringComparison.OrdinalIgnoreCase);
+            if (activeForThisDevice)
             {
                 await _gnirehtet.StopAsync(device.Serial);
                 _viewModel.GnirehtetStatus = "Detenido";
@@ -279,7 +309,7 @@ public partial class MainWindow : Window
             {
                 var result = await _gnirehtet.StartAsync(device, _viewModel.Devices.Count(x => x.Connected));
                 _viewModel.GnirehtetStatus = result.Message;
-                if (!result.Success) MessageBox.Show(result.Message, "NOVORA — Gnirehtet", MessageBoxButton.OK, MessageBoxImage.Warning);
+                if (!result.Success) MessageBox.Show(result.Message, "NOVORA — Internet USB", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             _deviceState.Invalidate(device.Serial);
             await RefreshStatusAsync();
@@ -288,6 +318,22 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(ex.Message, "NOVORA — Internet USB", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+        finally
+        {
+            InternetUsbButton.IsEnabled = true;
+            UpdateRuntimeButtons();
+        }
+    }
+
+    private void UpdateRuntimeButtons()
+    {
+        var device = _viewModel.Device;
+        var connected = device is { Connected: true } && !string.IsNullOrWhiteSpace(device.Serial);
+        var mirroring = connected && _scrcpy.IsRunning(device!.Serial);
+        var internetUsb = connected && _gnirehtet.IsActive && string.Equals(_gnirehtet.ActiveSerial, device!.Serial, StringComparison.OrdinalIgnoreCase);
+
+        MainActionButton.Content = mirroring ? "■  STOP" : "▶  PLAY";
+        InternetUsbButton.Content = internetUsb ? "■  DETENER INTERNET USB" : "INTERNET USB";
     }
 
     private void Configuration_Click(object sender, RoutedEventArgs e)
