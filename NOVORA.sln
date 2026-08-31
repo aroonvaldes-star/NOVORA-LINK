@@ -4,6 +4,8 @@ VisualStudioVersion = 18.9.12105.275
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NOVORA", "src\NOVORA\NOVORA.csproj", "{7A8E6B2E-0F9B-4C11-A4D7-1A2E3F8B4D21}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NOVORA.Tests", "tests\NOVORA.Tests\NOVORA.Tests.csproj", "{A6A5539D-4B5B-4B61-A26D-CE60B2CC6E4B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -14,6 +16,10 @@ Global
 		{7A8E6B2E-0F9B-4C11-A4D7-1A2E3F8B4D21}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7A8E6B2E-0F9B-4C11-A4D7-1A2E3F8B4D21}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7A8E6B2E-0F9B-4C11-A4D7-1A2E3F8B4D21}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6A5539D-4B5B-4B61-A26D-CE60B2CC6E4B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A6A5539D-4B5B-4B61-A26D-CE60B2CC6E4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6A5539D-4B5B-4B61-A26D-CE60B2CC6E4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A6A5539D-4B5B-4B61-A26D-CE60B2CC6E4B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
