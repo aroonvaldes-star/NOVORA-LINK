@@ -17,7 +17,7 @@ public sealed class DeviceMetricsService
             throw new InvalidOperationException("No hay un dispositivo Android conectado.");
 
         var output = await _adb.ShellAsync(device.Serial,
-            "printf '%s\\n' \"$(dumpsys meminfo | grep -m1 'Total RAM')\" \"$(dumpsys meminfo | grep -m1 'Used RAM')\" \"$(dumpsys battery | grep -m1 'level:')\" \"$(dumpsys battery | grep -m1 'temperature:')\" \"$(top -n 1 -b 2>/dev/null | grep -m1 -E '^[[:space:]]*[0-9]+.*%CPU')\"",
+            "printf '%s\\n' \"$(dumpsys meminfo | grep -m1 'Total RAM')\" \"$(dumpsys meminfo | grep -m1 'Used RAM')\" \"$(dumpsys battery | grep -m1 'level:')\" \"$(dumpsys battery | grep -m1 'temperature:')\" \"$(top -n 1 -b 2>/dev/null | head -n 8)\"",
             cancellationToken);
 
         long total = ParseMemory(output, "Total RAM");
@@ -37,9 +37,25 @@ public sealed class DeviceMetricsService
 
     private static int ParseInt(string text, string pattern) => int.TryParse(Regex.Match(text, pattern, RegexOptions.IgnoreCase).Groups[1].Value, out var v) ? v : 0;
     private static double ParseDouble(string text, string pattern) => double.TryParse(Regex.Match(text, pattern, RegexOptions.IgnoreCase).Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : 0;
+
     private static double ParseCpu(string text)
     {
-        var m = Regex.Match(text, @"(\d+(?:\.\d+)?)%CPU", RegexOptions.IgnoreCase);
-        return m.Success && double.TryParse(m.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? Math.Clamp(v, 0, 100) : 0;
+        var summary = Regex.Match(text, @"(?<total>\d+(?:\.\d+)?)%cpu\s+(?<user>\d+(?:\.\d+)?)%user\s+(?<nice>\d+(?:\.\d+)?)%nice\s+(?<sys>\d+(?:\.\d+)?)%sys\s+(?<idle>\d+(?:\.\d+)?)%idle", RegexOptions.IgnoreCase);
+        if (summary.Success &&
+            double.TryParse(summary.Groups["total"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var total) && total > 0 &&
+            double.TryParse(summary.Groups["idle"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var idle))
+        {
+            return Math.Clamp(((total - idle) / total) * 100d, 0d, 100d);
+        }
+
+        var alternate = Regex.Match(text, @"CPU:\s*(?<user>\d+(?:\.\d+)?)%\s*usr\s+(?<sys>\d+(?:\.\d+)?)%\s*sys", RegexOptions.IgnoreCase);
+        if (alternate.Success &&
+            double.TryParse(alternate.Groups["user"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var user) &&
+            double.TryParse(alternate.Groups["sys"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var sys))
+        {
+            return Math.Clamp(user + sys, 0d, 100d);
+        }
+
+        return 0d;
     }
 }
