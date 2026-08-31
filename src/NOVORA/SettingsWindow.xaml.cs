@@ -33,6 +33,7 @@ public partial class SettingsWindow : Window
         var settings = _settingsService.Load();
         settings.AudioEnabled = _viewModel.AudioEnabled;
         settings.SelectedMonitorLabel = _viewModel.SelectedMonitor?.DisplayLabel;
+        settings.SelectedMonitorDeviceName = _viewModel.SelectedMonitor?.DeviceName;
         settings.SelectedDeviceSerial = _viewModel.Device?.Serial;
         settings.Bitrate = _viewModel.Bitrate;
         settings.TargetFps = _viewModel.TargetFps;
