@@ -905,8 +905,8 @@ public partial class MainWindow : Window
 
         MainActionButton.Content =
             mirroring
-                ? "â–   STOP"
-                : "â–¶  PLAY";
+                ? "⏹️ STOP"
+                : "▶️ PLAY";
 
         InternetUsbButton.Content =
             internetUsb
