@@ -9,6 +9,7 @@
 #endif
 #define Publisher "Aaron Yair Galarza Valdes"
 #define ExeName "NOVORA.exe"
+#define IconFile "..\src\NOVORA\NOVORA_1.1.ico"
 
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish\win-x64"
@@ -23,6 +24,7 @@ DefaultDirName={autopf}\NOVORA
 DefaultGroupName=NOVORA
 OutputDir=output
 OutputBaseFilename=NOVORA-Setup-{#AppVersion}
+SetupIconFile={#IconFile}
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
@@ -33,6 +35,7 @@ CloseApplications=yes
 RestartApplications=no
 Uninstallable=yes
 UninstallDisplayName=NOVORA
+UninstallDisplayIcon={app}\{#ExeName}
 VersionInfoVersion={#AppVersion}.0.0
 VersionInfoCompany={#Publisher}
 VersionInfoDescription=NOVORA Installer
