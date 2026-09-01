@@ -8,10 +8,12 @@
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>NOVORA</RootNamespace>
     <AssemblyName>NOVORA</AssemblyName>
+    <ApplicationIcon>NOVORA_1.1.ico</ApplicationIcon>
     <Version>1.3.0</Version>
     <Platforms>AnyCPU</Platforms>
     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
+
   <ItemGroup>
     <Content Include="Tools\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
