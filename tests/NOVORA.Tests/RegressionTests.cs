@@ -212,4 +212,26 @@ public sealed class RegressionTests
         Assert.NotNull(recoveryField);
         Assert.NotNull(recoveryTimestamp);
     }
+
+    [Fact]
+    public void MainWindow_stop_has_priority_over_play_requirements()
+    {
+        var method = typeof(MainWindow).GetMethod(
+            "ResolveMirroringAction",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        var action = method!.Invoke(
+            null,
+            new object[]
+            {
+                true,  // scrcpy sigue activo
+                false, // el polling ya marcó el dispositivo como no conectado
+                true,  // todavía conocemos el serial
+                false  // el monitor ya no está seleccionado
+            });
+
+        Assert.Equal("Stop", action?.ToString());
+    }
 }
