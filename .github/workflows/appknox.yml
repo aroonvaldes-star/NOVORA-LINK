@@ -1,0 +1,56 @@
+name: Appknox APK Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      apk_path:
+        description: "Ruta del APK firmado de NOVORA LinkEngine dentro del workspace"
+        required: true
+        default: "src/NOVORA/Tools/com.novora.linkengine-Signed.apk"
+        type: string
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  appknox:
+    name: appknox
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      APPKNOX_ACCESS_TOKEN: ${{ secrets.APPKNOX_ACCESS_TOKEN }}
+      APK_PATH: ${{ inputs.apk_path }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Appknox configuration
+        shell: bash
+        run: |
+          if [[ -z "$APPKNOX_ACCESS_TOKEN" ]]; then
+            echo "Falta el secret APPKNOX_ACCESS_TOKEN."
+            exit 1
+          fi
+
+          if [[ ! -f "$APK_PATH" ]]; then
+            echo "No existe el APK indicado: $APK_PATH"
+            echo "El repositorio actual no compila/versiona automáticamente el APK de LinkEngine; proporciona una ruta válida al ejecutar el workflow."
+            exit 1
+          fi
+
+      - name: Run Appknox scan
+        uses: appknox/appknox-github-action@b7d2bfb2321d5544e97bffcba48557234ab953a4
+        with:
+          appknox_access_token: ${{ secrets.APPKNOX_ACCESS_TOKEN }}
+          file_path: ${{ inputs.apk_path }}
+          risk_threshold: HIGH
+          sarif: Enable
+          sast_timeout: 30
+
+      - name: Upload SARIF
+        if: always() && hashFiles('report.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: report.sarif
