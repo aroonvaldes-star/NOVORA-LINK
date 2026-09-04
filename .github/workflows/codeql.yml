@@ -1,0 +1,59 @@
+name: CodeQL
+
+on:
+  push:
+    branches:
+      - "NOVORA-LINK"
+  pull_request:
+    branches:
+      - "NOVORA-LINK"
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  codeql:
+    name: codeql
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938
+        with:
+          languages: csharp
+          build-mode: manual
+
+      - name: Restore verified runtime tools
+        shell: pwsh
+        run: .\scripts\Setup-Tools.ps1
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore .\NOVORA.sln
+
+      - name: Build
+        shell: pwsh
+        run: dotnet build .\NOVORA.sln -c Release --no-restore
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938
+        with:
+          category: "/language:csharp"

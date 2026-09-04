@@ -1,0 +1,69 @@
+name: SecurityCodeScan
+
+on:
+  push:
+    branches:
+      - "NOVORA-LINK"
+  pull_request:
+    branches:
+      - "NOVORA-LINK"
+  schedule:
+    - cron: "7 7 * * 6"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  securitycodescan:
+    name: securitycodescan
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore verified runtime tools
+        shell: pwsh
+        run: .\scripts\Setup-Tools.ps1
+
+      - name: Add pinned SecurityCodeScan analyzer
+        shell: pwsh
+        run: |
+          dotnet add .\src\NOVORA\NOVORA.csproj package SecurityCodeScan.VS2019 --version 5.6.7 --no-restore
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore .\src\NOVORA\NOVORA.csproj
+
+      - name: Build with SARIF 2.1 output
+        shell: pwsh
+        run: |
+          $sarif = Join-Path $env:GITHUB_WORKSPACE "securitycodescan.sarif"
+
+          dotnet build .\src\NOVORA\NOVORA.csproj `
+            -c Release `
+            --no-restore `
+            "-p:ErrorLog=$sarif,version=2.1"
+
+          if (-not (Test-Path -LiteralPath $sarif)) {
+            throw "SecurityCodeScan no generó el SARIF esperado: $sarif"
+          }
+
+      - name: Upload SARIF
+        if: always() && hashFiles('securitycodescan.sarif') != ''
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938
+        with:
+          sarif_file: securitycodescan.sarif
+          category: "/tool:securitycodescan"
