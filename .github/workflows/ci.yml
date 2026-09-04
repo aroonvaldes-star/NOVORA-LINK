@@ -7,6 +7,7 @@ on:
       - "restructure/**"
       - "release/**"
       - "audit/**"
+      - "policy/**"
   pull_request:
     branches:
       - "NOVORA-LINK"
@@ -20,16 +21,45 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
+
+      - name: Validate PowerShell scripts
+        shell: pwsh
+        run: |
+          $scripts = @(
+            ".\scripts\Setup-Tools.ps1",
+            ".\scripts\Prepare-ThirdPartyCompliance.ps1"
+          )
+
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $errors = $null
+
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $script),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              throw "PowerShell inválido: $script"
+            }
+          }
+
       - name: Restore verified runtime tools
         shell: pwsh
         run: .\scripts\Setup-Tools.ps1
+
       - name: Restore
         run: dotnet restore .\NOVORA.sln
+
       - name: Build
         run: dotnet build .\NOVORA.sln -c Release --no-restore
+
       - name: Test
         run: dotnet test .\tests\NOVORA.Tests\NOVORA.Tests.csproj -c Release --no-build
