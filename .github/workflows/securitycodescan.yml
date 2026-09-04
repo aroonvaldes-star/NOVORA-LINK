@@ -54,11 +54,12 @@ jobs:
         shell: pwsh
         run: |
           $rawSarif = "${{ github.workspace }}\securitycodescan-raw.sarif"
+          $errorLogValue = "$rawSarif%2Cversion=2.1"
 
           dotnet build .\src\NOVORA\NOVORA.csproj `
             -c Release `
             --no-restore `
-            "-p:ErrorLog=$rawSarif,version=2.1"
+            "-p:ErrorLog=$errorLogValue"
 
           if ($LASTEXITCODE -ne 0) {
               throw "SecurityCodeScan build terminó con código $LASTEXITCODE."
