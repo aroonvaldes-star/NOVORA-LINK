@@ -20,7 +20,7 @@ La licencia raíz `LICENSE` es propietaria y no intenta relicenciar componentes 
 - Copyright upstream verificado en la etiqueta v4.1: Copyright (C) 2018 Genymobile y Copyright (C) 2018-2026 Romain Vimont.
 - Fuente: https://github.com/Genymobile/scrcpy/tree/v4.1
 
-La distribución Windows oficial de scrcpy copia su `LICENSE` al paquete como `LICENSE.txt`. `scripts/Setup-Tools.ps1` copia el contenido del paquete de scrcpy a `Tools`, por lo que ese archivo debe preservarse y formar parte del artefacto final.
+La distribución Windows oficial de scrcpy copia su `LICENSE` al paquete como `LICENSE.txt`. `scripts/Setup-Tools.ps1` copia el contenido del paquete de scrcpy a `Tools`, preserva esa licencia y crea `Tools/Legal/` para que los avisos legales formen parte del artefacto instalado.
 
 **Regla para ScreenEngine:** si se reutiliza o modifica código Apache-2.0 de scrcpy, conservar encabezados y avisos aplicables, marcar archivos modificados y distribuir la licencia Apache-2.0. No presentar el código reutilizado como autoría original de NOVORA.
 
@@ -32,7 +32,7 @@ La distribución Windows oficial de scrcpy copia su `LICENSE` al paquete como `L
 - Copyright upstream: Copyright (C) 2017 Genymobile.
 - Fuente: https://github.com/Genymobile/gnirehtet/tree/v2.5.1
 
-El ZIP Windows oficial contiene `gnirehtet.exe`, `gnirehtet.apk` y `gnirehtet-run.cmd`; no incluye por sí mismo una copia de `LICENSE`. Por eso NOVORA-LINK no debe depender del ZIP para cumplir el requisito de entregar la licencia Apache-2.0: el proceso de build debe adjuntar la copia preservada de Apache-2.0 y el aviso de autoría.
+El ZIP Windows oficial contiene `gnirehtet.exe`, `gnirehtet.apk` y `gnirehtet-run.cmd`; no incluye por sí mismo una copia de `LICENSE`. Por eso `Setup-Tools.ps1` adjunta una copia preservada de Apache-2.0 y un aviso específico de Gnirehtet dentro de `Tools/Legal/`.
 
 **Regla para LinkEngine:** cualquier código reutilizado o adaptado desde Gnirehtet conserva sus obligaciones Apache-2.0 y debe marcar modificaciones relevantes.
 
@@ -61,11 +61,16 @@ Referencias de versiones: scripts `app/deps/*.sh` de scrcpy v4.1.
 
 ## 6. Hallazgo importante: FFmpeg/libusb
 
-La revisión no debe etiquetarse como “cumplimiento legal total verificado” mientras NOVORA-LINK redistribuya DLLs LGPL provenientes del paquete Windows de scrcpy sin una estrategia de fuentes correspondiente.
-
 FFmpeg publica una lista de comprobación de cumplimiento que recomienda, entre otras medidas, compilar sin GPL/no-free, usar enlace dinámico y proporcionar el código fuente exacto correspondiente a los binarios distribuidos. El script de scrcpy v4.1 verificado construye FFmpeg 8.1.2 como librerías compartidas y no activa `--enable-gpl`.
 
-**Acción requerida para releases públicas:** acompañar la release con el código fuente correspondiente de FFmpeg y libusb (o adoptar otra estrategia jurídicamente válida), conservar sus licencias y documentar la configuración/versiones usadas. La misma revisión debe repetirse cuando se actualice scrcpy.
+Para reducir el riesgo de redistribuir DLLs LGPL sin material correspondiente, la rama de políticas incorpora `scripts/Prepare-ThirdPartyCompliance.ps1`. El workflow de release ejecuta ese script para:
+
+- descargar y verificar por SHA-256 las fuentes exactas de FFmpeg 8.1.2 y libusb 1.0.30;
+- incluir esos archivos fuente como assets junto al instalador;
+- extraer y colocar dentro de `Tools/Legal/` las licencias de FFmpeg, libusb, SDL3 y dav1d;
+- generar `THIRD-PARTY-SOURCE-NOTES.txt` con versiones, fuentes, hashes y referencias de build.
+
+Esta automatización mejora materialmente la trazabilidad, pero no reemplaza una revisión jurídica profesional ni garantiza por sí sola que toda obligación posible de cada licencia haya sido satisfecha.
 
 ## 7. Reglas obligatorias para futuros motores propios
 
@@ -88,10 +93,11 @@ Cuando LinkEngine o ScreenEngine reutilicen código de scrcpy/Gnirehtet:
 | Gnirehtet Apache-2.0 y autoría | Verificado |
 | ADB Apache-2.0 aplicable / NOTICE | Verificado a nivel de módulo AOSP |
 | Dependencias transitivas de scrcpy identificadas | Verificado para la build v4.1 |
-| Avisos legales incluidos automáticamente en publish | Debe garantizarse por build/CI |
-| Fuente correspondiente de FFmpeg/libusb junto a releases | Pendiente de automatización |
+| Avisos legales incluidos automáticamente en publish | Implementado en `Setup-Tools.ps1`; sujeto a CI |
+| Fuentes correspondientes de FFmpeg/libusb junto a releases | Automatización implementada; sujeto a ejecución del workflow |
+| Licencias FFmpeg/libusb/SDL3/dav1d dentro del instalador | Automatización implementada; sujeto a ejecución del workflow |
 | Revisión jurídica profesional | No realizada |
 
 ## 9. Criterio de release
 
-Una release no debería declararse “license-compliant verified” únicamente porque `THIRD-PARTY-NOTICES.md` exista. Antes de publicar se debe comprobar el contenido real del instalador, los binarios presentes y los textos/fuentes que los acompañan.
+Una release no debería declararse “license-compliant verified” únicamente porque `THIRD-PARTY-NOTICES.md` exista. Antes de publicar se debe comprobar el contenido real del instalador, los binarios presentes, los textos legales incluidos y los assets de fuente correspondientes.
