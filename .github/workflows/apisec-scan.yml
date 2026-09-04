@@ -1,0 +1,52 @@
+name: APIsec Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Nombre del proyecto ya registrado en APIsec"
+        required: true
+        default: "NOVORA-LINK"
+      profile:
+        description: "Perfil APIsec opcional"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  apisec:
+    name: APIsec
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      APISEC_USERNAME: ${{ secrets.APISEC_USERNAME }}
+      APISEC_PASSWORD: ${{ secrets.APISEC_PASSWORD }}
+
+    steps:
+      - name: Verify credentials
+        shell: bash
+        run: |
+          if [ -z "$APISEC_USERNAME" ] || [ -z "$APISEC_PASSWORD" ]; then
+            echo "Configura APISEC_USERNAME y APISEC_PASSWORD como GitHub Secrets." >&2
+            exit 1
+          fi
+
+      - name: Trigger APIsec scan
+        uses: apisec-inc/apisec-run-scan@v1.0.7
+        with:
+          apisec-username: ${{ secrets.APISEC_USERNAME }}
+          apisec-password: ${{ secrets.APISEC_PASSWORD }}
+          apisec-project: ${{ inputs.project }}
+          apisec-profile: ${{ inputs.profile }}
+          apisec-fail-on-vuln-severity: "High"
+          sarif-result-file: "apisec-results.sarif"
+
+      - name: Upload SARIF
+        if: always() && hashFiles('apisec-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: apisec-results.sarif

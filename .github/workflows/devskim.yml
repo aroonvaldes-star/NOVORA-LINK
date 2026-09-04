@@ -1,0 +1,42 @@
+name: DevSkim
+
+on:
+  push:
+    branches:
+      - NOVORA-LINK
+      - "release/**"
+  pull_request:
+    branches:
+      - NOVORA-LINK
+  schedule:
+    - cron: "41 5 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  devskim:
+    name: DevSkim
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run DevSkim
+        uses: microsoft/DevSkim-Action@v1
+        with:
+          directory-to-scan: .
+          should-scan-archives: false
+          output-filename: devskim-results.sarif
+          ignore-globs: "**/.git/**,**/bin/**,**/obj/**,**/artifacts/**,**/Installer/output/**"
+
+      - name: Upload SARIF
+        if: always() && hashFiles('devskim-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: devskim-results.sarif
