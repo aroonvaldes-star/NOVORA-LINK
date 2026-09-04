@@ -1,0 +1,64 @@
+name: SecurityCodeScan
+
+on:
+  push:
+    branches:
+      - "NOVORA-LINK"
+  pull_request:
+    branches:
+      - "NOVORA-LINK"
+  schedule:
+    - cron: "7 7 * * 6"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  securitycodescan:
+    name: securitycodescan
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore verified runtime tools
+        shell: pwsh
+        run: .\scripts\Setup-Tools.ps1
+
+      - name: Add pinned SecurityCodeScan analyzer
+        shell: pwsh
+        run: |
+          dotnet add .\src\NOVORA\NOVORA.csproj package SecurityCodeScan.VS2019 --version 5.6.7 --no-restore
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore .\src\NOVORA\NOVORA.csproj
+
+      - name: Build with SARIF output
+        shell: pwsh
+        run: |
+          dotnet build .\src\NOVORA\NOVORA.csproj `
+            -c Release `
+            --no-restore `
+            -p:ErrorLog=analysis.sarif
+
+      - name: Normalize SecurityCodeScan SARIF
+        if: always() && hashFiles('**/analysis.sarif') != ''
+        uses: security-code-scan/security-code-scan-results-action@cdb3d5e639054395e45bf401cba8688fcaf7a687
+        with:
+          sarif_directory: scs-results
+
+      - name: Upload SARIF
+        if: always() && hashFiles('scs-results/*.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: scs-results
