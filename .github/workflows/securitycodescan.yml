@@ -46,14 +46,20 @@ jobs:
       - name: Build with SARIF 2.1 output
         shell: pwsh
         run: |
+          $sarif = Join-Path $env:GITHUB_WORKSPACE "securitycodescan.sarif"
+
           dotnet build .\src\NOVORA\NOVORA.csproj `
             -c Release `
             --no-restore `
-            '-p:ErrorLog=securitycodescan.sarif,version=2.1'
+            "-p:ErrorLog=$sarif,version=2.1"
+
+          if (-not (Test-Path -LiteralPath $sarif)) {
+            throw "SecurityCodeScan no generó el SARIF esperado: $sarif"
+          }
 
       - name: Upload SARIF
-        if: always() && hashFiles('**/securitycodescan.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('securitycodescan.sarif') != ''
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938
         with:
           sarif_file: securitycodescan.sarif
           category: "/tool:securitycodescan"
