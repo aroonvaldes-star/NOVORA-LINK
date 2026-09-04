@@ -1,0 +1,74 @@
+name: CodeQL
+
+on:
+  push:
+    branches:
+      - NOVORA-LINK
+      - "release/**"
+  pull_request:
+    branches:
+      - NOVORA-LINK
+  schedule:
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: CodeQL (${{ matrix.language }})
+    permissions:
+      contents: read
+      security-events: write
+      packages: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: csharp
+            runner: windows-latest
+            build_mode: manual
+          - language: actions
+            runner: ubuntu-latest
+            build_mode: none
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build_mode }}
+          queries: security-extended
+
+      - name: Setup .NET 8
+        if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore verified runtime tools
+        if: matrix.language == 'csharp'
+        shell: pwsh
+        run: .\scripts\Setup-Tools.ps1
+
+      - name: Restore
+        if: matrix.language == 'csharp'
+        shell: pwsh
+        run: dotnet restore .\NOVORA.sln
+
+      - name: Build
+        if: matrix.language == 'csharp'
+        shell: pwsh
+        run: dotnet build .\NOVORA.sln -c Release --no-restore
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
