@@ -1,0 +1,49 @@
+name: Black Duck Security Scan
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "29 7 * * 5"
+
+permissions:
+  contents: read
+
+jobs:
+  black-duck:
+    name: Black Duck SCA
+    if: ${{ vars.BLACKDUCK_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: read
+    env:
+      BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+      BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+
+    steps:
+      - name: Verify opt-in configuration
+        shell: bash
+        run: |
+          if [ -z "$BLACKDUCK_URL" ] || [ -z "$BLACKDUCK_TOKEN" ]; then
+            echo "Configura BLACKDUCK_URL y BLACKDUCK_TOKEN como GitHub Secrets." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Black Duck Security Scan
+        uses: blackduck-inc/black-duck-security-scan@v2.11.0
+        with:
+          blackducksca_url: ${{ secrets.BLACKDUCK_URL }}
+          blackducksca_token: ${{ secrets.BLACKDUCK_TOKEN }}
+          blackducksca_scan_full: false
+          blackducksca_scan_failure_severities: "BLOCKER,CRITICAL,HIGH"
+          blackducksca_reports_sarif_create: true
+          blackducksca_reports_sarif_file_path: "blackduck-results.sarif"
+          blackducksca_reports_sarif_severities: "CRITICAL,HIGH,MEDIUM"
+          blackducksca_upload_sarif_report: true
+          github_token: ${{ github.token }}
+          project_directory: .
+          project_source_excludes: "**/bin/**,**/obj/**,**/artifacts/**,**/Installer/output/**,**/src/NOVORA/Tools/**"
