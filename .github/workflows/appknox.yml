@@ -47,7 +47,6 @@ jobs:
           file_path: ${{ inputs.apk_path }}
           risk_threshold: HIGH
           sarif: Enable
-          sast_timeout: 30
 
       - name: Upload SARIF
         if: always() && hashFiles('report.sarif') != ''
