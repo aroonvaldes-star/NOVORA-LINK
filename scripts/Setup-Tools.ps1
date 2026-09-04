@@ -23,10 +23,7 @@ function Get-VerifiedArchive {
 
     Invoke-WebRequest -Uri $Uri -OutFile $Destination -UseBasicParsing
 
-    $actual =
-        (Get-FileHash -Path $Destination -Algorithm SHA256)
-            .Hash
-            .ToLowerInvariant()
+    $actual = (Get-FileHash -Path $Destination -Algorithm SHA256).Hash.ToLowerInvariant()
 
     if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
         throw "SHA-256 inválido para $Uri. Esperado: $ExpectedSha256. Obtenido: $actual"
