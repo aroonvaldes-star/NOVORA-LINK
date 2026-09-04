@@ -1,0 +1,40 @@
+name: Codacy
+
+on:
+  push:
+    branches:
+      - "NOVORA-LINK"
+  pull_request:
+    branches:
+      - "NOVORA-LINK"
+  schedule:
+    - cron: "13 6 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  codacy:
+    name: codacy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Codacy Analysis CLI
+        uses: codacy/codacy-analysis-cli-action@d43360362776a6789b47b99ae8973510854e2d3d
+        with:
+          output: codacy-results.sarif
+          format: sarif
+          gh-code-scanning-compat: true
+          max-allowed-issues: 2147483647
+
+      - name: Upload SARIF
+        if: always() && hashFiles('codacy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: codacy-results.sarif
