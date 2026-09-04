@@ -43,22 +43,17 @@ jobs:
         shell: pwsh
         run: dotnet restore .\src\NOVORA\NOVORA.csproj
 
-      - name: Build with SARIF output
+      - name: Build with SARIF 2.1 output
         shell: pwsh
         run: |
           dotnet build .\src\NOVORA\NOVORA.csproj `
             -c Release `
             --no-restore `
-            -p:ErrorLog=analysis.sarif
-
-      - name: Normalize SecurityCodeScan SARIF
-        if: always() && hashFiles('**/analysis.sarif') != ''
-        uses: security-code-scan/security-code-scan-results-action@cdb3d5e639054395e45bf401cba8688fcaf7a687
-        with:
-          sarif_directory: scs-results
+            '-p:ErrorLog=securitycodescan.sarif,version=2.1'
 
       - name: Upload SARIF
-        if: always() && hashFiles('scs-results/*.sarif') != ''
+        if: always() && hashFiles('**/securitycodescan.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: scs-results
+          sarif_file: securitycodescan.sarif
+          category: "/tool:securitycodescan"
