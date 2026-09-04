@@ -32,7 +32,8 @@ jobs:
         run: |
           $scripts = @(
             ".\scripts\Setup-Tools.ps1",
-            ".\scripts\Prepare-ThirdPartyCompliance.ps1"
+            ".\scripts\Prepare-ThirdPartyCompliance.ps1",
+            ".\scripts\Configure-GitHubRulesets.ps1"
           )
 
           foreach ($script in $scripts) {
