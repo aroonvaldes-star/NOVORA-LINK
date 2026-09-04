@@ -1,0 +1,65 @@
+name: SecurityCodeScan
+
+on:
+  push:
+    branches:
+      - NOVORA-LINK
+      - "release/**"
+  pull_request:
+    branches:
+      - NOVORA-LINK
+  schedule:
+    - cron: "17 6 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security-code-scan:
+    name: SecurityCodeScan
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore verified runtime tools
+        shell: pwsh
+        run: .\scripts\Setup-Tools.ps1
+
+      - name: Add SecurityCodeScan analyzer to CI workspace
+        shell: pwsh
+        run: |
+          $project = ".\src\NOVORA\NOVORA.csproj"
+          $listed = dotnet list $project package
+
+          if ($listed -notmatch "SecurityCodeScan\.VS2019") {
+              dotnet add $project package SecurityCodeScan.VS2019 --version 5.6.7
+          }
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore .\NOVORA.sln
+
+      - name: Analyze and emit SARIF
+        shell: pwsh
+        run: |
+          dotnet build .\src\NOVORA\NOVORA.csproj `
+            -c Release `
+            --no-restore `
+            -p:ErrorLog="${{ github.workspace }}\securitycodescan.sarif"
+
+      - name: Upload SARIF
+        if: always() && hashFiles('securitycodescan.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: securitycodescan.sarif
