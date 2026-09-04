@@ -1,0 +1,46 @@
+name: Black Duck Security Scan
+
+on:
+  schedule:
+    - cron: "47 6 * * 5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  black-duck:
+    name: black-duck
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      BLACKDUCKSCA_URL: ${{ secrets.BLACKDUCKSCA_URL }}
+      BLACKDUCKSCA_TOKEN: ${{ secrets.BLACKDUCKSCA_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Black Duck configuration
+        id: config
+        shell: bash
+        run: |
+          if [[ -z "$BLACKDUCKSCA_URL" || -z "$BLACKDUCKSCA_TOKEN" ]]; then
+            echo "Black Duck no está configurado. Define secrets BLACKDUCKSCA_URL y BLACKDUCKSCA_TOKEN."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Run Black Duck SCA
+        if: steps.config.outputs.enabled == 'true'
+        uses: blackduck-inc/black-duck-security-scan@152247222aa9cd38124acd5c0cf60f4db71adc3f
+        with:
+          blackducksca_url: ${{ secrets.BLACKDUCKSCA_URL }}
+          blackducksca_token: ${{ secrets.BLACKDUCKSCA_TOKEN }}
+          blackducksca_scan_full: false
+          blackducksca_waitForScan: true
+          blackducksca_fixpr_enabled: false
+          blackducksca_prComment_enabled: false
+          github_token: ${{ github.token }}
