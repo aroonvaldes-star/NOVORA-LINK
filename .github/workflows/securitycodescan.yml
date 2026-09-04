@@ -53,26 +53,80 @@ jobs:
       - name: Analyze and emit SARIF 2.1
         shell: pwsh
         run: |
-          $sarif = "${{ github.workspace }}\securitycodescan.sarif"
+          $rawSarif = "${{ github.workspace }}\securitycodescan-raw.sarif"
 
           dotnet build .\src\NOVORA\NOVORA.csproj `
             -c Release `
             --no-restore `
-            "-p:ErrorLog=$sarif,version=2.1"
+            "-p:ErrorLog=$rawSarif,version=2.1"
 
           if ($LASTEXITCODE -ne 0) {
               throw "SecurityCodeScan build terminó con código $LASTEXITCODE."
           }
 
-          if (-not (Test-Path -LiteralPath $sarif -PathType Leaf)) {
+          if (-not (Test-Path -LiteralPath $rawSarif -PathType Leaf)) {
               throw "SecurityCodeScan no generó el archivo SARIF."
           }
 
-          $document = Get-Content -LiteralPath $sarif -Raw | ConvertFrom-Json
+          $document = Get-Content -LiteralPath $rawSarif -Raw | ConvertFrom-Json
 
           if ($document.version -ne "2.1.0") {
               throw "SARIF inválido para GitHub Code Scanning. Esperado 2.1.0, obtenido: $($document.version)"
           }
+
+      - name: Filter SecurityCodeScan findings
+        shell: pwsh
+        run: |
+          $rawSarif = "${{ github.workspace }}\securitycodescan-raw.sarif"
+          $filteredSarif = "${{ github.workspace }}\securitycodescan.sarif"
+          $document = Get-Content -LiteralPath $rawSarif -Raw | ConvertFrom-Json
+          $total = 0
+
+          foreach ($run in @($document.runs)) {
+              $securityResults = @(
+                  @($run.results) |
+                  Where-Object {
+                      -not [string]::IsNullOrWhiteSpace($_.ruleId) -and
+                      $_.ruleId -match '^SCS\d+$'
+                  }
+              )
+
+              $run.results = $securityResults
+              $total += $securityResults.Count
+
+              $referencedRuleIds = [System.Collections.Generic.HashSet[string]]::new(
+                  [System.StringComparer]::OrdinalIgnoreCase
+              )
+
+              foreach ($result in $securityResults) {
+                  [void]$referencedRuleIds.Add([string]$result.ruleId)
+              }
+
+              if ($null -ne $run.tool.driver.rules) {
+                  $run.tool.driver.rules = @(
+                      @($run.tool.driver.rules) |
+                      Where-Object {
+                          $referencedRuleIds.Contains([string]$_.id)
+                      }
+                  )
+              }
+          }
+
+          if ($total -gt 25000) {
+              throw "SecurityCodeScan produjo $total hallazgos SCS; excede el límite de 25,000 resultados de GitHub Code Scanning."
+          }
+
+          $document |
+              ConvertTo-Json -Depth 100 |
+              Set-Content -LiteralPath $filteredSarif -Encoding utf8
+
+          $validation = Get-Content -LiteralPath $filteredSarif -Raw | ConvertFrom-Json
+
+          if ($validation.version -ne "2.1.0") {
+              throw "El SARIF filtrado perdió la versión 2.1.0."
+          }
+
+          Write-Host "SecurityCodeScan: $total hallazgos SCS listos para GitHub Code Scanning."
 
       - name: Upload SARIF
         if: always() && hashFiles('securitycodescan.sarif') != ''
