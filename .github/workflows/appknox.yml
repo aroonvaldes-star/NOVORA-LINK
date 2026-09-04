@@ -1,0 +1,68 @@
+name: Appknox
+
+on:
+  workflow_dispatch:
+    inputs:
+      apk_url:
+        description: "URL HTTPS del APK firmado de NOVORA LinkEngine que se desea analizar"
+        required: true
+      risk_threshold:
+        description: "Severidad mínima que hace fallar el análisis"
+        required: true
+        default: "HIGH"
+        type: choice
+        options:
+          - CRITICAL
+          - HIGH
+          - MEDIUM
+          - LOW
+
+permissions:
+  contents: read
+
+jobs:
+  appknox:
+    name: Appknox APK Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      APPKNOX_ACCESS_TOKEN: ${{ secrets.APPKNOX_ACCESS_TOKEN }}
+
+    steps:
+      - name: Verify configuration
+        shell: bash
+        run: |
+          if [ -z "$APPKNOX_ACCESS_TOKEN" ]; then
+            echo "Configura APPKNOX_ACCESS_TOKEN como GitHub Secret." >&2
+            exit 1
+          fi
+
+          case "${{ inputs.apk_url }}" in
+            https://*) ;;
+            *) echo "apk_url debe usar HTTPS." >&2; exit 1 ;;
+          esac
+
+      - name: Download APK
+        shell: bash
+        run: |
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            "${{ inputs.apk_url }}" \
+            --output novora-linkengine.apk
+
+          test -s novora-linkengine.apk
+
+      - name: Appknox scan
+        uses: appknox/appknox-github-action@1.1.2
+        with:
+          appknox_access_token: ${{ secrets.APPKNOX_ACCESS_TOKEN }}
+          file_path: novora-linkengine.apk
+          risk_threshold: ${{ inputs.risk_threshold }}
+          sarif: Enable
+
+      - name: Upload SARIF
+        if: always() && hashFiles('report.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: report.sarif
