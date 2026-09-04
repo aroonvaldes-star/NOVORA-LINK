@@ -50,13 +50,29 @@ jobs:
         shell: pwsh
         run: dotnet restore .\NOVORA.sln
 
-      - name: Analyze and emit SARIF
+      - name: Analyze and emit SARIF 2.1
         shell: pwsh
         run: |
+          $sarif = "${{ github.workspace }}\securitycodescan.sarif"
+
           dotnet build .\src\NOVORA\NOVORA.csproj `
             -c Release `
             --no-restore `
-            -p:ErrorLog="${{ github.workspace }}\securitycodescan.sarif"
+            "-p:ErrorLog=$sarif,version=2.1"
+
+          if ($LASTEXITCODE -ne 0) {
+              throw "SecurityCodeScan build terminó con código $LASTEXITCODE."
+          }
+
+          if (-not (Test-Path -LiteralPath $sarif -PathType Leaf)) {
+              throw "SecurityCodeScan no generó el archivo SARIF."
+          }
+
+          $document = Get-Content -LiteralPath $sarif -Raw | ConvertFrom-Json
+
+          if ($document.version -ne "2.1.0") {
+              throw "SARIF inválido para GitHub Code Scanning. Esperado 2.1.0, obtenido: $($document.version)"
+          }
 
       - name: Upload SARIF
         if: always() && hashFiles('securitycodescan.sarif') != ''
