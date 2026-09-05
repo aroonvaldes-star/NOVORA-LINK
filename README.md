@@ -61,14 +61,12 @@ Los documentos del repositorio están separados por responsabilidad y son biling
 
 - [`SECURITY.md`](SECURITY.md) — seguridad y divulgación responsable.
 - [`PRIVACY.md`](PRIVACY.md) — tratamiento de datos y privacidad.
-- [`LICENSE.md`](LICENSE.md) — explicación bilingüe de la licencia de las partes originales de NOVORA.
+- [`LICENSE`](LICENSE) — licencia única y bilingüe de las partes originales de NOVORA-LINK, con español como versión principal.
 - [`COPYRIGHT.md`](COPYRIGHT.md) — titularidad y alcance del copyright.
 - [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) — licencias y avisos de terceros.
 - [`ACKNOWLEDGEMENTS.md`](ACKNOWLEDGEMENTS.md) — créditos.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — reglas para contribuir.
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — normas de participación.
-
-El archivo `LICENSE` existente no se modifica en este cambio documental.
 
 NOVORA-LINK no reclama autoría sobre software de terceros. Las partes reutilizadas o adaptadas conservan las obligaciones de sus licencias y avisos correspondientes.
 
@@ -96,14 +94,14 @@ Repository policies are separated by responsibility and are bilingual, with Span
 
 - [`SECURITY.md`](SECURITY.md)
 - [`PRIVACY.md`](PRIVACY.md)
-- [`LICENSE.md`](LICENSE.md)
+- [`LICENSE`](LICENSE)
 - [`COPYRIGHT.md`](COPYRIGHT.md)
 - [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)
 - [`ACKNOWLEDGEMENTS.md`](ACKNOWLEDGEMENTS.md)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
 
-The existing `LICENSE` file is not modified by this documentation-only change.
+`LICENSE` is the single bilingual license for original NOVORA-LINK portions, with Spanish as the primary version.
 
 NOVORA-LINK does not claim authorship of third-party software. Reused or adapted third-party portions remain subject to their original licenses and required notices.
 
