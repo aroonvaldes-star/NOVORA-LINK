@@ -1,10 +1,105 @@
-NOVORA — PROPIETARY LICENSE
+NOVORA-LINK — LICENCIA DE LAS PARTES ORIGINALES / ORIGINAL PORTIONS LICENSE
 
-Copyright (c) 2026 Aaron Yair Galarza Valdes
+ESPAÑOL — VERSIÓN PRINCIPAL
+
+Copyright © 2026 Aaron Yair Galarza Valdes.
+Todos los derechos reservados.
+
+1. ALCANCE
+
+Esta licencia aplica únicamente al código fuente, documentación, arquitectura, interfaz, recursos gráficos, identidad visual y demás materiales originales de NOVORA-LINK cuyo titular sea Aaron Yair Galarza Valdes, excepto cuando un archivo, directorio, componente o porción indique expresamente otra titularidad o licencia.
+
+2. DERECHOS RESERVADOS
+
+Salvo autorización previa y por escrito del titular, no se concede permiso para copiar, modificar, distribuir, sublicenciar, vender, publicar, relicenciar, explotar comercialmente ni crear obras derivadas de las partes propietarias de NOVORA-LINK.
+
+La disponibilidad pública del código fuente en GitHub no coloca las partes propietarias en el dominio público ni concede derechos adicionales distintos de los expresamente indicados.
+
+3. SOFTWARE Y CÓDIGO DE TERCEROS
+
+Esta licencia no cambia, sustituye ni limita las licencias aplicables a software, bibliotecas, herramientas, fragmentos, dependencias o recursos de terceros incluidos, descargados, integrados, reutilizados o adaptados por NOVORA-LINK.
+
+Los componentes y porciones de terceros continúan sujetos a sus propios términos, avisos, atribuciones y obligaciones. Entre las referencias y dependencias históricas o actuales del proyecto se encuentran scrcpy, Gnirehtet, Android Debug Bridge y otras dependencias identificadas en el repositorio.
+
+Cuando código de terceros sea reutilizado o adaptado bajo una licencia que lo permita, sus avisos de copyright, licencia, atribución y modificaciones requeridas deberán conservarse.
+
+Consulta THIRD-PARTY-NOTICES.md y ACKNOWLEDGEMENTS.md para información adicional.
+
+4. CÓDIGO DERIVADO Y CONTRIBUCIONES
+
+Las porciones desarrolladas originalmente por NOVORA-LINK pueden permanecer bajo esta licencia propietaria. Las porciones derivadas de software de terceros conservan las obligaciones de sus licencias originales.
+
+Ninguna disposición de esta licencia pretende reclamar como propiedad de NOVORA-LINK código, derechos o autoría que pertenezcan legalmente a terceros.
+
+Las contribuciones aceptadas al proyecto se regirán por los términos aplicables a la parte del repositorio donde se incorporen, sin transferir derechos que el colaborador no posea sobre software de terceros.
+
+5. MARCA E IDENTIDAD
+
+Esta licencia de software no concede derechos sobre los nombres NOVORA, NOVORA-LINK, LinkEngine, VisionEngine, logotipos, iconos, diseños ni otros elementos distintivos del proyecto, salvo autorización expresa y por escrito del titular correspondiente.
+
+El uso de software de terceros bajo licencias open source no concede automáticamente derecho a presentar productos derivados como productos oficiales de NOVORA-LINK.
+
+6. GARANTÍA
+
+En la máxima medida permitida por la legislación aplicable, las partes propietarias de NOVORA-LINK se proporcionan “tal cual”, sin garantías expresas o implícitas, incluyendo garantías de comerciabilidad, idoneidad para un propósito específico, ausencia de errores o funcionamiento ininterrumpido, salvo acuerdo escrito en contrario.
+
+7. LIMITACIÓN DE RESPONSABILIDAD
+
+En la máxima medida permitida por la legislación aplicable, el titular no será responsable por daños directos, indirectos, incidentales, especiales, consecuenciales o derivados del uso, imposibilidad de uso, modificación o distribución no autorizada de las partes propietarias de NOVORA-LINK.
+
+8. IDIOMA
+
+La versión en español es la versión principal de esta licencia. La versión inglesa se proporciona como traducción informativa. En caso de discrepancia material de traducción, prevalece el texto en español respecto de las partes propietarias de NOVORA-LINK, sin afectar los términos de las licencias de terceros.
+
+------------------------------------------------------------
+
+ENGLISH — INFORMATIONAL TRANSLATION
+
+Copyright © 2026 Aaron Yair Galarza Valdes.
 All Rights Reserved.
 
-NOVORA and its original source code, documentation, artwork, branding and original assets are proprietary to the copyright holder identified above, except where a component is expressly identified as third-party software and is governed by its own license.
+1. SCOPE
 
-No permission is granted to copy, modify, distribute, sublicense, sell, publish, or create derivative works from the proprietary portions of NOVORA without prior written permission from the copyright holder.
+This license applies only to NOVORA-LINK source code, documentation, architecture, interface, artwork, visual identity and other original materials owned by Aaron Yair Galarza Valdes, except where a file, directory, component or portion expressly states another owner or license.
 
-Third-party components remain under their respective licenses. See THIRD-PARTY-NOTICES.md and ACKNOWLEDGEMENTS.md.
+2. RESERVED RIGHTS
+
+Unless prior written permission is granted by the copyright holder, no permission is granted to copy, modify, distribute, sublicense, sell, publish, relicense, commercially exploit or create derivative works from the proprietary portions of NOVORA-LINK.
+
+Public availability of source code on GitHub does not place proprietary portions in the public domain and does not grant rights beyond those expressly stated.
+
+3. THIRD-PARTY SOFTWARE AND CODE
+
+This license does not alter, replace or restrict licenses applicable to third-party software, libraries, tools, portions, dependencies or assets included, downloaded, integrated, reused or adapted by NOVORA-LINK.
+
+Third-party components and portions remain subject to their own terms, notices, attribution and obligations. Historical or current references and dependencies include scrcpy, Gnirehtet, Android Debug Bridge and other dependencies identified in the repository.
+
+Where third-party code is reused or adapted under a license that permits it, required copyright notices, license terms, attribution and modification notices must be preserved.
+
+See THIRD-PARTY-NOTICES.md and ACKNOWLEDGEMENTS.md for additional information.
+
+4. DERIVED CODE AND CONTRIBUTIONS
+
+Portions originally developed by NOVORA-LINK may remain subject to this proprietary license. Portions derived from third-party software remain subject to the obligations of their original licenses.
+
+Nothing in this license is intended to claim as NOVORA-LINK property any code, rights or authorship legally owned by third parties.
+
+Accepted contributions are governed by the terms applicable to the repository portion where they are incorporated and do not transfer rights a contributor does not own in third-party software.
+
+5. TRADEMARKS AND IDENTITY
+
+This software license grants no rights to the NOVORA, NOVORA-LINK, LinkEngine or VisionEngine names, logos, icons, designs or other project identifiers unless expressly authorized in writing by the applicable rights holder.
+
+Use of third-party open-source software does not automatically grant the right to represent derivative products as official NOVORA-LINK products.
+
+6. WARRANTY
+
+To the maximum extent permitted by applicable law, NOVORA-LINK proprietary portions are provided “as is”, without express or implied warranties, including merchantability, fitness for a particular purpose, freedom from defects or uninterrupted operation, unless a separate written agreement states otherwise.
+
+7. LIMITATION OF LIABILITY
+
+To the maximum extent permitted by applicable law, the copyright holder shall not be liable for direct, indirect, incidental, special, consequential or other damages arising from use, inability to use, modification or unauthorized distribution of NOVORA-LINK proprietary portions.
+
+8. LANGUAGE
+
+The Spanish version is the primary version of this license. The English version is provided as an informational translation. In case of a material translation discrepancy, the Spanish text controls for NOVORA-LINK proprietary portions, without affecting third-party license terms.
