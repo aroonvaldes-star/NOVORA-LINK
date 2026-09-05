@@ -1,75 +1,104 @@
-# Política de Seguridad de NOVORA-LINK
+# NOVORA-LINK — Política de Seguridad / Security Policy
 
-Esta política aplica al repositorio oficial `aroonvaldes-star/NOVORA-LINK` y a los instaladores publicados desde sus releases oficiales.
+> **Español (principal) · English below**
 
-## Versiones con soporte
+## Español
+
+Esta política aplica al repositorio oficial `aroonvaldes-star/NOVORA-LINK` y a sus releases oficiales.
+
+### Versiones con soporte
 
 | Versión | Estado |
 |---|---|
-| 1.3.x | Soportada como base estable |
+| 1.3.x | Base estable con soporte |
+| 1.4 | Desarrollo activo; no se considera estable hasta su release |
 | Versiones anteriores | Sin soporte de seguridad garantizado |
-| Ramas experimentales | Solo para pruebas; no se consideran releases estables |
+| Ramas experimentales | Solo pruebas |
 
-## Reportar una vulnerabilidad
+### Reporte responsable
 
-No publiques detalles explotables, credenciales, datos personales, claves, tokens, APK firmadas privadas ni pruebas de concepto peligrosas en un issue público.
+No publiques vulnerabilidades explotables, credenciales, tokens, claves privadas, certificados, datos personales ni pruebas de concepto peligrosas en Issues públicos.
 
 Canal preferido:
 
 1. Abre la pestaña **Security** del repositorio.
-2. Usa **Report a vulnerability / Private vulnerability reporting** si GitHub lo ofrece para el repositorio.
-3. Incluye versión afectada, componente, impacto, pasos mínimos para reproducir y una propuesta de mitigación si la tienes.
+2. Utiliza **Report a vulnerability / Private vulnerability reporting** cuando esté disponible.
+3. Incluye versión afectada, componente, impacto, pasos mínimos de reproducción y mitigación propuesta si la tienes.
 
-Si el canal privado no está disponible, abre únicamente un issue público titulado `Security contact request` sin incluir detalles técnicos sensibles. El objetivo será mover la conversación a un canal privado antes de compartir la vulnerabilidad.
+Si el canal privado no está disponible, abre únicamente un Issue titulado `Security contact request` sin detalles técnicos sensibles.
 
-## Qué consideramos vulnerabilidad de seguridad
+### Alcance
 
-Ejemplos dentro de alcance:
+Se consideran dentro de alcance, entre otros:
 
-- ejecución de comandos no intencionada o inyección de argumentos;
+- ejecución de comandos o inyección no intencionada;
 - escalación de privilegios;
-- descarga o ejecución de actualizaciones sin verificar integridad;
-- sustitución de binarios de `Tools` o fallos en verificación SHA-256;
-- exposición no autorizada de identificadores, archivos, portapapeles, pantalla, audio o tráfico de red;
+- fallos de verificación de integridad;
+- sustitución de binarios o componentes confiables;
+- exposición no autorizada de pantalla, audio, portapapeles, archivos, identificadores o tráfico;
 - bypass de autorización ADB/VPN;
-- escritura fuera de rutas esperadas;
-- fallos que permitan a un dispositivo conectado afectar a otro dispositivo o a Windows;
-- vulnerabilidades en LinkEngine, ScreenEngine o componentes Android propios cuando formen parte de una release.
+- aislamiento incorrecto entre dispositivos;
+- vulnerabilidades propias de LinkEngine, VisionEngine o clientes Android de NOVORA;
+- actualizaciones inseguras o ejecución de instaladores sin verificación.
 
-Fuera de alcance como vulnerabilidad de NOVORA-LINK, salvo que exista una integración insegura propia:
+Los fallos exclusivos de Android, Windows, ADB, scrcpy, Gnirehtet u otra dependencia upstream deben reportarse al proyecto correspondiente, salvo que NOVORA-LINK los integre de forma insegura.
 
-- fallos exclusivos de Android, Windows, ADB, scrcpy, Gnirehtet u otra dependencia upstream;
-- advertencias de antivirus sin evidencia de comportamiento malicioso;
-- ataques que requieren acceso físico total y una sesión de Windows ya comprometida.
+### Principios del proyecto
 
-## Principios de seguridad del proyecto
+NOVORA-LINK debe:
 
-NOVORA-LINK debe mantener estas reglas:
+- usar fuentes oficiales y versiones controladas para dependencias;
+- verificar SHA-256 cuando el pipeline lo contemple;
+- usar HTTPS para descargas y actualizaciones;
+- evitar secretos dentro del repositorio;
+- aplicar privilegio mínimo cuando sea posible;
+- exigir autorización explícita para dispositivos;
+- mantener sesiones separadas por dispositivo;
+- no pedir al usuario desactivar Defender como procedimiento normal;
+- documentar cambios de seguridad relevantes;
+- mantener análisis automáticos como complemento, no sustituto, de revisión humana.
 
-- descargar dependencias únicamente desde fuentes oficiales fijadas;
-- verificar SHA-256 antes de integrar binarios descargados durante el build;
-- usar HTTPS para actualizaciones y descargas;
-- verificar la integridad del instalador antes de ejecutarlo;
-- evitar credenciales y secretos dentro del repositorio;
-- no solicitar al usuario desactivar Defender o excluir toda la carpeta de la aplicación como solución normal;
-- aplicar privilegio mínimo siempre que la arquitectura lo permita;
-- separar estado y sesiones por dispositivo;
-- registrar cambios de seguridad relevantes en commits y releases.
+### Divulgación coordinada
 
-## Dependencias de terceros
+Se solicita tiempo razonable para investigar y corregir vulnerabilidades antes de publicar detalles explotables. Esta política no constituye un programa de recompensas ni una promesa contractual de compensación.
 
-NOVORA-LINK utiliza componentes de terceros. Una vulnerabilidad upstream no cambia la autoría ni la licencia del componente. Cuando exista una corrección relevante, el proyecto debe actualizar o mitigar la dependencia sin eliminar sus avisos legales.
+---
 
-Consulta también:
+## English
 
-- `THIRD-PARTY-NOTICES.md`
-- `ACKNOWLEDGEMENTS.md`
-- `docs/COPYRIGHT-COMPLIANCE.md`
+This policy applies to the official `aroonvaldes-star/NOVORA-LINK` repository and its official releases.
 
-## Divulgación coordinada
+### Supported versions
 
-Se solicita dar un margen razonable para investigar y publicar una corrección antes de divulgar detalles explotables. No se promete una fecha fija de resolución: la prioridad depende del impacto, reproducibilidad y disponibilidad de una mitigación segura.
+| Version | Status |
+|---|---|
+| 1.3.x | Supported stable base |
+| 1.4 | Active development; not stable until released |
+| Older versions | No guaranteed security support |
+| Experimental branches | Testing only |
 
-## Limitaciones
+### Responsible reporting
 
-Esta política describe el proceso de seguridad del proyecto; no constituye un programa de recompensas ni una promesa contractual de compensación.
+Do not publish exploitable vulnerabilities, credentials, tokens, private keys, certificates, personal data or dangerous proofs of concept in public Issues.
+
+Preferred channel:
+
+1. Open the repository **Security** tab.
+2. Use **Report a vulnerability / Private vulnerability reporting** when available.
+3. Include affected version, component, impact, minimal reproduction steps and any proposed mitigation.
+
+If private reporting is unavailable, open only an Issue titled `Security contact request` without sensitive technical details.
+
+### Scope
+
+In-scope examples include unintended command execution or injection, privilege escalation, integrity-verification failures, unauthorized exposure of screen/audio/clipboard/files/network data, ADB/VPN authorization bypass, cross-device isolation failures, vulnerabilities in NOVORA-owned LinkEngine/VisionEngine components, and unsafe update execution.
+
+Issues entirely within upstream Android, Windows, ADB, scrcpy, Gnirehtet or other dependencies should be reported upstream unless NOVORA-LINK introduces an unsafe integration.
+
+### Project principles
+
+NOVORA-LINK should use official dependency sources, integrity verification where available, HTTPS, least privilege, explicit device authorization, per-device isolation, secure secret handling and documented security changes. Users should not be instructed to disable Defender as a normal installation procedure.
+
+### Coordinated disclosure
+
+Please allow reasonable time to investigate and fix vulnerabilities before publishing exploitable details. This policy is not a bug-bounty program or contractual promise of compensation.
