@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+
+		<TargetFramework>net10.0-android</TargetFramework>
+
+		<OutputType>Exe</OutputType>
+
+		<RootNamespace>NOVORA.LinkEngine.Android</RootNamespace>
+
+		<AssemblyName>NOVORA.LinkEngine.Android</AssemblyName>
+
+		<ApplicationId>com.novora.linkengine</ApplicationId>
+
+		<ApplicationTitle>NOVORA LinkEngine</ApplicationTitle>
+
+		<ApplicationVersion>1</ApplicationVersion>
+
+		<ApplicationDisplayVersion>0.0.1-LE004</ApplicationDisplayVersion>
+
+		<SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+
+		<Nullable>enable</Nullable>
+
+		<ImplicitUsings>enable</ImplicitUsings>
+
+		<AndroidUseLatestPlatformSdk>true</AndroidUseLatestPlatformSdk>
+
+		<AndroidPackageFormat>apk</AndroidPackageFormat>
+
+		<TrimMode Condition="'$(Configuration)' == 'Release'">full</TrimMode>
+
+	</PropertyGroup>
+
+	<!-- ============================================================ -->
+	<!-- ANDROID MANIFEST PERMISSIONS                                 -->
+	<!-- ============================================================ -->
+
+	<ItemGroup>
+
+		<AndroidManifestPlaceholders Include="novoraLinkEngine=true" />
+
+	</ItemGroup>
+
+</Project>

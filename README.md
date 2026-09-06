@@ -1,51 +1,31 @@
-# NOVORA-LINK 1.4
+# NOVORA-LINK 1.3
 
-> **Español (principal) · English below**
 
-**Windows y Android. Un solo sistema.**
+## Base estable de desarrollo
 
-NOVORA-LINK es una plataforma de integración **Windows ↔ Android** orientada a conectar, visualizar, controlar y extender dispositivos Android desde Windows. La versión 1.3 permanece como la base estable publicada; la línea 1.4 desarrolla una arquitectura más integrada alrededor de **LinkEngine** y **VisionEngine**.
+**NOVORA-LINK 1.3 es la base actual del repositorio.**
 
-## Estado del proyecto
+La soluciÃ³n principal estÃ¡ en:
 
-- **1.3.x:** base estable y referencia de compatibilidad.
-- **1.4:** desarrollo activo.
-- **LinkEngine:** motor propio de conectividad y reverse tethering, inspirado técnicamente en Gnirehtet y desarrollado para integrarse directamente con NOVORA.
-- **VisionEngine:** motor propio de pantalla, audio y control, inspirado técnicamente en scrcpy y desarrollado para integrarse directamente con NOVORA.
-- **ADB:** se mantiene como infraestructura intencional para descubrimiento, autorización, provisioning, bootstrap, diagnóstico y recuperación.
+- `NOVORA.sln`
+- `src/NOVORA/NOVORA.csproj`
 
-```text
-NOVORA-LINK
-│
-├── LinkEngine
-│   └── Red / VPN / Reverse Tethering / Recovery / Métricas
-│
-├── VisionEngine
-│   └── Pantalla / Video / Audio / Control / Exchange / Métricas
-│
-└── ADB
-    └── Discovery / Authorization / Provisioning / Bootstrap
-```
+## Estructura
 
-## De 1.3 a 1.4
+- `src/NOVORA/` â€” aplicaciÃ³n WPF y servicios.
+- `src/NOVORA/Tools/` â€” herramientas de ejecuciÃ³n restauradas por `scripts/Setup-Tools.ps1`.
+- `Installer/` â€” instalador Inno Setup.
+- `scripts/` â€” preparaciÃ³n reproducible de dependencias.
+- `docs/` â€” arquitectura y estructura tÃ©cnica.
+- `.github/workflows/` â€” compilaciÃ³n y publicaciÃ³n de releases.
 
-```text
-1.3                              1.4
-NOVORA                           NOVORA
-├── ADB                          ├── ADB
-├── scrcpy                       ├── LinkEngine
-└── Gnirehtet                    └── VisionEngine
-```
+## Dependencias de ejecuciÃ³n
 
-La transición es progresiva. scrcpy y Gnirehtet pueden permanecer temporalmente como herramientas de compatibilidad, diagnóstico, comparación o fallback mientras los motores propios alcanzan la estabilidad requerida.
+Los binarios de terceros no se versionan dentro del repositorio. `scripts/Setup-Tools.ps1` descarga versiones fijadas y verifica SHA-256 antes de colocarlas en `src/NOVORA/Tools/`.
 
-## LinkEngine
+Versiones fijadas para 1.3:
 
-LinkEngine concentra la conectividad PC → Android y la administración del túnel. Su arquitectura contempla transporte, TCP/UDP, DNS, VPN Android, sesiones, recuperación, métricas, control de congestión y provisioning del cliente Android.
-
-## VisionEngine
-
-VisionEngine concentra captura, transporte, decodificación, renderizado, audio, entrada, portapapeles/intercambio, métricas y recuperación del stream. La meta es que la sesión de pantalla se ejecute integrada en NOVORA sin depender de una ventana externa de scrcpy en el flujo normal.
+- scrcpy 4.1 (Windows x64)
 
 ## Compilar
 
@@ -55,56 +35,23 @@ dotnet restore .\NOVORA.sln
 dotnet build .\NOVORA.sln -c Release
 ```
 
-## Seguridad, privacidad y aspectos legales
+## Releases
 
-Los documentos del repositorio están separados por responsabilidad y son bilingües, con español priorizado:
+Las releases oficiales usan tags de dos componentes, por ejemplo `v1.3` o `v1.4`. GitHub Actions publica un instalador `NOVORA-Setup-<version>.exe` y su SHA-256.
 
-- [`SECURITY.md`](SECURITY.md) — seguridad y divulgación responsable.
-- [`PRIVACY.md`](PRIVACY.md) — tratamiento de datos y privacidad.
-- [`LICENSE`](LICENSE) — licencia única y bilingüe de las partes originales de NOVORA-LINK, con español como versión principal.
-- [`COPYRIGHT.md`](COPYRIGHT.md) — titularidad y alcance del copyright.
-- [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) — licencias y avisos de terceros.
-- [`ACKNOWLEDGEMENTS.md`](ACKNOWLEDGEMENTS.md) — créditos.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — reglas para contribuir.
-- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — normas de participación.
+## CrÃ©ditos y licencias
 
-NOVORA-LINK no reclama autoría sobre software de terceros. Las partes reutilizadas o adaptadas conservan las obligaciones de sus licencias y avisos correspondientes.
 
 ---
 
-# English
+**NOVORA Â© 2026 Aaron Yair Galarza Valdes â€” All Rights Reserved.**
 
-**Windows and Android. One system.**
+## VisionEngine Block C
 
-NOVORA-LINK is a **Windows ↔ Android** integration platform focused on connecting, displaying, controlling and extending Android devices from Windows. Version 1.3 remains the published stable base; the 1.4 line develops a more integrated architecture around **LinkEngine** and **VisionEngine**.
+Block C añade `Recovery`, `Metrics`, `Performance` y `Stress` al pipeline headless. El renderer continúa deshabilitado; la primera imagen queda reservada para Block D.
 
-## Project status
+Prueba recomendada con Galaxy A56 5G:
 
-- **1.3.x:** stable base and compatibility reference.
-- **1.4:** active development.
-- **LinkEngine:** NOVORA connectivity and reverse-tethering engine, technically inspired by Gnirehtet and designed for direct NOVORA integration.
-- **VisionEngine:** NOVORA screen, audio and control engine, technically inspired by scrcpy and designed for direct NOVORA integration.
-- **ADB:** intentionally retained for discovery, authorization, provisioning, bootstrap, diagnostics and recovery.
-
-The 1.4 transition is progressive. scrcpy and Gnirehtet may temporarily remain available for compatibility, diagnostics, comparison or fallback until the NOVORA engines reach the required stability.
-
-## Security, privacy and legal documents
-
-Repository policies are separated by responsibility and are bilingual, with Spanish as the primary language:
-
-- [`SECURITY.md`](SECURITY.md)
-- [`PRIVACY.md`](PRIVACY.md)
-- [`LICENSE`](LICENSE)
-- [`COPYRIGHT.md`](COPYRIGHT.md)
-- [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)
-- [`ACKNOWLEDGEMENTS.md`](ACKNOWLEDGEMENTS.md)
-- [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
-
-`LICENSE` is the single bilingual license for original NOVORA-LINK portions, with Spanish as the primary version.
-
-NOVORA-LINK does not claim authorship of third-party software. Reused or adapted third-party portions remain subject to their original licenses and required notices.
-
----
-
-**Copyright © 2026 Aaron Yair Galarza Valdes. Todos los derechos reservados sobre las partes originales de NOVORA, salvo donde se indique lo contrario. / All rights reserved over original NOVORA portions, except where otherwise stated.**
+```powershell
+.\scripts\Test-VisionEngine-BlockC.ps1 -DeviceSerial SERIAL -Seconds 60
+```

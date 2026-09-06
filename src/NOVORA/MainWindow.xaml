@@ -1,243 +1,828 @@
-<Window x:Class="NOVORA.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="NOVORA 1.3"
-        Width="520" Height="672" MinWidth="460" MinHeight="640"
-        MaxHeight="{Binding Height, Source={x:Static SystemParameters.WorkArea}}"
-        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
-        Background="{DynamicResource WindowBrush}"
-        Loaded="Window_Loaded" Closing="Window_Closing">
-    <Border BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="1" CornerRadius="24" Background="{DynamicResource WindowBrush}">
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition/>
-                <ColumnDefinition/>
-            </Grid.ColumnDefinitions>
+﻿<Window
+    x:Class="NOVORA.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="NOVORA-LINK 1.4"
+    Width="920"
+    Height="560"
+    MinWidth="820"
+    MinHeight="500"
+    WindowStartupLocation="CenterScreen"
+    WindowStyle="None"
+    ResizeMode="CanResize"
+    Background="{DynamicResource WindowBrush}"
+    Loaded="Window_Loaded"
+    Closing="Window_Closing">
 
+    <Window.Resources>
+        <!-- NOVORA 1.4: colores dinámicos desde ThemeService/Styles.xaml -->
+
+        <Style x:Key="NvCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource PanelBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14"/>
+        </Style>
+
+        <Style x:Key="NvWindowButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="42"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="17"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" CornerRadius="5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#1D506F"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#0B2B45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NvFlatButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource PanelBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BlueBrush}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource InputHoverBackgroundBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource InputSelectedBackgroundBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NvPrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource BlueBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource BlueDarkBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.82"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NvMiniActionStyle" TargetType="Button" BasedOn="{StaticResource NvFlatButtonStyle}">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="17"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+        </Style>
+
+        <Style x:Key="NvMetricProgressStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="7"/>
+            <Setter Property="Background" Value="{DynamicResource TrackBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BlueBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" ClipToBounds="True">
+                            <Grid x:Name="PART_Track">
+                                <Border x:Name="PART_Indicator"
+                                        Background="{TemplateBinding Foreground}"
+                                        CornerRadius="4"
+                                        HorizontalAlignment="Left"/>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NvBatteryProgressStyle" TargetType="ProgressBar">
+            <Setter Property="Orientation" Value="Vertical"/>
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="104"/>
+            <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource GreenBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="BorderThickness" Value="3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5"
+                                Padding="5">
+                            <Grid x:Name="PART_Track" ClipToBounds="True">
+                                <Border Background="{DynamicResource BatteryTrackBrush}" CornerRadius="2"/>
+                                <Border x:Name="PART_Indicator"
+                                        Background="{TemplateBinding Foreground}"
+                                        CornerRadius="2"
+                                        VerticalAlignment="Bottom"/>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NvComboStyle" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource InputForegroundBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{DynamicResource WindowBrush}"
+            BorderBrush="{DynamicResource WindowBorderBrush}"
+            BorderThickness="1">
+        <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="44"/>
-                <RowDefinition Height="Auto" MinHeight="113"/>
-                <RowDefinition Height="Auto" MinHeight="117"/>
-                <RowDefinition/>
-                <RowDefinition Height="Auto" MinHeight="40"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="54"/>
+                <RowDefinition Height="96"/>
+                <RowDefinition Height="52"/>
+                <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0"
-                  Grid.ColumnSpan="2"
-                  Background="{DynamicResource TitleBarBrush}"
-                  MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <!-- ================================================= -->
+            <!-- TITLE BAR                                         -->
+            <!-- ================================================= -->
+
+            <Border Grid.Row="0"
+                    Background="{DynamicResource TitleBarBrush}">
+                <Grid MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Image Grid.Column="0"
+                           Source="Assets/NOVORA-BRAND.png"
+                           Height="85"
+                           MaxWidth="220"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center"
+                           Margin="18,0,0,0"
+                           IsHitTestVisible="False"
+                           SnapsToDevicePixels="True" Width="243"/>
+
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                Margin="0,0,12,0"
+                                VerticalAlignment="Center">
+                        <Button Content="🛠️"
+                                Style="{StaticResource NvWindowButtonStyle}"
+                                Click="Configuration_Click"
+                                ToolTip="Configuración"/>
+                        <Border Width="1"
+                                Height="28"
+                                Background="#5D7A91"
+                                Margin="4,0,4,0"/>
+                        <Button Content="➖"
+                                Style="{StaticResource NvWindowButtonStyle}"
+                                Click="Minimize_Click"
+                                ToolTip="Minimizar"/>
+                        <Button Content="✖️"
+                                Style="{StaticResource NvWindowButtonStyle}"
+                                Click="Close_Click"
+                                ToolTip="Cerrar"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ================================================= -->
+            <!-- DISPOSITIVO + INICIAR VISIONENGINE                -->
+            <!-- ================================================= -->
+
+            <Grid Grid.Row="1"
+                  Margin="20,11,20,8">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="16"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="1"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                    <TextBlock Text="NOVORA"
-                               FontSize="21"
-                               FontWeight="Bold"/>
-                    <TextBlock Text="LINK"
-                               Foreground="{DynamicResource PurpleBrush}"
-                               FontSize="11"
-                               FontWeight="SemiBold"
-                               Margin="6,0,0,2"
-                               VerticalAlignment="Bottom"/>
-                    <Button Content="🔄"
-                            Style="{StaticResource ActionButton}"
-                            Click="Update_Click"
-                            Margin="14,5,0,5"
-                            Width="44"
-                            ToolTip="Buscar actualizaciones de NOVORA."/>
-                </StackPanel>
-
-                <StackPanel Grid.Column="2"
-                            Orientation="Horizontal"
-                            Margin="0,0,10,0">
-                    <Button Content="—"
-                            Style="{StaticResource ActionButton}"
-                            Click="Minimize_Click"
-                            Width="36"
-                            Height="34"
-                            ToolTip="Minimizar NOVORA."/>
-                    <Button Content="×"
-                            Style="{StaticResource ActionButton}"
-                            Click="Close_Click"
-                            Width="36"
-                            Height="34"
-                            ToolTip="Cerrar NOVORA."/>
-                </StackPanel>
-            </Grid>
-
-            <Border Grid.Row="1"
-                    Grid.ColumnSpan="2"
-                    Margin="18,0,18,0"
-                    Style="{StaticResource CardStyle}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Text="DISPOSITIVO ANDROID"
-                               Style="{StaticResource SmallLabel}"/>
-
-                    <Grid Grid.Row="1"
-                          Margin="0,8,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <ComboBox Grid.Column="0"
-                                  ItemsSource="{Binding Devices}"
-                                  SelectedItem="{Binding Device, Mode=TwoWay}"
-                                  SelectionChanged="Device_SelectionChanged"
-                                  MinHeight="36"
-                                  Margin="0,0,6,0">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding DisplayLabel}"
-                                               Foreground="{DynamicResource InputForegroundBrush}"
-                                               TextTrimming="CharacterEllipsis"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-
-                        <Button Grid.Column="1"
-                                x:Name="WifiAdbButton"
-                                Content="Wi-Fi"
-                                MinHeight="36"
-                                Style="{StaticResource ActionButton}"
-                                Click="WifiAdb_Click"
-                                Margin="0,0,6,0"/>
-
-                        <Button Grid.Column="2"
-                                x:Name="RefreshDevicesButton"
-                                Content="↻"
-                                Width="42"
-                                MinHeight="36"
-                                Style="{StaticResource ActionButton}"
-                                Click="RefreshDevices_Click"/>
-                    </Grid>
-
-                    <TextBlock Grid.Row="2"
-                               Text="{Binding ConnectionStatus}"
-                               Foreground="{DynamicResource GreenBrush}"
-                               FontSize="11"
-                               Margin="0,6,0,0"
-                               TextTrimming="CharacterEllipsis"/>
-                </Grid>
-            </Border>
-
-            <Border Grid.Row="2"
-                    Grid.ColumnSpan="2"
-                    Margin="18,4,18,2"
-                    Style="{StaticResource CardStyle}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Text="MONITOR / SALIDA DE VIDEO"
-                               Style="{StaticResource SmallLabel}"/>
-
-                    <ComboBox Grid.Row="1"
-                              x:Name="MonitorComboBox"
-                              ItemsSource="{Binding Monitors}"
-                              SelectedItem="{Binding SelectedMonitor, Mode=TwoWay}"
-                              SelectionChanged="Monitor_SelectionChanged"
-                              Margin="0,8,0,5"
-                              MinHeight="36">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding DisplayLabel}"
-                                           Foreground="{DynamicResource InputForegroundBrush}"
-                                           TextTrimming="CharacterEllipsis"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-
-                    <TextBlock Grid.Row="2"
-                               Text="{Binding OutputSummary}"
-                               FontSize="11"
-                               TextTrimming="CharacterEllipsis"/>
-                </Grid>
-            </Border>
-
-            <Grid Grid.Row="3"
-                  Grid.ColumnSpan="2"
-                  Margin="18,8,18,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition/>
-                    <ColumnDefinition/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="245"/>
                 </Grid.ColumnDefinitions>
 
                 <Border Grid.Column="0"
-                        Style="{StaticResource CardStyle}"
-                        Margin="0,0,5,0">
-                    <StackPanel>
+                        Style="{StaticResource NvCardStyle}"
+                        Padding="14,9">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="52"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="92"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0"
+                                Width="32"
+                                Height="58"
+                                CornerRadius="7"
+                                BorderBrush="{DynamicResource TextBrush}"
+                                BorderThickness="3"
+                                Background="{DynamicResource PanelBrush2}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center">
+                            <Grid Margin="4">
+                                <Border Background="{DynamicResource BlueBrush}"
+                                        CornerRadius="3"/>
+                                <Border Width="13"
+                                        Height="3"
+                                        Background="{DynamicResource TextBrush}"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Top"
+                                        CornerRadius="2"/>
+                            </Grid>
+                        </Border>
+
+                        <Grid Grid.Column="1"
+                              Margin="8,1,14,1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="36"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <ComboBox x:Name="DeviceComboBox14"
+                                      Grid.Row="0"
+                                      Style="{StaticResource NvComboStyle}"
+                                      ItemsSource="{Binding Devices}"
+                                      SelectedItem="{Binding Device, Mode=TwoWay}"
+                                      SelectionChanged="Device_SelectionChanged"
+                                      FontSize="16"
+                                      FontWeight="SemiBold">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding FriendlyName}"
+                                                   Foreground="{DynamicResource InputForegroundBrush}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+
+                            <StackPanel Grid.Row="1"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <Ellipse Width="9"
+                                         Height="9"
+                                         Fill="{DynamicResource GreenBrush}"
+                                         Margin="0,0,9,0"/>
+                                <TextBlock Text="{Binding ConnectionStatus}"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           FontSize="12"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Grid.Column="2"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                            <Button x:Name="WifiAdbButton"
+                                    Content="🛜"
+                                    Style="{StaticResource NvMiniActionStyle}"
+                                    Click="WifiAdb_Click"
+                                    ToolTip="Conectar ADB por Wi-Fi"
+                                    Margin="0,0,6,0" Height="41"/>
+                            <Button x:Name="RefreshDevicesButton"
+                                    Content="🔄️"
+                                    Style="{StaticResource NvMiniActionStyle}"
+                                    Click="RefreshDevices_Click"
+                                    ToolTip="Actualizar dispositivos" Height="41"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Button x:Name="MainActionButton"
+                        Grid.Column="2"
+                        Content="▶ INICIAR"
+                        Style="{StaticResource NvPrimaryButtonStyle}"
+                        Click="MainActionButton_Click"
+                        ToolTip="Iniciar o detener VisionEngine"/>
+            </Grid>
+
+            <!-- ================================================= -->
+            <!-- ENCABEZADOS                                       -->
+            <!-- ================================================= -->
+
+            <Grid Grid.Row="2"
+                  Margin="20,0,20,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1*"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="1*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        Background="{DynamicResource SectionHeaderBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="9,9,0,0">
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="&#xE701;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="16"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   Margin="0,0,12,0"/>
                         <TextBlock Text="RED"
-                                   Style="{StaticResource SectionTitle}"
-                                   HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="_redStatus"
-                                   Text="Sin dispositivo conectado."
-                                   FontSize="11"
-                                   TextWrapping="Wrap"
-                                   HorizontalAlignment="Center"/>
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource TextBrush}"/>
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="1"
-                        Style="{StaticResource CardStyle}"
-                        Margin="5,0,0,0">
-                    <StackPanel>
-                        <TextBlock Text="RENDIMIENTO"
-                                   Style="{StaticResource SectionTitle}"
-                                   HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="_performanceStatus"
-                                   Text="Esperando datos..."
-                                   FontSize="11"
-                                   TextWrapping="Wrap"
-                                   HorizontalAlignment="Center"/>
+                <Border Grid.Column="2"
+                        Background="{DynamicResource SectionHeaderBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="9,9,0,0">
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="&#xE950;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="16"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   Margin="0,0,12,0"/>
+                        <TextBlock Text="PERFORMANCE"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource TextBrush}"/>
                     </StackPanel>
                 </Border>
             </Grid>
 
-            <Button Grid.Row="4"
-                    Grid.Column="0"
-                    Content="CONFIGURACIÓN"
-                    Style="{StaticResource ActionButton}"
-                    Click="Configuration_Click"
-                    Margin="18,0,5,5"/>
+            <!-- ================================================= -->
+            <!-- RED + PERFORMANCE                                 -->
+            <!-- ================================================= -->
 
-            <Button Grid.Row="4"
-                    Grid.Column="1"
-                    x:Name="InternetUsbButton"
-                    Content="INTERNET USB"
-                    Style="{StaticResource ActionButton}"
-                    Click="Gnirehtet_Click"
-                    Margin="5,0,18,5"/>
+            <Grid Grid.Row="3"
+                  Margin="20,0,20,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1*"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="1*"/>
+                </Grid.ColumnDefinitions>
 
-            <Border Grid.Row="5"
-                    Grid.ColumnSpan="2"
-                    Margin="18,0,18,0"
-                    Background="Transparent"
-                    Height="58">
-                <Button x:Name="MainActionButton"
-                        Content="▶  PLAY"
-                        Style="{StaticResource ActionButton}"
-                        Click="MainActionButton_Click"
-                        Height="58"
-                        FontSize="16"
-                        FontWeight="Bold"/>
-            </Border>
+                <!-- RED -->
+                <Border Grid.Column="0"
+                        Style="{StaticResource NvCardStyle}"
+                        CornerRadius="0,0,10,10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="44"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="58"/>
+                            <RowDefinition Height="12"/>
+                            <RowDefinition Height="48"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="&#xE701;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="20"
+                                       Foreground="{DynamicResource BlueBrush}"
+                                       Margin="0,0,12,0"/>
+                            <TextBlock Text="Estado de conexión"
+                                       FontSize="16"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TextBrush}"/>
+                        </StackPanel>
+
+                        <Grid Grid.Row="1"
+                              Margin="0,2,0,8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Grid.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="FontSize" Value="12"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+                                </Style>
+                            </Grid.Resources>
+
+                            <Border Grid.Row="0"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="0,1,0,1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="118"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="NLE →"/>
+                                    <TextBlock x:Name="LinkEngineResultStatus"
+                                               Grid.Column="1"
+                                               Text="Detenido"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Row="1"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="118"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Dispositivo / ADB"/>
+                                    <TextBlock x:Name="LinkEngineDeviceStatus"
+                                               Grid.Column="1"
+                                               Text="ADB: -"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Row="2"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="118"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Canal"/>
+                                    <TextBlock x:Name="LinkEngineClientStatus"
+                                               Grid.Column="1"
+                                               Text="Android: -"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Row="3"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="118"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Recovery"/>
+                                    <TextBlock x:Name="LinkEngineProtocolStatus"
+                                               Grid.Column="1"
+                                               Text="# 0"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Row="4"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="118"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Status"/>
+                                    <StackPanel Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <Ellipse Width="9"
+                                                 Height="9"
+                                                 Fill="{DynamicResource GreenBrush}"
+                                                 Margin="0,0,8,0"/>
+                                        <TextBlock x:Name="LinkEngineTransportStatus"
+                                                   Text="Good"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <Border Grid.Row="2"
+                                Background="{DynamicResource SuccessBackgroundBrush}"
+                                BorderBrush="{DynamicResource SuccessBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="14,8">
+                            <StackPanel Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <Border Width="32"
+                                        Height="32"
+                                        Background="{DynamicResource GreenBrush}"
+                                        CornerRadius="16"
+                                        Margin="0,0,12,0">
+                                    <TextBlock Text="✓"
+                                               Foreground="White"
+                                               FontSize="19"
+                                               FontWeight="Bold"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel>
+                                    <TextBlock Text="Dispositivo listo"
+                                               FontWeight="Bold"
+                                               FontSize="14"
+                                               Foreground="{DynamicResource SuccessTextBrush}"/>
+                                    <TextBlock Text="{Binding ConnectionStatus}"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Button x:Name="LinkEngineTestButton"
+                                Grid.Row="4"
+                                Style="{StaticResource NvFlatButtonStyle}"
+                                Click="LinkEngineTest_Click"
+                                ToolTip="Iniciar o detener LinkEngine">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="ButtonBorder"
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="8">
+                                        <TextBlock Text="INTERNET USB"
+                                                   Foreground="{DynamicResource TextBrush}"
+                                                   FontSize="15"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="ButtonBorder"
+                                                    Property="Background"
+                                                    Value="{DynamicResource InputHoverBackgroundBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="ButtonBorder"
+                                                    Property="Background"
+                                                    Value="{DynamicResource InputSelectedBackgroundBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter TargetName="ButtonBorder"
+                                                    Property="Opacity"
+                                                    Value="0.45"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- PERFORMANCE -->
+                <Border Grid.Column="2"
+                        Style="{StaticResource NvCardStyle}"
+                        CornerRadius="0,0,10,10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="44"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="70"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="&#xE950;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="20"
+                                       Foreground="{DynamicResource BlueBrush}"
+                                       Margin="0,0,12,0"/>
+                            <TextBlock Text="Rendimiento del dispositivo"
+                                       FontSize="16"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TextBrush}"/>
+                        </StackPanel>
+
+                        <Grid Grid.Row="1"
+                              Margin="0,4,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="116"/>
+                                <ColumnDefinition Width="1"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Grid Grid.Column="0"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="8"/>
+                                    <RowDefinition Height="104"/>
+                                </Grid.RowDefinitions>
+                                <Border Grid.Row="0"
+                                        Width="20"
+                                        Height="7"
+                                        Background="{DynamicResource TextBrush}"
+                                        CornerRadius="3,3,0,0"
+                                        HorizontalAlignment="Center"/>
+                                <Grid Grid.Row="1">
+                                    <ProgressBar x:Name="BatteryProgress14"
+                                                 Minimum="0"
+                                                 Maximum="100"
+                                                 Value="0"
+                                                 Style="{StaticResource NvBatteryProgressStyle}"/>
+                                    <TextBlock x:Name="BatteryPercentText14"
+                                               Text="--"
+                                               Foreground="{DynamicResource BatteryTextBrush}"
+                                               FontSize="17"
+                                               FontWeight="Bold"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </Grid>
+
+                            <Border Grid.Column="1"
+                                    Background="{DynamicResource BorderBrush}"/>
+
+                            <Grid Grid.Column="2"
+                                  Margin="18,2,0,2">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Grid Grid.Row="0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="60"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="CPU"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1"
+                                                VerticalAlignment="Center">
+                                        <TextBlock x:Name="CpuValueText14"
+                                                   Text="--"
+                                                   Foreground="{DynamicResource BlueDarkBrush}"
+                                                   FontSize="17"
+                                                   FontWeight="Bold"
+                                                   HorizontalAlignment="Right"/>
+                                        <ProgressBar x:Name="CpuProgress14"
+                                                     Minimum="0"
+                                                     Maximum="100"
+                                                     Value="0"
+                                                     Style="{StaticResource NvMetricProgressStyle}"
+                                                     Foreground="{DynamicResource BlueBrush}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Grid.Row="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="60"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="RAM"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1"
+                                                VerticalAlignment="Center">
+                                        <TextBlock x:Name="RamValueText14"
+                                                   Text="--"
+                                                   Foreground="{DynamicResource TextBrush}"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                        <ProgressBar x:Name="RamProgress14"
+                                                     Minimum="0"
+                                                     Maximum="100"
+                                                     Value="0"
+                                                     Style="{StaticResource NvMetricProgressStyle}"
+                                                     Foreground="{DynamicResource BlueBrush}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Grid.Row="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="60"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Temp."
+                                               FontSize="13"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1"
+                                                VerticalAlignment="Center">
+                                        <TextBlock x:Name="TemperatureValueText14"
+                                                   Text="--"
+                                                   Foreground="{DynamicResource CyanBrush}"
+                                                   FontSize="17"
+                                                   FontWeight="Bold"
+                                                   HorizontalAlignment="Right"/>
+                                        <ProgressBar x:Name="TemperatureProgress14"
+                                                     Minimum="0"
+                                                     Maximum="100"
+                                                     Value="0"
+                                                     Style="{StaticResource NvMetricProgressStyle}"
+                                                     Foreground="{DynamicResource CyanBrush}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+
+                        <Button Grid.Row="2"
+                                Click="DeviceFastPerformanceButton_Click"
+                                Style="{StaticResource NvFlatButtonStyle}"
+                                Background="{DynamicResource SuccessBackgroundBrush}"
+                                BorderBrush="{DynamicResource SuccessBorderBrush}"
+                                BorderThickness="1"
+                                Cursor="Hand">
+                            <Grid Margin="14,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="42"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="▥"
+                                           FontSize="20"
+                                           Foreground="{DynamicResource GreenBrush}"
+                                           VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1"
+                                            VerticalAlignment="Center">
+                                    <TextBlock Text="Rendimiento estable"
+                                               FontWeight="Bold"
+                                               FontSize="14"
+                                               Foreground="{DynamicResource SuccessTextBrush}"/>
+                                    <TextBlock x:Name="DeviceFastPerformanceStatusText"
+                                               Text="Toca para ejecutar optimización segura."
+                                               FontSize="11"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </Grid>
+                        </Button>
+
+                        <TextBlock x:Name="_performanceStatus"
+                                   Visibility="Collapsed"/>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Campos de estado internos. No ocupan espacio visual. -->
+            <Grid Visibility="Collapsed">
+                <Ellipse x:Name="VisionEngineStatusDot14"
+                         Width="1"
+                         Height="1"/>
+                <TextBlock x:Name="VisionEngineUiStatusText"/>
+            </Grid>
         </Grid>
     </Border>
 </Window>

@@ -23,7 +23,7 @@ public sealed class ScrcpyService : IDisposable
     }
 
     /// <summary>
-    /// Indica si existe una sesión Scrcpy activa para el dispositivo.
+    /// Indica si existe una sesiÃ³n Scrcpy activa para el dispositivo.
     /// </summary>
     public bool IsRunning(string serial)
     {
@@ -69,7 +69,7 @@ public sealed class ScrcpyService : IDisposable
     }
 
     /// <summary>
-    /// Obtiene el perfil actualmente asociado a una sesión.
+    /// Obtiene el perfil actualmente asociado a una sesiÃ³n.
     /// </summary>
     public OutputProfile? GetProfile(string serial)
     {
@@ -86,7 +86,7 @@ public sealed class ScrcpyService : IDisposable
     /// <summary>
     /// Inicia Scrcpy para un dispositivo.
     ///
-    /// Si ya existe una sesión para ese serial,
+    /// Si ya existe una sesiÃ³n para ese serial,
     /// no crea un segundo proceso.
     /// </summary>
     public Process StartOptimized(
@@ -149,7 +149,7 @@ public sealed class ScrcpyService : IDisposable
             process.Dispose();
 
             throw new InvalidOperationException(
-                "No se pudo registrar la sesión Scrcpy.");
+                "No se pudo registrar la sesiÃ³n Scrcpy.");
         }
 
         process.Exited +=
@@ -162,9 +162,9 @@ public sealed class ScrcpyService : IDisposable
     }
 
     /// <summary>
-    /// Detiene únicamente Scrcpy del dispositivo indicado.
+    /// Detiene Ãºnicamente Scrcpy del dispositivo indicado.
     ///
-    /// No modifica ADB ni Gnirehtet.
+    /// No modifica ADB ni LinkEngine.
     /// </summary>
     public async Task StopAsync(
         string serial,
@@ -193,7 +193,7 @@ public sealed class ScrcpyService : IDisposable
         }
         catch (InvalidOperationException)
         {
-            // El proceso ya terminó.
+            // El proceso ya terminÃ³.
         }
         finally
         {
@@ -202,10 +202,10 @@ public sealed class ScrcpyService : IDisposable
     }
 
     /// <summary>
-    /// Reinicia únicamente Scrcpy del dispositivo indicado
+    /// Reinicia Ãºnicamente Scrcpy del dispositivo indicado
     /// utilizando un nuevo perfil.
     ///
-    /// ADB y Gnirehtet permanecen intactos.
+    /// ADB y LinkEngine permanecen intactos.
     /// </summary>
     public async Task<Process> RestartWithProfileAsync(
         DeviceInfo device,
@@ -239,7 +239,7 @@ public sealed class ScrcpyService : IDisposable
     /// <summary>
     /// Detiene todas las sesiones Scrcpy administradas por NOVORA.
     ///
-    /// No detiene ADB ni Gnirehtet.
+    /// No detiene ADB ni LinkEngine.
     /// </summary>
     public async Task StopAllAsync(
         CancellationToken cancellationToken = default)
@@ -294,7 +294,7 @@ public sealed class ScrcpyService : IDisposable
                 CreateNoWindow =
                     true,
 
-                // CAMBIO AQUÍ: Desactivar redirección para evitar deadlock.
+                // CAMBIO AQUÃ: Desactivar redirecciÃ³n para evitar deadlock.
                 RedirectStandardError =
                     false,
 
@@ -341,7 +341,7 @@ public sealed class ScrcpyService : IDisposable
             "--disable-screensaver");
 
         // ============================================================
-        // POSICIÓN Y TAMAÑO DE LA VENTANA SCRCPY
+        // POSICIÃ“N Y TAMAÃ‘O DE LA VENTANA SCRCPY
         // ============================================================
         //
         // Dejamos margen alrededor de la ventana para garantizar que
@@ -373,7 +373,7 @@ public sealed class ScrcpyService : IDisposable
                 240,
                 (int)(availableHeight * 0.90));
 
-        // Centrar la ventana dentro del área útil del monitor.
+        // Centrar la ventana dentro del Ã¡rea Ãºtil del monitor.
         var windowX =
             monitor.Left +
             ((monitor.Width - windowWidth) / 2);
@@ -420,7 +420,7 @@ public sealed class ScrcpyService : IDisposable
             "--window-title");
 
         startInfo.ArgumentList.Add(
-            $"NOVORA — {model}");
+            $"NOVORA â€” {model}");
 
         if (!audioEnabled)
         {

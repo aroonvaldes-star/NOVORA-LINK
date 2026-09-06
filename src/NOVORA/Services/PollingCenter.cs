@@ -1,4 +1,4 @@
-﻿using NOVORA.Models;
+using NOVORA.Models;
 
 namespace NOVORA.Services;
 
@@ -6,7 +6,7 @@ namespace NOVORA.Services;
 /// Snapshot central del estado dinámico de NOVORA.
 ///
 /// NCP obtiene los datos mediante servicios NOVORA y nunca
-/// ejecuta ADB, scrcpy o Gnirehtet directamente. De esta forma varios widgets
+/// ejecuta ADB o ScreenEngine directamente. De esta forma varios widgets
 /// pueden consumir el mismo resultado sin repetir consultas al dispositivo.
 /// </summary>
 public sealed class NovoraCenterPollingSnapshot : EventArgs

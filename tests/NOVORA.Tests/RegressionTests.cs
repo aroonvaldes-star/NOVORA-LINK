@@ -19,7 +19,7 @@ public sealed class RegressionTests
             Connected = true
         };
 
-        Assert.Equal("SM-A566E • USB", device.DisplayLabel);
+        Assert.Equal("SM-A566E â€¢ USB", device.DisplayLabel);
         Assert.Equal(device.DisplayLabel, device.ToString());
     }
 
@@ -36,7 +36,7 @@ public sealed class RegressionTests
             60,
             false);
 
-        Assert.Equal("Monitor 2 — 1920x1080 @ 60 Hz", monitor.DisplayLabel);
+        Assert.Equal("Monitor 2 â€” 1920x1080 @ 60 Hz", monitor.DisplayLabel);
         Assert.Equal(monitor.DisplayLabel, monitor.ToString());
     }
 
@@ -184,54 +184,5 @@ public sealed class RegressionTests
         Assert.Contains("Dictionary", metricsCache!.FieldType.Name, StringComparison.Ordinal);
         Assert.Equal(typeof(SemaphoreSlim), networkGate?.FieldType);
         Assert.Equal(typeof(SemaphoreSlim), metricsGate?.FieldType);
-    }
-
-    [Fact]
-    public void Gnirehtet_has_explicit_relay_termination_path()
-    {
-        var method = typeof(GnirehtetService).GetMethod(
-            "TerminateRelayAsync",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-
-        Assert.NotNull(method);
-    }
-
-    [Fact]
-    public void MainWindow_wires_Gnirehtet_recovery_with_cooldown()
-    {
-        var recoveryType = typeof(MainWindow).Assembly.GetType("NOVORA.Services.GnirehtetRecoveryService");
-        Assert.NotNull(recoveryType);
-
-        var recoveryField = typeof(MainWindow).GetField(
-            "_gnirehtetRecovery",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        var recoveryTimestamp = typeof(MainWindow).GetField(
-            "_lastRecoveryAttemptUtc",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-
-        Assert.NotNull(recoveryField);
-        Assert.NotNull(recoveryTimestamp);
-    }
-
-    [Fact]
-    public void MainWindow_stop_has_priority_over_play_requirements()
-    {
-        var method = typeof(MainWindow).GetMethod(
-            "ResolveMirroringAction",
-            BindingFlags.Static | BindingFlags.NonPublic);
-
-        Assert.NotNull(method);
-
-        var action = method!.Invoke(
-            null,
-            new object[]
-            {
-                true,  // scrcpy sigue activo
-                false, // el polling ya marcó el dispositivo como no conectado
-                true,  // todavía conocemos el serial
-                false  // el monitor ya no está seleccionado
-            });
-
-        Assert.Equal("Stop", action?.ToString());
     }
 }

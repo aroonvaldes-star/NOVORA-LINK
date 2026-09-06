@@ -1,7 +1,11 @@
+﻿using NOVORA.LinkEngine.Runtime;
 using NOVORA.Models;
 using NOVORA.Services;
 using NOVORA.ViewModels;
+using System;
 using System.ComponentModel;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -10,9 +14,6 @@ namespace NOVORA;
 
 public partial class MainWindow : Window
 {
-    private static readonly TimeSpan RecoveryCooldown =
-        TimeSpan.FromMinutes(2);
-
     private readonly NovoraPaths _paths =
         new();
 
@@ -35,24 +36,14 @@ public partial class MainWindow : Window
 
     private readonly DeviceIdentityService _deviceIdentity;
 
-    private readonly NetworkService _networkService;
-
     private readonly DeviceMetricsService _metricsService;
 
-    private readonly DeviceStateService _deviceState;
-
-    private readonly NCP _pollingCenter;
-
-    private readonly ScrcpyService _scrcpy;
-
-    private readonly GnirehtetService _gnirehtet;
-
-    private readonly GnirehtetRecoveryService _gnirehtetRecovery;
-
-    private DateTimeOffset _lastRecoveryAttemptUtc =
-        DateTimeOffset.MinValue;
-
     private bool _closing;
+
+    private bool _refreshingDevices;
+
+    private bool _informationalPollingSuspended14;
+
 
     public MainWindow()
     {
@@ -62,59 +53,108 @@ public partial class MainWindow : Window
             new AdbService(
                 _paths);
 
+        /*
+         * LinkEngine usa la misma instancia ADB que NOVORA.
+         */
+        InitializeLinkEngineRuntimeLE();
+        InitializeVisionEngineRuntimeVE();
+
         _deviceIdentity =
             new DeviceIdentityService(
                 _adb,
                 _settingsService);
 
-        _networkService =
-            new NetworkService(
-                _adb);
-
         _metricsService =
             new DeviceMetricsService(
                 _adb);
-
-        _deviceState =
-            new DeviceStateService(
-                _networkService,
-                _metricsService);
-
-        /*
-         * NCP sustituye al DispatcherTimer local.
-         *
-         * Un solo centro de polling.
-         * 30 segundos.
-         * Una sola lectura compartida.
-         */
-        _pollingCenter =
-            new NCP(
-                _deviceState,
-                () => _viewModel.Device,
-                TimeSpan.FromSeconds(30));
-
-        _pollingCenter.SnapshotUpdated +=
-            PollingCenter_SnapshotUpdated;
-
-        _scrcpy =
-            new ScrcpyService(
-                _paths);
-
-        _gnirehtet =
-            new GnirehtetService(
-                _paths);
-
-        _gnirehtetRecovery =
-            new GnirehtetRecoveryService(
-                _adb,
-                _gnirehtet);
 
         DataContext =
             _viewModel;
 
         _viewModel.PropertyChanged +=
             ViewModel_PropertyChanged;
+
+        ApplyResponsiveWindowBounds14();
     }
+
+
+    /*
+     * ============================================================
+     * TAMAÑO RESPONSIVO 1.4
+     * ============================================================
+     */
+
+    private void ApplyResponsiveWindowBounds14()
+    {
+        Rect workArea =
+            SystemParameters.WorkArea;
+
+        const double preferredWidth =
+            920d;
+
+        const double preferredHeight =
+            560d;
+
+        const double outerMargin =
+            14d;
+
+        double usableWidth =
+            Math.Max(
+                640d,
+                workArea.Width -
+                outerMargin * 2d);
+
+        double usableHeight =
+            Math.Max(
+                480d,
+                workArea.Height -
+                outerMargin * 2d);
+
+        MinWidth =
+            Math.Min(
+                820d,
+                usableWidth);
+
+        MinHeight =
+            Math.Min(
+                500d,
+                usableHeight);
+
+        Width =
+            Math.Min(
+                preferredWidth,
+                usableWidth);
+
+        Height =
+            Math.Min(
+                preferredHeight,
+                usableHeight);
+
+        MaxWidth =
+            workArea.Width;
+
+        MaxHeight =
+            workArea.Height;
+
+        Left =
+            workArea.Left +
+            Math.Max(
+                0d,
+                (workArea.Width - Width) / 2d);
+
+        Top =
+            workArea.Top +
+            Math.Max(
+                0d,
+                (workArea.Height - Height) / 2d);
+    }
+
+
+    /*
+     * ============================================================
+     * INICIO
+     * ============================================================
+     */
 
     private async void Window_Loaded(
         object sender,
@@ -129,22 +169,30 @@ public partial class MainWindow : Window
             await RefreshDevicesAsync(
                 force: true);
 
+            await InitializeVisionEngineOnLoadedVEAsync();
+
             UpdateOutputProfile();
 
             UpdateRuntimeButtons();
 
-            /*
-             * Start() hace una primera lectura inmediata.
-             * Después continúa cada 30 segundos.
-             */
-            _pollingCenter.Start();
+            await RefreshPerformanceOnceAsync();
         }
         catch (Exception ex)
         {
             _viewModel.ConnectionStatus =
                 ex.Message;
+
+            ResetPerformanceSurface14(
+                "Rendimiento no disponible.");
         }
     }
+
+
+    /*
+     * ============================================================
+     * CONFIGURACION
+     * ============================================================
+     */
 
     private void LoadSettings()
     {
@@ -153,6 +201,17 @@ public partial class MainWindow : Window
 
         _viewModel.AudioEnabled =
             settings.AudioEnabled;
+
+        _viewModel.RefreshAudioOutputOptions(
+            _paths);
+
+        _viewModel.SelectedAudioOutput =
+            settings.AudioEnabled
+                ? settings.SelectedAudioOutput
+                : NOVORA.VisionEngine.Audio.OutputAudioVE.DisabledValueVE;
+
+        _viewModel.VideoPresentationMode =
+            settings.VideoPresentationMode;
 
         _viewModel.Bitrate =
             settings.Bitrate;
@@ -169,6 +228,7 @@ public partial class MainWindow : Window
         ThemeService.Apply(
             settings.Theme);
     }
+
 
     private void LoadMonitors()
     {
@@ -200,11 +260,21 @@ public partial class MainWindow : Window
                 monitors);
     }
 
+
+    /*
+     * ============================================================
+     * DISPOSITIVOS
+     * ============================================================
+     */
+
     private async Task RefreshDevicesAsync(
         bool force)
     {
         try
         {
+            _refreshingDevices =
+                true;
+
             RefreshDevicesButton.IsEnabled =
                 false;
 
@@ -237,21 +307,9 @@ public partial class MainWindow : Window
                     ? "Sin dispositivo Android."
                     : $"{selected.FriendlyName} conectado por {selected.ConnectionType}.";
 
-            _deviceState.Invalidate();
-
-            _pollingCenter.Invalidate();
-
-            _lastRecoveryAttemptUtc =
-                DateTimeOffset.MinValue;
-
             UpdateOutputProfile();
 
             UpdateRuntimeButtons();
-
-            if (_pollingCenter.IsRunning)
-            {
-                await RefreshPollingNowSafeAsync();
-            }
         }
         catch (Exception ex)
         {
@@ -264,339 +322,23 @@ public partial class MainWindow : Window
             _viewModel.ConnectionStatus =
                 ex.Message;
 
+            UpdateOutputProfile();
+
             UpdateRuntimeButtons();
+
+            ResetPerformanceSurface14(
+                "Esperando dispositivo...");
         }
         finally
         {
+            _refreshingDevices =
+                false;
+
             RefreshDevicesButton.IsEnabled =
                 true;
         }
     }
 
-    /*
-     * NCP puede publicar desde un hilo que no es el Dispatcher de WPF.
-     * El evento entra aquí y enviamos únicamente la actualización visual
-     * al hilo de interfaz.
-     */
-    private async void PollingCenter_SnapshotUpdated(
-        object? sender,
-        NovoraCenterPollingSnapshot snapshot)
-    {
-        if (_closing)
-        {
-            return;
-        }
-
-        try
-        {
-            await Dispatcher.InvokeAsync(
-                () =>
-                    ApplyPollingSnapshot(
-                        snapshot));
-
-            if (_closing ||
-                !snapshot.HasDevice ||
-                snapshot.Device is null ||
-                snapshot.Network is null)
-            {
-                return;
-            }
-
-            var device =
-                snapshot.Device;
-
-            var tunnelForThisDevice =
-                _gnirehtet.IsActive &&
-                string.Equals(
-                    _gnirehtet.ActiveSerial,
-                    device.Serial,
-                    StringComparison.OrdinalIgnoreCase);
-
-            /*
-             * Conservamos el recovery que ya tenía MainWindow.
-             * Sólo se activa cuando:
-             *
-             * - Gnirehtet está activo para ESTE dispositivo.
-             * - Internet dejó de responder.
-             * - Se cumple el cooldown.
-             */
-            if (tunnelForThisDevice &&
-                !snapshot.Network.InternetAvailable &&
-                await TryRecoverGnirehtetAsync(
-                    device))
-            {
-                _deviceState.Invalidate(
-                    device.Serial);
-
-                await RefreshPollingNowSafeAsync();
-            }
-        }
-        catch
-        {
-            /*
-             * El polling no debe tumbar la interfaz.
-             */
-        }
-    }
-
-    private void ApplyPollingSnapshot(
-        NovoraCenterPollingSnapshot snapshot)
-    {
-        if (_closing)
-        {
-            return;
-        }
-
-        UpdateRuntimeButtons();
-
-        var device =
-            snapshot.Device;
-
-        if (device is null ||
-            !device.Connected ||
-            string.IsNullOrWhiteSpace(
-                device.Serial))
-        {
-            _redStatus.Text =
-                "Sin dispositivo conectado.";
-
-            _performanceStatus.Text =
-                "Esperando dispositivo...";
-
-            return;
-        }
-
-        ApplyNetworkStatus(
-            device,
-            snapshot.Network,
-            snapshot.Error);
-
-        ApplyPerformanceStatus(
-            snapshot.Metrics,
-            snapshot.Error);
-    }
-
-    private void ApplyNetworkStatus(
-        DeviceInfo device,
-        NetworkStatus? network,
-        string? error)
-    {
-        if (network is null)
-        {
-            _redStatus.Text =
-                string.IsNullOrWhiteSpace(
-                    error)
-                    ? "Estado de red no disponible."
-                    : "Red no disponible · " +
-                      error;
-
-            return;
-        }
-
-        var internet =
-            network.InternetAvailable
-                ? "Internet OK"
-                : "Internet sin respuesta";
-
-        var latency =
-            network.LatencyMs >= 0
-                ? $"{network.LatencyMs} ms"
-                : "—";
-
-        var tunnelForThisDevice =
-            _gnirehtet.IsActive &&
-            string.Equals(
-                _gnirehtet.ActiveSerial,
-                device.Serial,
-                StringComparison.OrdinalIgnoreCase);
-
-        var tunnel =
-            tunnelForThisDevice
-                ? "Internet USB activo"
-                : "Internet USB inactivo";
-
-        _redStatus.Text =
-            $"{device.ConnectionType} · " +
-            $"{internet} · " +
-            $"{latency} · " +
-            $"{tunnel}";
-    }
-
-    private void ApplyPerformanceStatus(
-        DeviceMetrics? metrics,
-        string? error)
-    {
-        if (metrics is null)
-        {
-            _performanceStatus.Text =
-                string.IsNullOrWhiteSpace(
-                    error)
-                    ? "Datos no disponibles."
-                    : "Rendimiento no disponible.";
-
-            return;
-        }
-
-        /*
-         * DeviceMetricsService devuelve KB.
-         *
-         * KB -> MB = / 1024
-         * KB -> GB = / 1024 / 1024
-         */
-        var usedMemoryGb =
-            metrics.UsedMemoryKb /
-            1024d /
-            1024d;
-
-        var totalMemoryGb =
-            metrics.TotalMemoryKb /
-            1024d /
-            1024d;
-
-        var memory =
-            metrics.TotalMemoryKb > 0
-                ? $"RAM {usedMemoryGb:0.00}/{totalMemoryGb:0.00} GB"
-                : "RAM —";
-
-        _performanceStatus.Text =
-            $"CPU {metrics.CpuPercent:0.#}% · " +
-            $"{memory} · " +
-            $"Batería {metrics.BatteryPercent}% · " +
-            $"{metrics.BatteryTemperatureC:0.#} °C";
-    }
-
-    private async Task RefreshPollingNowSafeAsync()
-    {
-        if (_closing)
-        {
-            return;
-        }
-
-        try
-        {
-            await _pollingCenter.RefreshNowAsync();
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (ObjectDisposedException)
-        {
-        }
-        catch (Exception ex)
-        {
-            if (_closing)
-            {
-                return;
-            }
-
-            try
-            {
-                await Dispatcher.InvokeAsync(
-                    () =>
-                        _viewModel.ConnectionStatus =
-                            ex.Message);
-            }
-            catch
-            {
-            }
-        }
-    }
-
-    private async Task<bool> TryRecoverGnirehtetAsync(
-        DeviceInfo device)
-    {
-        if (!_gnirehtet.IsActive ||
-            !string.Equals(
-                _gnirehtet.ActiveSerial,
-                device.Serial,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (DateTimeOffset.UtcNow -
-            _lastRecoveryAttemptUtc <
-            RecoveryCooldown)
-        {
-            return false;
-        }
-
-        _lastRecoveryAttemptUtc =
-            DateTimeOffset.UtcNow;
-
-        try
-        {
-            return await
-                _gnirehtetRecovery.RecoverAsync(
-                    device.Serial);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private void UpdateOutputProfile()
-    {
-        try
-        {
-            if (_viewModel.Device is not
-                { Connected: true } device ||
-                _viewModel.SelectedMonitor is null)
-            {
-                _viewModel.OutputProfile =
-                    null;
-
-                return;
-            }
-
-            _viewModel.OutputProfile =
-                _outputProfileService.Calculate(
-                    device,
-                    _viewModel.SelectedMonitor,
-                    _viewModel.Bitrate,
-                    _viewModel.TargetFps,
-                    _viewModel.MaxSize);
-        }
-        catch
-        {
-            _viewModel.OutputProfile =
-                null;
-        }
-    }
-
-    private void SaveSelection()
-    {
-        var settings =
-            _settingsService.Load();
-
-        settings.SelectedDeviceSerial =
-            _viewModel.Device?.Serial;
-
-        settings.SelectedMonitorLabel =
-            _viewModel.SelectedMonitor?.DisplayLabel;
-
-        settings.SelectedMonitorDeviceName =
-            _viewModel.SelectedMonitor?.DeviceName;
-
-        settings.AudioEnabled =
-            _viewModel.AudioEnabled;
-
-        settings.Bitrate =
-            _viewModel.Bitrate;
-
-        settings.TargetFps =
-            _viewModel.TargetFps;
-
-        settings.MaxSize =
-            _viewModel.MaxSize;
-
-        settings.Theme =
-            _viewModel.Theme;
-
-        _settingsService.Save(
-            settings);
-    }
 
     private async void RefreshDevices_Click(
         object sender,
@@ -604,7 +346,16 @@ public partial class MainWindow : Window
     {
         await RefreshDevicesAsync(
             force: true);
+
+        await RefreshPerformanceOnceAsync();
     }
+
+
+    /*
+     * ============================================================
+     * ADB POR WI-FI
+     * ============================================================
+     */
 
     private async void WifiAdb_Click(
         object sender,
@@ -614,14 +365,34 @@ public partial class MainWindow : Window
             _viewModel.Device;
 
         if (device is null ||
-            !device.Connected ||
-            device.IsWifiConnection)
+            !device.Connected)
         {
             MessageBox.Show(
-                device?.IsWifiConnection == true
-                    ? "El dispositivo ya usa ADB por Wi-Fi."
-                    : "Conecta primero el telÃ©fono por USB.",
-                "NOVORA â€” ADB Wi-Fi",
+                "Conecta primero el tel\u00E9fono por USB.",
+                "NOVORA - ADB Wi-Fi",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            return;
+        }
+
+        if (device.IsWifiConnection)
+        {
+            MessageBox.Show(
+                "El dispositivo ya utiliza ADB por Wi-Fi.",
+                "NOVORA - ADB Wi-Fi",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            return;
+        }
+
+        if (IsLinkEngineActive())
+        {
+            MessageBox.Show(
+                "Det\u00E9n LinkEngine antes de cambiar ADB de USB a Wi-Fi. " +
+                "Despu\u00E9s puedes iniciar LinkEngine nuevamente.",
+                "NOVORA - LinkEngine",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
 
@@ -658,26 +429,26 @@ public partial class MainWindow : Window
             }
 
             _viewModel.ConnectionStatus =
-                "ADB Wi-Fi conectado. Ya puedes retirar el USB.";
+                "ADB por Wi-Fi conectado. Ya puedes retirar el cable USB.";
 
             SaveSelection();
 
-            _deviceState.Invalidate();
+            UpdateOutputProfile();
 
-            _pollingCenter.Invalidate();
+            UpdateRuntimeButtons();
 
-            await RefreshPollingNowSafeAsync();
+            await RefreshPerformanceOnceAsync();
         }
         catch (Exception ex)
         {
             MessageBox.Show(
                 ex.Message,
-                "NOVORA â€” ADB Wi-Fi",
+                "NOVORA - ADB Wi-Fi",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
 
             _viewModel.ConnectionStatus =
-                "ADB Wi-Fi no conectado.";
+                "No se pudo conectar ADB por Wi-Fi.";
         }
         finally
         {
@@ -686,21 +457,36 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Device_SelectionChanged(
+
+    private bool IsLinkEngineActive()
+    {
+        SessionRuntimeLE? session =
+            _linkEngineRuntimeLE?
+                .SessionLE;
+
+        return
+            session is not null &&
+            session.State is not
+                StateRuntimeLE.Stopped and not
+                StateRuntimeLE.Failed;
+    }
+
+
+    /*
+     * ============================================================
+     * SELECCION DE DISPOSITIVO / MONITOR
+     * ============================================================
+     */
+
+    private async void Device_SelectionChanged(
         object sender,
         SelectionChangedEventArgs e)
     {
-        if (_closing)
+        if (_closing ||
+            _refreshingDevices)
         {
             return;
         }
-
-        _deviceState.Invalidate();
-
-        _pollingCenter.Invalidate();
-
-        _lastRecoveryAttemptUtc =
-            DateTimeOffset.MinValue;
 
         UpdateOutputProfile();
 
@@ -708,12 +494,9 @@ public partial class MainWindow : Window
 
         UpdateRuntimeButtons();
 
-        if (_pollingCenter.IsRunning)
-        {
-            _ =
-                RefreshPollingNowSafeAsync();
-        }
+        await RefreshPerformanceOnceAsync();
     }
+
 
     private void Monitor_SelectionChanged(
         object sender,
@@ -724,19 +507,25 @@ public partial class MainWindow : Window
         SaveSelection();
     }
 
+
+    /*
+     * ============================================================
+     * VISIONENGINE
+     * ============================================================
+     */
+
     private async void MainActionButton_Click(
         object sender,
         RoutedEventArgs e)
     {
-        var device =
-            _viewModel.Device;
+        var device = _viewModel.Device;
 
         if (device is null ||
             !device.Connected ||
             _viewModel.SelectedMonitor is null)
         {
             MessageBox.Show(
-                "Selecciona un dispositivo y un monitor.",
+                "Selecciona un dispositivo Android y un monitor de salida.",
                 "NOVORA",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -746,173 +535,259 @@ public partial class MainWindow : Window
 
         try
         {
-            MainActionButton.IsEnabled =
-                false;
-
-            if (_scrcpy.IsRunning(
-                    device.Serial))
-            {
-                await _scrcpy.StopAsync(
-                    device.Serial);
-            }
-            else
-            {
-                UpdateOutputProfile();
-
-                if (_viewModel.OutputProfile is null)
-                {
-                    throw new InvalidOperationException(
-                        "No se pudo calcular el perfil de salida.");
-                }
-
-                _scrcpy.StartOptimized(
-                    device,
-                    _viewModel.SelectedMonitor,
-                    _viewModel.OutputProfile,
-                    _viewModel.AudioEnabled);
-            }
+            MainActionButton.IsEnabled = false;
+            await ToggleVisionEngineVEAsync();
         }
         catch (Exception ex)
         {
             MessageBox.Show(
                 ex.Message,
-                "NOVORA â€” Screen Mirroring",
+                "NOVORA - VisionEngine",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
         finally
         {
-            MainActionButton.IsEnabled =
-                true;
-
+            MainActionButton.IsEnabled = true;
             UpdateRuntimeButtons();
         }
     }
 
-    private async void Gnirehtet_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
-        var device =
-            _viewModel.Device;
 
-        if (device is null ||
-            !device.Connected)
-        {
-            MessageBox.Show(
-                "Selecciona un dispositivo conectado.",
-                "NOVORA â€” Internet USB",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-
-            return;
-        }
-
-        try
-        {
-            InternetUsbButton.IsEnabled =
-                false;
-
-            var activeForThisDevice =
-                _gnirehtet.IsActive &&
-                string.Equals(
-                    _gnirehtet.ActiveSerial,
-                    device.Serial,
-                    StringComparison.OrdinalIgnoreCase);
-
-            if (activeForThisDevice)
-            {
-                await _gnirehtet.StopAsync(
-                    device.Serial);
-
-                _viewModel.GnirehtetStatus =
-                    "Detenido";
-
-                _lastRecoveryAttemptUtc =
-                    DateTimeOffset.MinValue;
-            }
-            else
-            {
-                var result =
-                    await _gnirehtet.StartAsync(
-                        device,
-                        _viewModel.Devices.Count(
-                            item =>
-                                item.Connected));
-
-                _viewModel.GnirehtetStatus =
-                    result.Message;
-
-                if (!result.Success)
-                {
-                    MessageBox.Show(
-                        result.Message,
-                        "NOVORA â€” Internet USB",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
-                }
-                else
-                {
-                    _lastRecoveryAttemptUtc =
-                        DateTimeOffset.UtcNow;
-                }
-            }
-
-            _deviceState.Invalidate(
-                device.Serial);
-
-            await RefreshPollingNowSafeAsync();
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(
-                ex.Message,
-                "NOVORA â€” Internet USB",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-        }
-        finally
-        {
-            InternetUsbButton.IsEnabled =
-                true;
-
-            UpdateRuntimeButtons();
-        }
-    }
+    /*
+     * ============================================================
+     * ESTADO DE BOTONES
+     * ============================================================
+     */
 
     private void UpdateRuntimeButtons()
     {
         var device =
             _viewModel.Device;
 
-        var connected =
-            device is { Connected: true } &&
+        bool connected =
+            device is
+            {
+                Connected: true
+            } &&
             !string.IsNullOrWhiteSpace(
                 device.Serial);
 
-        var mirroring =
+        bool mirroring =
             connected &&
-            _scrcpy.IsRunning(
-                device!.Serial);
-
-        var internetUsb =
-            connected &&
-            _gnirehtet.IsActive &&
-            string.Equals(
-                _gnirehtet.ActiveSerial,
-                device!.Serial,
-                StringComparison.OrdinalIgnoreCase);
+            IsVisionEngineRunningVE();
 
         MainActionButton.Content =
             mirroring
-                ? "⏹️ STOP"
-                : "▶️ PLAY";
+                ? "\u25A0  DETENER"
+                : "\u25B6  INICIAR";
 
-        InternetUsbButton.Content =
-            internetUsb
-                ? "â–   DETENER INTERNET USB"
-                : "INTERNET USB";
+        WifiAdbButton.IsEnabled =
+            connected &&
+            !device!.IsWifiConnection;
+
+        UpdateLinkEngineButtonLE();
     }
+
+
+    /*
+     * ============================================================
+     * PERFIL DE SALIDA
+     * ============================================================
+     */
+
+    private void UpdateOutputProfile()
+    {
+        try
+        {
+            if (_viewModel.Device is not
+                {
+                    Connected: true
+                } device ||
+                _viewModel.SelectedMonitor is null)
+            {
+                _viewModel.OutputProfile =
+                    null;
+
+                return;
+            }
+
+            _viewModel.OutputProfile =
+                _outputProfileService.Calculate(
+                    device,
+                    _viewModel.SelectedMonitor,
+                    _viewModel.Bitrate,
+                    _viewModel.TargetFps,
+                    _viewModel.MaxSize);
+        }
+        catch
+        {
+            _viewModel.OutputProfile =
+                null;
+        }
+    }
+
+
+    /*
+     * ============================================================
+     * RENDIMIENTO
+     * ============================================================
+     *
+     * No crea polling permanente.
+     */
+
+    private async Task RefreshPerformanceOnceAsync()
+    {
+        if (_closing ||
+            _informationalPollingSuspended14)
+        {
+            return;
+        }
+
+        var device =
+            _viewModel.Device;
+
+        if (device is null ||
+            !device.Connected ||
+            string.IsNullOrWhiteSpace(
+                device.Serial))
+        {
+            ResetPerformanceSurface14(
+                "Esperando dispositivo...");
+
+            return;
+        }
+
+        _performanceStatus.Text =
+            "Leyendo rendimiento...";
+
+        SetPerformanceReading14();
+
+        try
+        {
+            DeviceMetrics metrics =
+                await _metricsService.GetAsync(
+                    device);
+
+            if (_closing)
+            {
+                return;
+            }
+
+            ApplyPerformanceStatus(
+                metrics);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!_closing)
+            {
+                ResetPerformanceSurface14(
+                    "Rendimiento no disponible.");
+            }
+        }
+        catch
+        {
+            if (!_closing)
+            {
+                ResetPerformanceSurface14(
+                    "Rendimiento no disponible.");
+            }
+        }
+    }
+
+
+    private void ApplyPerformanceStatus(
+        DeviceMetrics metrics)
+    {
+        double usedMemoryGb =
+            metrics.UsedMemoryKb /
+            1024d /
+            1024d;
+
+        double totalMemoryGb =
+            metrics.TotalMemoryKb /
+            1024d /
+            1024d;
+
+        string cpu =
+            metrics.CpuPercent > 0
+                ? $"CPU {metrics.CpuPercent:0.#}%"
+                : "CPU -";
+
+        string memory =
+            metrics.TotalMemoryKb > 0
+                ? $"RAM {usedMemoryGb:0.00}/{totalMemoryGb:0.00} GB"
+                : "RAM -";
+
+        string battery =
+            metrics.BatteryPercent > 0
+                ? $"Bater\u00EDa {metrics.BatteryPercent}%"
+                : "Bater\u00EDa -";
+
+        string temperature =
+            metrics.BatteryTemperatureC > 0
+                ? $"{metrics.BatteryTemperatureC:0.#} \u00B0C"
+                : "Temperatura -";
+
+        _performanceStatus.Text =
+            $"{cpu} | {memory}\n" +
+            $"{battery} | {temperature}";
+
+        ApplyPerformanceSurface14(metrics);
+    }
+
+
+    /*
+     * ============================================================
+     * GUARDAR SELECCION
+     * ============================================================
+     */
+
+    private void SaveSelection()
+    {
+        var settings =
+            _settingsService.Load();
+
+        settings.SelectedDeviceSerial =
+            _viewModel.Device?.Serial;
+
+        settings.SelectedMonitorLabel =
+            _viewModel.SelectedMonitor?.DisplayLabel;
+
+        settings.SelectedMonitorDeviceName =
+            _viewModel.SelectedMonitor?.DeviceName;
+
+        settings.AudioEnabled =
+            _viewModel.AudioEnabled;
+
+        settings.SelectedAudioOutput =
+            _viewModel.SelectedAudioOutput;
+
+        settings.VideoPresentationMode =
+            _viewModel.VideoPresentationMode;
+
+        settings.Bitrate =
+            _viewModel.Bitrate;
+
+        settings.TargetFps =
+            _viewModel.TargetFps;
+
+        settings.MaxSize =
+            _viewModel.MaxSize;
+
+        settings.Theme =
+            _viewModel.Theme;
+
+        _settingsService.Save(
+            settings);
+    }
+
+
+    /*
+     * ============================================================
+     * VENTANA DE CONFIGURACION
+     * ============================================================
+     */
 
     private void Configuration_Click(
         object sender,
@@ -922,7 +797,8 @@ public partial class MainWindow : Window
             new SettingsWindow(
                 _viewModel)
             {
-                Owner = this
+                Owner =
+                    this
             };
 
         if (window.ShowDialog() == true)
@@ -930,8 +806,17 @@ public partial class MainWindow : Window
             UpdateOutputProfile();
 
             SaveSelection();
+
+            UpdateRuntimeButtons();
         }
     }
+
+
+    /*
+     * ============================================================
+     * ACTUALIZACIONES
+     * ============================================================
+     */
 
     private async void Update_Click(
         object sender,
@@ -945,8 +830,8 @@ public partial class MainWindow : Window
             if (update is null)
             {
                 MessageBox.Show(
-                    $"NOVORA {_updateService.CurrentVersion} ya estÃ¡ actualizado.",
-                    "NOVORA â€” ActualizaciÃ³n",
+                    $"NOVORA {_updateService.CurrentVersion} ya est\u00E1 actualizado.",
+                    "NOVORA - Actualizaci\u00F3n",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
 
@@ -954,8 +839,9 @@ public partial class MainWindow : Window
             }
 
             if (MessageBox.Show(
-                    $"Disponible NOVORA {update.LatestVersion}.\n\nÂ¿Descargar e instalar ahora?",
-                    "NOVORA â€” ActualizaciÃ³n",
+                    $"Disponible NOVORA {update.LatestVersion}.\n\n" +
+                    "\u00BFDescargar e instalar ahora?",
+                    "NOVORA - Actualizaci\u00F3n",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Question)
                 != MessageBoxResult.Yes)
@@ -967,7 +853,7 @@ public partial class MainWindow : Window
                 new Progress<int>(
                     value =>
                         _viewModel.ConnectionStatus =
-                            $"Descargando actualizaciÃ³n... {value}%");
+                            $"Descargando actualizaci\u00F3n... {value}%");
 
             await _updateService.InstallAndRestartAsync(
                 update,
@@ -977,7 +863,7 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 ex.Message,
-                "NOVORA â€” ActualizaciÃ³n",
+                "NOVORA - Actualizaci\u00F3n",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
 
@@ -986,6 +872,13 @@ public partial class MainWindow : Window
         }
     }
 
+
+    /*
+     * ============================================================
+     * VIEWMODEL
+     * ============================================================
+     */
+
     private void ViewModel_PropertyChanged(
         object? sender,
         PropertyChangedEventArgs e)
@@ -993,11 +886,19 @@ public partial class MainWindow : Window
         if (e.PropertyName is
             nameof(MainViewModel.Bitrate)
             or nameof(MainViewModel.TargetFps)
-            or nameof(MainViewModel.MaxSize))
+            or nameof(MainViewModel.MaxSize)
+            or nameof(MainViewModel.AudioEnabled))
         {
             UpdateOutputProfile();
         }
     }
+
+
+    /*
+     * ============================================================
+     * VENTANA
+     * ============================================================
+     */
 
     private void TitleBar_MouseLeftButtonDown(
         object sender,
@@ -1010,6 +911,7 @@ public partial class MainWindow : Window
         }
     }
 
+
     private void Minimize_Click(
         object sender,
         RoutedEventArgs e)
@@ -1018,12 +920,20 @@ public partial class MainWindow : Window
             WindowState.Minimized;
     }
 
+
     private void Close_Click(
         object sender,
         RoutedEventArgs e)
     {
         Close();
     }
+
+
+    /*
+     * ============================================================
+     * CIERRE
+     * ============================================================
+     */
 
     private async void Window_Closing(
         object? sender,
@@ -1043,29 +953,20 @@ public partial class MainWindow : Window
         SaveSelection();
 
         /*
-         * Primero detenemos NCP para que no siga solicitando
-         * métricas mientras cerramos ADB/Gnirehtet/scrcpy.
+         * LinkEngine se detiene primero porque necesita limpiar
+         * el transporte y adb reverse.
          */
         try
         {
-            await _pollingCenter.StopAsync();
+            await ShutdownLinkEngineRuntimeLEAsync();
         }
         catch
         {
         }
 
-        _pollingCenter.SnapshotUpdated -=
-            PollingCenter_SnapshotUpdated;
-
         try
         {
-            await _scrcpy.StopAllAsync();
-
-            if (_gnirehtet.IsActive)
-            {
-                await _gnirehtet.StopAsync(
-                    _gnirehtet.ActiveSerial);
-            }
+            await ShutdownVisionEngineRuntimeVEAsync();
 
             await _adb.StopServerIfNoOtherDevicesAsync(
                 _viewModel.Device?.Serial);
@@ -1073,20 +974,6 @@ public partial class MainWindow : Window
         catch
         {
         }
-
-        _scrcpy.Dispose();
-
-        _gnirehtet.Dispose();
-
-        try
-        {
-            await _pollingCenter.DisposeAsync();
-        }
-        catch
-        {
-        }
-
-        _deviceState.Dispose();
 
         _viewModel.PropertyChanged -=
             ViewModel_PropertyChanged;

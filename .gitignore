@@ -29,3 +29,39 @@ Desktop.ini
 # Runtime tools restored by scripts/Setup-Tools.ps1
 src/NOVORA/Tools/*
 !src/NOVORA/Tools/README.md
+
+# ============================================================
+# NOVORA LOCAL / BUILD / DIAGNOSTICS
+# ============================================================
+
+.vs/
+**/.vs/
+
+**/bin/
+**/obj/
+
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+*.bak
+*.backup
+*.backup.*
+*.old
+*.orig
+*.fixbackup.*
+
+**/*backup*/
+**/*Backup*/
+**/*BACKUP*/
+**/.audio-*-backup-*/
+
+NOVORA-DIAGNOSTICO-*.txt
+NOVORA-*-DIAGNOSTIC*.txt
+NOVORA-*-RUNTIME-*.txt
+NOVORA-*-AUDIO-*.txt
+NOVORA-AUDIO-*.csv
+NOVORA-LATENCIA-*.csv
+
+*.log

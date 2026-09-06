@@ -1,17 +1,16 @@
-# NOVORA-LINK — estructura del repositorio
+# NOVORA-LINK â€” estructura del repositorio
 
 ```text
 NOVORA-LINK/
-├─ .github/workflows/release.yml
-├─ Installer/
-├─ docs/
-├─ scripts/
-├─ src/NOVORA/
-├─ .gitignore
-├─ NOVORA.sln
-└─ README.md
+â”œâ”€ .github/workflows/release.yml
+â”œâ”€ Installer/
+â”œâ”€ docs/
+â”œâ”€ scripts/
+â”œâ”€ src/NOVORA/
+â”œâ”€ .gitignore
+â”œâ”€ NOVORA.sln
+â””â”€ README.md
 ```
 
-`src/NOVORA/Tools/` es la única ruta de ejecución para ADB, scrcpy y Gnirehtet. Los binarios se obtienen con `scripts/Setup-Tools.ps1` y no se guardan en Git.
 
 No versionar: `.vs/`, `bin/`, `obj/`, `Installer/output/`, `artifacts/` ni `*.user`.

@@ -23,10 +23,10 @@ public sealed class MonitorService
                     new MonitorInfo(
                         screen.DeviceName,
                         GetDisplayLabel(screen),
-                        screen.WorkingArea.Left,
-                        screen.WorkingArea.Top,
-                        screen.WorkingArea.Width,
-                        screen.WorkingArea.Height,
+                        screen.Bounds.Left,
+                        screen.Bounds.Top,
+                        screen.Bounds.Width,
+                        screen.Bounds.Height,
                         GetRefreshRate(
                             screen.DeviceName),
                         screen.Primary))
@@ -81,8 +81,6 @@ public sealed class MonitorService
         return 60d;
     }
 
-    // IMPORTANTE:
-    // Este es el ÚNICO StructLayout del archivo.
     [StructLayout(
         LayoutKind.Sequential,
         CharSet = CharSet.Unicode)]

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
@@ -36,6 +36,10 @@ public sealed class NovoraSettings
     public int TargetFps { get; set; } = 60;
 
     public int MaxSize { get; set; } = 1920;
+
+    public string VideoPresentationMode { get; set; } = "Window";
+
+    public string SelectedAudioOutput { get; set; } = "__default__";
 
     // ============================================================
     // APARIENCIA

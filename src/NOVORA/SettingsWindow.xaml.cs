@@ -1,3 +1,4 @@
+﻿using NOVORA.Models;
 using NOVORA.Services;
 using NOVORA.ViewModels;
 using System.ComponentModel;
@@ -8,52 +9,75 @@ namespace NOVORA;
 
 public partial class SettingsWindow : Window
 {
-    private readonly SettingsService _settingsService = new();
+    private readonly SettingsService _settingsService =
+        new();
+
     private readonly MainViewModel _viewModel;
+
+    private readonly NovoraPaths _paths =
+        new();
 
     private readonly (
         bool Audio,
+        string AudioOutput,
         string Bitrate,
         int Fps,
         int Size,
-        string Theme
+        string Theme,
+        string PresentationMode,
+        MonitorInfo? Monitor
     ) _original;
 
     private bool _themeInitialized;
     private bool _committed;
     private bool _rollingBack;
 
-    public SettingsWindow(MainViewModel viewModel)
+    public SettingsWindow(
+        MainViewModel viewModel)
     {
         InitializeComponent();
 
-        _viewModel = viewModel
-            ?? throw new ArgumentNullException(nameof(viewModel));
+        _viewModel =
+            viewModel
+            ?? throw new ArgumentNullException(
+                nameof(viewModel));
 
-        _original = (
+        _original =
+        (
             _viewModel.AudioEnabled,
+            _viewModel.SelectedAudioOutput,
             _viewModel.Bitrate,
             _viewModel.TargetFps,
             _viewModel.MaxSize,
-            _viewModel.Theme
+            _viewModel.Theme,
+            _viewModel.VideoPresentationMode,
+            _viewModel.SelectedMonitor
         );
 
-        DataContext = _viewModel;
+        DataContext =
+            _viewModel;
 
         _viewModel.RefreshOutputCapabilityOptions();
 
-        ThemeService.Apply(_viewModel.Theme);
+        _viewModel.RefreshAudioOutputOptions(
+            _paths);
 
-        _themeInitialized = true;
+        ThemeService.Apply(
+            _viewModel.Theme);
+
+        _themeInitialized =
+            true;
     }
 
     private void Theme_SelectionChanged(
         object sender,
         SelectionChangedEventArgs e)
     {
-        if (_themeInitialized && !_rollingBack)
+        if (_themeInitialized &&
+            !_rollingBack)
         {
-            ThemeService.Apply(_viewModel.Theme);
+            ThemeService.Apply(
+                _viewModel.Theme);
         }
     }
 
@@ -63,10 +87,17 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            var settings = _settingsService.Load();
+            var settings =
+                _settingsService.Load();
 
             settings.AudioEnabled =
                 _viewModel.AudioEnabled;
+
+            settings.SelectedAudioOutput =
+                _viewModel.SelectedAudioOutput;
+
+            settings.VideoPresentationMode =
+                _viewModel.VideoPresentationMode;
 
             settings.SelectedMonitorLabel =
                 _viewModel.SelectedMonitor?.DisplayLabel;
@@ -89,13 +120,17 @@ public partial class SettingsWindow : Window
             settings.Theme =
                 _viewModel.Theme;
 
-            _settingsService.Save(settings);
+            _settingsService.Save(
+                settings);
 
-            ThemeService.Apply(_viewModel.Theme);
+            ThemeService.Apply(
+                _viewModel.Theme);
 
-            _committed = true;
+            _committed =
+                true;
 
-            DialogResult = true;
+            DialogResult =
+                true;
 
             Close();
         }
@@ -115,9 +150,11 @@ public partial class SettingsWindow : Window
     {
         RollbackLiveSettings();
 
-        _committed = true;
+        _committed =
+            true;
 
-        DialogResult = false;
+        DialogResult =
+            false;
 
         Close();
     }
@@ -127,24 +164,33 @@ public partial class SettingsWindow : Window
         CancelEventArgs e)
     {
         if (_committed)
+        {
             return;
+        }
 
         RollbackLiveSettings();
 
-        _committed = true;
+        _committed =
+            true;
     }
 
     private void RollbackLiveSettings()
     {
         if (_rollingBack)
+        {
             return;
+        }
 
-        _rollingBack = true;
+        _rollingBack =
+            true;
 
         try
         {
             _viewModel.AudioEnabled =
                 _original.Audio;
+
+            _viewModel.SelectedAudioOutput =
+                _original.AudioOutput;
 
             _viewModel.Bitrate =
                 _original.Bitrate;
@@ -158,12 +204,19 @@ public partial class SettingsWindow : Window
             _viewModel.Theme =
                 _original.Theme;
 
+            _viewModel.VideoPresentationMode =
+                _original.PresentationMode;
+
+            _viewModel.SelectedMonitor =
+                _original.Monitor;
+
             ThemeService.Apply(
                 _original.Theme);
         }
         finally
         {
-            _rollingBack = false;
+            _rollingBack =
+                false;
         }
     }
 }
