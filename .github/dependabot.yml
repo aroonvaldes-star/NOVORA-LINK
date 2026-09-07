@@ -1,0 +1,50 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: "America/Mexico_City"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - security
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: nuget
+    directory: "/src/NOVORA"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:30"
+      timezone: "America/Mexico_City"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - dotnet
+    groups:
+      novora-dotnet:
+        patterns:
+          - "*"
+
+  - package-ecosystem: nuget
+    directory: "/tests/NOVORA.Tests"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:45"
+      timezone: "America/Mexico_City"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - dotnet
+    groups:
+      novora-tests-dotnet:
+        patterns:
+          - "*"
