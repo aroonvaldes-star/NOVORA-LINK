@@ -20,6 +20,9 @@ La solución estable principal está en:
 
 ## NOVORA-LINK 1.3 vs 1.4
 
+<img width="1362" height="831" alt="image" src="https://github.com/user-attachments/assets/3a4300e0-5d99-461b-8c45-54bf0ca7a1f9" />
+
+
 La versión 1.4 no es solamente un cambio visual. El trabajo actual busca trasladar funciones principales de NOVORA hacia motores desarrollados específicamente para el proyecto y reducir dependencias externas en el funcionamiento central.
 
 | Área | NOVORA-LINK 1.3 | NOVORA-LINK 1.4 |
