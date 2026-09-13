@@ -1,4 +1,4 @@
-﻿<Window
+<Window
     x:Class="NOVORA.SettingsWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -357,7 +357,6 @@
                             </ComboBox>
                         </Grid>
                     </Border>
-
                     <!-- DESCRIPCION -->
 
                     <TextBlock
@@ -422,6 +421,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <TextBlock
@@ -431,8 +431,18 @@
                     Foreground="{DynamicResource MutedBrush}"
                     VerticalAlignment="Center"/>
 
-                <Button
+                <CheckBox
+                    x:Name="StartWithWindowsCheckBox"
                     Grid.Column="1"
+                    Margin="0,0,18,0"
+                    VerticalAlignment="Center"
+                    IsChecked="True"
+                    Content="Iniciar con Windows"
+                    Foreground="{DynamicResource TextBrush}"
+                    ToolTip="Iniciar NOVORA automáticamente 5 segundos después de entrar a Windows"/>
+
+                <Button
+                    Grid.Column="2"
                     Content="Guardar cambios"
                     Width="150"
                     Height="42"

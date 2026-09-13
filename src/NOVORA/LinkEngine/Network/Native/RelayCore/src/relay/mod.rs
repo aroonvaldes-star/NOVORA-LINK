@@ -37,6 +37,7 @@ mod relay;
 mod router;
 mod selector;
 mod stream_buffer;
+mod traffic_engine;
 mod tcp_connection;
 mod tcp_header;
 mod transport_header;

@@ -1,4 +1,5 @@
 using NOVORA.Models;
+using NOVORA.VisionEngine.Exchange;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Forms = System.Windows.Forms;
@@ -9,16 +10,40 @@ namespace NOVORA.VisionEngine.Renderer;
 /// Ventana dedicada de presentación de VisionEngine.
 ///
 /// Usa SetWindowPos con coordenadas físicas de Win32 para no mezclar
-/// píxeles de Screen.Bounds con DIPs de WPF. Esto permite fullscreen real
-/// en monitores secundarios y configuraciones con escalado DPI.
+/// píxeles de Screen.Bounds con DIPs de WPF.
+///
+/// También propaga Drag & Drop desde HostRendererVE hacia
+/// MainWindow.VisionEngineVE.
+///
+/// Importante:
+/// SetWindowPos se mantiene mediante DllImport.
+/// Esta llamada sólo participa al posicionar la ventana y
+/// no forma parte del hot-path de video/render de VisionEngine.
 /// </summary>
 public sealed class WindowRendererVE : System.Windows.Window
 {
-    private const uint SwpNoZOrderVE = 0x0004;
-    private const uint SwpNoActivateVE = 0x0010;
-    private const uint SwpFrameChangedVE = 0x0020;
-    private const uint SwpShowWindowVE = 0x0040;
-    private const uint SwpNoOwnerZOrderVE = 0x0200;
+    // ============================================================
+    // WIN32 CONSTANTS
+    // ============================================================
+
+    private const uint SwpNoZOrderVE =
+        0x0004;
+
+    private const uint SwpNoActivateVE =
+        0x0010;
+
+    private const uint SwpFrameChangedVE =
+        0x0020;
+
+    private const uint SwpShowWindowVE =
+        0x0040;
+
+    private const uint SwpNoOwnerZOrderVE =
+        0x0200;
+
+    // ============================================================
+    // STATE
+    // ============================================================
 
     private readonly MonitorInfo _monitorVE;
     private readonly bool _fullscreenVE;
@@ -27,11 +52,17 @@ public sealed class WindowRendererVE : System.Windows.Window
     private int _targetTopVE;
     private int _targetWidthVE;
     private int _targetHeightVE;
+
     private bool _allowCloseVE;
+
+    // ============================================================
+    // WIN32
+    // ============================================================
 
     [DllImport(
         "user32.dll",
-        SetLastError = true)]
+        SetLastError = true,
+        ExactSpelling = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetWindowPos(
         IntPtr hWnd,
@@ -42,14 +73,19 @@ public sealed class WindowRendererVE : System.Windows.Window
         int height,
         uint flags);
 
+    // ============================================================
+    // CONSTRUCTOR
+    // ============================================================
+
     public WindowRendererVE(
         MonitorInfo monitor,
         bool fullscreen)
     {
+        ArgumentNullException.ThrowIfNull(
+            monitor);
+
         _monitorVE =
-            monitor
-            ?? throw new ArgumentNullException(
-                nameof(monitor));
+            monitor;
 
         _fullscreenVE =
             fullscreen;
@@ -63,6 +99,10 @@ public sealed class WindowRendererVE : System.Windows.Window
                 VerticalAlignment =
                     System.Windows.VerticalAlignment.Stretch
             };
+
+        // ========================================================
+        // WINDOW
+        // ========================================================
 
         Title =
             "NOVORA-LINK — VisionEngine";
@@ -85,8 +125,29 @@ public sealed class WindowRendererVE : System.Windows.Window
         WindowState =
             System.Windows.WindowState.Normal;
 
+        // ========================================================
+        // HOST INPUT
+        // ========================================================
+
         HostVE.KeyDownVE +=
             HostVE_KeyDownVE;
+
+        // ========================================================
+        // HOST DRAG & DROP
+        // ========================================================
+
+        HostVE.FilesDroppedVE +=
+            HostVE_FilesDroppedVE;
+
+        HostVE.DragEnteredVE +=
+            HostVE_DragEnteredVE;
+
+        HostVE.DragEndedVE +=
+            HostVE_DragEndedVE;
+
+        // ========================================================
+        // WINDOW EVENTS
+        // ========================================================
 
         PreviewKeyDown +=
             WindowRendererVE_PreviewKeyDown;
@@ -103,15 +164,50 @@ public sealed class WindowRendererVE : System.Windows.Window
         ConfigurePresentationVE();
     }
 
-    public event EventHandler? CloseRequestedVE;
+    // ============================================================
+    // EVENTS
+    // ============================================================
 
-    public HostRendererVE HostVE { get; }
+    public event EventHandler?
+        CloseRequestedVE;
+
+    /// <summary>
+    /// Archivos/carpetas soltados directamente sobre
+    /// la superficie de VisionEngine.
+    /// </summary>
+    public event EventHandler<FilesDroppedEventArgsVE>?
+        FilesDroppedVE;
+
+    /// <summary>
+    /// Un Drag compatible entró a VisionEngine.
+    /// </summary>
+    public event EventHandler?
+        DragEnteredVE;
+
+    /// <summary>
+    /// El Drag terminó o abandonó VisionEngine.
+    /// </summary>
+    public event EventHandler?
+        DragEndedVE;
+
+    // ============================================================
+    // PROPERTIES
+    // ============================================================
+
+    public HostRendererVE HostVE
+    {
+        get;
+    }
 
     public bool IsFullscreenVE =>
         _fullscreenVE;
 
     public MonitorInfo MonitorVE =>
         _monitorVE;
+
+    // ============================================================
+    // OWNER CLOSE
+    // ============================================================
 
     public void CloseFromOwnerVE()
     {
@@ -134,38 +230,60 @@ public sealed class WindowRendererVE : System.Windows.Window
         }
     }
 
+    // ============================================================
+    // PRESENTATION CONFIGURATION
+    // ============================================================
+
     private void ConfigurePresentationVE()
     {
         if (_fullscreenVE)
         {
-            WindowStyle =
-                System.Windows.WindowStyle.None;
-
-            ResizeMode =
-                System.Windows.ResizeMode.NoResize;
-
-            Topmost =
-                false;
-
-            _targetLeftVE =
-                _monitorVE.Left;
-
-            _targetTopVE =
-                _monitorVE.Top;
-
-            _targetWidthVE =
-                Math.Max(
-                    1,
-                    _monitorVE.Width);
-
-            _targetHeightVE =
-                Math.Max(
-                    1,
-                    _monitorVE.Height);
+            ConfigureFullscreenVE();
 
             return;
         }
 
+        ConfigureWindowedVE();
+    }
+
+    // ============================================================
+    // FULLSCREEN
+    // ============================================================
+
+    private void ConfigureFullscreenVE()
+    {
+        WindowStyle =
+            System.Windows.WindowStyle.None;
+
+        ResizeMode =
+            System.Windows.ResizeMode.NoResize;
+
+        Topmost =
+            false;
+
+        _targetLeftVE =
+            _monitorVE.Left;
+
+        _targetTopVE =
+            _monitorVE.Top;
+
+        _targetWidthVE =
+            Math.Max(
+                1,
+                _monitorVE.Width);
+
+        _targetHeightVE =
+            Math.Max(
+                1,
+                _monitorVE.Height);
+    }
+
+    // ============================================================
+    // WINDOWED
+    // ============================================================
+
+    private void ConfigureWindowedVE()
+    {
         WindowStyle =
             System.Windows.WindowStyle.SingleBorderWindow;
 
@@ -188,25 +306,37 @@ public sealed class WindowRendererVE : System.Windows.Window
                 _monitorVE.Height * 0.78,
                 MidpointRounding.AwayFromZero);
 
+        int minimumWidth =
+            Math.Min(
+                480,
+                _monitorVE.Width);
+
+        int maximumWidth =
+            Math.Max(
+                480,
+                _monitorVE.Width);
+
+        int minimumHeight =
+            Math.Min(
+                320,
+                _monitorVE.Height);
+
+        int maximumHeight =
+            Math.Max(
+                320,
+                _monitorVE.Height);
+
         width =
             Math.Clamp(
                 width,
-                Math.Min(
-                    480,
-                    _monitorVE.Width),
-                Math.Max(
-                    480,
-                    _monitorVE.Width));
+                minimumWidth,
+                maximumWidth);
 
         height =
             Math.Clamp(
                 height,
-                Math.Min(
-                    320,
-                    _monitorVE.Height),
-                Math.Max(
-                    320,
-                    _monitorVE.Height));
+                minimumHeight,
+                maximumHeight);
 
         _targetWidthVE =
             width;
@@ -227,6 +357,10 @@ public sealed class WindowRendererVE : System.Windows.Window
                 (_monitorVE.Height - height) / 2);
     }
 
+    // ============================================================
+    // SOURCE INITIALIZED
+    // ============================================================
+
     private void WindowRendererVE_SourceInitialized(
         object? sender,
         EventArgs e)
@@ -234,21 +368,33 @@ public sealed class WindowRendererVE : System.Windows.Window
         ApplyBoundsVE();
     }
 
+    // ============================================================
+    // LOADED
+    // ============================================================
+
     private void WindowRendererVE_Loaded(
         object sender,
         System.Windows.RoutedEventArgs e)
     {
         ApplyBoundsVE();
+
         Activate();
+
         HostVE.FocusInputVE();
     }
 
+    // ============================================================
+    // APPLY BOUNDS
+    // ============================================================
+
     private void ApplyBoundsVE()
     {
+        System.Windows.Interop.WindowInteropHelper helper =
+            new(
+                this);
+
         IntPtr handle =
-            new System.Windows.Interop.WindowInteropHelper(
-                this)
-                .Handle;
+            helper.Handle;
 
         if (handle == IntPtr.Zero)
         {
@@ -262,26 +408,39 @@ public sealed class WindowRendererVE : System.Windows.Window
             SwpShowWindowVE |
             SwpNoOwnerZOrderVE;
 
-        if (!SetWindowPos(
+        bool success =
+            SetWindowPos(
                 handle,
                 IntPtr.Zero,
                 _targetLeftVE,
                 _targetTopVE,
                 _targetWidthVE,
                 _targetHeightVE,
-                flags))
+                flags);
+
+        if (success)
         {
-            throw new Win32Exception(
-                Marshal.GetLastWin32Error(),
-                "No se pudo posicionar la ventana VisionEngine.");
+            return;
         }
+
+        int error =
+            Marshal.GetLastWin32Error();
+
+        throw new Win32Exception(
+            error,
+            "No se pudo posicionar la ventana VisionEngine.");
     }
+
+    // ============================================================
+    // HOST KEYBOARD
+    // ============================================================
 
     private void HostVE_KeyDownVE(
         object? sender,
         Forms.KeyEventArgs e)
     {
-        if (e.KeyCode !=
+        if (
+            e.KeyCode !=
             Forms.Keys.Escape)
         {
             return;
@@ -298,11 +457,16 @@ public sealed class WindowRendererVE : System.Windows.Window
             EventArgs.Empty);
     }
 
+    // ============================================================
+    // WPF KEYBOARD
+    // ============================================================
+
     private void WindowRendererVE_PreviewKeyDown(
         object sender,
         System.Windows.Input.KeyEventArgs e)
     {
-        if (e.Key !=
+        if (
+            e.Key !=
             System.Windows.Input.Key.Escape)
         {
             return;
@@ -315,6 +479,54 @@ public sealed class WindowRendererVE : System.Windows.Window
             this,
             EventArgs.Empty);
     }
+
+    // ============================================================
+    // DRAG & DROP BRIDGE
+    // ============================================================
+
+    private void HostVE_FilesDroppedVE(
+        object? sender,
+        FilesDroppedEventArgsVE e)
+    {
+        /*
+         * WindowRendererVE sólo propaga el evento.
+         *
+         * Aquí NO:
+         *
+         * - hacemos adb push
+         * - consultamos serial
+         * - consultamos DeviceIdentityService
+         * - iniciamos polling
+         *
+         * MainWindow.VisionEngineVE recibe el evento
+         * y usa el serial almacenado de la sesión.
+         */
+        FilesDroppedVE?.Invoke(
+            this,
+            e);
+    }
+
+    private void HostVE_DragEnteredVE(
+        object? sender,
+        EventArgs e)
+    {
+        DragEnteredVE?.Invoke(
+            this,
+            EventArgs.Empty);
+    }
+
+    private void HostVE_DragEndedVE(
+        object? sender,
+        EventArgs e)
+    {
+        DragEndedVE?.Invoke(
+            this,
+            EventArgs.Empty);
+    }
+
+    // ============================================================
+    // CLOSING
+    // ============================================================
 
     private void WindowRendererVE_Closing(
         object? sender,
@@ -333,11 +545,36 @@ public sealed class WindowRendererVE : System.Windows.Window
             EventArgs.Empty);
     }
 
+    // ============================================================
+    // CLOSED
+    // ============================================================
+
     protected override void OnClosed(
         EventArgs e)
     {
+        // ========================================================
+        // INPUT
+        // ========================================================
+
         HostVE.KeyDownVE -=
             HostVE_KeyDownVE;
+
+        // ========================================================
+        // DRAG & DROP
+        // ========================================================
+
+        HostVE.FilesDroppedVE -=
+            HostVE_FilesDroppedVE;
+
+        HostVE.DragEnteredVE -=
+            HostVE_DragEnteredVE;
+
+        HostVE.DragEndedVE -=
+            HostVE_DragEndedVE;
+
+        // ========================================================
+        // WINDOW
+        // ========================================================
 
         PreviewKeyDown -=
             WindowRendererVE_PreviewKeyDown;
@@ -351,6 +588,7 @@ public sealed class WindowRendererVE : System.Windows.Window
         Loaded -=
             WindowRendererVE_Loaded;
 
-        base.OnClosed(e);
+        base.OnClosed(
+            e);
     }
 }

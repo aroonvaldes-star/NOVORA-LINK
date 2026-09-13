@@ -1,4 +1,4 @@
-﻿using NOVORA.Services;
+using NOVORA.Services;
 using NOVORA.VisionEngine.Protocol;
 using NOVORA.VisionEngine.Transport;
 using System.Net.Sockets;
@@ -33,6 +33,7 @@ public sealed class ManagerAudioVE : IAsyncDisposable
     private string _selectedOutputVE =
         OutputAudioVE.DefaultValueVE;
 
+    private int _privacyProtectedVE;
     private bool _disposedVE;
 
     public ManagerAudioVE(
@@ -81,6 +82,26 @@ public sealed class ManagerAudioVE : IAsyncDisposable
         {
             ChangeOutputVE(
                 value);
+        }
+    }
+
+    public bool IsPrivacyProtectedVE =>
+        Volatile.Read(ref _privacyProtectedVE) != 0;
+
+    public void SetPrivacyProtectedVE(bool protectedVE)
+    {
+        int next = protectedVE ? 1 : 0;
+        int previous = Interlocked.Exchange(ref _privacyProtectedVE, next);
+        if (previous == next || !protectedVE)
+            return;
+
+        PlayerAudioVE? player;
+        lock (_gateVE) player = _playerVE;
+
+        if (player is not null)
+        {
+            try { player.ClearQueuedAudioVE(); }
+            catch { }
         }
     }
 
@@ -430,7 +451,11 @@ public sealed class ManagerAudioVE : IAsyncDisposable
                             _playerVE;
                     }
 
+                    bool expose =
+                        Volatile.Read(ref _privacyProtectedVE) == 0;
+
                     if (
+                        expose &&
                         currentPlayer is not null
                     )
                     {
@@ -452,9 +477,12 @@ public sealed class ManagerAudioVE : IAsyncDisposable
                         }
                     }
 
-                    FrameDecodedVE?.Invoke(
-                        this,
-                        frame);
+                    if (expose)
+                    {
+                        FrameDecodedVE?.Invoke(
+                            this,
+                            frame);
+                    }
                 }
 
                 PublishSnapshotVE(

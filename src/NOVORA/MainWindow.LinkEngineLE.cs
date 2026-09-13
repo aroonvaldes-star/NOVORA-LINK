@@ -117,7 +117,7 @@ public partial class MainWindow
             false;
 
         LinkEngineTestButton.Content =
-            "STARTING...";
+            "CONECTANDO...";
 
         LinkEngineDeviceStatus.Text =
             $"ADB: CONNECTING - Conexion: {device.ConnectionType}";
@@ -133,6 +133,18 @@ public partial class MainWindow
 
         LinkEngineResultStatus.Text =
             "LE-006 - iniciando ManagerRuntimeLE...";
+
+        LinkEngineFriendlyConnectionStatus.Text =
+            "Conectando...";
+
+        LinkEngineFriendlyPhoneStatus.Text =
+            "Conectado";
+
+        LinkEngineFriendlyUsbStatus.Text =
+            "Preparando...";
+
+        LinkEngineFriendlyRecoveryStatus.Text =
+            "En espera";
 
         try
         {
@@ -236,7 +248,8 @@ public partial class MainWindow
      * ============================================================
      */
 
-    private async Task StopLinkEngineRuntimeFromUiLEAsync()
+    private async Task StopLinkEngineRuntimeFromUiLEAsync(
+        bool stopAndroidVpnLE = true)
     {
         ManagerRuntimeLE? runtime =
             _linkEngineRuntimeLE;
@@ -263,7 +276,9 @@ public partial class MainWindow
             "STOPPING...";
 
         LinkEngineResultStatus.Text =
-            "STOPPING - desmontando VPN Android y LinkEngine Runtime...";
+            stopAndroidVpnLE
+                ? "STOPPING - desmontando VPN Android y LinkEngine Runtime..."
+                : "STOPPING - Android ya desmontó VPN; cerrando LinkEngine Runtime...";
 
         /*
          * Guardamos el serial ANTES de StopAsync(), porque el runtime
@@ -289,7 +304,8 @@ public partial class MainWindow
             ResultCoreLE? androidStopResult =
                 null;
 
-            if (!string.IsNullOrWhiteSpace(
+            if (stopAndroidVpnLE &&
+                !string.IsNullOrWhiteSpace(
                     serial))
             {
                 ProvisioningDeviceLE provisioning =
@@ -324,8 +340,9 @@ public partial class MainWindow
                 return;
             }
 
-            if (androidStopResult is
-                { Success: false })
+            if (stopAndroidVpnLE &&
+                androidStopResult is
+                    { Success: false })
             {
                 ApplyLinkEngineFailedUiLE(
                     androidStopResult.Message);
@@ -385,6 +402,8 @@ public partial class MainWindow
 
         try
         {
+            RefreshSTEngineSnapshot14();
+
             if (Dispatcher.CheckAccess())
             {
                 ApplyLinkEngineRuntimeSessionLE(
@@ -490,7 +509,87 @@ public partial class MainWindow
             BuildRuntimeResultTextLE(
                 session);
 
+        ApplyFriendlyLinkEngineStatusLE(
+            session);
+
         UpdateLinkEngineButtonLE();
+    }
+
+    /*
+     * ============================================================
+     * FRIENDLY MAINWINDOW STATUS
+     * ============================================================
+     */
+
+    private void ApplyFriendlyLinkEngineStatusLE(
+        SessionRuntimeLE session)
+    {
+        LinkEngineFriendlyConnectionStatus.Text =
+            session.State switch
+            {
+                StateRuntimeLE.Running
+                    when session.SessionHealthy =>
+                        "Activa",
+
+                StateRuntimeLE.Degraded =>
+                    "Reconectando...",
+
+                StateRuntimeLE.Failed =>
+                    "No se pudo conectar",
+
+                StateRuntimeLE.Stopped =>
+                    "Detenida",
+
+                StateRuntimeLE.Stopping =>
+                    "Deteniendo...",
+
+                _ =>
+                    "Conectando..."
+            };
+
+        LinkEngineFriendlyPhoneStatus.Text =
+            session.DeviceOnline
+                ? "Conectado"
+                : "Sin comunicación";
+
+        bool usbReady =
+            session.DeviceOnline &&
+            session.ReverseVerified &&
+            session.ListenerStarted &&
+            session.ClientConnected &&
+            session.HandshakeVerified;
+
+        LinkEngineFriendlyUsbStatus.Text =
+            usbReady
+                ? "Activo"
+                : session.DeviceOnline &&
+                  session.State is not
+                      StateRuntimeLE.Failed and not
+                      StateRuntimeLE.Stopped
+                    ? "Preparando..."
+                    : "No disponible";
+
+        LinkEngineFriendlyRecoveryStatus.Text =
+            session.RecoveryState switch
+            {
+                RecoveryMonitorStateLE.RecoveringSocket =>
+                    "Reconectando...",
+
+                RecoveryMonitorStateLE.RecoveringInfrastructure =>
+                    "Reconectando...",
+
+                RecoveryMonitorStateLE.WaitingForDevice =>
+                    "Esperando teléfono",
+
+                RecoveryMonitorStateLE.Failed =>
+                    "Necesita atención",
+
+                RecoveryMonitorStateLE.Degraded =>
+                    "Revisando...",
+
+                _ =>
+                    "En espera"
+            };
     }
 
     /*
@@ -657,8 +756,8 @@ public partial class MainWindow
 
         LinkEngineTestButton.Content =
             active
-                ? "STOP LINKENGINE"
-                : "START LINKENGINE";
+                ? "DETENER INTERNET"
+                : "INTERNET POR USB";
 
         LinkEngineTestButton.IsEnabled =
             true;
@@ -692,6 +791,20 @@ public partial class MainWindow
         LinkEngineResultStatus.Text =
             "STOPPED - Runtime detenido - listo para iniciar LinkEngine.";
 
+        LinkEngineFriendlyConnectionStatus.Text =
+            "Detenida";
+
+        LinkEngineFriendlyPhoneStatus.Text =
+            _viewModel.Device?.Connected == true
+                ? "Conectado"
+                : "No detectado";
+
+        LinkEngineFriendlyUsbStatus.Text =
+            "No iniciado";
+
+        LinkEngineFriendlyRecoveryStatus.Text =
+            "En espera";
+
         UpdateLinkEngineButtonLE();
     }
 
@@ -711,6 +824,15 @@ public partial class MainWindow
 
         LinkEngineResultStatus.Text =
             $"FAILED - {message}";
+
+        LinkEngineFriendlyConnectionStatus.Text =
+            "No se pudo conectar";
+
+        LinkEngineFriendlyUsbStatus.Text =
+            "No disponible";
+
+        LinkEngineFriendlyRecoveryStatus.Text =
+            "En espera";
 
         UpdateLinkEngineButtonLE();
     }

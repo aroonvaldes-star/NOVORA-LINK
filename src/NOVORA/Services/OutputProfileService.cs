@@ -15,7 +15,7 @@ public sealed class OutputProfileService
     public OutputProfile Calculate(
         DeviceInfo device,
         MonitorInfo? monitor,
-        string bitrate = "10M",
+        string bitrate = "4M",
         int? targetFps = null,
         int? maxSize = null)
     {
@@ -210,6 +210,7 @@ public sealed class OutputProfileService
             "2M",
             "3M",
             "4M",
+            "5M",
             "6M",
             "8M",
             "10M",
@@ -380,7 +381,7 @@ public sealed class OutputProfileService
     {
         if (string.IsNullOrWhiteSpace(bitrate))
         {
-            return "10M";
+            return "4M";
         }
 
         string value =

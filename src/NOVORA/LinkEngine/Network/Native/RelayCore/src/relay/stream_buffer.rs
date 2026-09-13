@@ -52,6 +52,51 @@ impl StreamBuffer {
         self.capacity() - self.size()
     }
 
+    /*
+     * NOVORA_TRAFFIC_ENGINE_V1_3
+     *
+     * Same ring-buffer semantics as write_to(),
+     * but exposes at most `limit` contiguous bytes.
+     */
+    pub fn write_to_limited<W: io::Write>(
+        &mut self,
+        destination: &mut W,
+        limit: usize,
+    ) -> io::Result<usize> {
+        if self.head == self.tail || limit == 0 {
+            return Ok(0);
+        }
+
+        let available =
+            if self.head > self.tail {
+                self.head - self.tail
+            } else {
+                self.buf.len() - self.tail
+            };
+
+        let bytes_to_offer =
+            available.min(limit);
+
+        let source_slice =
+            &self.buf[
+                self.tail
+                    ..
+                self.tail + bytes_to_offer
+            ];
+
+        let written =
+            destination.write(
+                source_slice,
+            )?;
+
+        self.tail =
+            (self.tail + written)
+            % self.buf.len();
+
+        self.optimize();
+
+        Ok(written)
+    }
     pub fn write_to<W: io::Write>(&mut self, destination: &mut W) -> io::Result<usize> {
         if self.head == self.tail {
             // buffer is empty, nothing to do

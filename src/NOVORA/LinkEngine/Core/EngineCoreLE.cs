@@ -25,6 +25,8 @@ public sealed class EngineCoreLE : IAsyncDisposable
     public ManagerRecoveryLE Recovery { get; }
     public CollectorMetricsLE Metrics { get; }
 
+    public NOVORA.LinkEngine.Traffic.TrafficEngineLE Traffic { get; } =
+        new();
     public bool IsInitialized => _initialized;
 
     public EngineCoreLE(
@@ -297,10 +299,11 @@ public sealed class EngineCoreLE : IAsyncDisposable
         }
 
         /*
-         * IMPORTANTE:
-         * En LE-003B todavÃ­a NO existe Internet real de LinkEngine.
-         * ManagerNetworkLE continÃºa siendo lÃ³gico hasta integrar el componente
-         * Android/VpnService y el procesamiento TCP/UDP/DNS.
+         * LE-006 Data Plane real:
+         *
+         * ManagerNetworkLE administra DATA por tcp:27184 y RelayCore
+         * procesa TCP/UDP hacia Internet. CONTROL permanece separado
+         * dentro de ManagerTransportLE.
          */
         return await Network
             .StartAsync(

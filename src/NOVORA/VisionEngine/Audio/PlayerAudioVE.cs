@@ -1,4 +1,4 @@
-﻿using NOVORA.Services;
+using NOVORA.Services;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -70,6 +70,7 @@ public sealed class PlayerAudioVE : IDisposable
     private SdlGetAudioDeviceNameDelegate? _getDeviceNameVE;
 
     private SdlGetAudioStreamQueuedDelegate? _getQueuedVE;
+    private SdlClearAudioStreamDelegate? _clearVE;
 
     private SdlGetErrorDelegate? _getErrorVE;
 
@@ -406,6 +407,27 @@ public sealed class PlayerAudioVE : IDisposable
         }
     }
 
+
+    public void ClearQueuedAudioVE()
+    {
+        ThrowIfDisposedVE();
+
+        lock (_gateVE)
+        {
+            if (_streamVE == IntPtr.Zero || _clearVE is null)
+                return;
+
+            if (!_clearVE(_streamVE))
+                throw new InvalidOperationException(
+                    "SDL_ClearAudioStream falló: " +
+                    GetSdlErrorVE());
+
+            WriteTelemetryVE(
+                "PRIVACY_CLEAR",
+                force: true);
+        }
+    }
+
     private void OpenAndSetStreamVE(
         string normalized)
     {
@@ -612,6 +634,16 @@ public sealed class PlayerAudioVE : IDisposable
             _getQueuedVE =
                 LoadVE<SdlGetAudioStreamQueuedDelegate>(
                     "SDL_GetAudioStreamQueued");
+
+            if (NativeLibrary.TryGetExport(
+                    _libraryVE,
+                    "SDL_ClearAudioStream",
+                    out IntPtr clearAddress))
+            {
+                _clearVE =
+                    Marshal.GetDelegateForFunctionPointer<SdlClearAudioStreamDelegate>(
+                        clearAddress);
+            }
 
             _getErrorVE =
                 LoadVE<SdlGetErrorDelegate>(
@@ -1085,6 +1117,14 @@ public sealed class PlayerAudioVE : IDisposable
         CallingConvention.Cdecl)]
     private delegate int
         SdlGetAudioStreamQueuedDelegate(
+            IntPtr stream);
+
+    [UnmanagedFunctionPointer(
+        CallingConvention.Cdecl)]
+    [return: MarshalAs(
+        UnmanagedType.I1)]
+    private delegate bool
+        SdlClearAudioStreamDelegate(
             IntPtr stream);
 
     [UnmanagedFunctionPointer(

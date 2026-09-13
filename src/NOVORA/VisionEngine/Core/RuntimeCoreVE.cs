@@ -1,9 +1,14 @@
-﻿using NOVORA.Services;
+using NOVORA.Services;
 using NOVORA.VisionEngine.Audio;
 using NOVORA.VisionEngine.Control;
 using NOVORA.VisionEngine.Device;
 using NOVORA.VisionEngine.Exchange;
+using NOVORA.VisionEngine.Events;
 using NOVORA.VisionEngine.Gamepad;
+using NOVORA.VisionEngine.Integration;
+using NOVORA.VisionEngine.Nvidia;
+using NOVORA.VisionEngine.Performance;
+using NOVORA.VisionEngine.Privacy;
 using NOVORA.VisionEngine.Renderer;
 using NOVORA.VisionEngine.Server;
 using NOVORA.VisionEngine.Transport;
@@ -31,6 +36,12 @@ public sealed class RuntimeCoreVE : IAsyncDisposable
         _paths = paths ?? throw new ArgumentNullException(nameof(paths));
         ArgumentNullException.ThrowIfNull(adb);
 
+        EventsVE = new EventCoreVE();
+        PrivacyVE = new ManagerPrivacyVE();
+        IntegrationVE = new ManagerIntegrationVE();
+        PerformanceVE = new ManagerPerformanceVE();
+        NvidiaVE = new ManagerNvidiaVE(paths);
+
         DeviceVE = new ManagerDeviceVE(adb);
         ServerVE = new ManagerServerVE(adb, paths);
         TransportVE = new ManagerTransportVE(adb);
@@ -40,10 +51,36 @@ public sealed class RuntimeCoreVE : IAsyncDisposable
         AudioVE = new ManagerAudioVE(paths);
         ControlVE = new ManagerControlVE();
         GamepadVE = new ManagerGamepadVE(ControlVE, paths);
-        ClipboardVE = new ClipboardExchangeVE(ControlVE);
-        FilesVE = new FileExchangeVE(adb, ControlVE);
+
+        ControlVE.SetPrivacyGatesVE(
+            message => PrivacyVE.CanSendControlVE(message.Type),
+            () => PrivacyVE.CanUseClipboardVE);
+
+        ClipboardVE = new ClipboardExchangeVE(
+            ControlVE,
+            () =>
+                PrivacyVE.CanUseClipboardVE &&
+                IntegrationVE.StatusVE.Capabilities.Clipboard);
+
+        FilesVE = new FileExchangeVE(
+            adb,
+            ControlVE,
+            () =>
+                PrivacyVE.CanExchangeFilesVE &&
+                IntegrationVE.StatusVE.Capabilities.FileTransfer);
+
         ImagesVE = new ImageExchangeVE(FilesVE);
         MediaVE = new MediaExchangeVE(FilesVE);
+
+        ClipboardIntegrationVE = new ClipboardIntegrationVE(ClipboardVE, PrivacyVE, IntegrationVE);
+        DragDropIntegrationVE = new DragDropIntegrationVE(FilesVE, PrivacyVE, IntegrationVE);
+        ShareIntegrationVE = new ShareIntegrationVE(FilesVE, PrivacyVE, IntegrationVE);
+        AppIntegrationVE = new AppIntegrationVE(ControlVE, PrivacyVE, IntegrationVE);
+        NotificationIntegrationVE = new NotificationIntegrationVE(ControlVE, PrivacyVE, IntegrationVE);
+        VirtualDisplayIntegrationVE = new VirtualDisplayIntegrationVE(ControlVE, PrivacyVE, IntegrationVE);
+        CameraIntegrationVE = new CameraIntegrationVE();
+        MicrophoneIntegrationVE = new MicrophoneIntegrationVE();
+        WindowIntegrationVE = new WindowIntegrationVE();
 
         DeviceVE.StatusChangedVE += Device_StatusChangedVE;
         ServerVE.StatusChangedVE += Server_StatusChangedVE;
@@ -53,9 +90,17 @@ public sealed class RuntimeCoreVE : IAsyncDisposable
         AudioVE.StatusChangedVE += Audio_StatusChangedVE;
         ControlVE.StatusChangedVE += Control_StatusChangedVE;
         GamepadVE.StatusChangedVE += Gamepad_StatusChangedVE;
+        PrivacyVE.StatusChangedVE += Privacy_StatusChangedVE;
+        IntegrationVE.StatusChangedVE += Integration_StatusChangedVE;
+        NvidiaVE.StatusChangedVE += Nvidia_StatusChangedVE;
     }
 
     public event EventHandler? StatusChangedVE;
+    public EventCoreVE EventsVE { get; }
+    public ManagerPrivacyVE PrivacyVE { get; }
+    public ManagerIntegrationVE IntegrationVE { get; }
+    public ManagerPerformanceVE PerformanceVE { get; }
+    public ManagerNvidiaVE NvidiaVE { get; }
     public ManagerDeviceVE DeviceVE { get; }
     public ManagerServerVE ServerVE { get; }
     public ManagerTransportVE TransportVE { get; }
@@ -68,19 +113,56 @@ public sealed class RuntimeCoreVE : IAsyncDisposable
     public FileExchangeVE FilesVE { get; }
     public ImageExchangeVE ImagesVE { get; }
     public MediaExchangeVE MediaVE { get; }
+    public ClipboardIntegrationVE ClipboardIntegrationVE { get; }
+    public DragDropIntegrationVE DragDropIntegrationVE { get; }
+    public ShareIntegrationVE ShareIntegrationVE { get; }
+    public AppIntegrationVE AppIntegrationVE { get; }
+    public NotificationIntegrationVE NotificationIntegrationVE { get; }
+    public VirtualDisplayIntegrationVE VirtualDisplayIntegrationVE { get; }
+    public CameraIntegrationVE CameraIntegrationVE { get; }
+    public MicrophoneIntegrationVE MicrophoneIntegrationVE { get; }
+    public WindowIntegrationVE WindowIntegrationVE { get; }
     public SessionDeviceVE? DeviceSessionVE => _deviceSessionVE;
     public SessionTransportVE? TransportSessionVE => _transportSessionVE;
     public bool IsInitializedVE => _initialized;
     public bool IsRunningVE => _deviceSessionVE is not null && _serverSessionVE is not null && _transportSessionVE is not null;
+    public bool GamepadEnabledVE { get; set; } = true;
 
     public Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposedVE();
         cancellationToken.ThrowIfCancellationRequested();
         ValidateBlockDToolsVE();
+        NvidiaVE.EvaluateVE();
+        ApplyPrivacyStateVE(PrivacyVE.StatusVE);
         _initialized = true;
         RaiseStatusChangedVE();
         return Task.CompletedTask;
+    }
+
+    public async Task SetGamepadEnabledVEAsync(
+        bool enabled,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposedVE();
+
+        GamepadEnabledVE = enabled;
+
+        if (!IsRunningVE)
+        {
+            return;
+        }
+
+        if (enabled)
+        {
+            await GamepadVE.StartAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            await GamepadVE.StopAsync()
+                .ConfigureAwait(false);
+        }
     }
 
     public async Task StartAsync(
@@ -119,7 +201,7 @@ public sealed class RuntimeCoreVE : IAsyncDisposable
                 if (effectiveOptions.AudioEnabled)
                     await AudioVE.StartAsync(_transportSessionVE, effectiveOptions.AudioPlaybackEnabled, cancellationToken).ConfigureAwait(false);
 
-                if (effectiveOptions.ControlEnabled)
+                if (effectiveOptions.ControlEnabled && GamepadEnabledVE)
                     await GamepadVE.StartAsync(cancellationToken).ConfigureAwait(false);
 
                 RaiseStatusChangedVE();
@@ -185,14 +267,37 @@ public sealed class RuntimeCoreVE : IAsyncDisposable
             throw new FileNotFoundException("VisionEngine Block D no puede iniciar porque faltan Tools: " + string.Join(", ", missing) + ".");
     }
 
-    private void Device_StatusChangedVE(object? sender, StatusDeviceVE e) => RaiseStatusChangedVE();
-    private void Server_StatusChangedVE(object? sender, StatusServerVE e) => RaiseStatusChangedVE();
-    private void Transport_StateChangedVE(object? sender, StatesTransportVE e) => RaiseStatusChangedVE();
-    private void Video_StatusChangedVE(object? sender, StatusVideoVE e) => RaiseStatusChangedVE();
-    private void Renderer_StatusChangedVE(object? sender, StatusRendererVE e) => RaiseStatusChangedVE();
-    private void Audio_StatusChangedVE(object? sender, StatusAudioVE e) => RaiseStatusChangedVE();
-    private void Control_StatusChangedVE(object? sender, StatusControlVE e) => RaiseStatusChangedVE();
-    private void Gamepad_StatusChangedVE(object? sender, StatusGamepadVE e) => RaiseStatusChangedVE();
+    private void Device_StatusChangedVE(object? sender, StatusDeviceVE e) => PublishStatusEventVE(TypeEventVE.DeviceStatus);
+    private void Server_StatusChangedVE(object? sender, StatusServerVE e) => PublishStatusEventVE(TypeEventVE.ServerStatus);
+    private void Transport_StateChangedVE(object? sender, StatesTransportVE e) => PublishStatusEventVE(TypeEventVE.TransportState);
+    private void Video_StatusChangedVE(object? sender, StatusVideoVE e) => PublishStatusEventVE(TypeEventVE.VideoStatus);
+    private void Renderer_StatusChangedVE(object? sender, StatusRendererVE e) => PublishStatusEventVE(TypeEventVE.RendererStatus);
+    private void Audio_StatusChangedVE(object? sender, StatusAudioVE e) => PublishStatusEventVE(TypeEventVE.AudioStatus);
+    private void Control_StatusChangedVE(object? sender, StatusControlVE e) => PublishStatusEventVE(TypeEventVE.ControlStatus);
+    private void Gamepad_StatusChangedVE(object? sender, StatusGamepadVE e) => PublishStatusEventVE(TypeEventVE.GamepadStatus);
+    private void Integration_StatusChangedVE(object? sender, StatusIntegrationVE e) => PublishStatusEventVE(TypeEventVE.IntegrationStatus);
+    private void Nvidia_StatusChangedVE(object? sender, StatusNvidiaVE e) => PublishStatusEventVE(TypeEventVE.NvidiaStatus);
+
+    private void Privacy_StatusChangedVE(object? sender, StatusPrivacyVE e)
+    {
+        ApplyPrivacyStateVE(e);
+        PublishStatusEventVE(TypeEventVE.PrivacyStatus);
+    }
+
+    private void ApplyPrivacyStateVE(StatusPrivacyVE status)
+    {
+        bool protectedVE = status.State == StatesPrivacyVE.Protected;
+        RendererVE.SetPrivacyProtectedVE(protectedVE);
+        AudioVE.SetPrivacyProtectedVE(protectedVE);
+        GamepadVE.SetPrivacyProtectedVE(protectedVE);
+    }
+
+    private void PublishStatusEventVE(TypeEventVE type)
+    {
+        EventsVE.PublishVE(type);
+        RaiseStatusChangedVE();
+    }
+
     private void RaiseStatusChangedVE() => StatusChangedVE?.Invoke(this, EventArgs.Empty);
     private void ThrowIfDisposedVE() => ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -221,6 +326,9 @@ public sealed class RuntimeCoreVE : IAsyncDisposable
             AudioVE.StatusChangedVE -= Audio_StatusChangedVE;
             ControlVE.StatusChangedVE -= Control_StatusChangedVE;
             GamepadVE.StatusChangedVE -= Gamepad_StatusChangedVE;
+            PrivacyVE.StatusChangedVE -= Privacy_StatusChangedVE;
+            IntegrationVE.StatusChangedVE -= Integration_StatusChangedVE;
+            NvidiaVE.StatusChangedVE -= Nvidia_StatusChangedVE;
             _disposed = true;
             _gate.Dispose();
         }

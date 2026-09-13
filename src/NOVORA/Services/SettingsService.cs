@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
@@ -7,6 +7,17 @@ namespace NOVORA.Services;
 
 public sealed class NovoraSettings
 {
+    public bool PrivacyShieldEnabled { get; set; }
+    public bool IntegrationClipboardEnabled { get; set; } = true;
+    public bool IntegrationFileTransferEnabled { get; set; } = true;
+    public bool IntegrationDragDropEnabled { get; set; } = true;
+    public bool IntegrationApplicationsEnabled { get; set; } = true;
+    public bool IntegrationNotificationsEnabled { get; set; } = true;
+    public bool IntegrationDynamicResizeEnabled { get; set; } = true;
+    public bool GamepadEnabled { get; set; } = true;
+    public bool RemoteAndroidEnabled { get; set; } = true;
+    public string NvidiaProfile { get; set; } = "Automatic";
+
     // ============================================================
     // AUDIO
     // ============================================================
@@ -31,11 +42,11 @@ public sealed class NovoraSettings
     // VIDEO
     // ============================================================
 
-    public string Bitrate { get; set; } = "10M";
+    public string Bitrate { get; set; } = "4M";
 
-    public int TargetFps { get; set; } = 60;
+    public int TargetFps { get; set; } = 45;
 
-    public int MaxSize { get; set; } = 1920;
+    public int MaxSize { get; set; } = 1280;
 
     public string VideoPresentationMode { get; set; } = "Window";
 
@@ -46,6 +57,14 @@ public sealed class NovoraSettings
     // ============================================================
 
     public string Theme { get; set; } = ThemeService.Dark;
+
+    // ============================================================
+    // INICIO / CICLO DE VIDA
+    // ============================================================
+
+    public bool StartWithWindows { get; set; } = true;
+
+    public bool AutoStartSuppressed { get; set; }
 
     // ============================================================
     // NOMBRES PERSONALIZADOS
@@ -116,6 +135,8 @@ public sealed class SettingsService
                     settings.MonitorNames ?? new(),
                     StringComparer.OrdinalIgnoreCase);
 
+            ApplyLowJitterDefaults(settings);
+
             return settings;
         }
         catch
@@ -141,6 +162,8 @@ public sealed class SettingsService
             new Dictionary<string, string>(
                 settings.MonitorNames ?? new(),
                 StringComparer.OrdinalIgnoreCase);
+
+        ApplyLowJitterDefaults(settings);
 
         var json =
             JsonSerializer.Serialize(
@@ -235,5 +258,61 @@ public sealed class SettingsService
         }
 
         Save(settings);
+    }
+
+    private static void ApplyLowJitterDefaults(
+        NovoraSettings settings)
+    {
+        settings.Bitrate =
+            NormalizeLowJitterBitrate(
+                settings.Bitrate);
+
+        settings.TargetFps =
+            Math.Clamp(
+                settings.TargetFps,
+                15,
+                45);
+
+        settings.MaxSize =
+            Math.Clamp(
+                settings.MaxSize,
+                1,
+                1280);
+    }
+
+    private static string NormalizeLowJitterBitrate(
+        string? bitrate)
+    {
+        string normalized =
+            BitrateService.Normalize(
+                bitrate);
+
+        string number =
+            normalized.EndsWith(
+                "M",
+                StringComparison.OrdinalIgnoreCase)
+                ? normalized[..^1]
+                : normalized;
+
+        if (!double.TryParse(
+                number,
+                System.Globalization.NumberStyles.AllowDecimalPoint,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out double mbps))
+        {
+            return "4M";
+        }
+
+        mbps =
+            Math.Clamp(
+                mbps,
+                1d,
+                4d);
+
+        return
+            mbps.ToString(
+                "0.###",
+                System.Globalization.CultureInfo.InvariantCulture) +
+            "M";
     }
 }

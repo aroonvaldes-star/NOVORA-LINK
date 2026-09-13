@@ -1,9 +1,12 @@
-﻿using NOVORA.VisionEngine.Control;
+using NOVORA.VisionEngine.Control;
 using NOVORA.VisionEngine.Core;
+using NOVORA.VisionEngine.Exchange;
+using NOVORA.VisionEngine.Integration;
+using NOVORA.VisionEngine.Nvidia;
 using NOVORA.VisionEngine.Renderer;
 using NOVORA.VisionEngine.Server;
-using System.Globalization;
 using System.ComponentModel;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
 
@@ -15,10 +18,24 @@ public partial class MainWindow
     private HostRendererVE? _visionRendererHostVE;
     private WindowRendererVE? _visionPresentationWindowVE;
     private RouterControlVE? _visionInputRouterVE;
+    private TransferExchangeVE? _visionTransferExchangeVE;
+
     private StatesCoreVE? _lastVisionStateVE;
+
+    private string? _activeVisionSerialVE;
+
     private bool _lastRendererEnabledVE;
     private bool _closingPresentationVE;
     private bool _visionAudioOutputWatcherAttachedVE;
+    private bool _visionRecoveryRunningVE;
+    private int _visionRecoveryAttemptsVE;
+
+    private const int MaxVisionRecoveryAttemptsVE =
+        2;
+
+    // ============================================================
+    // INITIALIZATION
+    // ============================================================
 
     private void InitializeVisionEngineRuntimeVE()
     {
@@ -35,8 +52,63 @@ public partial class MainWindow
         _visionEngineVE.StatusChangedVE +=
             VisionEngine_StatusChangedVE;
 
+        /*
+         * ANDROID -> WINDOWS CLIPBOARD
+         *
+         * Event-driven:
+         *
+         * Android
+         *   -> control channel
+         *   -> ManagerControlVE.ClipboardChangedVE
+         *   -> ClipboardExchangeVE.ClipboardChangedVE
+         *   -> Windows Clipboard
+         *
+         * Sin polling.
+         * Sin historial.
+         */
+        _visionEngineVE.RuntimeVE.ClipboardVE.ClipboardChangedVE +=
+            VisionClipboard_ChangedVE;
+
         _visionEngineVE.RuntimeVE.AudioVE.SelectedOutputVE =
             _viewModel.SelectedAudioOutput;
+
+        ApplyAdvancedVisionSettingsVE();
+
+        /*
+         * ExchangeVE se crea una sola vez junto con
+         * VisionEngine.
+         *
+         * No genera polling.
+         * Su worker permanece esperando trabajo en la cola.
+         */
+        _visionTransferExchangeVE =
+            new TransferExchangeVE(
+                () =>
+                    (_visionEngineVE?
+                        .RuntimeVE
+                        .PrivacyVE
+                        .CanExchangeFilesVE ?? false) &&
+                    (_visionEngineVE?
+                        .RuntimeVE
+                        .IntegrationVE
+                        .StatusVE
+                        .Capabilities
+                        .FileTransfer ?? false) &&
+                    (_visionEngineVE?
+                        .RuntimeVE
+                        .IntegrationVE
+                        .StatusVE
+                        .Capabilities
+                        .DragDrop ?? false));
+
+        _visionTransferExchangeVE.TransferStartedVE +=
+            VisionTransfer_StartedVE;
+
+        _visionTransferExchangeVE.TransferCompletedVE +=
+            VisionTransfer_CompletedVE;
+
+        _visionTransferExchangeVE.TransferFailedVE +=
+            VisionTransfer_FailedVE;
 
         if (!_visionAudioOutputWatcherAttachedVE)
         {
@@ -48,6 +120,234 @@ public partial class MainWindow
         }
     }
 
+    private void ApplyAdvancedVisionSettingsVE()
+    {
+        if (_visionEngineVE is null)
+        {
+            return;
+        }
+
+        RuntimeCoreVE runtime =
+            _visionEngineVE.RuntimeVE;
+
+        runtime.PrivacyVE.SetManualShieldVE(
+            _viewModel.PrivacyShieldEnabled);
+
+        runtime.IntegrationVE.SetCapabilitiesVE(
+            new CapabilitiesIntegrationVE(
+                Clipboard: _viewModel.IntegrationClipboardEnabled,
+                FileTransfer: _viewModel.IntegrationFileTransferEnabled,
+                DragDrop: _viewModel.IntegrationDragDropEnabled,
+                Applications: _viewModel.IntegrationApplicationsEnabled,
+                Notifications: _viewModel.IntegrationNotificationsEnabled,
+                DynamicResize: _viewModel.IntegrationDynamicResizeEnabled,
+                Camera: false,
+                AndroidMicrophone: true,
+                PcMicrophoneToAndroid: false));
+
+        runtime.GamepadEnabledVE =
+            _viewModel.GamepadEnabled;
+
+        if (!Enum.TryParse(
+                _viewModel.NvidiaProfile,
+                ignoreCase: true,
+                out ProfileNvidiaVE profile))
+        {
+            profile =
+                ProfileNvidiaVE.Automatic;
+
+            _viewModel.NvidiaProfile =
+                ProfileNvidiaVE.Automatic.ToString();
+        }
+
+        runtime.NvidiaVE.SetProfileVE(
+            profile);
+
+        if (runtime.IsRunningVE)
+        {
+            _ = ApplyGamepadRuntimeStateVEAsync(
+                runtime,
+                _viewModel.GamepadEnabled);
+        }
+
+        UpdateAdvancedFeatureStatus14();
+    }
+
+    private async Task ApplyGamepadRuntimeStateVEAsync(
+        RuntimeCoreVE runtime,
+        bool enabled)
+    {
+        try
+        {
+            await runtime
+                .SetGamepadEnabledVEAsync(enabled)
+                .ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            if (!_closing)
+            {
+                _viewModel.ConnectionStatus =
+                    $"Gamepad VisionEngine: {ex.Message}";
+            }
+        }
+    }
+
+    private void UpdateAdvancedFeatureStatus14()
+    {
+        if (EngineFeatureStatus14 is null)
+        {
+            return;
+        }
+
+        string privacy =
+            _viewModel.PrivacyShieldEnabled
+                ? "Privacy ON"
+                : "Privacy OFF";
+
+        bool integrationEnabled =
+            _viewModel.IntegrationClipboardEnabled ||
+            _viewModel.IntegrationFileTransferEnabled ||
+            _viewModel.IntegrationDragDropEnabled ||
+            _viewModel.IntegrationApplicationsEnabled ||
+            _viewModel.IntegrationNotificationsEnabled ||
+            _viewModel.IntegrationDynamicResizeEnabled;
+
+        string integration =
+            integrationEnabled
+                ? "Integración ON"
+                : "Integración OFF";
+
+        string gamepad =
+            _viewModel.GamepadEnabled
+                ? "Gamepad ON"
+                : "Gamepad OFF";
+
+        string nvidia =
+            $"NVIDIA {_viewModel.NvidiaProfile}";
+
+        string remote =
+            !_viewModel.RemoteAndroidEnabled
+                ? "Remote OFF"
+                : _remoteServerNV?.HasClientNV == true
+                    ? "Remote CLIENT"
+                    : "Remote ON";
+
+        EngineFeatureStatus14.Text =
+            $"VE · {privacy} · {integration} · {gamepad} · {nvidia} · {remote}";
+
+        EngineFeatureStatus14.ToolTip =
+            "Estado de funciones avanzadas de VisionEngine y Remote Android. " +
+            "Los cambios se administran en Configuración.";
+    }
+
+    // ============================================================
+    // CLIPBOARD ANDROID -> WINDOWS
+    // ============================================================
+
+    private void VisionClipboard_ChangedVE(
+        object? sender,
+        string text)
+    {
+        /*
+         * Este callback viene del control channel.
+         *
+         * NO consulta Android.
+         * NO usa timer.
+         * NO usa Task.Delay.
+         * NO hace polling.
+         *
+         * Sólo reacciona cuando Android reporta un cambio real.
+         */
+
+        if (
+            _closing ||
+            _visionEngineVE is null)
+        {
+            return;
+        }
+
+        if (
+            !_visionEngineVE
+                .RuntimeVE
+                .PrivacyVE
+                .CanUseClipboardVE ||
+            !_visionEngineVE
+                .RuntimeVE
+                .IntegrationVE
+                .StatusVE
+                .Capabilities
+                .Clipboard)
+        {
+            return;
+        }
+
+        /*
+         * Clipboard de WPF requiere el hilo STA/UI.
+         *
+         * El reader del canal de control puede estar en otro hilo,
+         * por eso hacemos marshal al Dispatcher existente.
+         */
+        _ =
+            Dispatcher.BeginInvoke(
+                new Action(
+                    () =>
+                    {
+                        if (
+                            _closing ||
+                            _visionEngineVE is null)
+                        {
+                            return;
+                        }
+
+                        if (
+                            !_visionEngineVE
+                                .RuntimeVE
+                                .PrivacyVE
+                                .CanUseClipboardVE)
+                        {
+                            return;
+                        }
+
+                        try
+                        {
+                            if (string.IsNullOrEmpty(text))
+                            {
+                                System.Windows.Clipboard.Clear();
+                            }
+                            else
+                            {
+                                System.Windows.Clipboard.SetText(
+                                    text,
+                                    System.Windows.TextDataFormat.UnicodeText);
+                            }
+
+                            /*
+                             * Nunca mostramos ni registramos el contenido.
+                             */
+                            _viewModel.ConnectionStatus =
+                                "Clipboard Android → Windows actualizado.";
+                        }
+                        catch (
+                            System.Runtime.InteropServices.ExternalException)
+                        {
+                            /*
+                             * Otra aplicación puede tener temporalmente
+                             * bloqueado el clipboard.
+                             *
+                             * No hacemos retries periódicos:
+                             * el próximo cambio real de Android volverá
+                             * a producir su propio evento.
+                             */
+                            _viewModel.ConnectionStatus =
+                                "Clipboard Windows ocupado; cambio no aplicado.";
+                        }
+                    }));
+    }
+    // ============================================================
+    // AUDIO OUTPUT
+    // ============================================================
+
     private void VisionAudioOutput_PropertyChangedVE(
         object? sender,
         PropertyChangedEventArgs e)
@@ -55,15 +355,12 @@ public partial class MainWindow
         if (
             e.PropertyName !=
             nameof(
-                ViewModels.MainViewModel.SelectedAudioOutput)
-        )
+                ViewModels.MainViewModel.SelectedAudioOutput))
         {
             return;
         }
 
-        if (
-            _visionEngineVE is null
-        )
+        if (_visionEngineVE is null)
         {
             return;
         }
@@ -81,8 +378,7 @@ public partial class MainWindow
                 !string.Equals(
                     _viewModel.SelectedAudioOutput,
                     VisionEngine.Audio.OutputAudioVE.DisabledValueVE,
-                    StringComparison.OrdinalIgnoreCase)
-            )
+                    StringComparison.OrdinalIgnoreCase))
             {
                 string active =
                     _visionEngineVE
@@ -100,6 +396,10 @@ public partial class MainWindow
                 $"Audio VisionEngine: {ex.Message}";
         }
     }
+
+    // ============================================================
+    // INITIALIZE ON LOADED
+    // ============================================================
 
     private async Task InitializeVisionEngineOnLoadedVEAsync()
     {
@@ -121,6 +421,10 @@ public partial class MainWindow
             failed: false);
     }
 
+    // ============================================================
+    // RENDERER HOST
+    // ============================================================
+
     private void AttachVisionRendererHostVE(
         HostRendererVE host)
     {
@@ -138,6 +442,9 @@ public partial class MainWindow
 
         if (_visionRendererHostVE is not null)
         {
+            _visionRendererHostVE.InputFocusGainedVE -=
+                VisionRendererHost_InputFocusGainedVE;
+
             try
             {
                 _visionEngineVE!
@@ -151,14 +458,48 @@ public partial class MainWindow
         _visionRendererHostVE =
             host;
 
+        _visionRendererHostVE.InputFocusGainedVE +=
+            VisionRendererHost_InputFocusGainedVE;
+
         _visionEngineVE!
             .AttachRendererHostVE(
                 host);
     }
 
+    private async void VisionRendererHost_InputFocusGainedVE(
+        object? sender,
+        EventArgs e)
+    {
+        if (
+            _closing ||
+            _visionEngineVE is null ||
+            !_visionEngineVE.IsRunningVE)
+        {
+            return;
+        }
+
+        try
+        {
+            await _visionEngineVE
+                .RuntimeVE
+                .GamepadVE
+                .ResyncConnectedDevicesVEAsync();
+        }
+        catch (Exception ex)
+        {
+            _viewModel.ConnectionStatus =
+                $"Gamepad VisionEngine: {ex.Message}";
+        }
+    }
+
+    // ============================================================
+    // INPUT
+    // ============================================================
+
     private void AttachVisionInputVE()
     {
-        if (_visionEngineVE is null ||
+        if (
+            _visionEngineVE is null ||
             _visionRendererHostVE is null ||
             !_visionEngineVE.RuntimeVE.ControlVE.IsReadyVE)
         {
@@ -167,8 +508,8 @@ public partial class MainWindow
 
         DetachVisionInputVE();
 
-        var router =
-            new RouterControlVE(
+        RouterControlVE router =
+            new(
                 _visionEngineVE.RuntimeVE.ControlVE,
                 _visionEngineVE.RuntimeVE.RendererVE);
 
@@ -207,17 +548,22 @@ public partial class MainWindow
         object? sender,
         string message)
     {
-        _ = Dispatcher.BeginInvoke(
-            new Action(
-                () =>
-                {
-                    if (!_closing)
+        _ =
+            Dispatcher.BeginInvoke(
+                new Action(
+                    () =>
                     {
-                        _viewModel.ConnectionStatus =
-                            $"Control VisionEngine: {message}";
-                    }
-                }));
+                        if (!_closing)
+                        {
+                            _viewModel.ConnectionStatus =
+                                $"Control VisionEngine: {message}";
+                        }
+                    }));
     }
+
+    // ============================================================
+    // PRESENTATION
+    // ============================================================
 
     private HostRendererVE CreateVisionPresentationVE()
     {
@@ -236,13 +582,25 @@ public partial class MainWindow
                 ViewModels.MainViewModel.VideoPresentationModeFullscreen,
                 StringComparison.OrdinalIgnoreCase);
 
-        var presentation =
-            new WindowRendererVE(
+        WindowRendererVE presentation =
+            new(
                 monitor,
                 fullscreen);
 
         presentation.CloseRequestedVE +=
             VisionPresentation_CloseRequestedVE;
+
+        /*
+         * Drag & Drop de la ventana real de VisionEngine.
+         */
+        presentation.FilesDroppedVE +=
+            VisionPresentation_FilesDroppedVE;
+
+        presentation.DragEnteredVE +=
+            VisionPresentation_DragEnteredVE;
+
+        presentation.DragEndedVE +=
+            VisionPresentation_DragEndedVE;
 
         _visionPresentationWindowVE =
             presentation;
@@ -252,27 +610,416 @@ public partial class MainWindow
         AttachVisionRendererHostVE(
             presentation.HostVE);
 
-        // El polling informativo sólo se suspende en fullscreen.
-        // LinkEngine y el pipeline crítico de VisionEngine continúan activos.
+        /*
+         * El polling informativo sólo se suspende
+         * en fullscreen.
+         *
+         * LinkEngine y el pipeline crítico de
+         * VisionEngine continúan activos.
+         */
         _informationalPollingSuspended14 =
             fullscreen;
 
-        // MainWindow deja de competir visualmente con la presentación.
-        // La ventana VE no tiene Owner, por lo que permanece visible.
+        /*
+         * MainWindow deja de competir visualmente
+         * con la presentación.
+         *
+         * WindowRendererVE no tiene Owner,
+         * por lo que permanece visible.
+         */
         WindowState =
             WindowState.Minimized;
 
         presentation.Activate();
-        presentation.HostVE.FocusInputVE();
 
-        return presentation.HostVE;
+        presentation.HostVE
+            .FocusInputVE();
+
+        return
+            presentation.HostVE;
     }
 
+    // ============================================================
+    // DRAG & DROP
+    // ============================================================
+
+    private async void VisionPresentation_FilesDroppedVE(
+        object? sender,
+        FilesDroppedEventArgsVE e)
+    {
+        if (_closing)
+        {
+            return;
+        }
+
+        if (
+            e.CountVE == 0 ||
+            _visionTransferExchangeVE is null)
+        {
+            return;
+        }
+
+        /*
+         * NO consultamos:
+         *
+         * - adb devices
+         * - DeviceIdentityService
+         * - ViewModel
+         * - timers
+         * - polling
+         *
+         * Utilizamos el serial almacenado al iniciar
+         * la sesión de VisionEngine.
+         */
+        string? serial =
+            _activeVisionSerialVE;
+
+        if (string.IsNullOrWhiteSpace(serial))
+        {
+            _viewModel.ConnectionStatus =
+                "VisionEngine: no hay dispositivo activo para transferir.";
+
+            return;
+        }
+
+        if (
+            _visionEngineVE is null ||
+            !_visionEngineVE.IsRunningVE)
+        {
+            _viewModel.ConnectionStatus =
+                "VisionEngine debe estar activo para transferir archivos.";
+
+            return;
+        }
+
+        if (_visionEngineVE.RuntimeVE.PrivacyVE.IsProtectedVE)
+        {
+            _viewModel.ConnectionStatus =
+                "PrivacyVE: transferencia bloqueada mientras el contenido está protegido.";
+            return;
+        }
+
+        try
+        {
+            _viewModel.ConnectionStatus =
+                e.CountVE == 1
+                    ? "VisionEngine: archivo recibido para transferencia."
+                    : $"VisionEngine: {e.CountVE} elementos recibidos para transferencia.";
+
+            /*
+             * QueueAsync únicamente introduce la solicitud
+             * en la cola.
+             *
+             * El adb push NO ocurre en el Dispatcher WPF.
+             */
+            await _visionTransferExchangeVE
+                .QueueAsync(
+                    serial,
+                    e.PathsVE);
+        }
+        catch (Exception ex)
+        {
+            _viewModel.ConnectionStatus =
+                $"ExchangeVE: {ex.Message}";
+        }
+    }
+
+    private void VisionPresentation_DragEnteredVE(
+        object? sender,
+        EventArgs e)
+    {
+        if (_closing)
+        {
+            return;
+        }
+
+        _viewModel.ConnectionStatus =
+            "VisionEngine: suelta para enviar a /sdcard/NOVORA/";
+    }
+
+    private void VisionPresentation_DragEndedVE(
+        object? sender,
+        EventArgs e)
+    {
+        /*
+         * No hacemos RefreshPerformance ni ninguna
+         * consulta ADB aquí.
+         *
+         * Es un evento puramente visual.
+         */
+    }
+
+    // ============================================================
+    // TRANSFER EVENTS
+    // ============================================================
+
+    private void VisionTransfer_StartedVE(
+        object? sender,
+        TransferStartedEventArgsVE e)
+    {
+        _ =
+            Dispatcher.BeginInvoke(
+                new Action(
+                    () =>
+                    {
+                        if (_closing)
+                        {
+                            return;
+                        }
+
+                        string name =
+                            Path.GetFileName(
+                                e.LocalPathVE);
+
+                        if (string.IsNullOrWhiteSpace(name))
+                        {
+                            name =
+                                e.LocalPathVE;
+                        }
+
+                        _viewModel.ConnectionStatus =
+                            $"Enviando {name} → /sdcard/NOVORA/";
+                    }));
+    }
+
+    private void VisionTransfer_CompletedVE(
+        object? sender,
+        TransferCompletedEventArgsVE e)
+    {
+        _ =
+            Dispatcher.BeginInvoke(
+                new Action(
+                    () =>
+                    {
+                        if (_closing)
+                        {
+                            return;
+                        }
+
+                        string name =
+                            Path.GetFileName(
+                                e.LocalPathVE);
+
+                        if (string.IsNullOrWhiteSpace(name))
+                        {
+                            name =
+                                e.LocalPathVE;
+                        }
+
+                        double seconds =
+                            Math.Max(
+                                0.001,
+                                e.ElapsedVE.TotalSeconds);
+
+                        _viewModel.ConnectionStatus =
+                            $"{name} enviado a /sdcard/NOVORA/ en {seconds:0.00}s";
+                    }));
+    }
+
+    private void VisionTransfer_FailedVE(
+        object? sender,
+        TransferFailedEventArgsVE e)
+    {
+        _ =
+            Dispatcher.BeginInvoke(
+                new Action(
+                    () =>
+                    {
+                        if (_closing)
+                        {
+                            return;
+                        }
+
+                        string name =
+                            Path.GetFileName(
+                                e.LocalPathVE);
+
+                        if (string.IsNullOrWhiteSpace(name))
+                        {
+                            name =
+                                e.LocalPathVE;
+                        }
+
+                        _viewModel.ConnectionStatus =
+                            $"Error enviando {name}: {e.ErrorVE}";
+                    }));
+    }
+
+    // ============================================================
+    // PRESENTATION CLOSE REQUEST
+    // ============================================================
+
+    // ============================================================
+    // EXCHANGEVE CTRL+V
+    // ============================================================
+
+    private async void VisionExchange_KeyDownVE(
+        object? sender,
+        System.Windows.Forms.KeyEventArgs e)
+    {
+        if (
+            !e.Control ||
+            e.KeyCode !=
+                System.Windows.Forms.Keys.V)
+        {
+            return;
+        }
+
+        /*
+         * Ctrl+V pertenece a ExchangeVE mientras la
+         * presentación VisionEngine esté activa.
+         *
+         * Evitamos mandar además la misma combinación
+         * al control Android.
+         */
+        e.Handled =
+            true;
+
+        e.SuppressKeyPress =
+            true;
+
+        if (
+            _closing ||
+            _visionTransferExchangeVE is null)
+        {
+            return;
+        }
+
+        string? serial =
+            _activeVisionSerialVE;
+
+        if (string.IsNullOrWhiteSpace(serial))
+        {
+            _viewModel.ConnectionStatus =
+                "ExchangeVE: no hay dispositivo VisionEngine activo.";
+
+            return;
+        }
+
+        if (
+            _visionEngineVE is null ||
+            !_visionEngineVE.IsRunningVE)
+        {
+            _viewModel.ConnectionStatus =
+                "ExchangeVE requiere VisionEngine activo.";
+
+            return;
+        }
+
+        if (_visionEngineVE.RuntimeVE.PrivacyVE.IsProtectedVE)
+        {
+            _viewModel.ConnectionStatus =
+                "PrivacyVE: portapapeles bloqueado mientras el contenido está protegido.";
+            return;
+        }
+
+        try
+        {
+            int count =
+                await ManagerExchangeVE
+                    .PasteAsync(
+                        serial,
+                        _visionTransferExchangeVE);
+
+            if (count == 0)
+            {
+                _viewModel.ConnectionStatus =
+                    "ExchangeVE: el portapapeles no contiene contenido compatible.";
+
+                return;
+            }
+
+            _viewModel.ConnectionStatus =
+                count == 1
+                    ? "ExchangeVE: contenido del portapapeles enviado."
+                    : $"ExchangeVE: {count} elementos del portapapeles procesados.";
+        }
+        catch (Exception ex)
+        {
+            _viewModel.ConnectionStatus =
+                $"ExchangeVE: {ex.Message}";
+        }
+    }
+
+    private async void ReceiveNovoraFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (
+            _closing ||
+            _visionEngineVE is null ||
+            !_visionEngineVE.IsRunningVE)
+        {
+            _viewModel.ConnectionStatus =
+                "ExchangeVE requiere VisionEngine activo para recibir desde Android.";
+
+            return;
+        }
+
+        string? serial =
+            _activeVisionSerialVE;
+
+        if (string.IsNullOrWhiteSpace(serial))
+        {
+            _viewModel.ConnectionStatus =
+                "ExchangeVE: no hay dispositivo Android activo.";
+
+            return;
+        }
+
+        if (_visionEngineVE.RuntimeVE.PrivacyVE.IsProtectedVE)
+        {
+            _viewModel.ConnectionStatus =
+                "PrivacyVE bloqueó la recepción de archivos mientras el contenido está protegido.";
+
+            return;
+        }
+
+        string downloads =
+            System.IO.Path.Combine(
+                Environment.GetFolderPath(
+                    Environment.SpecialFolder.UserProfile),
+                "Downloads");
+
+        string destination =
+            System.IO.Path.Combine(
+                downloads,
+                "NOVORA",
+                "FromAndroid-" +
+                DateTimeOffset.Now.ToString(
+                    "yyyyMMdd-HHmmss",
+                    CultureInfo.InvariantCulture));
+
+        _viewModel.ConnectionStatus =
+            "ExchangeVE: recibiendo /sdcard/NOVORA desde Android...";
+
+        try
+        {
+            ResultExchangeVE result =
+                await _visionEngineVE
+                    .RuntimeVE
+                    .FilesVE
+                    .PullNovoraFolderAsync(
+                        serial,
+                        destination);
+
+            _viewModel.ConnectionStatus =
+                result.Success
+                    ? $"ExchangeVE: carpeta NOVORA recibida en {result.Destination}."
+                    : $"ExchangeVE: {result.Message} {result.Detail}".Trim();
+        }
+        catch (Exception ex)
+        {
+            _viewModel.ConnectionStatus =
+                $"ExchangeVE: {ex.Message}";
+        }
+    }
     private async void VisionPresentation_CloseRequestedVE(
         object? sender,
         EventArgs e)
     {
-        if (_closingPresentationVE ||
+        if (
+            _closingPresentationVE ||
             _closing)
         {
             return;
@@ -283,7 +1030,8 @@ public partial class MainWindow
 
         try
         {
-            if (_visionEngineVE is not null &&
+            if (
+                _visionEngineVE is not null &&
                 _visionEngineVE.IsRunningVE)
             {
                 ResultCoreVE stop =
@@ -304,6 +1052,9 @@ public partial class MainWindow
         }
         finally
         {
+            _activeVisionSerialVE =
+                null;
+
             CloseVisionPresentationVE(
                 restoreMainWindow: true,
                 refreshInformation: true);
@@ -314,6 +1065,10 @@ public partial class MainWindow
                 false;
         }
     }
+
+    // ============================================================
+    // CLOSE PRESENTATION
+    // ============================================================
 
     private void CloseVisionPresentationVE(
         bool restoreMainWindow,
@@ -329,8 +1084,20 @@ public partial class MainWindow
 
         if (presentation is not null)
         {
+            presentation.HostVE.InputFocusGainedVE -=
+                VisionRendererHost_InputFocusGainedVE;
+
             presentation.CloseRequestedVE -=
                 VisionPresentation_CloseRequestedVE;
+
+            presentation.FilesDroppedVE -=
+                VisionPresentation_FilesDroppedVE;
+
+            presentation.DragEnteredVE -=
+                VisionPresentation_DragEnteredVE;
+
+            presentation.DragEndedVE -=
+                VisionPresentation_DragEndedVE;
 
             try
             {
@@ -341,7 +1108,8 @@ public partial class MainWindow
             }
         }
 
-        if (_visionRendererHostVE is not null &&
+        if (
+            _visionRendererHostVE is not null &&
             _visionEngineVE is not null)
         {
             try
@@ -360,13 +1128,15 @@ public partial class MainWindow
         _informationalPollingSuspended14 =
             false;
 
-        if (!restoreMainWindow ||
+        if (
+            !restoreMainWindow ||
             _closing)
         {
             return;
         }
 
-        if (WindowState ==
+        if (
+            WindowState ==
             WindowState.Minimized)
         {
             WindowState =
@@ -378,9 +1148,14 @@ public partial class MainWindow
 
         if (refreshInformation)
         {
-            _ = RefreshPerformanceOnceAsync();
+            _ =
+                RefreshPerformanceOnceAsync();
         }
     }
+
+    // ============================================================
+    // TOGGLE VISIONENGINE
+    // ============================================================
 
     private async Task ToggleVisionEngineVEAsync()
     {
@@ -400,11 +1175,18 @@ public partial class MainWindow
             }
         }
 
+        // ========================================================
+        // STOP
+        // ========================================================
+
         if (_visionEngineVE.IsRunningVE)
         {
             ResultCoreVE stop =
                 await _visionEngineVE
                     .StopAsync();
+
+            _activeVisionSerialVE =
+                null;
 
             CloseVisionPresentationVE(
                 restoreMainWindow: true,
@@ -420,10 +1202,15 @@ public partial class MainWindow
             return;
         }
 
+        // ========================================================
+        // DEVICE
+        // ========================================================
+
         var device =
             _viewModel.Device;
 
-        if (device is null ||
+        if (
+            device is null ||
             !device.Connected ||
             string.IsNullOrWhiteSpace(
                 device.Serial))
@@ -438,6 +1225,17 @@ public partial class MainWindow
                 "Selecciona un monitor de salida en Configuración.");
         }
 
+        /*
+         * Guardamos el serial UNA VEZ.
+         *
+         * Este será el serial utilizado por ExchangeVE
+         * durante toda la sesión.
+         *
+         * Cero polling adicional.
+         */
+        _activeVisionSerialVE =
+            device.Serial.Trim();
+
         UpdateOutputProfile();
 
         var profile =
@@ -445,7 +1243,8 @@ public partial class MainWindow
             throw new InvalidOperationException(
                 "No se pudo calcular el perfil de salida de VisionEngine.");
 
-        _ = CreateVisionPresentationVE();
+        _ =
+            CreateVisionPresentationVE();
 
         bool audioEnabled =
             _viewModel.AudioEnabled &&
@@ -454,8 +1253,62 @@ public partial class MainWindow
                 VisionEngine.Audio.OutputAudioVE.DisabledValueVE,
                 StringComparison.OrdinalIgnoreCase);
 
+            OptionsServerVE options =
+            BuildVisionOptionsVE(
+                profile,
+                audioEnabled);
+
+        try
+        {
+            ResultCoreVE start =
+                await _visionEngineVE
+                    .StartAsync(
+                        _activeVisionSerialVE,
+                        options);
+
+            if (!start.Success)
+            {
+                _activeVisionSerialVE =
+                    null;
+
+                CloseVisionPresentationVE(
+                    restoreMainWindow: true,
+                    refreshInformation: true);
+
+                throw start.Exception ??
+                      new InvalidOperationException(
+                          start.Message);
+            }
+
+            AttachVisionInputVE();
+
+            _visionRecoveryAttemptsVE =
+                0;
+
+            _visionPresentationWindowVE?
+                .HostVE
+                .FocusInputVE();
+        }
+        catch
+        {
+            _activeVisionSerialVE =
+                null;
+
+            CloseVisionPresentationVE(
+                restoreMainWindow: true,
+                refreshInformation: true);
+
+            throw;
+        }
+    }
+
+    private OptionsServerVE BuildVisionOptionsVE(
+        Models.OutputProfile profile,
+        bool audioEnabled)
+    {
         OptionsServerVE options =
-            OptionsServerVE.CreateDefaultVE()
+            OptionsServerVE.CreateForProfileVE(
+                _visionEngineVE!.RuntimeVE.PerformanceVE.ProfileVE)
             with
             {
                 VideoBitRate =
@@ -478,42 +1331,23 @@ public partial class MainWindow
                     true
             };
 
-        try
-        {
-            ResultCoreVE start =
-                await _visionEngineVE
-                    .StartAsync(
-                        device.Serial,
-                        options);
-
-            if (!start.Success)
-            {
-                CloseVisionPresentationVE(
-                    restoreMainWindow: true,
-                    refreshInformation: true);
-
-                throw start.Exception ??
-                      new InvalidOperationException(
-                          start.Message);
-            }
-
-            AttachVisionInputVE();
-
-            _visionPresentationWindowVE?.HostVE
-                .FocusInputVE();
-        }
-        catch
-        {
-            CloseVisionPresentationVE(
-                restoreMainWindow: true,
-                refreshInformation: true);
-
-            throw;
-        }
+        return options.ApplyStreamStabilityVE();
     }
 
+    // ============================================================
+    // RUNNING
+    // ============================================================
+
     private bool IsVisionEngineRunningVE()
-        => _visionEngineVE?.IsRunningVE == true;
+    {
+        return
+            _visionEngineVE?.IsRunningVE ==
+            true;
+    }
+
+    // ============================================================
+    // BITRATE
+    // ============================================================
 
     private static int ParseVideoBitrateVE(
         string? value)
@@ -526,32 +1360,42 @@ public partial class MainWindow
                 "M",
                 StringComparison.OrdinalIgnoreCase))
         {
-            return 10_000_000;
+            return
+                10_000_000;
         }
 
         string number =
             normalized[..^1];
 
-        if (!double.TryParse(
+        if (
+            !double.TryParse(
                 number,
                 NumberStyles.Float,
                 CultureInfo.InvariantCulture,
                 out double mbps) ||
             mbps <= 0)
         {
-            return 10_000_000;
+            return
+                10_000_000;
         }
 
-        return checked(
-            (int)Math.Round(
-                mbps * 1_000_000d,
-                MidpointRounding.AwayFromZero));
+        return
+            checked(
+                (int)Math.Round(
+                    mbps * 1_000_000d,
+                    MidpointRounding.AwayFromZero));
     }
+
+    // ============================================================
+    // STATUS
+    // ============================================================
 
     private void VisionEngine_StatusChangedVE(
         object? sender,
         StatusCoreVE status)
     {
+        RefreshSTEngineSnapshot14();
+
         bool stateChanged =
             _lastVisionStateVE !=
             status.State;
@@ -566,7 +1410,8 @@ public partial class MainWindow
         _lastRendererEnabledVE =
             status.RendererEnabled;
 
-        if (!stateChanged &&
+        if (
+            !stateChanged &&
             !rendererChanged &&
             status.State !=
                 StatesCoreVE.Failed)
@@ -574,70 +1419,227 @@ public partial class MainWindow
             return;
         }
 
-        _ = Dispatcher.BeginInvoke(
-            new Action(
-                () =>
-                {
-                    if (_closing)
+        _ =
+            Dispatcher.BeginInvoke(
+                new Action(
+                    () =>
                     {
-                        return;
-                    }
+                        if (_closing)
+                        {
+                            return;
+                        }
 
-                    UpdateRuntimeButtons();
+                        UpdateRuntimeButtons();
 
-                    switch (status.State)
-                    {
-                        case StatesCoreVE.Failed:
-                            SetVisionEngineStatus14(
-                                "ERROR",
-                                failed: true);
+                        ApplySTEngineShell14();
 
-                            CloseVisionPresentationVE(
-                                restoreMainWindow: true,
-                                refreshInformation: true);
+                        switch (status.State)
+                        {
+                            case StatesCoreVE.Failed:
 
-                            _viewModel.ConnectionStatus =
-                                status.LastError ??
-                                status.Message;
-                            break;
+                                if (TryStartVisionRecoveryVE(
+                                        status))
+                                {
+                                    return;
+                                }
 
-                        case StatesCoreVE.Running:
-                            SetVisionEngineStatus14(
-                                status.RendererEnabled
-                                    ? "OK"
-                                    : "INICIANDO",
-                                failed: false);
-                            break;
+                                SetVisionEngineStatus14(
+                                    "ERROR",
+                                    failed: true);
 
-                        case StatesCoreVE.Starting:
-                        case StatesCoreVE.Initializing:
-                            SetVisionEngineStatus14(
-                                "INICIANDO",
-                                failed: false);
-                            break;
-
-                        case StatesCoreVE.Stopping:
-                            SetVisionEngineStatus14(
-                                "DETENIENDO",
-                                failed: false);
-                            break;
-
-                        case StatesCoreVE.Stopped:
-                        case StatesCoreVE.Ready:
-                            SetVisionEngineStatus14(
-                                "OK",
-                                failed: false);
-
-                            if (_visionPresentationWindowVE is not null)
-                            {
                                 CloseVisionPresentationVE(
                                     restoreMainWindow: true,
                                     refreshInformation: true);
-                            }
-                            break;
-                    }
-                }));
+
+                                _viewModel.ConnectionStatus =
+                                    status.LastError ??
+                                    status.Message;
+
+                                break;
+
+                            case StatesCoreVE.Running:
+
+                                SetVisionEngineStatus14(
+                                    status.RendererEnabled
+                                        ? "OK"
+                                        : "INICIANDO",
+                                    failed: false);
+
+                                break;
+
+                            case StatesCoreVE.Starting:
+                            case StatesCoreVE.Initializing:
+
+                                SetVisionEngineStatus14(
+                                    "INICIANDO",
+                                    failed: false);
+
+                                break;
+
+                            case StatesCoreVE.Stopping:
+
+                                SetVisionEngineStatus14(
+                                    "DETENIENDO",
+                                    failed: false);
+
+                                break;
+
+                            case StatesCoreVE.Stopped:
+                            case StatesCoreVE.Ready:
+
+                                _activeVisionSerialVE =
+                                    null;
+
+                                SetVisionEngineStatus14(
+                                    "OK",
+                                    failed: false);
+
+                                if (
+                                    _visionPresentationWindowVE
+                                    is not null)
+                                {
+                                    CloseVisionPresentationVE(
+                                        restoreMainWindow: true,
+                                        refreshInformation: true);
+                                }
+
+                                break;
+                        }
+                    }));
     }
+
+    private bool TryStartVisionRecoveryVE(
+        StatusCoreVE status)
+    {
+        if (
+            _visionRecoveryRunningVE ||
+            _visionRecoveryAttemptsVE >=
+                MaxVisionRecoveryAttemptsVE ||
+            string.IsNullOrWhiteSpace(
+                _activeVisionSerialVE) ||
+            _visionEngineVE is null ||
+            _closing)
+        {
+            _activeVisionSerialVE =
+                null;
+
+            return false;
+        }
+
+        _visionRecoveryRunningVE =
+            true;
+
+        _visionRecoveryAttemptsVE++;
+
+        SetVisionEngineStatus14(
+            "RECUPERANDO",
+            failed: false);
+
+        _viewModel.ConnectionStatus =
+            $"VisionEngine recovery {_visionRecoveryAttemptsVE}/{MaxVisionRecoveryAttemptsVE}: {status.LastError ?? status.Message}";
+
+        _ =
+            RecoverVisionEngineVEAsync();
+
+        return true;
+    }
+
+    private async Task RecoverVisionEngineVEAsync()
+    {
+        string? serial =
+            _activeVisionSerialVE;
+
+        try
+        {
+            if (
+                string.IsNullOrWhiteSpace(serial) ||
+                _visionEngineVE is null)
+            {
+                return;
+            }
+
+            ResultCoreVE stop =
+                await _visionEngineVE
+                    .StopAsync()
+                    .ConfigureAwait(true);
+
+            if (!stop.Success)
+            {
+                throw stop.Exception ??
+                      new InvalidOperationException(
+                          stop.Message);
+            }
+
+            UpdateOutputProfile();
+
+            var profile =
+                _viewModel.OutputProfile ??
+                throw new InvalidOperationException(
+                    "No se pudo recalcular el perfil de salida para recovery.");
+
+            bool audioEnabled =
+                _viewModel.AudioEnabled &&
+                !string.Equals(
+                    _viewModel.SelectedAudioOutput,
+                    VisionEngine.Audio.OutputAudioVE.DisabledValueVE,
+                    StringComparison.OrdinalIgnoreCase);
+
+            OptionsServerVE options =
+                BuildVisionOptionsVE(
+                    profile,
+                    audioEnabled);
+
+            ResultCoreVE start =
+                await _visionEngineVE
+                    .StartAsync(
+                        serial,
+                        options)
+                    .ConfigureAwait(true);
+
+            if (!start.Success)
+            {
+                throw start.Exception ??
+                      new InvalidOperationException(
+                          start.Message);
+            }
+
+            AttachVisionInputVE();
+
+            _visionPresentationWindowVE?
+                .HostVE
+                .FocusInputVE();
+
+            _viewModel.ConnectionStatus =
+                "VisionEngine recovery completado.";
+        }
+        catch (Exception ex)
+        {
+            _activeVisionSerialVE =
+                null;
+
+            SetVisionEngineStatus14(
+                "ERROR",
+                failed: true);
+
+            CloseVisionPresentationVE(
+                restoreMainWindow: true,
+                refreshInformation: true);
+
+            _viewModel.ConnectionStatus =
+                $"VisionEngine recovery falló: {ex.Message}";
+        }
+        finally
+        {
+            _visionRecoveryRunningVE =
+                false;
+
+            UpdateRuntimeButtons();
+        }
+    }
+
+    // ============================================================
+    // STATUS UI
+    // ============================================================
 
     private void SetVisionEngineStatus14(
         string text,
@@ -659,13 +1661,45 @@ public partial class MainWindow
                         120));
     }
 
+    // ============================================================
+    // SHUTDOWN
+    // ============================================================
+
     private async Task ShutdownVisionEngineRuntimeVEAsync()
     {
+        /*
+         * Cerramos ExchangeVE incluso si EngineCoreVE
+         * todavía no fue creado correctamente.
+         */
+        TransferExchangeVE? transfer =
+            _visionTransferExchangeVE;
+
+        _visionTransferExchangeVE =
+            null;
+
+        _activeVisionSerialVE =
+            null;
+
         if (_visionEngineVE is null)
         {
             CloseVisionPresentationVE(
                 restoreMainWindow: false,
                 refreshInformation: false);
+
+            if (transfer is not null)
+            {
+                transfer.TransferStartedVE -=
+                    VisionTransfer_StartedVE;
+
+                transfer.TransferCompletedVE -=
+                    VisionTransfer_CompletedVE;
+
+                transfer.TransferFailedVE -=
+                    VisionTransfer_FailedVE;
+
+                await transfer
+                    .DisposeAsync();
+            }
 
             return;
         }
@@ -684,6 +1718,9 @@ public partial class MainWindow
                 restoreMainWindow: false,
                 refreshInformation: false);
 
+            _visionEngineVE.RuntimeVE.ClipboardVE.ClipboardChangedVE -=
+                VisionClipboard_ChangedVE;
+
             _visionEngineVE.StatusChangedVE -=
                 VisionEngine_StatusChangedVE;
 
@@ -698,6 +1735,21 @@ public partial class MainWindow
 
             _visionInputRouterVE =
                 null;
+
+            if (transfer is not null)
+            {
+                transfer.TransferStartedVE -=
+                    VisionTransfer_StartedVE;
+
+                transfer.TransferCompletedVE -=
+                    VisionTransfer_CompletedVE;
+
+                transfer.TransferFailedVE -=
+                    VisionTransfer_FailedVE;
+
+                await transfer
+                    .DisposeAsync();
+            }
         }
     }
 }

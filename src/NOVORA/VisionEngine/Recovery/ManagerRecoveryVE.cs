@@ -1,11 +1,26 @@
+using NOVORA.VisionEngine.Events;
+using System.Threading.Channels;
+
 namespace NOVORA.VisionEngine.Recovery;
 
+/// <summary>
+/// Recovery event-driven. No usa PeriodicTimer ni sondeos periódicos.
+/// Los Task.Delay restantes representan deadlines, confirmación o cooldown.
+/// </summary>
 public sealed class ManagerRecoveryVE : IAsyncDisposable
 {
     private readonly PolicyRecoveryVE _policyVE;
     private readonly Func<ScopeRecoveryVE, int, CancellationToken, Task<ResultRecoveryVE>> _recoverVE;
     private readonly SemaphoreSlim _gateVE = new(1, 1);
+    private readonly object _lifecycleGateVE = new();
+
     private CancellationTokenSource? _runCtsVE;
+    private CancellationTokenSource? _videoDeadlineCtsVE;
+    private CancellationTokenSource? _audioDeadlineCtsVE;
+    private CancellationTokenSource? _failureConfirmationCtsVE;
+    private Channel<byte>? _signalChannelVE;
+    private EventCoreVE? _eventsVE;
+    private Func<HealthRecoveryVE>? _healthProviderVE;
     private Task? _runTaskVE;
     private int _attemptsVE;
     private int _consecutiveFailuresVE;
@@ -29,18 +44,37 @@ public sealed class ManagerRecoveryVE : IAsyncDisposable
 
     public Task StartAsync(
         Func<HealthRecoveryVE> healthProvider,
+        EventCoreVE events,
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposedVE, this);
         ArgumentNullException.ThrowIfNull(healthProvider);
+        ArgumentNullException.ThrowIfNull(events);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (_runTaskVE is not null)
-            throw new InvalidOperationException("RecoveryVE ya está activo.");
+        lock (_lifecycleGateVE)
+        {
+            if (_runTaskVE is not null)
+                throw new InvalidOperationException("RecoveryVE ya está activo.");
 
-        _runCtsVE = new CancellationTokenSource();
-        PublishStateVE(StatesRecoveryVE.Monitoring);
-        _runTaskVE = RunAsync(healthProvider, _runCtsVE.Token);
+            _healthProviderVE = healthProvider;
+            _eventsVE = events;
+            _signalChannelVE = Channel.CreateBounded<byte>(
+                new BoundedChannelOptions(1)
+                {
+                    SingleReader = true,
+                    SingleWriter = false,
+                    FullMode = BoundedChannelFullMode.DropOldest,
+                    AllowSynchronousContinuations = false
+                });
+
+            _runCtsVE = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _eventsVE.DispatcherVE.EventRaisedVE += Events_EventRaisedVE;
+            PublishStateVE(StatesRecoveryVE.Monitoring);
+            _runTaskVE = RunEventLoopAsync(_signalChannelVE.Reader, _runCtsVE.Token);
+        }
+
+        TrySignalVE();
         return Task.CompletedTask;
     }
 
@@ -54,50 +88,229 @@ public sealed class ManagerRecoveryVE : IAsyncDisposable
         if (health.IsHealthy)
         {
             Interlocked.Exchange(ref _consecutiveFailuresVE, 0);
+            CancelFailureConfirmationVE();
             PublishStateVE(StatesRecoveryVE.Monitoring);
             return null;
         }
 
         PublishStateVE(StatesRecoveryVE.Degraded);
         int failures = Interlocked.Increment(ref _consecutiveFailuresVE);
-        if (failures < _policyVE.ConsecutiveFailuresBeforeRecovery)
-            return null;
 
+        if (failures < _policyVE.ConsecutiveFailuresBeforeRecovery)
+        {
+            ScheduleFailureConfirmationVE();
+            return null;
+        }
+
+        CancelFailureConfirmationVE();
         Interlocked.Exchange(ref _consecutiveFailuresVE, 0);
         return await RecoverAsync(health.SuggestedScope, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task StopAsync()
     {
-        CancellationTokenSource? cts = _runCtsVE;
-        Task? task = _runTaskVE;
-        _runCtsVE = null;
-        _runTaskVE = null;
+        EventCoreVE? events;
+        CancellationTokenSource? runCts;
+        Channel<byte>? channel;
+        Task? runTask;
 
-        if (cts is not null)
+        lock (_lifecycleGateVE)
         {
-            cts.Cancel();
-            try { if (task is not null) await task.ConfigureAwait(false); }
-            catch (OperationCanceledException) { }
-            cts.Dispose();
+            events = _eventsVE;
+            runCts = _runCtsVE;
+            channel = _signalChannelVE;
+            runTask = _runTaskVE;
+
+            _eventsVE = null;
+            _runCtsVE = null;
+            _signalChannelVE = null;
+            _runTaskVE = null;
+            _healthProviderVE = null;
         }
 
+        if (events is not null)
+            events.DispatcherVE.EventRaisedVE -= Events_EventRaisedVE;
+
+        CancelVideoDeadlineVE();
+        CancelAudioDeadlineVE();
+        CancelFailureConfirmationVE();
+
+        if (runCts is not null)
+        {
+            try { runCts.Cancel(); } catch { }
+        }
+
+        channel?.Writer.TryComplete();
+
+        if (runTask is not null)
+        {
+            try { await runTask.ConfigureAwait(false); }
+            catch (OperationCanceledException) { }
+        }
+
+        runCts?.Dispose();
+        Interlocked.Exchange(ref _consecutiveFailuresVE, 0);
         PublishStateVE(StatesRecoveryVE.Stopped);
     }
 
-    private async Task RunAsync(Func<HealthRecoveryVE> healthProvider, CancellationToken cancellationToken)
+    private void Events_EventRaisedVE(object? sender, MessageEventVE message)
     {
-        using PeriodicTimer timer = new(_policyVE.SampleInterval);
+        if (_disposedVE) return;
+
+        switch (message.Type)
+        {
+            case TypeEventVE.VideoStatus:
+                ScheduleVideoDeadlineVE();
+                TrySignalVE();
+                break;
+
+            case TypeEventVE.AudioStatus:
+                ScheduleAudioDeadlineVE();
+                TrySignalVE();
+                break;
+
+            case TypeEventVE.ControlStatus:
+            case TypeEventVE.TransportState:
+                TrySignalVE();
+                break;
+        }
+    }
+
+    private async Task RunEventLoopAsync(ChannelReader<byte> reader, CancellationToken cancellationToken)
+    {
         try
         {
-            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
-                await EvaluateOnceAsync(healthProvider(), cancellationToken).ConfigureAwait(false);
+            while (await reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                while (reader.TryRead(out _)) { }
+
+                Func<HealthRecoveryVE>? provider;
+                lock (_lifecycleGateVE) provider = _healthProviderVE;
+                if (provider is null) continue;
+
+                HealthRecoveryVE health;
+                try
+                {
+                    health = provider();
+                }
+                catch (Exception ex)
+                {
+                    PublishStateVE(StatesRecoveryVE.Failed);
+                    RecoveryCompletedVE?.Invoke(
+                        this,
+                        ResultRecoveryVE.FailVE(
+                            ScopeRecoveryVE.Session,
+                            AttemptsVE,
+                            TimeSpan.Zero,
+                            "RecoveryVE no pudo obtener el estado de salud.",
+                            ex));
+                    continue;
+                }
+
+                await EvaluateOnceAsync(health, cancellationToken).ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch
         {
             PublishStateVE(StatesRecoveryVE.Failed);
         }
+    }
+
+    private void TrySignalVE()
+    {
+        Channel<byte>? channel;
+        CancellationTokenSource? cts;
+        lock (_lifecycleGateVE)
+        {
+            channel = _signalChannelVE;
+            cts = _runCtsVE;
+        }
+
+        if (channel is null || cts is null || cts.IsCancellationRequested)
+            return;
+
+        channel.Writer.TryWrite(1);
+    }
+
+    private void ScheduleVideoDeadlineVE()
+        => ReplaceDeadlineVE(ref _videoDeadlineCtsVE, WaitVideoDeadlineAsync);
+
+    private void ScheduleAudioDeadlineVE()
+        => ReplaceDeadlineVE(ref _audioDeadlineCtsVE, WaitAudioDeadlineAsync);
+
+    private void ReplaceDeadlineVE(
+        ref CancellationTokenSource? field,
+        Func<CancellationTokenSource, Task> waiter)
+    {
+        CancellationTokenSource? runCts;
+        lock (_lifecycleGateVE) runCts = _runCtsVE;
+
+        if (runCts is null || runCts.IsCancellationRequested || _policyVE.NoProgressTimeout <= TimeSpan.Zero)
+            return;
+
+        CancellationTokenSource next = CancellationTokenSource.CreateLinkedTokenSource(runCts.Token);
+        CancellationTokenSource? previous = Interlocked.Exchange(ref field, next);
+        CancelAndDisposeVE(previous);
+        _ = waiter(next);
+    }
+
+    private async Task WaitVideoDeadlineAsync(CancellationTokenSource deadline)
+    {
+        try
+        {
+            await Task.Delay(_policyVE.NoProgressTimeout, deadline.Token).ConfigureAwait(false);
+            TrySignalVE();
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task WaitAudioDeadlineAsync(CancellationTokenSource deadline)
+    {
+        try
+        {
+            await Task.Delay(_policyVE.NoProgressTimeout, deadline.Token).ConfigureAwait(false);
+            TrySignalVE();
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private void ScheduleFailureConfirmationVE()
+    {
+        CancellationTokenSource? runCts;
+        lock (_lifecycleGateVE) runCts = _runCtsVE;
+        if (runCts is null || runCts.IsCancellationRequested) return;
+
+        CancellationTokenSource next = CancellationTokenSource.CreateLinkedTokenSource(runCts.Token);
+        CancellationTokenSource? previous = Interlocked.Exchange(ref _failureConfirmationCtsVE, next);
+        CancelAndDisposeVE(previous);
+        _ = WaitFailureConfirmationAsync(next);
+    }
+
+    private async Task WaitFailureConfirmationAsync(CancellationTokenSource confirmation)
+    {
+        try
+        {
+            await Task.Delay(_policyVE.SampleInterval, confirmation.Token).ConfigureAwait(false);
+            TrySignalVE();
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private void CancelVideoDeadlineVE()
+        => CancelAndDisposeVE(Interlocked.Exchange(ref _videoDeadlineCtsVE, null));
+
+    private void CancelAudioDeadlineVE()
+        => CancelAndDisposeVE(Interlocked.Exchange(ref _audioDeadlineCtsVE, null));
+
+    private void CancelFailureConfirmationVE()
+        => CancelAndDisposeVE(Interlocked.Exchange(ref _failureConfirmationCtsVE, null));
+
+    private static void CancelAndDisposeVE(CancellationTokenSource? source)
+    {
+        if (source is null) return;
+        try { source.Cancel(); } catch { }
+        source.Dispose();
     }
 
     private async Task<ResultRecoveryVE> RecoverAsync(ScopeRecoveryVE scope, CancellationToken cancellationToken)
@@ -109,7 +322,10 @@ public sealed class ManagerRecoveryVE : IAsyncDisposable
             if (attempt > _policyVE.MaxRecoveryAttempts)
             {
                 ResultRecoveryVE exhausted = ResultRecoveryVE.FailVE(
-                    scope, attempt, TimeSpan.Zero, "RecoveryVE agotó el máximo de intentos.");
+                    scope,
+                    attempt,
+                    TimeSpan.Zero,
+                    "RecoveryVE agotó el máximo de intentos.");
                 PublishStateVE(StatesRecoveryVE.Failed);
                 RecoveryCompletedVE?.Invoke(this, exhausted);
                 return exhausted;
@@ -122,6 +338,7 @@ public sealed class ManagerRecoveryVE : IAsyncDisposable
             if (!result.Success)
             {
                 PublishStateVE(StatesRecoveryVE.Degraded);
+                ScheduleFailureConfirmationVE();
                 return result;
             }
 
@@ -140,6 +357,7 @@ public sealed class ManagerRecoveryVE : IAsyncDisposable
 
     private void PublishStateVE(StatesRecoveryVE state)
     {
+        if (_stateVE == state) return;
         _stateVE = state;
         StateChangedVE?.Invoke(this, state);
     }

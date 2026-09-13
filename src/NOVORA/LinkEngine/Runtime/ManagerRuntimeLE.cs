@@ -1,8 +1,14 @@
 using System;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using NOVORA.LinkEngine.Core;
 using NOVORA.LinkEngine.Device;
+using NOVORA.LinkEngine.Network;
 using NOVORA.LinkEngine.Recovery;
 using NOVORA.LinkEngine.Transport;
 using NOVORA.Services;
@@ -34,9 +40,6 @@ public sealed class ManagerRuntimeLE :
     private static readonly TimeSpan InitialHealthTimeoutLE =
         TimeSpan.FromSeconds(15);
 
-    private static readonly TimeSpan StatusRefreshIntervalLE =
-        TimeSpan.FromMilliseconds(500);
-
     private const long RequiredInitialHeartbeatsLE =
         3;
 
@@ -64,8 +67,6 @@ public sealed class ManagerRuntimeLE :
     private MonitorRecoveryLE? _recoveryMonitor;
 
     private CancellationTokenSource? _runtimeCts;
-
-    private Task? _statusWorkerTask;
 
     private SessionRuntimeLE? _session;
 
@@ -122,7 +123,8 @@ public sealed class ManagerRuntimeLE :
 
     public async Task<ResultCoreLE> StartAsync(
         string serial,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool launchAndroidClient = true)
     {
         ThrowIfDisposedLE();
 
@@ -189,6 +191,9 @@ public sealed class ManagerRuntimeLE :
 
             _engine =
                 engine;
+
+            engine.Network.SessionChangedLE +=
+                Network_SessionChangedLE;
 
             try
             {
@@ -297,9 +302,61 @@ public sealed class ManagerRuntimeLE :
                 // ANDROID CLIENT
                 // ====================================================
 
-                UpdateRuntimeStateLE(
+                RefreshSessionLE(
                     StateRuntimeLE.WaitingForAndroid,
-                    "Esperando cliente Android HELLO/ACK.");
+                    "CONTROL listo. Esperando NOVORA-LINK Android.",
+                    null);
+
+                if (launchAndroidClient)
+                {
+                    var androidClient =
+                        new ManagerAndroidClientLE();
+
+                /*
+                 * El token remoto queda opcional en esta etapa.
+                 * ManagerAndroidClientLE siempre envía
+                 * novora_autostart_link=true para que Android arranque
+                 * su cliente de transporte automáticamente.
+                 *
+                 * Cuando el servidor RemoteNV exponga su token real a
+                 * ManagerRuntimeLE, se pasa aquí sin cambiar el manager.
+                 */
+                ResultCoreLE androidReady =
+                    await androidClient
+                        .EnsureReadyAndLaunchAsync(
+                            serial,
+                            remoteSessionToken: null,
+                            cancellationToken:
+                                cancellationToken)
+                        .ConfigureAwait(false);
+
+                if (!androidReady.Success)
+                {
+                    return await FailStartLEAsync(
+                            serial,
+                            androidReady.Message)
+                        .ConfigureAwait(false);
+                }
+
+                    RefreshSessionLE(
+                        StateRuntimeLE.WaitingForAndroid,
+                        "NOVORA-LINK Android lanzado. Esperando HELLO/ACK.",
+                        null);
+                }
+                else
+                {
+                    /*
+                     * Remote PrepareLink:
+                     *
+                     * Windows deja CONTROL/ADB reverse listo.
+                     * La APK es dueña del permiso VPN y del arranque
+                     * de VpnNetworkLE.
+                     */
+                    RefreshSessionLE(
+                        StateRuntimeLE.WaitingForAndroid,
+                        "CONTROL listo. Esperando inicio VPN desde NOVORA-LINK Android.",
+                        null);
+                }
 
                 ResultCoreLE handshake =
                     await engine.Transport
@@ -397,17 +454,6 @@ public sealed class ManagerRuntimeLE :
                     "LINKENGINE RUNTIME HEALTHY.",
                     null);
 
-                CancellationToken runtimeToken =
-                    _runtimeCts.Token;
-
-                _statusWorkerTask =
-                    Task.Run(
-                        () =>
-                            RunStatusWorkerLEAsync(
-                                serial,
-                                runtimeToken),
-                        CancellationToken.None);
-
                 return ResultCoreLE.Ok(
                     "LE-005 LinkEngine Runtime iniciado. " +
                     "ManagerDeviceLE, ManagerTransportLE y MonitorRecoveryLE permanecen activos.");
@@ -504,67 +550,33 @@ public sealed class ManagerRuntimeLE :
     }
 
     // ============================================================
-    // STATUS WORKER
+    // NETWORK EVENT
     // ============================================================
 
-    private async Task RunStatusWorkerLEAsync(
-        string serial,
-        CancellationToken cancellationToken)
+    private void Network_SessionChangedLE(
+        object? sender,
+        SessionNetworkLE network)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        SessionRuntimeLE? current = SessionLE;
+        if (current is null ||
+            !string.Equals(current.Serial, network.Serial, StringComparison.OrdinalIgnoreCase))
         {
-            try
-            {
-                RecoveryMonitorStatusLE? recovery =
-                    _recoveryMonitor?.StatusLE;
-
-                SessionTransportLE? transport =
-                    _engine?
-                        .Transport
-                        .GetSessionLE(
-                            serial);
-
-                StateRuntimeLE state =
-                    CalculateRuntimeStateLE(
-                        recovery,
-                        transport);
-
-                string message =
-                    BuildRuntimeMessageLE(
-                        state,
-                        recovery,
-                        transport);
-
-                string? error =
-                    recovery?.LastError ??
-                    transport?.LastError;
-
-                RefreshSessionLE(
-                    state,
-                    message,
-                    error);
-            }
-            catch
-            {
-                /*
-                 * El worker visual/observable jamás debe
-                 * destruir el runtime.
-                 */
-            }
-
-            try
-            {
-                await Task.Delay(
-                        StatusRefreshIntervalLE,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-                when (cancellationToken.IsCancellationRequested)
-            {
-                break;
-            }
+            return;
         }
+
+        if (network.State == StateNetworkLE.Online && network.RelayRunning && network.DataReverseConfigured)
+        {
+            RefreshSessionLE(
+                StateRuntimeLE.Running,
+                network.Message,
+                null);
+            return;
+        }
+
+        RefreshSessionLE(
+            StateRuntimeLE.Degraded,
+            network.Message,
+            network.LastError);
     }
 
     // ============================================================
@@ -687,10 +699,15 @@ public sealed class ManagerRuntimeLE :
             engine.Transport.GetSessionLE(
                 current.Serial);
 
+        SessionNetworkLE? network =
+            engine.Network.GetSessionLE(
+                current.Serial);
+
         StateRuntimeLE effectiveState =
             CalculateRuntimeStateLE(
                 recovery,
-                transport);
+                transport,
+                network);
 
         /*
          * Las fases explícitas del lifecycle tienen prioridad
@@ -730,10 +747,17 @@ public sealed class ManagerRuntimeLE :
             transport.HandshakeVerified &&
             transport.SessionHealthy;
 
+        bool networkHealthy =
+            network is not null &&
+            network.State == StateNetworkLE.Online &&
+            network.RelayRunning &&
+            network.DataReverseConfigured;
+
         bool sessionHealthy =
             deviceOnline &&
             monitorHealthy &&
             transportHealthy &&
+            networkHealthy &&
             effectiveState ==
                 StateRuntimeLE.Running;
 
@@ -937,7 +961,8 @@ public sealed class ManagerRuntimeLE :
 
     private static StateRuntimeLE CalculateRuntimeStateLE(
         RecoveryMonitorStatusLE? recovery,
-        SessionTransportLE? transport)
+        SessionTransportLE? transport,
+        SessionNetworkLE? network)
     {
         if (recovery is not null)
         {
@@ -971,7 +996,11 @@ public sealed class ManagerRuntimeLE :
             transport.ListenerStarted &&
             transport.ClientConnected &&
             transport.HandshakeVerified &&
-            transport.SessionHealthy;
+            transport.SessionHealthy &&
+            network is not null &&
+            network.State == StateNetworkLE.Online &&
+            network.RelayRunning &&
+            network.DataReverseConfigured;
 
         return healthy
             ? StateRuntimeLE.Running
@@ -1166,26 +1195,6 @@ public sealed class ManagerRuntimeLE :
             }
         }
 
-        Task? statusWorker =
-            _statusWorkerTask;
-
-        _statusWorkerTask =
-            null;
-
-        if (statusWorker is not null)
-        {
-            try
-            {
-                await statusWorker
-                    .WaitAsync(
-                        TimeSpan.FromSeconds(2))
-                    .ConfigureAwait(false);
-            }
-            catch
-            {
-            }
-        }
-
         runtimeCts?.Dispose();
 
         MonitorRecoveryLE? monitor =
@@ -1220,6 +1229,9 @@ public sealed class ManagerRuntimeLE :
         {
             return;
         }
+
+        engine.Network.SessionChangedLE -=
+            Network_SessionChangedLE;
 
         if (!string.IsNullOrWhiteSpace(serial))
         {
@@ -1448,5 +1460,652 @@ public sealed class ManagerRuntimeLE :
 
             _lifecycleGate.Dispose();
         }
+    }
+}
+
+/// <summary>
+/// Garantiza que el cliente Android de NOVORA esté disponible y lo inicia.
+///
+/// P0:
+/// - usa el ADB empaquetado con NOVORA;
+/// - instala/actualiza con adb install -r;
+/// - evita reinstalar el mismo APK usando una huella SHA-256 por dispositivo;
+/// - nunca fuerza downgrade;
+/// - resuelve MAIN/LAUNCHER dinámicamente;
+/// - inicia la app con novora_autostart_link=true;
+/// - admite novora_remote_token cuando Runtime disponga del token real.
+/// </summary>
+public sealed class ManagerAndroidClientLE
+{
+    private const string PackageNameLE =
+        "com.novora.linkengine";
+
+    private const string AutoStartExtraLE =
+        "novora_autostart_link";
+
+    private const string RemoteTokenExtraLE =
+        "novora_remote_token";
+
+    private readonly string _adbPath;
+    private readonly string _apkPath;
+    private readonly string _cacheDirectory;
+
+    public ManagerAndroidClientLE(
+        string? baseDirectory = null)
+    {
+        string root =
+            Path.GetFullPath(
+                baseDirectory ??
+                AppContext.BaseDirectory);
+
+        _adbPath =
+            Path.Combine(
+                root,
+                "Tools",
+                "adb.exe");
+
+        _apkPath =
+            Path.Combine(
+                root,
+                "Tools",
+                "Android",
+                "NOVORA.LinkEngine.Android.apk");
+
+        _cacheDirectory =
+            Path.Combine(
+                Environment.GetFolderPath(
+                    Environment.SpecialFolder.LocalApplicationData),
+                "NOVORA",
+                "AndroidClient");
+    }
+
+    public async Task<ResultCoreLE> EnsureReadyAndLaunchAsync(
+        string serial,
+        string? remoteSessionToken = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(serial))
+        {
+            return ResultCoreLE.Fail(
+                "ANDROID CLIENT: serial ADB vacío.");
+        }
+
+        serial =
+            serial.Trim();
+
+        if (!File.Exists(_adbPath))
+        {
+            return ResultCoreLE.Fail(
+                "ANDROID CLIENT: ADB MISSING - falta Tools\\adb.exe.");
+        }
+
+        if (!File.Exists(_apkPath))
+        {
+            return ResultCoreLE.Fail(
+                "ANDROID CLIENT: APK MISSING - falta Tools\\Android\\NOVORA.LinkEngine.Android.apk.");
+        }
+
+        AdbCommandResultLE state =
+            await RunAdbAsync(
+                    new[]
+                    {
+                        "-s",
+                        serial,
+                        "get-state"
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+        if (state.ExitCode != 0 ||
+            !string.Equals(
+                state.StandardOutput.Trim(),
+                "device",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return ResultCoreLE.Fail(
+                "ANDROID CLIENT: ADB OFFLINE - el dispositivo no está en estado device. " +
+                BuildSafeDetailLE(
+                    state,
+                    remoteSessionToken));
+        }
+
+        string bundledHash =
+            await ComputeSha256Async(
+                    _apkPath,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+        bool packageInstalled =
+            await IsPackageInstalledAsync(
+                    serial,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+        string cachePath =
+            GetCachePathLE(
+                serial);
+
+        string? cachedHash =
+            await ReadCachedHashAsync(
+                    cachePath,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+        bool bundleAlreadyChecked =
+            packageInstalled &&
+            string.Equals(
+                cachedHash,
+                bundledHash,
+                StringComparison.OrdinalIgnoreCase);
+
+        if (!bundleAlreadyChecked)
+        {
+            AdbCommandResultLE install =
+                await RunAdbAsync(
+                        new[]
+                        {
+                            "-s",
+                            serial,
+                            "install",
+                            "-r",
+                            _apkPath
+                        },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+
+            string installText =
+                install.CombinedOutput;
+
+            bool downgradeBlocked =
+                installText.Contains(
+                    "INSTALL_FAILED_VERSION_DOWNGRADE",
+                    StringComparison.OrdinalIgnoreCase);
+
+            bool installed =
+                install.ExitCode == 0 &&
+                installText.Contains(
+                    "Success",
+                    StringComparison.OrdinalIgnoreCase);
+
+            if (!installed &&
+                !downgradeBlocked)
+            {
+                return ResultCoreLE.Fail(
+                    "ANDROID CLIENT: INSTALL FAILED. " +
+                    BuildSafeDetailLE(
+                        install,
+                        remoteSessionToken));
+            }
+
+            if (installed)
+            {
+                packageInstalled =
+                    await IsPackageInstalledAsync(
+                            serial,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+
+                if (!packageInstalled)
+                {
+                    return ResultCoreLE.Fail(
+                        "ANDROID CLIENT: INSTALL FAILED - ADB informó Success pero el paquete no aparece instalado.");
+                }
+            }
+            else if (downgradeBlocked &&
+                     !packageInstalled)
+            {
+                return ResultCoreLE.Fail(
+                    "ANDROID CLIENT: INSTALL FAILED - Android rechazó un downgrade y no hay una instalación utilizable.");
+            }
+
+            // También cacheamos el hash si Android rechazó un downgrade:
+            // significa que el dispositivo ya tiene una versión más nueva y
+            // no queremos repetir el intento en cada arranque.
+            await WriteCachedHashAsync(
+                    cachePath,
+                    bundledHash,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (!packageInstalled)
+        {
+            packageInstalled =
+                await IsPackageInstalledAsync(
+                        serial,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+        }
+
+        if (!packageInstalled)
+        {
+            return ResultCoreLE.Fail(
+                "ANDROID CLIENT: PACKAGE QUERY FAILED - com.novora.linkengine no está instalado.");
+        }
+
+        string? launcher =
+            await ResolveLauncherAsync(
+                    serial,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+        if (string.IsNullOrWhiteSpace(launcher))
+        {
+            return ResultCoreLE.Fail(
+                "ANDROID CLIENT: LAUNCHER NOT FOUND - Android no resolvió una Activity MAIN/LAUNCHER.");
+        }
+
+        ResultCoreLE launch =
+            await LaunchAsync(
+                    serial,
+                    launcher,
+                    remoteSessionToken,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+        if (!launch.Success)
+        {
+            return launch;
+        }
+
+        return ResultCoreLE.Ok(
+            bundleAlreadyChecked
+                ? "ANDROID CLIENT: READY - cliente Android lanzado."
+                : "ANDROID CLIENT: READY - cliente Android instalado/actualizado y lanzado.");
+    }
+
+    private async Task<bool> IsPackageInstalledAsync(
+        string serial,
+        CancellationToken cancellationToken)
+    {
+        AdbCommandResultLE result =
+            await RunAdbAsync(
+                    new[]
+                    {
+                        "-s",
+                        serial,
+                        "shell",
+                        "pm",
+                        "path",
+                        PackageNameLE
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+        return result.ExitCode == 0 &&
+               result.StandardOutput
+                   .Split(
+                       new[] { '\r', '\n' },
+                       StringSplitOptions.RemoveEmptyEntries)
+                   .Any(
+                       line =>
+                           line.TrimStart()
+                               .StartsWith(
+                                   "package:",
+                                   StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task<string?> ResolveLauncherAsync(
+        string serial,
+        CancellationToken cancellationToken)
+    {
+        AdbCommandResultLE result =
+            await RunAdbAsync(
+                    new[]
+                    {
+                        "-s",
+                        serial,
+                        "shell",
+                        "cmd",
+                        "package",
+                        "resolve-activity",
+                        "--brief",
+                        "-a",
+                        "android.intent.action.MAIN",
+                        "-c",
+                        "android.intent.category.LAUNCHER",
+                        PackageNameLE
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+        if (result.ExitCode != 0)
+        {
+            return null;
+        }
+
+        string[] lines =
+            result.StandardOutput
+                .Split(
+                    new[] { '\r', '\n' },
+                    StringSplitOptions.RemoveEmptyEntries |
+                    StringSplitOptions.TrimEntries);
+
+        for (int index = lines.Length - 1;
+             index >= 0;
+             index--)
+        {
+            string candidate =
+                lines[index];
+
+            if (Regex.IsMatch(
+                    candidate,
+                    "^[A-Za-z0-9._-]+/[A-Za-z0-9._$-]+$"))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private async Task<ResultCoreLE> LaunchAsync(
+        string serial,
+        string launcher,
+        string? remoteSessionToken,
+        CancellationToken cancellationToken)
+    {
+        var arguments =
+            new System.Collections.Generic.List<string>
+            {
+                "-s",
+                serial,
+                "shell",
+                "am",
+                "start",
+                "-W",
+                "-a",
+                "android.intent.action.MAIN",
+                "-c",
+                "android.intent.category.LAUNCHER",
+                "-n",
+                launcher,
+                "--ez",
+                AutoStartExtraLE,
+                "true"
+            };
+
+        if (!string.IsNullOrWhiteSpace(
+                remoteSessionToken))
+        {
+            arguments.Add(
+                "--es");
+            arguments.Add(
+                RemoteTokenExtraLE);
+            arguments.Add(
+                remoteSessionToken);
+        }
+
+        AdbCommandResultLE result =
+            await RunAdbAsync(
+                    arguments.ToArray(),
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+        string output =
+            result.CombinedOutput;
+
+        bool rejected =
+            result.ExitCode != 0 ||
+            output.Contains(
+                "Error type 3",
+                StringComparison.OrdinalIgnoreCase) ||
+            output.Contains(
+                "does not exist",
+                StringComparison.OrdinalIgnoreCase) ||
+            output.Contains(
+                "unable to resolve Intent",
+                StringComparison.OrdinalIgnoreCase) ||
+            output.Contains(
+                "SecurityException",
+                StringComparison.OrdinalIgnoreCase);
+
+        if (rejected)
+        {
+            return ResultCoreLE.Fail(
+                "ANDROID CLIENT: LAUNCH FAILED. " +
+                BuildSafeDetailLE(
+                    result,
+                    remoteSessionToken));
+        }
+
+        return ResultCoreLE.Ok(
+            "ANDROID CLIENT: LAUNCHED.");
+    }
+
+    private async Task<AdbCommandResultLE> RunAdbAsync(
+        string[] arguments,
+        CancellationToken cancellationToken)
+    {
+        var startInfo =
+            new ProcessStartInfo
+            {
+                FileName = _adbPath,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+        foreach (string argument in arguments)
+        {
+            startInfo.ArgumentList.Add(
+                argument);
+        }
+
+        using var process =
+            new Process
+            {
+                StartInfo = startInfo
+            };
+
+        try
+        {
+            if (!process.Start())
+            {
+                return new AdbCommandResultLE(
+                    -1,
+                    string.Empty,
+                    "No se pudo iniciar adb.exe.");
+            }
+
+            Task<string> stdoutTask =
+                process.StandardOutput
+                    .ReadToEndAsync();
+
+            Task<string> stderrTask =
+                process.StandardError
+                    .ReadToEndAsync();
+
+            try
+            {
+                await process
+                    .WaitForExitAsync(
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill(
+                            entireProcessTree: true);
+                    }
+                }
+                catch
+                {
+                }
+
+                throw;
+            }
+
+            string stdout =
+                await stdoutTask
+                    .ConfigureAwait(false);
+
+            string stderr =
+                await stderrTask
+                    .ConfigureAwait(false);
+
+            return new AdbCommandResultLE(
+                process.ExitCode,
+                stdout,
+                stderr);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return new AdbCommandResultLE(
+                -1,
+                string.Empty,
+                ex.Message);
+        }
+    }
+
+    private static async Task<string> ComputeSha256Async(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        await using FileStream stream =
+            new(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                81920,
+                useAsync: true);
+
+        byte[] hash =
+            await SHA256.HashDataAsync(
+                    stream,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+        return Convert.ToHexString(
+            hash);
+    }
+
+    private string GetCachePathLE(
+        string serial)
+    {
+        string safeSerial =
+            string.Concat(
+                serial.Select(
+                    character =>
+                        Path.GetInvalidFileNameChars()
+                            .Contains(character)
+                            ? '_'
+                            : character));
+
+        return Path.Combine(
+            _cacheDirectory,
+            safeSerial + ".sha256");
+    }
+
+    private static async Task<string?> ReadCachedHashAsync(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            return (
+                await File.ReadAllTextAsync(
+                        path,
+                        cancellationToken)
+                    .ConfigureAwait(false))
+                .Trim();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static async Task WriteCachedHashAsync(
+        string path,
+        string hash,
+        CancellationToken cancellationToken)
+    {
+        string? directory =
+            Path.GetDirectoryName(
+                path);
+
+        if (!string.IsNullOrWhiteSpace(
+                directory))
+        {
+            Directory.CreateDirectory(
+                directory);
+        }
+
+        await File.WriteAllTextAsync(
+                path,
+                hash,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static string BuildSafeDetailLE(
+        AdbCommandResultLE result,
+        string? remoteSessionToken)
+    {
+        string detail =
+            result.CombinedOutput.Trim();
+
+        if (!string.IsNullOrWhiteSpace(
+                remoteSessionToken))
+        {
+            detail =
+                detail.Replace(
+                    remoteSessionToken,
+                    "[REDACTED]",
+                    StringComparison.Ordinal);
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                detail))
+        {
+            detail =
+                $"ADB exit code {result.ExitCode}.";
+        }
+
+        const int MaxDetailLengthLE =
+            700;
+
+        if (detail.Length >
+            MaxDetailLengthLE)
+        {
+            detail =
+                detail[..MaxDetailLengthLE] +
+                "...";
+        }
+
+        return detail;
+    }
+
+    private sealed record AdbCommandResultLE(
+        int ExitCode,
+        string StandardOutput,
+        string StandardError)
+    {
+        public string CombinedOutput =>
+            string.IsNullOrWhiteSpace(
+                StandardError)
+                ? StandardOutput
+                : string.IsNullOrWhiteSpace(
+                    StandardOutput)
+                    ? StandardError
+                    : StandardOutput +
+                      Environment.NewLine +
+                      StandardError;
     }
 }

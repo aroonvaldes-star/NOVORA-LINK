@@ -2,15 +2,78 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-	<uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission
+        android:name="android.permission.INTERNET" />
 
-	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission
+        android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-	<application
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <uses-permission
+        android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <uses-permission
+        android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application
         android:allowBackup="false"
         android:label="NOVORA LinkEngine"
-        android:icon="@mipmap/novora_linkengine"
-        android:roundIcon="@mipmap/novora_linkengine"
-        android:supportsRtl="true" />
+        android:icon="@mipmap/appicon"
+        android:roundIcon="@mipmap/appicon_round"
+        android:supportsRtl="true">
+
+        <service
+            android:name="com.novora.linkengine.DiscoveryServiceNV"
+            android:foregroundServiceType="specialUse"
+            android:exported="false"
+            android:enabled="true"
+            android:stopWithTask="false">
+
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="NOVORA-LINK automatic PC discovery and connection presence" />
+
+        </service>
+
+        <receiver
+            android:name="com.novora.linkengine.DiscoverySignalReceiverNV"
+            android:enabled="true"
+            android:exported="true">
+
+            <intent-filter>
+                <action
+                    android:name="android.intent.action.BOOT_COMPLETED" />
+                <action
+                    android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action
+                    android:name="com.novora.linkengine.DISCOVERY_READY" />
+            </intent-filter>
+
+        </receiver>
+
+        <service
+            android:name="com.novora.linkengine.VpnNetworkLE"
+            android:permission="android.permission.BIND_VPN_SERVICE"
+            android:foregroundServiceType="specialUse"
+            android:exported="true"
+            android:stopWithTask="false">
+
+            <intent-filter>
+                <action
+                    android:name="android.net.VpnService" />
+            </intent-filter>
+
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="NOVORA LinkEngine USB reverse tethering VPN dataplane" />
+
+        </service>
+
+    </application>
 
 </manifest>

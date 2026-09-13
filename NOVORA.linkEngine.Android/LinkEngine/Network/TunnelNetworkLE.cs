@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Android.Net;
@@ -68,7 +68,7 @@ public sealed class TunnelNetworkLE :
         int relayId =
             _data.RelayClientIdLE ??
             throw new InvalidOperationException(
-                "Relay DATA no entregó ClientId.");
+                "Relay DATA no entregÃ³ ClientId.");
 
         onConnected(
             relayId);
@@ -188,12 +188,23 @@ public sealed class TunnelNetworkLE :
                     "Relay DATA cerrado.");
             }
 
+            /*
+             * FileOutputStream escribe directamente sobre el
+             * descriptor TUN.
+             *
+             * No hacemos Flush() por paquete.
+             *
+             * El Flush individual:
+             *
+             * - no define framing;
+             * - no es necesario para el TUN;
+             * - añade trabajo a cada paquete;
+             * - aumenta jitter bajo carga.
+             */
             _vpnOutput.Write(
                 packet,
                 0,
                 length);
-
-            _vpnOutput.Flush();
         }
     }
 

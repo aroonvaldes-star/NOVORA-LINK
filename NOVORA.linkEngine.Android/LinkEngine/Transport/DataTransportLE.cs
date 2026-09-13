@@ -103,7 +103,7 @@ public sealed class DataTransportLE :
         }
 
         throw new TimeoutException(
-            $"DATA {HostLE}:{PortLE} no conectó. Último error: {lastError?.Message}");
+            $"DATA {HostLE}:{PortLE} no conectÃ³. Ãšltimo error: {lastError?.Message}");
     }
 
     private void ConnectOnceLE(
@@ -123,27 +123,46 @@ public sealed class DataTransportLE :
                 true;
 
             /*
+             * ========================================================
+             * NOVORA LINKENGINE - DATA TRANSPORT BUFFER V2.1
+             * ========================================================
+             *
+             * DATA transporta el túnel completo, pero no queremos
+             * esconder congestión dentro de buffers gigantes.
+             *
+             * 256 KiB por dirección mantiene headroom suficiente para
+             * ADB/USB mientras reduce queueing frente al antiguo 1 MiB.
+             *
+             * Esto NO limita el throughput a 256 KiB:
+             * el socket se vacía y rellena continuamente.
+             */
+            socket.SendBufferSize =
+                256 * 1024;
+
+            socket.ReceiveBufferSize =
+                256 * 1024;
+            /*
              * LE-006 DATA SOCKET FD FIX
              *
              * Java.Net.Socket puede crear su file descriptor nativo
              * de forma perezosa.
              *
-             * VpnService.Protect(Socket) necesita un descriptor válido.
+             * VpnService.Protect(Socket) necesita un descriptor vÃ¡lido.
              *
              * Bind() al puerto 0:
              *
              * - crea el socket nativo
-             * - asigna un puerto local efímero
-             * - NO conecta todavía al relay
+             * - asigna un puerto local efÃ­mero
+             * - NO conecta todavÃ­a al relay
              *
              * Esto permite respetar el orden correcto:
              *
              *     CREATE
-             *       ↓
+             *       â†“
              *     BIND / FD
-             *       ↓
+             *       â†“
              *     PROTECT
-             *       ↓
+             *       â†“
              *     CONNECT
              */
             var localEndpoint =
@@ -160,9 +179,9 @@ public sealed class DataTransportLE :
             }
 
             /*
-             * Protegemos el propio transporte del túnel.
+             * Protegemos el propio transporte del tÃºnel.
              *
-             * Así sus paquetes no son capturados nuevamente
+             * AsÃ­ sus paquetes no son capturados nuevamente
              * por el VpnService y no generan un loop.
              */
             bool protectedLE =
@@ -172,7 +191,7 @@ public sealed class DataTransportLE :
             if (!protectedLE)
             {
                 throw new InvalidOperationException(
-                    "VpnService.Protect(DATA) rechazó el socket después de crear su FD.");
+                    "VpnService.Protect(DATA) rechazÃ³ el socket despuÃ©s de crear su FD.");
             }
 
             var remoteEndpoint =
@@ -187,7 +206,7 @@ public sealed class DataTransportLE :
             if (!socket.IsConnected)
             {
                 throw new InvalidOperationException(
-                    $"DATA no quedó conectado a {HostLE}:{PortLE}.");
+                    $"DATA no quedÃ³ conectado a {HostLE}:{PortLE}.");
             }
 
             Stream input =
@@ -202,8 +221,8 @@ public sealed class DataTransportLE :
 
             /*
              * El relay Rust asigna un client id de 32 bits
-             * y lo envía big-endian inmediatamente después
-             * de aceptar el túnel.
+             * y lo envÃ­a big-endian inmediatamente despuÃ©s
+             * de aceptar el tÃºnel.
              */
             int relayClientId =
                 DataProtocolLE.ReadClientIdLE(

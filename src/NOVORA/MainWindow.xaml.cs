@@ -1,939 +1,96 @@
-﻿using NOVORA.LinkEngine.Runtime;
 using NOVORA.Models;
 using NOVORA.Services;
+using NOVORA.Discovery;
 using NOVORA.ViewModels;
+using NOVORA.STEngine.Core;
+using NOVORA.VisionEngine.Gamepad;
+using NOVORA.VisionEngine.Integration;
+using NOVORA.VisionEngine.Nvidia;
+using NOVORA.VisionEngine.Privacy;
 using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace NOVORA;
 
+public enum MessageKind14
+{
+    Info,
+    Success,
+    Warning,
+    Error
+}
+
 public partial class MainWindow : Window
 {
-    private readonly NovoraPaths _paths =
-        new();
-
-    private readonly SettingsService _settingsService =
-        new();
-
-    private readonly MonitorService _monitorService =
-        new();
-
-    private readonly OutputProfileService _outputProfileService =
-        new();
-
-    private readonly UpdateService _updateService =
-        new();
-
-    private readonly MainViewModel _viewModel =
-        new();
-
+    private readonly NovoraPaths _paths = new();
+    private readonly SettingsService _settingsService = new();
+    private readonly MonitorService _monitorService = new();
+    private readonly OutputProfileService _outputProfileService = new();
+    private readonly UpdateService _updateService = new();
+    private readonly MainViewModel _viewModel = new();
     private readonly AdbService _adb;
-
     private readonly DeviceIdentityService _deviceIdentity;
-
     private readonly DeviceMetricsService _metricsService;
+    private readonly EngineCoreST _stEngineST = new();
 
     private bool _closing;
-
-    private bool _refreshingDevices;
-
+    private bool _shellInitialized14;
     private bool _informationalPollingSuspended14;
-
+    private string _selectedPage14 = "Home";
+    private CancellationTokenSource? _refreshCts14;
+    private LanDiscoveryResponderNV? _lanDiscoveryResponderNV;
 
     public MainWindow()
     {
+        _adb = new AdbService(_paths);
+        _deviceIdentity = new DeviceIdentityService(_adb, _settingsService);
+        _metricsService = new DeviceMetricsService(_adb);
+
         InitializeComponent();
 
-        _adb =
-            new AdbService(
-                _paths);
+        InitializeAndroidShareListNV();
 
-        /*
-         * LinkEngine usa la misma instancia ADB que NOVORA.
-         */
+        DataContext = _viewModel;
+
+        ThemeService.Apply(_viewModel.Theme);
+
         InitializeLinkEngineRuntimeLE();
         InitializeVisionEngineRuntimeVE();
-
-        _deviceIdentity =
-            new DeviceIdentityService(
-                _adb,
-                _settingsService);
-
-        _metricsService =
-            new DeviceMetricsService(
-                _adb);
-
-        DataContext =
-            _viewModel;
-
-        _viewModel.PropertyChanged +=
-            ViewModel_PropertyChanged;
-
-        ApplyResponsiveWindowBounds14();
     }
-
-
-    /*
-     * ============================================================
-     * TAMAÑO RESPONSIVO 1.4
-     * ============================================================
-     */
-
-    private void ApplyResponsiveWindowBounds14()
-    {
-        Rect workArea =
-            SystemParameters.WorkArea;
-
-        const double preferredWidth =
-            920d;
-
-        const double preferredHeight =
-            560d;
-
-        const double outerMargin =
-            14d;
-
-        double usableWidth =
-            Math.Max(
-                640d,
-                workArea.Width -
-                outerMargin * 2d);
-
-        double usableHeight =
-            Math.Max(
-                480d,
-                workArea.Height -
-                outerMargin * 2d);
-
-        MinWidth =
-            Math.Min(
-                820d,
-                usableWidth);
-
-        MinHeight =
-            Math.Min(
-                500d,
-                usableHeight);
-
-        Width =
-            Math.Min(
-                preferredWidth,
-                usableWidth);
-
-        Height =
-            Math.Min(
-                preferredHeight,
-                usableHeight);
-
-        MaxWidth =
-            workArea.Width;
-
-        MaxHeight =
-            workArea.Height;
-
-        Left =
-            workArea.Left +
-            Math.Max(
-                0d,
-                (workArea.Width - Width) / 2d);
-
-        Top =
-            workArea.Top +
-            Math.Max(
-                0d,
-                (workArea.Height - Height) / 2d);
-    }
-
-
-    /*
-     * ============================================================
-     * INICIO
-     * ============================================================
-     */
 
     private async void Window_Loaded(
         object sender,
         RoutedEventArgs e)
     {
-        try
-        {
-            LoadSettings();
+        _shellInitialized14 = true;
 
-            LoadMonitors();
+        LoadSettingsToViewModel14();
+        ApplyTheme14(_viewModel.Theme);
+        UpdateRuntimeButtons();
+        ApplySTEngineShell14();
+        ShowPage14(_selectedPage14);
 
-            await RefreshDevicesAsync(
-                force: true);
+        _viewModel.PropertyChanged +=
+            ShellViewModel_PropertyChanged14;
 
-            await InitializeVisionEngineOnLoadedVEAsync();
+        Closed += ShellWindow_Closed14;
 
-            UpdateOutputProfile();
-
-            UpdateRuntimeButtons();
-
-            await RefreshPerformanceOnceAsync();
-        }
-        catch (Exception ex)
-        {
-            _viewModel.ConnectionStatus =
-                ex.Message;
-
-            ResetPerformanceSurface14(
-                "Rendimiento no disponible.");
-        }
-    }
-
-
-    /*
-     * ============================================================
-     * CONFIGURACION
-     * ============================================================
-     */
-
-    private void LoadSettings()
-    {
-        var settings =
-            _settingsService.Load();
-
-        _viewModel.AudioEnabled =
-            settings.AudioEnabled;
-
-        _viewModel.RefreshAudioOutputOptions(
-            _paths);
-
-        _viewModel.SelectedAudioOutput =
-            settings.AudioEnabled
-                ? settings.SelectedAudioOutput
-                : NOVORA.VisionEngine.Audio.OutputAudioVE.DisabledValueVE;
-
-        _viewModel.VideoPresentationMode =
-            settings.VideoPresentationMode;
-
-        _viewModel.Bitrate =
-            settings.Bitrate;
-
-        _viewModel.TargetFps =
-            settings.TargetFps;
-
-        _viewModel.MaxSize =
-            settings.MaxSize;
-
-        _viewModel.Theme =
-            settings.Theme;
-
-        ThemeService.Apply(
-            settings.Theme);
-    }
-
-
-    private void LoadMonitors()
-    {
-        var monitors =
-            _monitorService.GetMonitors();
-
-        _viewModel.Monitors =
-            monitors;
-
-        var settings =
-            _settingsService.Load();
-
-        _viewModel.SelectedMonitor =
-            monitors.FirstOrDefault(
-                monitor =>
-                    string.Equals(
-                        monitor.DeviceName,
-                        settings.SelectedMonitorDeviceName,
-                        StringComparison.OrdinalIgnoreCase))
-            ??
-            monitors.FirstOrDefault(
-                monitor =>
-                    string.Equals(
-                        monitor.DisplayLabel,
-                        settings.SelectedMonitorLabel,
-                        StringComparison.OrdinalIgnoreCase))
-            ??
-            _monitorService.GetBestMonitor(
-                monitors);
-    }
-
-
-    /*
-     * ============================================================
-     * DISPOSITIVOS
-     * ============================================================
-     */
-
-    private async Task RefreshDevicesAsync(
-        bool force)
-    {
-        try
-        {
-            _refreshingDevices =
-                true;
-
-            RefreshDevicesButton.IsEnabled =
-                false;
-
-            var devices =
-                await _deviceIdentity.GetDevicesAsync(
-                    force);
-
-            var settings =
-                _settingsService.Load();
-
-            _viewModel.Devices =
-                devices;
-
-            var selected =
-                devices.FirstOrDefault(
-                    device =>
-                        string.Equals(
-                            device.Serial,
-                            settings.SelectedDeviceSerial,
-                            StringComparison.OrdinalIgnoreCase))
-                ??
-                devices.FirstOrDefault();
-
-            _viewModel.Device =
-                selected ??
-                new DeviceInfo();
-
-            _viewModel.ConnectionStatus =
-                selected is null
-                    ? "Sin dispositivo Android."
-                    : $"{selected.FriendlyName} conectado por {selected.ConnectionType}.";
-
-            UpdateOutputProfile();
-
-            UpdateRuntimeButtons();
-        }
-        catch (Exception ex)
-        {
-            _viewModel.Devices =
-                Array.Empty<DeviceInfo>();
-
-            _viewModel.Device =
-                new DeviceInfo();
-
-            _viewModel.ConnectionStatus =
-                ex.Message;
-
-            UpdateOutputProfile();
-
-            UpdateRuntimeButtons();
-
-            ResetPerformanceSurface14(
-                "Esperando dispositivo...");
-        }
-        finally
-        {
-            _refreshingDevices =
-                false;
-
-            RefreshDevicesButton.IsEnabled =
-                true;
-        }
-    }
-
-
-    private async void RefreshDevices_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
         await RefreshDevicesAsync(
             force: true);
 
         await RefreshPerformanceOnceAsync();
+
+        await StartDiscoveryLifecycleNVAsync();
+        _lanDiscoveryResponderNV = new LanDiscoveryResponderNV();
+        _lanDiscoveryResponderNV.StartNV();
     }
-
-
-    /*
-     * ============================================================
-     * ADB POR WI-FI
-     * ============================================================
-     */
-
-    private async void WifiAdb_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
-        var device =
-            _viewModel.Device;
-
-        if (device is null ||
-            !device.Connected)
-        {
-            MessageBox.Show(
-                "Conecta primero el tel\u00E9fono por USB.",
-                "NOVORA - ADB Wi-Fi",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-
-            return;
-        }
-
-        if (device.IsWifiConnection)
-        {
-            MessageBox.Show(
-                "El dispositivo ya utiliza ADB por Wi-Fi.",
-                "NOVORA - ADB Wi-Fi",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-
-            return;
-        }
-
-        if (IsLinkEngineActive())
-        {
-            MessageBox.Show(
-                "Det\u00E9n LinkEngine antes de cambiar ADB de USB a Wi-Fi. " +
-                "Despu\u00E9s puedes iniciar LinkEngine nuevamente.",
-                "NOVORA - LinkEngine",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-
-            return;
-        }
-
-        try
-        {
-            WifiAdbButton.IsEnabled =
-                false;
-
-            _viewModel.ConnectionStatus =
-                "Preparando ADB por Wi-Fi...";
-
-            var endpoint =
-                await _adb.ConnectOverWifiAsync(
-                    device.Serial);
-
-            await RefreshDevicesAsync(
-                force: true);
-
-            var wifi =
-                _viewModel.Devices.FirstOrDefault(
-                    item =>
-                        string.Equals(
-                            item.Serial,
-                            endpoint,
-                            StringComparison.OrdinalIgnoreCase));
-
-            if (wifi is not null)
-            {
-                _viewModel.Device =
-                    wifi;
-            }
-
-            _viewModel.ConnectionStatus =
-                "ADB por Wi-Fi conectado. Ya puedes retirar el cable USB.";
-
-            SaveSelection();
-
-            UpdateOutputProfile();
-
-            UpdateRuntimeButtons();
-
-            await RefreshPerformanceOnceAsync();
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(
-                ex.Message,
-                "NOVORA - ADB Wi-Fi",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-
-            _viewModel.ConnectionStatus =
-                "No se pudo conectar ADB por Wi-Fi.";
-        }
-        finally
-        {
-            WifiAdbButton.IsEnabled =
-                true;
-        }
-    }
-
-
-    private bool IsLinkEngineActive()
-    {
-        SessionRuntimeLE? session =
-            _linkEngineRuntimeLE?
-                .SessionLE;
-
-        return
-            session is not null &&
-            session.State is not
-                StateRuntimeLE.Stopped and not
-                StateRuntimeLE.Failed;
-    }
-
-
-    /*
-     * ============================================================
-     * SELECCION DE DISPOSITIVO / MONITOR
-     * ============================================================
-     */
-
-    private async void Device_SelectionChanged(
-        object sender,
-        SelectionChangedEventArgs e)
-    {
-        if (_closing ||
-            _refreshingDevices)
-        {
-            return;
-        }
-
-        UpdateOutputProfile();
-
-        SaveSelection();
-
-        UpdateRuntimeButtons();
-
-        await RefreshPerformanceOnceAsync();
-    }
-
-
-    private void Monitor_SelectionChanged(
-        object sender,
-        SelectionChangedEventArgs e)
-    {
-        UpdateOutputProfile();
-
-        SaveSelection();
-    }
-
-
-    /*
-     * ============================================================
-     * VISIONENGINE
-     * ============================================================
-     */
-
-    private async void MainActionButton_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
-        var device = _viewModel.Device;
-
-        if (device is null ||
-            !device.Connected ||
-            _viewModel.SelectedMonitor is null)
-        {
-            MessageBox.Show(
-                "Selecciona un dispositivo Android y un monitor de salida.",
-                "NOVORA",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-
-            return;
-        }
-
-        try
-        {
-            MainActionButton.IsEnabled = false;
-            await ToggleVisionEngineVEAsync();
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(
-                ex.Message,
-                "NOVORA - VisionEngine",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-        }
-        finally
-        {
-            MainActionButton.IsEnabled = true;
-            UpdateRuntimeButtons();
-        }
-    }
-
-
-    /*
-     * ============================================================
-     * ESTADO DE BOTONES
-     * ============================================================
-     */
-
-    private void UpdateRuntimeButtons()
-    {
-        var device =
-            _viewModel.Device;
-
-        bool connected =
-            device is
-            {
-                Connected: true
-            } &&
-            !string.IsNullOrWhiteSpace(
-                device.Serial);
-
-        bool mirroring =
-            connected &&
-            IsVisionEngineRunningVE();
-
-        MainActionButton.Content =
-            mirroring
-                ? "\u25A0  DETENER"
-                : "\u25B6  INICIAR";
-
-        WifiAdbButton.IsEnabled =
-            connected &&
-            !device!.IsWifiConnection;
-
-        UpdateLinkEngineButtonLE();
-    }
-
-
-    /*
-     * ============================================================
-     * PERFIL DE SALIDA
-     * ============================================================
-     */
-
-    private void UpdateOutputProfile()
-    {
-        try
-        {
-            if (_viewModel.Device is not
-                {
-                    Connected: true
-                } device ||
-                _viewModel.SelectedMonitor is null)
-            {
-                _viewModel.OutputProfile =
-                    null;
-
-                return;
-            }
-
-            _viewModel.OutputProfile =
-                _outputProfileService.Calculate(
-                    device,
-                    _viewModel.SelectedMonitor,
-                    _viewModel.Bitrate,
-                    _viewModel.TargetFps,
-                    _viewModel.MaxSize);
-        }
-        catch
-        {
-            _viewModel.OutputProfile =
-                null;
-        }
-    }
-
-
-    /*
-     * ============================================================
-     * RENDIMIENTO
-     * ============================================================
-     *
-     * No crea polling permanente.
-     */
-
-    private async Task RefreshPerformanceOnceAsync()
-    {
-        if (_closing ||
-            _informationalPollingSuspended14)
-        {
-            return;
-        }
-
-        var device =
-            _viewModel.Device;
-
-        if (device is null ||
-            !device.Connected ||
-            string.IsNullOrWhiteSpace(
-                device.Serial))
-        {
-            ResetPerformanceSurface14(
-                "Esperando dispositivo...");
-
-            return;
-        }
-
-        _performanceStatus.Text =
-            "Leyendo rendimiento...";
-
-        SetPerformanceReading14();
-
-        try
-        {
-            DeviceMetrics metrics =
-                await _metricsService.GetAsync(
-                    device);
-
-            if (_closing)
-            {
-                return;
-            }
-
-            ApplyPerformanceStatus(
-                metrics);
-        }
-        catch (OperationCanceledException)
-        {
-            if (!_closing)
-            {
-                ResetPerformanceSurface14(
-                    "Rendimiento no disponible.");
-            }
-        }
-        catch
-        {
-            if (!_closing)
-            {
-                ResetPerformanceSurface14(
-                    "Rendimiento no disponible.");
-            }
-        }
-    }
-
-
-    private void ApplyPerformanceStatus(
-        DeviceMetrics metrics)
-    {
-        double usedMemoryGb =
-            metrics.UsedMemoryKb /
-            1024d /
-            1024d;
-
-        double totalMemoryGb =
-            metrics.TotalMemoryKb /
-            1024d /
-            1024d;
-
-        string cpu =
-            metrics.CpuPercent > 0
-                ? $"CPU {metrics.CpuPercent:0.#}%"
-                : "CPU -";
-
-        string memory =
-            metrics.TotalMemoryKb > 0
-                ? $"RAM {usedMemoryGb:0.00}/{totalMemoryGb:0.00} GB"
-                : "RAM -";
-
-        string battery =
-            metrics.BatteryPercent > 0
-                ? $"Bater\u00EDa {metrics.BatteryPercent}%"
-                : "Bater\u00EDa -";
-
-        string temperature =
-            metrics.BatteryTemperatureC > 0
-                ? $"{metrics.BatteryTemperatureC:0.#} \u00B0C"
-                : "Temperatura -";
-
-        _performanceStatus.Text =
-            $"{cpu} | {memory}\n" +
-            $"{battery} | {temperature}";
-
-        ApplyPerformanceSurface14(metrics);
-    }
-
-
-    /*
-     * ============================================================
-     * GUARDAR SELECCION
-     * ============================================================
-     */
-
-    private void SaveSelection()
-    {
-        var settings =
-            _settingsService.Load();
-
-        settings.SelectedDeviceSerial =
-            _viewModel.Device?.Serial;
-
-        settings.SelectedMonitorLabel =
-            _viewModel.SelectedMonitor?.DisplayLabel;
-
-        settings.SelectedMonitorDeviceName =
-            _viewModel.SelectedMonitor?.DeviceName;
-
-        settings.AudioEnabled =
-            _viewModel.AudioEnabled;
-
-        settings.SelectedAudioOutput =
-            _viewModel.SelectedAudioOutput;
-
-        settings.VideoPresentationMode =
-            _viewModel.VideoPresentationMode;
-
-        settings.Bitrate =
-            _viewModel.Bitrate;
-
-        settings.TargetFps =
-            _viewModel.TargetFps;
-
-        settings.MaxSize =
-            _viewModel.MaxSize;
-
-        settings.Theme =
-            _viewModel.Theme;
-
-        _settingsService.Save(
-            settings);
-    }
-
-
-    /*
-     * ============================================================
-     * VENTANA DE CONFIGURACION
-     * ============================================================
-     */
-
-    private void Configuration_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
-        var window =
-            new SettingsWindow(
-                _viewModel)
-            {
-                Owner =
-                    this
-            };
-
-        if (window.ShowDialog() == true)
-        {
-            UpdateOutputProfile();
-
-            SaveSelection();
-
-            UpdateRuntimeButtons();
-        }
-    }
-
-
-    /*
-     * ============================================================
-     * ACTUALIZACIONES
-     * ============================================================
-     */
-
-    private async void Update_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
-        try
-        {
-            var update =
-                await _updateService.CheckForUpdatesAsync();
-
-            if (update is null)
-            {
-                MessageBox.Show(
-                    $"NOVORA {_updateService.CurrentVersion} ya est\u00E1 actualizado.",
-                    "NOVORA - Actualizaci\u00F3n",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-
-                return;
-            }
-
-            if (MessageBox.Show(
-                    $"Disponible NOVORA {update.LatestVersion}.\n\n" +
-                    "\u00BFDescargar e instalar ahora?",
-                    "NOVORA - Actualizaci\u00F3n",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question)
-                != MessageBoxResult.Yes)
-            {
-                return;
-            }
-
-            var progress =
-                new Progress<int>(
-                    value =>
-                        _viewModel.ConnectionStatus =
-                            $"Descargando actualizaci\u00F3n... {value}%");
-
-            await _updateService.InstallAndRestartAsync(
-                update,
-                progress);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(
-                ex.Message,
-                "NOVORA - Actualizaci\u00F3n",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-
-            _viewModel.ConnectionStatus =
-                "No se pudo actualizar NOVORA.";
-        }
-    }
-
-
-    /*
-     * ============================================================
-     * VIEWMODEL
-     * ============================================================
-     */
-
-    private void ViewModel_PropertyChanged(
-        object? sender,
-        PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName is
-            nameof(MainViewModel.Bitrate)
-            or nameof(MainViewModel.TargetFps)
-            or nameof(MainViewModel.MaxSize)
-            or nameof(MainViewModel.AudioEnabled))
-        {
-            UpdateOutputProfile();
-        }
-    }
-
-
-    /*
-     * ============================================================
-     * VENTANA
-     * ============================================================
-     */
-
-    private void TitleBar_MouseLeftButtonDown(
-        object sender,
-        MouseButtonEventArgs e)
-    {
-        if (e.ButtonState ==
-            MouseButtonState.Pressed)
-        {
-            DragMove();
-        }
-    }
-
-
-    private void Minimize_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
-        WindowState =
-            WindowState.Minimized;
-    }
-
-
-    private void Close_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
-        Close();
-    }
-
-
-    /*
-     * ============================================================
-     * CIERRE
-     * ============================================================
-     */
 
     private async void Window_Closing(
         object? sender,
@@ -944,43 +101,727 @@ public partial class MainWindow : Window
             return;
         }
 
-        e.Cancel =
-            true;
-
-        _closing =
-            true;
-
-        SaveSelection();
-
-        /*
-         * LinkEngine se detiene primero porque necesita limpiar
-         * el transporte y adb reverse.
-         */
-        try
-        {
-            await ShutdownLinkEngineRuntimeLEAsync();
-        }
-        catch
-        {
-        }
-
-        try
-        {
-            await ShutdownVisionEngineRuntimeVEAsync();
-
-            await _adb.StopServerIfNoOtherDevicesAsync(
-                _viewModel.Device?.Serial);
-        }
-        catch
-        {
-        }
+        _closing = true;
+        _refreshCts14?.Cancel();
 
         _viewModel.PropertyChanged -=
-            ViewModel_PropertyChanged;
+            ShellViewModel_PropertyChanged14;
 
-        e.Cancel =
-            false;
+        try
+        {
+            await StopDiscoveryLifecycleNVAsync();
+            if (_lanDiscoveryResponderNV is not null)
+            {
+                await _lanDiscoveryResponderNV.DisposeAsync();
+                _lanDiscoveryResponderNV = null;
+            }
+            await ShutdownRemoteAndroidNVAsync();
+            await ShutdownLinkEngineRuntimeLEAsync();
+            await ShutdownVisionEngineRuntimeVEAsync();
+        }
+        catch
+        {
+        }
+    }
 
-        Close();
+    private void ShellWindow_Closed14(
+        object? sender,
+        EventArgs e)
+    {
+        Closed -= ShellWindow_Closed14;
+    }
+
+    private void ShellRoot_Loaded(
+        object sender,
+        RoutedEventArgs e)
+    {
+        ShowPage14(_selectedPage14);
+    }
+
+    private void TitleBar_MouseLeftButtonDown(
+        object sender,
+        MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2)
+        {
+            WindowState =
+                WindowState == WindowState.Maximized
+                    ? WindowState.Normal
+                    : WindowState.Maximized;
+
+            return;
+        }
+
+        try
+        {
+            DragMove();
+        }
+        catch
+        {
+        }
+    }
+
+    private void Minimize_Click(
+        object sender,
+        RoutedEventArgs e)
+        => WindowState = WindowState.Minimized;
+
+    private void Close_Click(
+        object sender,
+        RoutedEventArgs e)
+        => Close();
+
+    private async void RefreshDevices_Click(
+        object sender,
+        RoutedEventArgs e)
+        => await RefreshDevicesAsync(
+            force: true);
+
+    private async void Device_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (!_shellInitialized14)
+        {
+            return;
+        }
+
+        QueueSaveSelection14();
+        UpdateRuntimeButtons();
+        await RefreshPerformanceOnceAsync();
+    }
+
+    private async void MainActionButton_Click(
+        object sender,
+        RoutedEventArgs e)
+        => await ToggleVisionEngineVEAsync();
+
+    private void Configuration_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        _ = FadeToPage14("Settings");
+    }
+
+    private async void NavigationButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button button &&
+            button.Tag is string page &&
+            !string.IsNullOrWhiteSpace(page))
+        {
+            await FadeToPage14(page);
+        }
+    }
+
+    private void ShellTheme_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (!_shellInitialized14)
+        {
+            return;
+        }
+
+        ApplyTheme14(_viewModel.Theme);
+        QueueSaveSelection14();
+    }
+
+    private void ShellVideoOption_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (!_shellInitialized14)
+        {
+            return;
+        }
+
+        RecalculateOutputProfile14();
+        ApplyAdvancedVisionSettingsVE();
+        QueueSaveSelection14();
+    }
+
+    private void ShellMonitor_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (!_shellInitialized14)
+        {
+            return;
+        }
+
+        RecalculateOutputProfile14();
+        QueueSaveSelection14();
+    }
+
+    private void SaveShellSettings_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        SaveSettingsFromViewModel14();
+        ShowTopMessage14(
+            "Configuracion guardada.",
+            MessageKind14.Success);
+    }
+
+    private void InstallUpdateBanner_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        ShowTopMessage14(
+            "Instalador de actualizacion no disponible en esta compilacion.",
+            MessageKind14.Info);
+    }
+
+    private void ShellViewModel_PropertyChanged14(
+        object? sender,
+        PropertyChangedEventArgs e)
+    {
+        if (!_shellInitialized14)
+        {
+            return;
+        }
+
+        if (string.Equals(
+                e.PropertyName,
+                nameof(MainViewModel.Theme),
+                StringComparison.Ordinal))
+        {
+            ApplyTheme14(_viewModel.Theme);
+        }
+    }
+
+    private async Task RefreshDevicesAsync(
+        bool force = false)
+    {
+        _refreshCts14?.Cancel();
+        _refreshCts14?.Dispose();
+        _refreshCts14 = new CancellationTokenSource();
+
+        CancellationToken cancellationToken =
+            _refreshCts14.Token;
+
+        try
+        {
+            _viewModel.ConnectionStatus =
+                "Buscando dispositivos...";
+
+            IReadOnlyList<DeviceInfo> devices =
+                await _adb.GetDevicesAsync(
+                    cancellationToken,
+                    forceRefresh: force);
+
+            _viewModel.Devices =
+                devices;
+
+            DeviceInfo? selected =
+                devices.FirstOrDefault(
+                    device =>
+                        string.Equals(
+                            device.Serial,
+                            _viewModel.Device.Serial,
+                            StringComparison.OrdinalIgnoreCase));
+
+            _viewModel.Device =
+                selected ??
+                devices.FirstOrDefault() ??
+                new DeviceInfo();
+
+            _viewModel.RefreshOutputCapabilityOptions();
+            RecalculateOutputProfile14();
+            UpdateRuntimeButtons();
+            await ConfigureRemoteAndroidForSelectedDeviceNVAsync();
+
+            _viewModel.ConnectionStatus =
+                _viewModel.Device.Connected
+                    ? $"Conectado: {_viewModel.Device.FriendlyName}"
+                    : "Sin dispositivo Android.";
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _viewModel.ConnectionStatus =
+                $"ADB no disponible: {ex.Message}";
+        }
+    }
+
+    private async Task RefreshPerformanceOnceAsync()
+    {
+        if (_informationalPollingSuspended14)
+        {
+            return;
+        }
+
+        DeviceInfo device =
+            _viewModel.Device;
+
+        if (!device.Connected ||
+            string.IsNullOrWhiteSpace(device.Serial))
+        {
+            ResetPerformanceSurface14(
+                "Sin dispositivo para medir.");
+
+            return;
+        }
+
+        try
+        {
+            SetPerformanceReading14();
+
+            DeviceMetrics metrics =
+                await _metricsService.GetAsync(
+                    device);
+
+            ApplyPerformanceSurface14(
+                metrics);
+        }
+        catch (Exception ex)
+        {
+            ResetPerformanceSurface14(
+                $"Metricas no disponibles: {ex.Message}");
+        }
+    }
+
+    private void QueueSaveSelection14()
+        => SaveSettingsFromViewModel14();
+
+    private void LoadSettingsToViewModel14()
+    {
+        NovoraSettings settings =
+            _settingsService.Load();
+
+        _viewModel.Theme =
+            settings.Theme;
+        _viewModel.VideoPresentationMode =
+            settings.VideoPresentationMode;
+        _viewModel.Bitrate =
+            settings.Bitrate;
+        _viewModel.TargetFps =
+            settings.TargetFps;
+        _viewModel.MaxSize =
+            settings.MaxSize;
+        _viewModel.SelectedAudioOutput =
+            settings.SelectedAudioOutput;
+        _viewModel.AudioEnabled =
+            settings.AudioEnabled;
+        _viewModel.PrivacyShieldEnabled =
+            settings.PrivacyShieldEnabled;
+        _viewModel.IntegrationClipboardEnabled =
+            settings.IntegrationClipboardEnabled;
+        _viewModel.IntegrationFileTransferEnabled =
+            settings.IntegrationFileTransferEnabled;
+        _viewModel.IntegrationDragDropEnabled =
+            settings.IntegrationDragDropEnabled;
+        _viewModel.IntegrationApplicationsEnabled =
+            settings.IntegrationApplicationsEnabled;
+        _viewModel.IntegrationNotificationsEnabled =
+            settings.IntegrationNotificationsEnabled;
+        _viewModel.IntegrationDynamicResizeEnabled =
+            settings.IntegrationDynamicResizeEnabled;
+        _viewModel.GamepadEnabled =
+            settings.GamepadEnabled;
+        _viewModel.RemoteAndroidEnabled =
+            settings.RemoteAndroidEnabled;
+        _viewModel.NvidiaProfile =
+            settings.NvidiaProfile;
+
+        _viewModel.Monitors =
+            _monitorService.GetMonitors();
+
+        _viewModel.SelectedMonitor =
+            _viewModel.Monitors.FirstOrDefault(
+                monitor =>
+                    string.Equals(
+                        monitor.DeviceName,
+                        settings.SelectedMonitorDeviceName,
+                        StringComparison.OrdinalIgnoreCase)) ??
+            _viewModel.Monitors.FirstOrDefault();
+
+        _viewModel.RefreshAudioOutputOptions(
+            _paths);
+
+        RecalculateOutputProfile14();
+    }
+
+    private void SaveSettingsFromViewModel14()
+    {
+        _settingsService.Save(
+            new NovoraSettings
+            {
+                Theme = _viewModel.Theme,
+                VideoPresentationMode = _viewModel.VideoPresentationMode,
+                Bitrate = _viewModel.Bitrate,
+                TargetFps = _viewModel.TargetFps,
+                MaxSize = _viewModel.MaxSize,
+                SelectedAudioOutput = _viewModel.SelectedAudioOutput,
+                AudioEnabled = _viewModel.AudioEnabled,
+                SelectedMonitorLabel = _viewModel.SelectedMonitor?.DisplayLabel,
+                SelectedMonitorDeviceName = _viewModel.SelectedMonitor?.DeviceName,
+                SelectedDeviceSerial = _viewModel.Device.Serial,
+                PrivacyShieldEnabled = _viewModel.PrivacyShieldEnabled,
+                IntegrationClipboardEnabled = _viewModel.IntegrationClipboardEnabled,
+                IntegrationFileTransferEnabled = _viewModel.IntegrationFileTransferEnabled,
+                IntegrationDragDropEnabled = _viewModel.IntegrationDragDropEnabled,
+                IntegrationApplicationsEnabled = _viewModel.IntegrationApplicationsEnabled,
+                IntegrationNotificationsEnabled = _viewModel.IntegrationNotificationsEnabled,
+                IntegrationDynamicResizeEnabled = _viewModel.IntegrationDynamicResizeEnabled,
+                GamepadEnabled = _viewModel.GamepadEnabled,
+                RemoteAndroidEnabled = _viewModel.RemoteAndroidEnabled,
+                NvidiaProfile = _viewModel.NvidiaProfile
+            });
+    }
+
+    private void RecalculateOutputProfile14()
+    {
+        if (!_viewModel.Device.Connected ||
+            string.IsNullOrWhiteSpace(
+                _viewModel.Device.Serial))
+        {
+            _viewModel.OutputProfile =
+                null;
+
+            return;
+        }
+
+        _viewModel.OutputProfile =
+            _outputProfileService.Calculate(
+                _viewModel.Device,
+                _viewModel.SelectedMonitor,
+                _viewModel.Bitrate,
+                _viewModel.TargetFps,
+                _viewModel.MaxSize);
+    }
+
+    private void UpdateOutputProfile()
+        => RecalculateOutputProfile14();
+
+    private void SaveSelection()
+        => SaveSettingsFromViewModel14();
+
+    private void ApplyTheme14(
+        string? theme)
+        => ThemeService.Apply(theme);
+
+    private async Task FadeToPage14(
+        string page)
+    {
+        _selectedPage14 =
+            string.IsNullOrWhiteSpace(page)
+                ? "Home"
+                : page;
+
+        ShowPage14(_selectedPage14);
+
+        if (string.Equals(
+                _selectedPage14,
+                "Performance",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            await RefreshPerformanceOnceAsync();
+        }
+    }
+
+    private void ShowPage14(
+        string page)
+    {
+        SetPageVisibility14(HomePage14, page, "Home");
+        SetPageVisibility14(ScreenPage14, page, "Screen");
+        SetPageVisibility14(NetworkPage14, page, "Network");
+        SetPageVisibility14(PerformancePage14, page, "Performance");
+        SetPageVisibility14(GameInputPage14, page, "GameInput");
+        SetPageVisibility14(IntegrationPage14, page, "Integration");
+        SetPageVisibility14(PrivacyPage14, page, "Privacy");
+        SetPageVisibility14(SettingsPage14, page, "Settings");
+    }
+
+    private static void SetPageVisibility14(
+        FrameworkElement pageElement,
+        string current,
+        string target)
+    {
+        pageElement.Visibility =
+            string.Equals(
+                current,
+                target,
+                StringComparison.OrdinalIgnoreCase)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+    }
+
+    private void UpdateRuntimeButtons()
+    {
+        bool hasDevice =
+            _viewModel.Device.Connected;
+
+        MainActionButton.IsEnabled =
+            hasDevice;
+
+        MainActionButton.Content =
+            IsVisionEngineRunningVE()
+                ? "DETENER"
+                : "INICIAR";
+
+        RefreshDevicesButton.IsEnabled =
+            !_closing;
+
+        LinkEngineTestButton.IsEnabled =
+            hasDevice && !_closing;
+
+        WifiAdbButton.IsEnabled =
+            hasDevice && !_closing;
+    }
+
+    private void ShowTopMessage14(
+        string message,
+        MessageKind14 kind = MessageKind14.Info)
+    {
+        TopMessageText14.Text =
+            message;
+
+        TopMessageDot14.Fill =
+            kind switch
+            {
+                MessageKind14.Success =>
+                    FindResource("GreenBrush") as System.Windows.Media.Brush,
+
+                MessageKind14.Warning =>
+                    FindResource("OrangeBrush") as System.Windows.Media.Brush,
+
+                MessageKind14.Error =>
+                    FindResource("DangerForegroundBrush") as System.Windows.Media.Brush,
+
+                _ =>
+                    FindResource("BlueBrush") as System.Windows.Media.Brush
+            };
+    }
+
+    private void ApplyPrivacyShell14(
+        StatusPrivacyVE status)
+    {
+        PrivacyStatusText14.Text =
+            $"{status.State} - {status.Classification}\n{status.Message}";
+    }
+
+    private void ApplyGamepadShell14(
+        StatusGamepadVE status)
+    {
+        GamepadStatusText14.Text =
+            string.IsNullOrWhiteSpace(status.LastError)
+                ? status.Message
+                : $"{status.Message} - {status.LastError}";
+
+        GamepadCountText14.Text =
+            $"Mandos conectados: {status.ConnectedGamepads} - Reportes enviados: {status.ReportsSent:N0}";
+    }
+
+    private void ApplyIntegrationShell14(
+        StatusIntegrationVE status)
+    {
+        CapabilitiesIntegrationVE c =
+            status.Capabilities;
+
+        string[] active =
+        {
+            c.Clipboard ? "Clipboard" : string.Empty,
+            c.FileTransfer ? "Archivos" : string.Empty,
+            c.DragDrop ? "Drag & Drop" : string.Empty,
+            c.DynamicResize ? "Resize" : string.Empty,
+            c.Camera ? "Camara" : string.Empty,
+            c.AndroidMicrophone ? "Microfono Android" : string.Empty,
+            c.PcMicrophoneToAndroid ? "Microfono PC -> Android" : string.Empty
+        };
+
+        IntegrationStatusText14.Text =
+            string.Join(
+                " - ",
+                active.Where(
+                    item =>
+                        !string.IsNullOrWhiteSpace(item)));
+    }
+
+    private void ApplyNvidiaShell14(
+        StatusNvidiaVE status)
+    {
+        CapabilitiesNvidiaVE c =
+            status.Capabilities;
+
+        NvidiaStatusTitle14.Text =
+            status.Message;
+
+        NvidiaStatusDot14.Fill =
+            c.CudaInitialized
+                ? FindResource("GreenBrush") as System.Windows.Media.Brush
+                : FindResource("MutedBrush") as System.Windows.Media.Brush;
+
+        NvidiaCapabilitiesText14.Text =
+            $"CUDA: {(c.CudaInitialized ? "Si" : "No")} - " +
+            $"NVDEC: {(c.NvdecApiAvailable ? "Si" : "No")} - " +
+            $"NVENC: {(c.NvencApiAvailable ? "Si" : "No")}";
+
+        NvidiaBackendText14.Text =
+            $"Backend: {c.Backend}";
+
+        NvidiaPipelineText14.Text =
+            $"Pipeline: {status.Pipeline.Profile}";
+    }
+
+    private void ManualPrivacy_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        _viewModel.PrivacyShieldEnabled =
+            !_viewModel.PrivacyShieldEnabled;
+
+        ApplyAdvancedVisionSettingsVE();
+        QueueSaveSelection14();
+    }
+
+    private void ShellPrivacy_StatusChangedVE(
+        object? sender,
+        StatusPrivacyVE status)
+        => Dispatcher.Invoke(
+            () =>
+                ApplyPrivacyShell14(status));
+
+    private void ShellGamepad_StatusChangedVE(
+        object? sender,
+        StatusGamepadVE status)
+        => Dispatcher.Invoke(
+            () =>
+                ApplyGamepadShell14(status));
+
+    private void ShellIntegration_StatusChangedVE(
+        object? sender,
+        StatusIntegrationVE status)
+        => Dispatcher.Invoke(
+            () =>
+                ApplyIntegrationShell14(status));
+
+    private void ShellNvidia_StatusChangedVE(
+        object? sender,
+        StatusNvidiaVE status)
+        => Dispatcher.Invoke(
+            () =>
+                ApplyNvidiaShell14(status));
+
+    private void NvidiaProfile_SelectionChanged14(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (!_shellInitialized14)
+        {
+            return;
+        }
+
+        ApplyAdvancedVisionSettingsVE();
+        QueueSaveSelection14();
+    }
+
+    private void WifiAdb_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        ShowTopMessage14(
+            "ADB por Wi-Fi se configura desde LinkEngine/Remote Android.",
+            MessageKind14.Info);
+    }
+
+    private void ApplySTEngineShell14()
+    {
+        SnapshotNovoraST snapshot =
+            RefreshSTEngineSnapshot14();
+
+        bool waitingForStream =
+            snapshot.Summary.StartsWith(
+                "STEngine esperando",
+                StringComparison.OrdinalIgnoreCase);
+
+        STEngineStatusTitle14.Text =
+            waitingForStream
+                ? "STEngine independiente en espera"
+                : snapshot.State switch
+            {
+                StateCoreST.Healthy =>
+                    "STEngine NOVORA estable",
+
+                StateCoreST.Watch =>
+                    "STEngine observando NOVORA",
+
+                StateCoreST.Degraded =>
+                    "STEngine NOVORA degradado",
+
+                StateCoreST.Critical =>
+                    "STEngine NOVORA critico",
+
+                _ =>
+                    "STEngine sin estado"
+            };
+
+        STEngineStatusText14.Text =
+            snapshot.Summary;
+
+        STEngineStatusDot14.Fill =
+            snapshot.State switch
+            {
+                StateCoreST.Healthy =>
+                    FindResource("GreenBrush") as System.Windows.Media.Brush,
+
+                StateCoreST.Watch =>
+                    FindResource("BlueBrush") as System.Windows.Media.Brush,
+
+                StateCoreST.Degraded =>
+                    FindResource("OrangeBrush") as System.Windows.Media.Brush,
+
+                StateCoreST.Critical =>
+                    FindResource("DangerForegroundBrush") as System.Windows.Media.Brush,
+
+                _ =>
+                    FindResource("MutedBrush") as System.Windows.Media.Brush
+            };
+
+        STEngineStatusTitle14.Foreground =
+            snapshot.State switch
+            {
+                StateCoreST.Degraded =>
+                    FindResource("OrangeBrush") as System.Windows.Media.Brush,
+
+                StateCoreST.Critical =>
+                    FindResource("DangerForegroundBrush") as System.Windows.Media.Brush,
+
+                _ =>
+                    FindResource("TextBrush") as System.Windows.Media.Brush
+            };
+
+        if (snapshot.Observations.Count == 0)
+        {
+            STEngineObservationsText14.Text =
+                snapshot.ShouldReduceNonCriticalWork
+                    ? "STEngine recomienda reducir trabajo no critico."
+                    : string.Empty;
+
+            return;
+        }
+
+        STEngineObservationsText14.Text =
+            string.Join(
+                Environment.NewLine,
+                snapshot.Observations);
+    }
+
+    private SnapshotNovoraST RefreshSTEngineSnapshot14()
+    {
+        try
+        {
+            return _stEngineST.CaptureNovoraST(
+                _visionEngineVE?.RuntimeVE,
+                _linkEngineRuntimeLE);
+        }
+        catch
+        {
+            return _stEngineST.LastNovoraSnapshotST;
+        }
     }
 }

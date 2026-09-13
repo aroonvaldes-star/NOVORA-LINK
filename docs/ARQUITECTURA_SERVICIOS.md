@@ -1,28 +1,44 @@
-# NOVORA-LINK 1.3 â€” arquitectura de servicios
+# Arquitectura de servicios NOVORA-LINK 1.4 A3
 
-## Objetivo
+## LinkEngine
 
-Mantener un solo camino por responsabilidad y evitar polling ADB duplicado.
+```text
+Android VpnService
+      │
+      ├─ CONTROL tcp:27183 ──► ManagerTransportLE
+      │                         └─ SessionChangedLE ──► MonitorRecoveryLE
+      │
+      └─ DATA tcp:27184 ─────► RelayCore / TrafficEngine ──► Internet Windows
+```
 
-## Flujo principal
+`ManagerNetworkLE` administra lifecycle por acciones/eventos; ya no ejecuta mantenimiento periódico. `RelayNetworkLE` publica `ExitedLE` cuando el proceso termina. `MonitorRecoveryLE` confirma fallos mediante deadlines y sólo entra a Recovery después de persistencia real.
 
+## VisionEngine
 
-## Servicios activos
+```text
+scrcpy-server / Android
+      │
+      ▼
+TransportVE
+      ├─ Video ─► Decoder ─► Renderer D3D11
+      ├─ Audio ─► Output Windows
+      └─ Control ─► mouse / teclado / gamepad / clipboard
+                         │
+                         ├─ PrivacyVE
+                         └─ IntegrationVE
+```
 
-- `AdbService`: Ãºnico punto para ejecutar ADB, cachea el listado de dispositivos durante 2 segundos y agrupa identidad bÃ¡sica del telÃ©fono.
-- `DeviceIdentityService`: nombre visible del dispositivo sin exponer serial o IP en la lista.
-- `DeviceStateService`: cachÃ© compartida para RED y Rendimiento.
-- `NetworkService`: estado de Internet y latencia.
-- `DeviceMetricsService`: CPU, RAM y baterÃ­a.
-- `ScrcpyService`: una sesiÃ³n de vÃ­deo por dispositivo.
-- `OutputProfileService`: resoluciÃ³n, FPS y bitrate de salida.
-- `UpdateService`: consulta releases oficiales de `aroonvaldes-star/NOVORA-LINK`, descarga solo por HTTPS y verifica SHA-256.
-- `SettingsService`: preferencias locales de NOVORA.
+Gamepad usa eventos SDL3. PrivacyVE gobierna exposición/control/intercambio sensible. IntegrationVE gobierna las capacidades activadas desde Settings.
 
-## Paneles 1.3
+## RemoteNV
 
-La interfaz base conserva RED y Rendimiento como paneles integrados. Se retirÃ³ el framework de widgets anterior para eliminar tipos duplicados, polling paralelo y estados ambiguos.
+```text
+Android MainActivity
+      │  adb reverse tcp:27182
+      ▼
+ServerRemoteNV (Loopback)
+      │
+      └─ HELLO v2 + token efímero de sesión
+```
 
-## Polling
-
-La actualizaciÃ³n de RED y Rendimiento usa un Ãºnico `DispatcherTimer` de 30 segundos. `DeviceStateService` reutiliza datos recientes y se invalida solo al cambiar conexiÃ³n o dispositivo.
+RemoteNV puede solicitar Start/Stop/Status de VisionEngine y LinkEngine. El token se genera en Windows para el dispositivo seleccionado y se entrega al cliente Android mediante ADB; no se persiste.

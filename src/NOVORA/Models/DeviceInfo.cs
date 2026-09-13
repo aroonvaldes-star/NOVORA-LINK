@@ -1,4 +1,4 @@
-namespace NOVORA.Models;
+﻿namespace NOVORA.Models;
 
 public sealed class DeviceInfo
 {
@@ -45,7 +45,7 @@ public sealed class DeviceInfo
     }
 
     /// <summary>
-    /// Determina el transporte únicamente para presentación.
+    /// Determina el transporte Ãºnicamente para presentaciÃ³n.
     /// ADB por red normalmente usa host:puerto; el serial o la IP
     /// nunca se incluyen en DisplayLabel.
     /// </summary>
@@ -59,15 +59,15 @@ public sealed class DeviceInfo
             : "USB";
 
     /// <summary>
-    /// Texto que se muestra en el selector y demás superficies de NOVORA.
+    /// Texto que se muestra en el selector y demÃ¡s superficies de NOVORA.
     /// Ejemplos:
-    ///   SM-A156M • USB
-    ///   SM-A156M • Wi-Fi
+    ///   SM-A156M â€¢ USB
+    ///   SM-A156M â€¢ Wi-Fi
     /// </summary>
     public string DisplayLabel =>
         Connected
-            ? $"{FriendlyName} • {ConnectionType}"
-            : $"{FriendlyName} • No disponible";
+            ? $"{FriendlyName} - {ConnectionType}"
+            : $"{FriendlyName} - No disponible";
 
     public DisplayModeInfo? BestDisplayMode { get; set; }
 
@@ -77,6 +77,18 @@ public sealed class DeviceInfo
     public DeviceCapabilities Capabilities { get; init; } =
         DeviceCapabilities.Unknown;
 
+    /// <summary>
+    /// Compatibilidad técnica detectada para este dispositivo.
+    ///
+    /// Puede provenir de un escaneo completo o de un perfil
+    /// reutilizado por modelo/build.
+    /// </summary>
+    public CompatibilityProfileDevice Compatibility { get; init; } =
+        CompatibilityProfileDevice.Unknown;
+
+    public string CompatibilityLabel =>
+        Compatibility.OverallLabel;
+
     public override string ToString() =>
         DisplayLabel;
 
@@ -85,3 +97,4 @@ public sealed class DeviceInfo
             .Trim()
             .Replace('_', ' ');
 }
+

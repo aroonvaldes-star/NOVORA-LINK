@@ -1,4 +1,4 @@
-﻿using NOVORA.Services;
+using NOVORA.Services;
 using System.Runtime.InteropServices;
 
 namespace NOVORA.VisionEngine.Renderer;
@@ -44,6 +44,7 @@ public sealed class DeviceRendererVE : IDisposable
     private SdlRenderTextureDelegate? _renderTextureVE;
     private SdlRenderTextureRotatedDelegate? _renderTextureRotatedVE;
     private SdlRenderPresentDelegate? _renderPresentVE;
+    private SdlPumpEventsDelegate? _pumpEventsVE;
     private SdlGetErrorDelegate? _getErrorVE;
 
     public DeviceRendererVE(NovoraPaths paths)
@@ -182,6 +183,20 @@ public sealed class DeviceRendererVE : IDisposable
         return (width, height);
     }
 
+    public void ClearVE()
+    {
+        EnsureOpenVE();
+        EnsureVE(_setRenderDrawColorVE!(_rendererVE, 0, 0, 0, 255), "SDL_SetRenderDrawColor");
+        EnsureVE(_renderClearVE!(_rendererVE), "SDL_RenderClear");
+        EnsureVE(_renderPresentVE!(_rendererVE), "SDL_RenderPresent");
+    }
+
+    public void PumpEventsVE()
+    {
+        if (_libraryVE != IntPtr.Zero)
+            _pumpEventsVE?.Invoke();
+    }
+
     public void PresentVE(IntPtr texture, RectRendererVE destination, int rotationDegrees)
     {
         EnsureOpenVE();
@@ -222,6 +237,7 @@ public sealed class DeviceRendererVE : IDisposable
         _renderTextureVE = LoadVE<SdlRenderTextureDelegate>("SDL_RenderTexture");
         _renderTextureRotatedVE = LoadVE<SdlRenderTextureRotatedDelegate>("SDL_RenderTextureRotated");
         _renderPresentVE = LoadVE<SdlRenderPresentDelegate>("SDL_RenderPresent");
+        _pumpEventsVE = LoadVE<SdlPumpEventsDelegate>("SDL_PumpEvents");
         _getErrorVE = LoadVE<SdlGetErrorDelegate>("SDL_GetError");
     }
 
@@ -352,6 +368,8 @@ public sealed class DeviceRendererVE : IDisposable
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
     private delegate bool SdlRenderPresentDelegate(IntPtr renderer);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void SdlPumpEventsDelegate();
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate IntPtr SdlGetErrorDelegate();
 }

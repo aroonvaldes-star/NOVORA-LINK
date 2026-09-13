@@ -1,0 +1,29 @@
+NOVORA-LINK 1.4 A3
+SOURCE VERIFICATION IN THIS ENVIRONMENT
+
+Validated locally in the artifact workspace:
+- XAML/XML/csproj/AndroidManifest parsing on active A3 source files: OK
+- SettingsWindow A3 top-level bindings resolve to MainViewModel properties: OK
+  (DisplayLabel, IdentityDescription and Label are item-template properties.)
+- Legacy periodic polling symbols removed from active LinkEngine C# sources: OK
+- RemoteNV protocol v2 + ephemeral 256-bit token path present on PC and Android sources: OK
+- RemoteNV client connection state is pushed to MainWindow by event: OK
+- ManagerTransportLE SessionChangedLE event path present: OK
+- MonitorRecoveryLE event signal + adb wait-for-device path present: OK
+- ManagerNetworkLE Relay Exited event recovery path present: OK
+- ManagerRuntimeLE consumes Network session events: OK
+- IntegrationVE runtime gates are wired for Clipboard, DragDrop, Share, Apps,
+  Notifications and DynamicResize: OK
+- .vs/bin/obj/target and backup files removed from final repository folder: OK
+
+NOT EXECUTED IN THIS CONTAINER:
+- dotnet restore/build/test
+- cargo check/test/build
+
+Reason: dotnet/cargo/PowerShell toolchains are not installed in this execution
+environment. Run scripts/Verify-NOVORA-Repository.ps1 on the Windows development
+machine for authoritative compiler/test verification.
+
+IMPORTANT:
+RemoteNV moved to protocol v2. Rebuild the Android APK from the A3 sources before
+testing Remote Android; an older prebuilt APK speaks protocol v1.

@@ -1,3 +1,4 @@
+
 using NOVORA.VisionEngine.Control;
 using NOVORA.VisionEngine.Exchange;
 using NOVORA.VisionEngine.Gamepad;
@@ -24,6 +25,22 @@ public sealed class VisionEngineBlockBTests
         Assert.Equal(4u, BinaryPrimitives.ReadUInt32BigEndian(payload.AsSpan(2, 4)));
         Assert.Equal(2u, BinaryPrimitives.ReadUInt32BigEndian(payload.AsSpan(6, 4)));
         Assert.Equal(0x1000u, BinaryPrimitives.ReadUInt32BigEndian(payload.AsSpan(10, 4)));
+    }
+
+    [Fact]
+    public void KeycodeControlVE_includes_capslock_meta_state_when_enabled()
+    {
+        if (!System.Windows.Forms.Control.IsKeyLocked(System.Windows.Forms.Keys.CapsLock))
+        {
+            return;
+        }
+
+        uint meta =
+            KeycodeControlVE.GetMetaStateVE(
+                System.Windows.Forms.Keys.A);
+
+        Assert.True(
+            (meta & 0x00100000u) != 0);
     }
 
     [Fact]
@@ -83,16 +100,68 @@ public sealed class VisionEngineBlockBTests
     {
         string path = PathExchangeVE.BuildAndroidDownloadPathVE("photo 01.jpg");
 
-        Assert.Equal("/sdcard/Download/photo 01.jpg", path);
+        Assert.Equal("/sdcard/NOVORA/photo 01.jpg", path);
+    }
+
+    [Theory]
+    [InlineData("photo 01.jpg", "/sdcard/NOVORA/Img/photo 01.jpg")]
+    [InlineData("clip.mp4", "/sdcard/NOVORA/Videos/clip.mp4")]
+    [InlineData("report.pdf", "/sdcard/NOVORA/Doc/report.pdf")]
+    [InlineData("build.apk", "/sdcard/NOVORA/Apps/build.apk")]
+    [InlineData("archive.bin", "/sdcard/NOVORA/Files/archive.bin")]
+    public void PathExchangeVE_builds_categorized_android_destination(
+        string fileName,
+        string expected)
+    {
+        string path =
+            PathExchangeVE.BuildCategorizedDestinationFromNameVE(
+                fileName);
+
+        Assert.Equal(
+            expected,
+            path);
+    }
+
+    [Fact]
+    public void OptionsServerVE_stream_stability_limits_bitrate_fps_and_audio()
+    {
+        var options =
+            NOVORA.VisionEngine.Server.OptionsServerVE.CreateDefaultVE()
+                with
+                {
+                    VideoBitRate = 25_000_000,
+                    MaxFps = 120d,
+                    AudioBitRate = 192_000
+                };
+
+        var stable =
+            options.ApplyStreamStabilityVE();
+
+        Assert.Equal(
+            4_000_000,
+            stable.VideoBitRate);
+
+        Assert.Equal(
+            45d,
+            stable.MaxFps);
+
+        Assert.Equal(
+            64_000,
+            stable.AudioBitRate);
     }
 
     [Theory]
     [InlineData("../secret.txt")]
     [InlineData("folder/file.txt")]
     [InlineData("folder\\file.txt")]
-    public void PathExchangeVE_rejects_non_file_names(string invalidName)
+    public void PathExchangeVE_keeps_sanitized_names_inside_novora(string invalidName)
     {
-        Assert.Throws<ArgumentException>(
-            () => PathExchangeVE.BuildAndroidDownloadPathVE(invalidName));
+        string destination = PathExchangeVE.BuildAndroidDownloadPathVE(invalidName);
+        Assert.StartsWith("/sdcard/NOVORA/", destination);
+        string name = destination["/sdcard/NOVORA/".Length..];
+        Assert.NotEmpty(name);
+        Assert.DoesNotContain("/", name);
+        Assert.DoesNotContain("\\", name);
+        Assert.NotEqual("..", name);
     }
 }

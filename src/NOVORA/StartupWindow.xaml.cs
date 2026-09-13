@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
@@ -6,13 +6,13 @@ using System.Windows;
 namespace NOVORA;
 
 /// <summary>
-/// Reproduce la introducción oficial de NOVORA-LINK antes de abrir MainWindow.
-/// El video se usa sin modificar y se reproduce con su audio original.
+/// Reproduce la introducciÃ³n oficial de NOVORA-LINK antes de abrir MainWindow.
+/// La ventana usa las mismas dimensiones nominales que MainWindow: 920 x 560.
 /// </summary>
 public partial class StartupWindow : Window
 {
     private static readonly TimeSpan PlaybackSafetyTimeout =
-        TimeSpan.FromSeconds(15);
+        TimeSpan.FromSeconds(10);
 
     private readonly TaskCompletionSource<bool> _mediaCompletion =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -25,7 +25,7 @@ public partial class StartupWindow : Window
     }
 
     /// <summary>
-    /// Reproduce Assets\PDI Novora.mp4 una sola vez y espera hasta que termine.
+    /// Reproduce Assets\PDI2T.mp4 una sola vez y espera hasta que termine.
     /// </summary>
     public async Task PlayIntroAsync()
     {
@@ -34,7 +34,8 @@ public partial class StartupWindow : Window
             return;
         }
 
-        _played = true;
+        _played =
+            true;
 
         await WaitUntilLoadedAsync();
 
@@ -42,12 +43,12 @@ public partial class StartupWindow : Window
             Path.Combine(
                 AppContext.BaseDirectory,
                 "Assets",
-                "PDI Novora.mp4");
+                "PDI2T.mp4");
 
         if (!File.Exists(videoPath))
         {
             throw new FileNotFoundException(
-                "No se encontró el video de inicio de NOVORA.",
+                "No se encontrÃ³ el video de inicio PDI2T.mp4 de NOVORA.",
                 videoPath);
         }
 
@@ -82,7 +83,8 @@ public partial class StartupWindow : Window
         object sender,
         RoutedEventArgs e)
     {
-        _mediaCompletion.TrySetResult(true);
+        _mediaCompletion.TrySetResult(
+            true);
     }
 
     private void IntroMedia_MediaFailed(
@@ -90,9 +92,9 @@ public partial class StartupWindow : Window
         ExceptionRoutedEventArgs e)
     {
         _mediaCompletion.TrySetException(
-            e.ErrorException ??
-            new InvalidOperationException(
-                "No se pudo reproducir el video de inicio de NOVORA."));
+            e.ErrorException
+            ?? new InvalidOperationException(
+                "No se pudo reproducir el video de inicio PDI2T.mp4 de NOVORA."));
     }
 
     private Task WaitUntilLoadedAsync()
@@ -115,7 +117,8 @@ public partial class StartupWindow : Window
                 Loaded -=
                     loadedHandler;
 
-                completion.TrySetResult(true);
+                completion.TrySetResult(
+                    true);
             };
 
         Loaded +=
@@ -138,3 +141,4 @@ public partial class StartupWindow : Window
         base.OnClosed(e);
     }
 }
+

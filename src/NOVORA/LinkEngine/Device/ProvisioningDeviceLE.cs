@@ -95,7 +95,7 @@ public sealed class ProvisioningDeviceLE
         "com.novora.linkengine";
 
     public const string ApkFileNameLE =
-        "com.novora.linkengine-Signed.apk";
+        "NOVORA.LinkEngine.Android.apk";
 
     private readonly AdbService _adb;
 
@@ -116,6 +116,7 @@ public sealed class ProvisioningDeviceLE
         return Path.Combine(
             AppContext.BaseDirectory,
             "Tools",
+            "Android",
             ApkFileNameLE);
     }
 

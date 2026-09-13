@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2017 Genymobile
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,6 +37,30 @@ use super::tcp_header::{self, TcpHeader, TcpHeaderMut};
 use super::transport_header::{TransportHeader, TransportHeaderMut};
 
 const TAG: &str = "TcpConnection";
+
+/*
+ * NOVORA LinkEngine
+ *
+ * Android -> Internet.
+ *
+ * El valor anterior era:
+ *
+ *     2 * MAX_PACKET_LENGTH
+ *
+ * aproximadamente 128 KiB.
+ *
+ * Para una arquitectura pensada en hasta cinco dispositivos,
+ * duplicamos el margen sin utilizar colas gigantes:
+ *
+ *     4 * MAX_PACKET_LENGTH
+ *
+ * aproximadamente 256 KiB por conexión TCP.
+ *
+ * Esto absorbe ráfagas breves mientras Windows aplica
+ * backpressure, pero mantiene un límite razonable de memoria
+ * y latencia.
+ */
+const CLIENT_TO_NETWORK_BUFFER_PACKETS_LE: usize = 4;
 
 // same value as GnirehtetService.MTU in the client
 const MTU: u16 = 0x4000;
@@ -171,7 +195,10 @@ impl TcpConnection {
             stream,
             interests,
             token: Token(0), // default value, will be set afterwards
-            client_to_network: StreamBuffer::new(2 * MAX_PACKET_LENGTH),
+            client_to_network: StreamBuffer::new(
+                CLIENT_TO_NETWORK_BUFFER_PACKETS_LE
+                    * MAX_PACKET_LENGTH,
+            ),
             network_to_client: packetizer,
             packet_for_client_length: None,
             closed: false,
@@ -840,3 +867,5 @@ impl PacketSource for TcpConnection {
         self.update_interests(selector);
     }
 }
+
+

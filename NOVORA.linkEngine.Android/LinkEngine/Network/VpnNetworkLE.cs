@@ -348,33 +348,79 @@ public sealed class VpnNetworkLE :
         ClientTransportLE control,
         CancellationToken cancellationToken)
     {
-        DateTimeOffset deadline =
-            DateTimeOffset.UtcNow +
-            ControlTimeoutLE;
+        ArgumentNullException.ThrowIfNull(
+            control);
 
-        while (DateTimeOffset.UtcNow <
-               deadline)
+        StatusTransportLE current =
+            control.StatusLE;
+
+        if (current.SocketConnected &&
+            current.HandshakeVerified)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
+            return;
+        }
 
-            StatusTransportLE status =
-                control.StatusLE;
+        var readyTcs =
+            new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
 
+        void OnStatusChangedLE(
+            object? sender,
+            StatusTransportLE status)
+        {
             if (status.SocketConnected &&
                 status.HandshakeVerified)
+            {
+                readyTcs.TrySetResult(
+                    true);
+            }
+        }
+
+        control.StatusChangedLE +=
+            OnStatusChangedLE;
+
+        try
+        {
+            current =
+                control.StatusLE;
+
+            if (current.SocketConnected &&
+                current.HandshakeVerified)
             {
                 return;
             }
 
-            await Task.Delay(
-                    100,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
+            using var timeoutCts =
+                CancellationTokenSource
+                    .CreateLinkedTokenSource(
+                        cancellationToken);
 
-        throw new TimeoutException(
-            "CONTROL 27183 no alcanzó HELLO/ACK.");
+            timeoutCts.CancelAfter(
+                ControlTimeoutLE);
+
+            using CancellationTokenRegistration registration =
+                timeoutCts.Token.Register(
+                    () =>
+                        readyTcs.TrySetCanceled(
+                            timeoutCts.Token));
+
+            try
+            {
+                await readyTcs.Task
+                    .ConfigureAwait(false);
+            }
+            catch (System.OperationCanceledException)
+                when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException(
+                    "CONTROL 27183 no alcanzó HELLO/ACK.");
+            }
+        }
+        finally
+        {
+            control.StatusChangedLE -=
+                OnStatusChangedLE;
+        }
     }
 
     private ParcelFileDescriptor EstablishVpnLE()

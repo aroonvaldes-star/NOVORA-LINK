@@ -43,17 +43,17 @@ const TAG: &str = "Client";
  *
  *     16 * MAX_PACKET_LENGTH
  *
- * Con MAX_PACKET_LENGTH = 65,536 bytes eso permitía aproximadamente
- * 1 MiB de tráfico pendiente por cliente.
+ * Con MAX_PACKET_LENGTH = 65,536 bytes eso permitÃ­a aproximadamente
+ * 1 MiB de trÃ¡fico pendiente por cliente.
  *
  * Para NOVORA-LINK priorizamos latencia y estabilidad bajo carga,
- * por lo que comenzamos con 4 paquetes máximos:
+ * por lo que comenzamos con 4 paquetes mÃ¡ximos:
  *
  *     4 * 65,536 = 262,144 bytes
  *
  * Aproximadamente 256 KiB.
  *
- * No reducir más todavía.
+ * No reducir mÃ¡s todavÃ­a.
  * Primero debemos comparar:
  *
  * - throughput
@@ -62,7 +62,7 @@ const TAG: &str = "Client";
  * - Client buffer full
  * - packet loss
  *
- * contra la línea base anterior.
+ * contra la lÃ­nea base anterior.
  */
 const NETWORK_TO_CLIENT_BUFFER_PACKETS: usize = 4;
 
@@ -81,7 +81,7 @@ pub struct Client {
      * Internet -> Android
      *
      * Cola limitada para evitar acumulaciones excesivas
-     * de tráfico antes de entregar los paquetes al cliente.
+     * de trÃ¡fico antes de entregar los paquetes al cliente.
      */
     network_to_client: StreamBuffer,
 
@@ -93,7 +93,7 @@ pub struct Client {
      * Fuentes que intentaron enviar un paquete al Android,
      * pero encontraron backpressure.
      */
-    pending_packet_sources: Vec<Rc<RefCell<dyn PacketSource>>>,
+    pending_packet_sources: std::collections::VecDeque<Rc<RefCell<dyn PacketSource>>>,
 
     /*
      * Bytes restantes del identificador del cliente.
@@ -129,37 +129,43 @@ impl<'a> ClientChannel<'a> {
 
     /*
      * Equivalente funcional a Client::send_to_client(),
-     * pero sin requerir un préstamo mutable del Client completo.
+     * pero sin requerir un prÃ©stamo mutable del Client completo.
      */
     pub fn send_to_client(
         &mut self,
         selector: &mut Selector,
         ipv4_packet: &Ipv4Packet,
     ) -> io::Result<()> {
-        if ipv4_packet.length() as usize <= self.network_to_client.remaining() {
-            self.network_to_client.read_from(ipv4_packet.raw());
+        let packet_length =
+            ipv4_packet.length() as usize;
 
-            self.update_interests(selector);
-
-            Ok(())
-        } else {
-            /*
-             * IMPORTANTE:
-             *
-             * No descartamos silenciosamente.
-             *
-             * WouldBlock permite que el PacketSource quede pendiente
-             * hasta que la cola vuelva a tener espacio.
-             */
-            warn!(target: TAG, "Client buffer full");
-
-            Err(io::Error::new(
-                io::ErrorKind::WouldBlock,
-                "Client buffer full",
-            ))
+        if packet_length
+            > self.network_to_client.remaining()
+            || !super::traffic_engine::can_enqueue_to_client_le(
+                self.network_to_client.size(),
+                self.network_to_client.capacity(),
+                packet_length,
+            )
+        {
+            return Err(
+                io::Error::new(
+                    io::ErrorKind::WouldBlock,
+                    "TrafficEngine backpressure",
+                ),
+            );
         }
-    }
 
+        self.network_to_client
+            .read_from(
+                ipv4_packet.raw(),
+            );
+
+        self.update_interests(
+            selector,
+        );
+
+        Ok(())
+    }
     fn update_interests(&mut self, selector: &mut Selector) {
         let ready = if self.network_to_client.is_empty() {
             Ready::readable()
@@ -190,7 +196,7 @@ impl Client {
         close_listener: Box<dyn CloseListener<Client>>,
     ) -> io::Result<Rc<RefCell<Self>>> {
         /*
-         * Al comenzar sólo nos interesa escribir:
+         * Al comenzar sÃ³lo nos interesa escribir:
          * primero tenemos que enviar el identificador del cliente.
          */
         let interests = Ready::writable();
@@ -219,7 +225,7 @@ impl Client {
              *
              *     4 * MAX_PACKET_LENGTH
              *
-             * Esto reduce la cantidad máxima de datos que pueden
+             * Esto reduce la cantidad mÃ¡xima de datos que pueden
              * acumularse esperando ser enviados hacia Android.
              */
             network_to_client: StreamBuffer::new(
@@ -232,7 +238,7 @@ impl Client {
 
             close_listener,
 
-            pending_packet_sources: Vec::new(),
+            pending_packet_sources: std::collections::VecDeque::new(),
 
             pending_id_bytes: 4,
         }));
@@ -293,7 +299,7 @@ impl Client {
             .unwrap();
 
         /*
-         * TcpStream no expone close explícito.
+         * TcpStream no expone close explÃ­cito.
          * shutdown() detiene ambas direcciones;
          * el socket se libera cuando se hace drop.
          */
@@ -339,18 +345,65 @@ impl Client {
             let ready = event.readiness();
 
             /*
-             * Primero drenamos salida pendiente.
+             * ========================================================
+             * NOVORA LINKENGINE - FULL DUPLEX FAIRNESS
+             * ========================================================
              *
-             * Esto es importante para NOVORA porque queremos liberar
-             * network_to_client tan pronto como el socket permita
-             * escribir.
+             * El túnel DATA es bidireccional.
+             *
+             * Primero atendemos Android -> Relay porque el dispositivo
+             * ya entregó esos paquetes al túnel y no queremos que una
+             * descarga intensa retrase indefinidamente la subida.
+             *
+             * Después atendemos Relay -> Android.
+             *
+             * IMPORTANTE:
+             *
+             * WouldBlock es backpressure normal de sockets
+             * non-blocking.
+             *
+             * Un WouldBlock en una dirección NO evita procesar
+             * la otra dirección durante este evento.
              */
-            if ready.is_writable() {
-                self.process_send(selector)?;
+
+            if ready.is_readable() {
+                match self.process_receive(selector) {
+                    Ok(_) => (),
+
+                    Err(ref err)
+                        if err.kind() == io::ErrorKind::WouldBlock =>
+                    {
+                        debug!(
+                            target: TAG,
+                            "DATA upstream temporarily blocked for client #{}",
+                            self.id
+                        );
+                    }
+
+                    Err(err) => {
+                        return Err(err);
+                    }
+                }
             }
 
-            if !self.closed && ready.is_readable() {
-                self.process_receive(selector)?;
+            if !self.closed && ready.is_writable() {
+                match self.process_send(selector) {
+                    Ok(_) => (),
+
+                    Err(ref err)
+                        if err.kind() == io::ErrorKind::WouldBlock =>
+                    {
+                        debug!(
+                            target: TAG,
+                            "DATA downstream temporarily blocked for client #{}",
+                            self.id
+                        );
+                    }
+
+                    Err(err) => {
+                        return Err(err);
+                    }
+                }
             }
 
             if !self.closed {
@@ -362,7 +415,7 @@ impl Client {
     }
 
     /*
-     * Envía datos Relay -> Android.
+     * EnvÃ­a datos Relay -> Android.
      */
     fn process_send(
         &mut self,
@@ -404,7 +457,35 @@ impl Client {
                     self.process_pending(selector);
                 }
 
+                Err(err)
+                    if err.kind() == io::ErrorKind::WouldBlock =>
+                {
+                    /*
+                     * Backpressure normal.
+                     *
+                     * NO cerrar DATA.
+                     *
+                     * network_to_client conserva la información
+                     * pendiente y mio nos volverá a notificar cuando
+                     * el socket tenga capacidad para escribir.
+                     */
+                    return Err(err);
+                }
+
                 Err(err) => {
+                    /*
+                     * NOVORA_TRAFFIC_ENGINE_V1_3
+                     *
+                     * WouldBlock es backpressure normal.
+                     * NO es caída de DATA ni condición de Recovery.
+                     *
+                     * Retornamos Ok para que Client::process()
+                     * pueda continuar con readable en el mismo evento,
+                     * protegiendo Android -> Internet.
+                     */
+                    if err.kind() == io::ErrorKind::WouldBlock {
+                        return Ok(());
+                    }
                     error!(
                         target: TAG,
                         "Cannot write: [{:?}] {}",
@@ -465,38 +546,46 @@ impl Client {
         selector: &mut Selector,
         ipv4_packet: &Ipv4Packet,
     ) -> io::Result<()> {
-        if ipv4_packet.length() as usize
-            <= self.network_to_client.remaining()
+        let packet_length =
+            ipv4_packet.length() as usize;
+
+        if packet_length
+            > self.network_to_client.remaining()
+            || !super::traffic_engine::can_enqueue_to_client_le(
+                self.network_to_client.size(),
+                self.network_to_client.capacity(),
+                packet_length,
+            )
         {
-            self.network_to_client
-                .read_from(ipv4_packet.raw());
-
-            self.update_interests(selector);
-
-            Ok(())
-        } else {
-            warn!(target: TAG, "Client buffer full");
-
-            Err(io::Error::new(
-                io::ErrorKind::WouldBlock,
-                "Client buffer full",
-            ))
+            return Err(
+                io::Error::new(
+                    io::ErrorKind::WouldBlock,
+                    "TrafficEngine backpressure",
+                ),
+            );
         }
-    }
 
-    /*
-     * Registra una fuente cuyo paquete no pudo entrar
-     * inmediatamente en la cola Relay -> Android.
-     */
+        self.network_to_client
+            .read_from(
+                ipv4_packet.raw(),
+            );
+
+        self.update_interests(
+            selector,
+        );
+
+        Ok(())
+    }
     pub fn register_pending_packet_source(
         &mut self,
         source: Rc<RefCell<dyn PacketSource>>,
     ) {
-        self.pending_packet_sources.push(source);
+        self.pending_packet_sources
+            .push_back(source);
     }
 
     /*
-     * Envía el ID de 32 bits asignado por el Relay.
+     * EnvÃ­a el ID de 32 bits asignado por el Relay.
      */
     fn send_id(&mut self) -> io::Result<()> {
         assert!(self.must_send_id());
@@ -532,17 +621,27 @@ impl Client {
     /*
      * Drena la cola network_to_client hacia el socket Android.
      */
-    fn write(&mut self) -> io::Result<()> {
-        self.network_to_client
-            .write_to(&mut self.stream)?;
+    fn write(
+        &mut self,
+    ) -> io::Result<usize> {
+        let mut written = 0;
+        let quantum =
+            super::traffic_engine::CLIENT_WRITE_QUANTUM_BYTES_LE;
 
-        Ok(())
+        while written < quantum && !self.network_to_client.is_empty() {
+            match self.network_to_client.write_to_limited(
+                &mut self.stream,
+                quantum - written,
+            ) {
+                Ok(0) => break,
+                Ok(count) => written += count,
+                Err(err) if err.kind() == io::ErrorKind::WouldBlock && written > 0 => break,
+                Err(err) => return Err(err),
+            }
+        }
+
+        Ok(written)
     }
-
-    /*
-     * Empuja hacia Internet todos los paquetes IPv4 completos
-     * actualmente disponibles.
-     */
     fn push_to_network(
         &mut self,
         selector: &mut Selector,
@@ -587,23 +686,36 @@ impl Client {
         &mut self,
         selector: &mut Selector,
     ) {
-        let mut vec = Vec::new();
+        let attempts =
+            self.pending_packet_sources
+                .len()
+                .min(
+                    super::traffic_engine::MAX_PENDING_SOURCES_PER_PASS_LE,
+                );
 
-        mem::swap(
-            &mut self.pending_packet_sources,
-            &mut vec,
-        );
+        for _ in 0..attempts {
+            let pending =
+                match self.pending_packet_sources
+                    .pop_front()
+                {
+                    Some(pending) =>
+                        pending,
 
-        for pending in vec.into_iter() {
+                    None =>
+                        break,
+                };
+
             let consumed = {
-                let mut source = pending.borrow_mut();
+                let mut source =
+                    pending.borrow_mut();
 
                 let result = {
-                    let ipv4_packet = source
-                        .get()
-                        .expect(
-                            "Unexpected pending source with no packet",
-                        );
+                    let ipv4_packet =
+                        source
+                            .get()
+                            .expect(
+                                "Unexpected pending source with no packet",
+                            );
 
                     self.send_to_client(
                         selector,
@@ -614,7 +726,9 @@ impl Client {
                 #[allow(clippy::match_wild_err_arm)]
                 match result {
                     Ok(_) => {
-                        source.next(selector);
+                        source.next(
+                            selector,
+                        );
 
                         true
                     }
@@ -635,15 +749,13 @@ impl Client {
             };
 
             if !consumed {
-                /*
-                 * Todavía no hay espacio.
-                 * Conservamos la fuente para el próximo evento writable.
-                 */
-                self.pending_packet_sources.push(pending);
+                self.pending_packet_sources
+                    .push_back(
+                        pending,
+                    );
             }
         }
     }
-
     pub fn clean_expired_connections(
         &mut self,
         selector: &mut Selector,
@@ -656,3 +768,4 @@ impl Client {
         self.pending_id_bytes > 0
     }
 }
+

@@ -4,14 +4,14 @@ public sealed class BitratePerformanceVE
 {
     public BitratePerformanceVE(
         int minBitrate = 1_000_000,
-        int maxBitrate = 30_000_000,
-        double decreaseFactor = 0.75,
-        double increaseFactor = 1.05)
+        int maxBitrate = 6_000_000,
+        double decreaseFactor = 0.70,
+        double increaseFactor = 1.0)
     {
         if (minBitrate < 1) throw new ArgumentOutOfRangeException(nameof(minBitrate));
         if (maxBitrate < minBitrate) throw new ArgumentOutOfRangeException(nameof(maxBitrate));
         if (decreaseFactor <= 0 || decreaseFactor >= 1) throw new ArgumentOutOfRangeException(nameof(decreaseFactor));
-        if (increaseFactor <= 1) throw new ArgumentOutOfRangeException(nameof(increaseFactor));
+        if (increaseFactor < 1) throw new ArgumentOutOfRangeException(nameof(increaseFactor));
 
         MinBitrateVE = minBitrate;
         MaxBitrateVE = maxBitrate;

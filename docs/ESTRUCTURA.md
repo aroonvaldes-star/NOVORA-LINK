@@ -1,16 +1,62 @@
-# NOVORA-LINK â€” estructura del repositorio
+# Estructura actual de NOVORA-LINK
 
 ```text
 NOVORA-LINK/
-â”œâ”€ .github/workflows/release.yml
-â”œâ”€ Installer/
-â”œâ”€ docs/
-â”œâ”€ scripts/
-â”œâ”€ src/NOVORA/
-â”œâ”€ .gitignore
-â”œâ”€ NOVORA.sln
-â””â”€ README.md
+├── NOVORA.sln
+├── src/NOVORA/
+│   ├── LinkEngine/
+│   │   ├── Core/
+│   │   ├── Device/
+│   │   ├── Failover/
+│   │   ├── Metrics/
+│   │   ├── Network/
+│   │   │   └── Native/RelayCore/    # Data Plane Rust
+│   │   ├── Protocol/
+│   │   ├── Recovery/
+│   │   ├── Runtime/
+│   │   ├── Traffic/
+│   │   └── Transport/
+│   ├── VisionEngine/
+│   │   ├── Audio/
+│   │   ├── Control/
+│   │   ├── Core/
+│   │   ├── Device/
+│   │   ├── Events/
+│   │   ├── Exchange/
+│   │   ├── Gamepad/
+│   │   ├── Integration/
+│   │   ├── Metrics/
+│   │   ├── Nvidia/
+│   │   ├── Performance/
+│   │   ├── Privacy/
+│   │   ├── Protocol/
+│   │   ├── Recovery/
+│   │   ├── Renderer/
+│   │   ├── Server/
+│   │   ├── Streaming/
+│   │   ├── Stress/
+│   │   ├── Transport/
+│   │   └── Video/
+│   ├── STEngine/
+│   │   └── Core/
+│   ├── Remote/
+│   ├── Models/
+│   ├── Services/
+│   ├── ViewModels/
+│   ├── MainWindow*.cs / MainWindow.xaml
+│   └── SettingsWindow.xaml(.cs)
+├── NOVORA.linkEngine.Android/
+│   ├── LinkEngine/
+│   │   ├── Network/
+│   │   ├── Protocol/
+│   │   └── Transport/
+│   ├── Remote/
+│   └── MainActivity.cs
+├── scripts/
+├── tests/
+├── docs/
+├── third_party/
+└── Installer/
 ```
 
-
-No versionar: `.vs/`, `bin/`, `obj/`, `Installer/output/`, `artifacts/` ni `*.user`.
+Los directorios `.vs`, `bin`, `obj`, `target`, backups y diagnósticos generados no forman parte del repositorio final.

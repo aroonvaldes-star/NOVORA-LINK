@@ -1,6 +1,7 @@
 using NOVORA.VisionEngine.Audio;
 using NOVORA.VisionEngine.Protocol;
 using System.Globalization;
+using NOVORA.VisionEngine.Performance;
 
 namespace NOVORA.VisionEngine.Server;
 
@@ -19,20 +20,52 @@ public sealed record OptionsServerVE(
     SourceAudioVE AudioSource,
     bool AudioPlaybackEnabled,
     bool ControlEnabled,
+    bool ClipboardAutosync,
     bool CleanupEnabled)
 {
+    public OptionsServerVE ApplyStreamStabilityVE()
+        => this with
+        {
+            VideoBitRate =
+                VideoBitRate > 0
+                    ? Math.Min(VideoBitRate, 4_000_000)
+                    : VideoBitRate,
+
+            MaxFps =
+                MaxFps.HasValue
+                    ? Math.Min(MaxFps.Value, 45d)
+                    : 45d,
+
+            AudioBitRate =
+                Math.Min(AudioBitRate, 64_000)
+        };
+
+    public static OptionsServerVE CreateForProfileVE(ProfilePerformanceVE profile,
+        IEnumerable<CodecProtocolVE>? supportedCodecs = null)
+    {
+        var selected = OptionsPerformanceVE.CreateVE(profile, supportedCodecs);
+        return CreateDefaultVE() with
+        {
+            VideoCodec = selected.PreferredCodec,
+            VideoBitRate = selected.RecommendedBitrate,
+            MaxSize = selected.MaxSize,
+            MaxFps = selected.MaxFps
+        };
+    }
+
     public static OptionsServerVE CreateDefaultVE()
         => new(
             VideoCodec: CodecProtocolVE.H264,
-            VideoBitRate: 8_000_000,
-            MaxSize: 0,
-            MaxFps: null,
+            VideoBitRate: 4_000_000,
+            MaxSize: 1280,
+            MaxFps: 45d,
             AudioEnabled: true,
             AudioCodec: CodecProtocolVE.Opus,
-            AudioBitRate: 128_000,
+            AudioBitRate: 64_000,
             AudioSource: SourceAudioVE.Output,
             AudioPlaybackEnabled: true,
             ControlEnabled: true,
+            ClipboardAutosync: true,
             CleanupEnabled: true);
 
     public static OptionsServerVE CreateVideoOnlyVE()
@@ -142,6 +175,32 @@ public sealed record OptionsServerVE(
         {
             args.Add("control=false");
         }
+
+        /*
+         * VisionEngine usa clipboard explícito.
+         *
+         * Con clipboard_autosync=false:
+         *
+         * GET_CLIPBOARD(COPY)
+         *       ↓
+         * Android inyecta KEYCODE_COPY
+         *       ↓
+         * lee clipboard
+         *       ↓
+         * envía DEVICE_MSG_CLIPBOARD inmediatamente
+         *
+         * Esto evita depender del listener automático del servidor,
+         * evita duplicados y mantiene el clipboard bajo demanda.
+         */
+        /*
+         * VisionEngine V3 utiliza el cambio real del clipboard Android
+         * como evento.
+         *
+         * Se envía explícitamente para no depender del default del
+         * servidor.
+         */
+        args.Add(
+            $"clipboard_autosync={(ClipboardAutosync ? "true" : "false")}");
 
         if (tunnelForward)
         {

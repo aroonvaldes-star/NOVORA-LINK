@@ -19,7 +19,7 @@ use mio::net::TcpListener;
 use mio::{Event, PollOpt, Ready};
 use std::cell::RefCell;
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::{Ipv4Addr, Shutdown, SocketAddr};
 use std::ptr;
 use std::rc::{Rc, Weak};
 
@@ -27,6 +27,18 @@ use super::client::Client;
 use super::selector::Selector;
 
 const TAG: &str = "TunnelServer";
+
+/*
+ * NOVORA-LINK
+ *
+ * Límite oficial actual de LinkEngine.
+ *
+ * El RelayCore se diseña alrededor de cinco dispositivos
+ * simultáneos como máximo.
+ *
+ * Este límite corresponde a clientes DATA del túnel.
+ */
+const MAX_CLIENTS_LE: usize = 5;
 
 pub struct TunnelServer {
     self_weak: Weak<RefCell<TunnelServer>>,
@@ -83,7 +95,52 @@ impl TunnelServer {
 
     fn accept_client(&mut self, selector: &mut Selector) -> io::Result<()> {
         let (stream, _) = self.tcp_listener.accept()?;
+
         stream.set_nodelay(true)?;
+
+        /*
+         * NOVORA_TRAFFIC_ENGINE_V1_3
+         *
+         * Máximo 5 clientes DATA ACTIVOS.
+         * No son slots permanentes por dispositivo.
+         *
+         * No necesitamos importar Shutdown:
+         * al hacer drop(stream) se libera el socket aceptado.
+         * Esto evita depender del estilo actual de imports.
+         */
+        if self.clients.len()
+            >= super::traffic_engine::MAX_ACTIVE_CLIENTS_LE
+        {
+            warn!(
+                target: TAG,
+                "TrafficEngine session limit reached: {} active clients",
+                self.clients.len()
+            );
+
+            drop(stream);
+
+            return Ok(());
+        }
+
+        /*
+         * NOVORA LinkEngine soporta oficialmente hasta
+         * cinco túneles DATA simultáneos.
+         *
+         * No afectamos ninguna sesión existente si aparece
+         * un sexto cliente.
+         */
+        if self.clients.len() >= MAX_CLIENTS_LE {
+            warn!(
+                target: TAG,
+                "Maximum LinkEngine DATA clients reached: {}",
+                MAX_CLIENTS_LE
+            );
+
+            let _ = stream.shutdown(Shutdown::Both);
+
+            return Ok(());
+        }
+
         let client_id = self.next_client_id;
         self.next_client_id += 1;
         let weak = self.self_weak.clone();
@@ -123,3 +180,6 @@ impl TunnelServer {
         }
     }
 }
+
+
+

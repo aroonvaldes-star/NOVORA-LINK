@@ -1,4 +1,4 @@
-﻿using NOVORA.Models;
+using NOVORA.Models;
 using NOVORA.Services;
 using NOVORA.VisionEngine.Audio;
 using System.ComponentModel;
@@ -27,15 +27,25 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _performanceSummary = "Esperando dispositivo...";
     private IReadOnlyList<MonitorInfo> _monitors = Array.Empty<MonitorInfo>();
     private OutputProfile? _outputProfile;
-    private string _bitrate = "10M";
-    private int _targetFps = 60;
-    private int _maxSize = 1920;
+    private string _bitrate = "4M";
+    private int _targetFps = 45;
+    private int _maxSize = 1280;
     private string _theme = ThemeService.Dark;
     private string _videoPresentationMode = VideoPresentationModeWindow;
     private string _selectedAudioOutput = OutputAudioVE.DefaultValueVE;
     private IReadOnlyList<SettingOption<string>> _audioOutputOptions = Array.Empty<SettingOption<string>>();
     private IReadOnlyList<SettingOption<int>> _resolutionOptions = Array.Empty<SettingOption<int>>();
     private IReadOnlyList<SettingOption<int>> _fpsOptions = Array.Empty<SettingOption<int>>();
+    private bool _privacyShieldEnabled;
+    private bool _integrationClipboardEnabled = true;
+    private bool _integrationFileTransferEnabled = true;
+    private bool _integrationDragDropEnabled = true;
+    private bool _integrationApplicationsEnabled = true;
+    private bool _integrationNotificationsEnabled = true;
+    private bool _integrationDynamicResizeEnabled = true;
+    private bool _gamepadEnabled = true;
+    private string _nvidiaProfile = "Automatic";
+    private bool _remoteAndroidEnabled = true;
 
     public bool AudioEnabled
     {
@@ -260,6 +270,82 @@ public sealed class MainViewModel : INotifyPropertyChanged
             value ?? Array.Empty<SettingOption<int>>());
     }
 
+    public bool PrivacyShieldEnabled
+    {
+        get => _privacyShieldEnabled;
+        set => Set(ref _privacyShieldEnabled, value);
+    }
+
+    public bool IntegrationClipboardEnabled
+    {
+        get => _integrationClipboardEnabled;
+        set => Set(ref _integrationClipboardEnabled, value);
+    }
+
+    public bool IntegrationFileTransferEnabled
+    {
+        get => _integrationFileTransferEnabled;
+        set => Set(ref _integrationFileTransferEnabled, value);
+    }
+
+    public bool IntegrationDragDropEnabled
+    {
+        get => _integrationDragDropEnabled;
+        set => Set(ref _integrationDragDropEnabled, value);
+    }
+
+    public bool IntegrationApplicationsEnabled
+    {
+        get => _integrationApplicationsEnabled;
+        set => Set(ref _integrationApplicationsEnabled, value);
+    }
+
+    public bool IntegrationNotificationsEnabled
+    {
+        get => _integrationNotificationsEnabled;
+        set => Set(ref _integrationNotificationsEnabled, value);
+    }
+
+    public bool IntegrationDynamicResizeEnabled
+    {
+        get => _integrationDynamicResizeEnabled;
+        set => Set(ref _integrationDynamicResizeEnabled, value);
+    }
+
+    public bool GamepadEnabled
+    {
+        get => _gamepadEnabled;
+        set => Set(ref _gamepadEnabled, value);
+    }
+
+    public string NvidiaProfile
+    {
+        get => _nvidiaProfile;
+        set => Set(
+            ref _nvidiaProfile,
+            string.IsNullOrWhiteSpace(value)
+                ? "Automatic"
+                : value.Trim());
+    }
+
+    public bool RemoteAndroidEnabled
+    {
+        get => _remoteAndroidEnabled;
+        set => Set(ref _remoteAndroidEnabled, value);
+    }
+
+    public IReadOnlyList<SettingOption<string>> NvidiaProfileOptions { get; } =
+        new[]
+        {
+            new SettingOption<string>("Automatic", "Automático"),
+            new SettingOption<string>("Disabled", "Desactivado"),
+            new SettingOption<string>("Competitive", "Competitivo"),
+            new SettingOption<string>("Balanced", "Balanceado"),
+            new SettingOption<string>("VisionPlus", "Vision+"),
+            new SettingOption<string>("Smooth", "Suavidad"),
+            new SettingOption<string>("Stream", "Streaming")
+        };
+
     public IReadOnlyList<SettingOption<string>> BitrateOptions { get; } =
         new[]
         {
@@ -267,6 +353,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             new SettingOption<string>("2M", "2 Mb/s"),
             new SettingOption<string>("3M", "3 Mb/s"),
             new SettingOption<string>("4M", "4 Mb/s"),
+            new SettingOption<string>("5M", "5 Mb/s"),
             new SettingOption<string>("6M", "6 Mb/s"),
             new SettingOption<string>("8M", "8 Mb/s"),
             new SettingOption<string>("10M", "10 Mb/s"),

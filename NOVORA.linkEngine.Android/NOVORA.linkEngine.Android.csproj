@@ -12,11 +12,11 @@
 
 		<ApplicationId>com.novora.linkengine</ApplicationId>
 
-		<ApplicationTitle>NOVORA LinkEngine</ApplicationTitle>
+		<ApplicationTitle>NOVORA</ApplicationTitle>
 
-		<ApplicationVersion>1</ApplicationVersion>
+		<ApplicationVersion>3</ApplicationVersion>
 
-		<ApplicationDisplayVersion>0.0.1-LE004</ApplicationDisplayVersion>
+		<ApplicationDisplayVersion>1.4.A4</ApplicationDisplayVersion>
 
 		<SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
 
@@ -29,6 +29,20 @@
 		<AndroidPackageFormat>apk</AndroidPackageFormat>
 
 		<TrimMode Condition="'$(Configuration)' == 'Release'">full</TrimMode>
+
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+
+		<AndroidKeyStore>true</AndroidKeyStore>
+
+		<AndroidSigningKeyStore>$(UserProfile)\.android\debug.keystore</AndroidSigningKeyStore>
+
+		<AndroidSigningStorePass>android</AndroidSigningStorePass>
+
+		<AndroidSigningKeyAlias>androiddebugkey</AndroidSigningKeyAlias>
+
+		<AndroidSigningKeyPass>android</AndroidSigningKeyPass>
 
 	</PropertyGroup>
 

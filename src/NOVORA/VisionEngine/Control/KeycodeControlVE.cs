@@ -121,6 +121,7 @@ public static class KeycodeControlVE
         const uint MetaShiftOnVE = 0x00000001;
         const uint MetaAltOnVE = 0x00000002;
         const uint MetaCtrlOnVE = 0x00001000;
+        const uint MetaCapsLockOnVE = 0x00100000;
         const uint MetaMetaOnVE = 0x00010000;
 
         uint result =
@@ -142,6 +143,12 @@ public static class KeycodeControlVE
         {
             result |=
                 MetaCtrlOnVE;
+        }
+
+        if (Forms.Control.IsKeyLocked(Forms.Keys.CapsLock))
+        {
+            result |=
+                MetaCapsLockOnVE;
         }
 
         if ((Forms.Control.ModifierKeys & Forms.Keys.LWin) != 0 ||

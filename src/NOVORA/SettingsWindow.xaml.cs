@@ -1,4 +1,4 @@
-﻿using NOVORA.Models;
+using NOVORA.Models;
 using NOVORA.Services;
 using NOVORA.ViewModels;
 using System.ComponentModel;
@@ -31,6 +31,7 @@ public partial class SettingsWindow : Window
     private bool _themeInitialized;
     private bool _committed;
     private bool _rollingBack;
+    private readonly NovoraSettings _originalAdvancedNV = new();
 
     public SettingsWindow(
         MainViewModel viewModel)
@@ -54,6 +55,8 @@ public partial class SettingsWindow : Window
             _viewModel.SelectedMonitor
         );
 
+        SettingsAdvancedNV.CaptureNV(_viewModel, _originalAdvancedNV);
+
         DataContext =
             _viewModel;
 
@@ -67,6 +70,12 @@ public partial class SettingsWindow : Window
 
         _themeInitialized =
             true;
+
+        NovoraSettings startupSettingsNV =
+            _settingsService.Load();
+
+        StartWithWindowsCheckBox.IsChecked =
+            startupSettingsNV.StartWithWindows;
     }
 
     private void Theme_SelectionChanged(
@@ -120,8 +129,21 @@ public partial class SettingsWindow : Window
             settings.Theme =
                 _viewModel.Theme;
 
+            settings.StartWithWindows =
+                StartWithWindowsCheckBox.IsChecked != false;
+
+            if (!settings.StartWithWindows)
+            {
+                settings.AutoStartSuppressed =
+                    false;
+            }
+
+            SettingsAdvancedNV.CaptureNV(_viewModel, settings);
             _settingsService.Save(
                 settings);
+
+            AutoStartServiceNV.ApplyRegistrationNV(
+                settings.StartWithWindows);
 
             ThemeService.Apply(
                 _viewModel.Theme);
@@ -186,6 +208,7 @@ public partial class SettingsWindow : Window
 
         try
         {
+            SettingsAdvancedNV.ApplyNV(_originalAdvancedNV, _viewModel);
             _viewModel.AudioEnabled =
                 _original.Audio;
 

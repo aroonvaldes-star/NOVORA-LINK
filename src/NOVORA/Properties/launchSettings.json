@@ -2,7 +2,8 @@
   "profiles": {
     "NOVORA": {
       "commandName": "Project",
-      "remoteDebugEnabled": false
+      "remoteDebugEnabled": false,
+      "debugEngines": "managed"
     }
   }
 }

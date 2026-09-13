@@ -22,6 +22,8 @@ public sealed class ManagerControlVE : IAsyncDisposable
     private long _uhidVE;
     private long _errorsVE;
     private long _lastStatusPublishMsVE;
+    private Func<MessageControlVE, bool>? _canSendMessageVE;
+    private Func<bool>? _canReceiveClipboardVE;
     private bool _disposedVE;
 
     public event EventHandler<StatusControlVE>? StatusChangedVE;
@@ -35,6 +37,14 @@ public sealed class ManagerControlVE : IAsyncDisposable
     }
 
     public bool IsReadyVE => StatusVE.State == StatesControlVE.Ready;
+
+    public void SetPrivacyGatesVE(
+        Func<MessageControlVE, bool>? canSendMessage,
+        Func<bool>? canReceiveClipboard)
+    {
+        _canSendMessageVE = canSendMessage;
+        _canReceiveClipboardVE = canReceiveClipboard;
+    }
 
     public Task StartAsync(SessionTransportVE transport, CancellationToken cancellationToken = default)
     {
@@ -61,6 +71,10 @@ public sealed class ManagerControlVE : IAsyncDisposable
     {
         ThrowIfDisposedVE();
         ArgumentNullException.ThrowIfNull(message);
+
+        if (_canSendMessageVE is not null && !_canSendMessageVE(message))
+            return;
+
         NetworkStream stream = _streamVE
             ?? throw new InvalidOperationException("Control VisionEngine no está iniciado.");
 
@@ -126,7 +140,8 @@ public sealed class ManagerControlVE : IAsyncDisposable
                         if (message.ClipboardText is string text)
                         {
                             Interlocked.Add(ref _receivedBytesVE, System.Text.Encoding.UTF8.GetByteCount(text) + 5);
-                            ClipboardChangedVE?.Invoke(this, text);
+                            if (_canReceiveClipboardVE is null || _canReceiveClipboardVE())
+                                ClipboardChangedVE?.Invoke(this, text);
                         }
                         break;
                     case TypeDeviceControlVE.ClipboardAck:

@@ -45,6 +45,8 @@ public sealed class RelayNetworkLE :
 
     private bool _disposed;
 
+    public event EventHandler? ExitedLE;
+
     public string DiagnosticsLogPathLE =>
         Path.Combine(
             Environment.GetFolderPath(
@@ -149,6 +151,9 @@ public sealed class RelayNetworkLE :
 
             process.ErrorDataReceived +=
                 RelayErrorReceivedLE;
+
+            process.Exited +=
+                RelayProcessExitedLE;
 
             if (!process.Start())
             {
@@ -276,6 +281,24 @@ public sealed class RelayNetworkLE :
         {
             _gate.Release();
         }
+    }
+
+    private void RelayProcessExitedLE(
+        object? sender,
+        EventArgs e)
+    {
+        if (_disposed ||
+            sender is not Process process ||
+            !ReferenceEquals(
+                _process,
+                process))
+        {
+            return;
+        }
+
+        ExitedLE?.Invoke(
+            this,
+            EventArgs.Empty);
     }
 
     private void RelayOutputReceivedLE(
@@ -639,6 +662,9 @@ public sealed class RelayNetworkLE :
 
         process.ErrorDataReceived -=
             RelayErrorReceivedLE;
+
+        process.Exited -=
+            RelayProcessExitedLE;
 
         process.Dispose();
     }

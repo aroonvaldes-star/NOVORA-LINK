@@ -36,8 +36,7 @@ public sealed class MonitorRecoveryVE
         if (transportState == StatesTransportVE.Failed)
             return HealthRecoveryVE.DegradedVE(ScopeRecoveryVE.Session, "El transporte VisionEngine reportó fallo.");
 
-        if (video.RendererEnabled)
-            return HealthRecoveryVE.DegradedVE(ScopeRecoveryVE.Session, "El renderer se activó antes de Block D.");
+        // RendererEnabled es funcionamiento normal en Block D.
 
         if (video.State == StatesVideoVE.Failed)
             return HealthRecoveryVE.DegradedVE(ScopeRecoveryVE.Video, video.LastError ?? "Falló VideoVE.");

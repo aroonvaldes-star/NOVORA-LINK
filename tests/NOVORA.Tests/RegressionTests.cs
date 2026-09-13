@@ -19,7 +19,7 @@ public sealed class RegressionTests
             Connected = true
         };
 
-        Assert.Equal("SM-A566E â€¢ USB", device.DisplayLabel);
+        Assert.Equal("SM-A566E - USB", device.DisplayLabel);
         Assert.Equal(device.DisplayLabel, device.ToString());
     }
 
@@ -36,7 +36,7 @@ public sealed class RegressionTests
             60,
             false);
 
-        Assert.Equal("Monitor 2 â€” 1920x1080 @ 60 Hz", monitor.DisplayLabel);
+        Assert.Equal("Monitor 2 \u2014 1920x1080 @ 60 Hz", monitor.DisplayLabel);
         Assert.Equal(monitor.DisplayLabel, monitor.ToString());
     }
 

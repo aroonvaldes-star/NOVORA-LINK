@@ -61,6 +61,10 @@ public static class ThemeService
         // ============================================================
 
         SetBrush(resources, "BlueBrush", "#00AEEF");
+
+        // Texto azul: mas brillante en Dark y mas oscuro en Light
+        // para mantener contraste legible.
+        SetBrush(resources, "AccentTextBrush", dark ? "#35C4F5" : "#006B95");
         SetBrush(resources, "BlueDarkBrush", dark ? "#35C4F5" : "#008FCA");
         SetBrush(resources, "CyanBrush", dark ? "#39D4E5" : "#00AFC5");
         SetBrush(resources, "PurpleBrush", dark ? "#B5A0FF" : "#7257C8");
@@ -73,7 +77,7 @@ public static class ThemeService
         SetBrush(resources, "OrangeBrush", dark ? "#FFAD5A" : "#C66A12");
         SetBrush(resources, "TrackBrush", dark ? "#34404A" : "#D2DAE0");
         SetBrush(resources, "BatteryTrackBrush", dark ? "#283139" : "#DCE3E7");
-        SetBrush(resources, "BatteryTextBrush", dark ? "#FFFFFF" : "#FFFFFF");
+        SetBrush(resources, "BatteryTextBrush", dark ? "#FFFFFF" : "#101923");
 
         // ============================================================
         // ENTRADAS Y COMBOBOX

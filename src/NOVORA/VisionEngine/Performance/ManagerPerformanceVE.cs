@@ -6,14 +6,24 @@ public sealed class ManagerPerformanceVE
 {
     private readonly BitratePerformanceVE _bitrateVE;
     private int _currentBitrateVE;
+    private ProfilePerformanceVE _profileVE = ProfilePerformanceVE.Gaming;
 
     public ManagerPerformanceVE(
-        int initialBitrate = 8_000_000,
+        int initialBitrate = 4_000_000,
         BitratePerformanceVE? bitrate = null)
     {
         _bitrateVE = bitrate ?? new BitratePerformanceVE();
         _currentBitrateVE = Math.Clamp(initialBitrate, _bitrateVE.MinBitrateVE, _bitrateVE.MaxBitrateVE);
     }
+
+    public ProfilePerformanceVE ProfileVE => _profileVE;
+
+    public void SetProfileVE(ProfilePerformanceVE profile)
+        => _profileVE = profile;
+
+    public OptionsPerformanceVE GetProfileOptionsVE(
+        IEnumerable<NOVORA.VisionEngine.Protocol.CodecProtocolVE>? supportedCodecs = null)
+        => OptionsPerformanceVE.CreateVE(_profileVE, supportedCodecs);
 
     public SnapshotPerformanceVE EvaluateVE(SnapshotMetricsVE metrics)
     {
@@ -27,7 +37,7 @@ public sealed class ManagerPerformanceVE
             CongestionPerformanceVE.Healthy => "Pipeline estable.",
             CongestionPerformanceVE.Mild => "Carga elevada pero estable.",
             CongestionPerformanceVE.Moderate => "Se detectó degradación del pipeline.",
-            CongestionPerformanceVE.Severe => "Congestión severa: reducir bitrate y telemetría.",
+            CongestionPerformanceVE.Severe => "Congestión severa: reducir trabajo no crítico.",
             CongestionPerformanceVE.Critical => "Congestión crítica: priorizar video/audio/control esencial.",
             _ => "Estado desconocido."
         };
@@ -37,15 +47,13 @@ public sealed class ManagerPerformanceVE
             congestion,
             _currentBitrateVE,
             congestion >= CongestionPerformanceVE.Severe,
-            false,
+            metrics.RendererEnabled,
             reason);
     }
 
     private static CongestionPerformanceVE DetectCongestionVE(SnapshotMetricsVE metrics)
     {
-        if (metrics.RendererEnabled)
-            return CongestionPerformanceVE.Critical;
-
+        // RendererEnabled es funcionamiento normal en Block D.
         if (metrics.Video.DecodeErrors > 0 || metrics.Audio.DecodeErrors > 0 || metrics.Control.Errors > 0)
             return CongestionPerformanceVE.Moderate;
 

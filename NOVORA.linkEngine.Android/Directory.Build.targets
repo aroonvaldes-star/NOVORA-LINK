@@ -1,0 +1,56 @@
+﻿<Project>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+
+    <ApplicationId>com.novora.linkengine</ApplicationId>
+    <ApplicationTitle>NOVORA-LINK</ApplicationTitle>
+
+    <AndroidPackageFormats>apk</AndroidPackageFormats>
+
+    <NovoraWindowsProjectDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\src\NOVORA'))</NovoraWindowsProjectDir>
+
+    <NovoraAndroidBundleDir>$(NovoraWindowsProjectDir)\Tools\Android</NovoraAndroidBundleDir>
+
+    <NovoraAndroidBundleApk>$(NovoraAndroidBundleDir)\NOVORA.LinkEngine.Android.apk</NovoraAndroidBundleApk>
+
+  </PropertyGroup>
+
+
+  <Target
+      Name="BundleNovoraAndroidClient"
+      AfterTargets="Build"
+      Condition="'$(Configuration)' == 'Release'">
+
+    <ItemGroup>
+
+      <_NovoraSignedApk
+          Include="$(MSBuildProjectDirectory)\bin\$(Configuration)\**\*-Signed.apk" />
+
+    </ItemGroup>
+
+    <MakeDir
+        Directories="$(NovoraAndroidBundleDir)" />
+
+    <Message
+        Importance="high"
+        Text="NOVORA: buscando APK firmado..." />
+
+    <Message
+        Importance="high"
+        Condition="'@(_NovoraSignedApk)' != ''"
+        Text="NOVORA: APK firmado encontrado: @(_NovoraSignedApk)" />
+
+    <Copy
+        SourceFiles="@(_NovoraSignedApk)"
+        DestinationFiles="@(_NovoraSignedApk->'$(NovoraAndroidBundleApk)')"
+        SkipUnchangedFiles="true"
+        Condition="'@(_NovoraSignedApk)' != ''" />
+
+    <Message
+        Importance="high"
+        Condition="Exists('$(NovoraAndroidBundleApk)')"
+        Text="NOVORA Android bundle actualizado: $(NovoraAndroidBundleApk)" />
+
+  </Target>
+
+</Project>

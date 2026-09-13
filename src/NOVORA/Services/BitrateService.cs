@@ -12,7 +12,7 @@ public static class BitrateService
     public static string Normalize(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
-            return "10M";
+            return "4M";
 
         var input = value.Trim();
 
@@ -22,10 +22,10 @@ public static class BitrateService
             mbps *= 8d;
 
         else if (!TryParse(input, out mbps, out _))
-            return "10M";
+            return "4M";
 
         if (mbps <= 0 || double.IsNaN(mbps) || double.IsInfinity(mbps))
-            return "10M";
+            return "4M";
 
         return FormatScrcpy(mbps);
     }
@@ -33,7 +33,7 @@ public static class BitrateService
     public static string FormatMbps(double mbps)
     {
         if (mbps <= 0 || double.IsNaN(mbps) || double.IsInfinity(mbps))
-            return "10 Mbps";
+            return "4 Mbps";
 
         return mbps.ToString("0.###", CultureInfo.InvariantCulture) + " Mbps";
     }

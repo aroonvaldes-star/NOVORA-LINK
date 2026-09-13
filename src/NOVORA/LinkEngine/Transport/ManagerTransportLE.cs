@@ -15,6 +15,8 @@ namespace NOVORA.LinkEngine.Transport;
 
 public sealed class ManagerTransportLE : IAsyncDisposable
 {
+    public event EventHandler<SessionTransportLE>? SessionChangedLE;
+
     private static readonly TimeSpan HandshakeTimeoutLE =
         TimeSpan.FromSeconds(8);
 
@@ -114,17 +116,26 @@ public sealed class ManagerTransportLE : IAsyncDisposable
                 "El serial del dispositivo es obligatorio.");
         }
 
-        serial = serial.Trim();
+        serial =
+            serial.Trim();
 
         SemaphoreSlim sessionLock =
-            GetSessionLockLE(serial);
+            GetSessionLockLE(
+                serial);
 
         await sessionLock
-            .WaitAsync(cancellationToken)
+            .WaitAsync(
+                cancellationToken)
             .ConfigureAwait(false);
 
         try
         {
+            /*
+             * Si ya existe una sesión completamente reutilizable,
+             * NO creamos otro listener.
+             *
+             * Esto mantiene START idempotente.
+             */
             if (_sessions.TryGetValue(
                     serial,
                     out SessionTransportLE? currentSession))
@@ -136,16 +147,25 @@ public sealed class ManagerTransportLE : IAsyncDisposable
                         StateTransportLE.Degraded &&
                     currentSession.ReverseVerified &&
                     currentSession.ListenerStarted &&
-                    IsListenerActiveLE(serial);
+                    IsListenerActiveLE(
+                        serial);
 
                 if (reusable)
                 {
-                    EnsureAcceptLoopLE(serial);
+                    EnsureAcceptLoopLE(
+                        serial);
 
                     return ResultCoreLE.Ok(
-                        $"ManagerTransportLE reutiliza el canal de {serial}. Estado: {currentSession.State}.");
+                        $"ManagerTransportLE reutiliza el canal de {serial}. " +
+                        $"DevicePort={currentSession.DevicePort}; " +
+                        $"HostPort={currentSession.HostPort}; " +
+                        $"Estado={currentSession.State}.");
                 }
 
+                /*
+                 * Una sesión vieja/incompleta debe destruirse antes
+                 * de crear la nueva.
+                 */
                 await CloseInternalLEAsync(
                         serial,
                         currentSession,
@@ -153,37 +173,91 @@ public sealed class ManagerTransportLE : IAsyncDisposable
                     .ConfigureAwait(false);
             }
 
-            int port =
-                _portAllocator.Reserve(serial);
+            /*
+             * CONTROL Android SIEMPRE utiliza tcp:27183.
+             *
+             * adb reverse permite mapearlo hacia un puerto HOST
+             * diferente.
+             *
+             * Esto es esencial para:
+             *
+             * - varios dispositivos;
+             * - evitar "AddressAlreadyInUse";
+             * - no chocar con un listener diagnóstico viejo.
+             */
+            const int devicePort =
+                PortTransportLE.DefaultStartPortLE;
+
+            int hostPort =
+                _portAllocator.Reserve(
+                    serial);
 
             DateTimeOffset now =
                 DateTimeOffset.UtcNow;
 
             var session =
                 new SessionTransportLE(
-                    Serial: serial,
-                    DevicePort: port,
-                    HostPort: port,
-                    State: StateTransportLE.Preparing,
-                    ReverseConfigured: false,
-                    ReverseVerified: false,
-                    ListenerStarted: false,
-                    ClientConnected: false,
-                    HandshakeVerified: false,
-                    ClientId: null,
-                    CreatedAtUtc: now,
-                    UpdatedAtUtc: now,
-                    LastVerifiedAtUtc: null,
-                    ConnectedAtUtc: null,
-                    LastError: null);
+                    Serial:
+                        serial,
+
+                    DevicePort:
+                        devicePort,
+
+                    HostPort:
+                        hostPort,
+
+                    State:
+                        StateTransportLE.Preparing,
+
+                    ReverseConfigured:
+                        false,
+
+                    ReverseVerified:
+                        false,
+
+                    ListenerStarted:
+                        false,
+
+                    ClientConnected:
+                        false,
+
+                    HandshakeVerified:
+                        false,
+
+                    ClientId:
+                        null,
+
+                    CreatedAtUtc:
+                        now,
+
+                    UpdatedAtUtc:
+                        now,
+
+                    LastVerifiedAtUtc:
+                        null,
+
+                    ConnectedAtUtc:
+                        null,
+
+                    LastError:
+                        null);
 
             _sessions[serial] =
                 session;
 
+
+            // ========================================================
+            // WINDOWS LISTENER
+            //
+            // OJO:
+            //
+            // Escuchamos HOST PORT, NO DevicePort.
+            // ========================================================
+
             ResultCoreLE listenerResult =
                 await StartListenerLEAsync(
                         serial,
-                        port,
+                        hostPort,
                         cancellationToken)
                     .ConfigureAwait(false);
 
@@ -201,14 +275,26 @@ public sealed class ManagerTransportLE : IAsyncDisposable
             session =
                 session with
                 {
-                    State = StateTransportLE.Listening,
-                    ListenerStarted = true,
-                    UpdatedAtUtc = DateTimeOffset.UtcNow,
-                    LastError = null
+                    State =
+                        StateTransportLE.Listening,
+
+                    ListenerStarted =
+                        true,
+
+                    UpdatedAtUtc =
+                        DateTimeOffset.UtcNow,
+
+                    LastError =
+                        null
                 };
 
             _sessions[serial] =
                 session;
+
+
+            // ========================================================
+            // ADB
+            // ========================================================
 
             if (_adbService is null)
             {
@@ -223,14 +309,32 @@ public sealed class ManagerTransportLE : IAsyncDisposable
             }
 
             await _adbService
-                .StartServerAsync(cancellationToken)
+                .StartServerAsync(
+                    cancellationToken)
                 .ConfigureAwait(false);
+
+
+            // ========================================================
+            // ADB REVERSE
+            //
+            // Android:
+            //
+            //     127.0.0.1:27183
+            //
+            // Windows:
+            //
+            //     127.0.0.1:<hostPort>
+            //
+            // Ejemplo:
+            //
+            //     tcp:27183 -> tcp:27185
+            // ========================================================
 
             ResultCoreLE reverseResult =
                 await ConfigureReverseLEAsync(
                         serial,
-                        port,
-                        port,
+                        devicePort,
+                        hostPort,
                         cancellationToken)
                     .ConfigureAwait(false);
 
@@ -248,15 +352,29 @@ public sealed class ManagerTransportLE : IAsyncDisposable
             session =
                 session with
                 {
-                    State = StateTransportLE.ReverseConfigured,
-                    ReverseConfigured = true,
-                    ListenerStarted = true,
-                    UpdatedAtUtc = DateTimeOffset.UtcNow,
-                    LastError = null
+                    State =
+                        StateTransportLE.ReverseConfigured,
+
+                    ReverseConfigured =
+                        true,
+
+                    ListenerStarted =
+                        true,
+
+                    UpdatedAtUtc =
+                        DateTimeOffset.UtcNow,
+
+                    LastError =
+                        null
                 };
 
             _sessions[serial] =
                 session;
+
+
+            // ========================================================
+            // VERIFY REVERSE
+            // ========================================================
 
             ResultCoreLE verification =
                 await VerifyAsync(
@@ -267,7 +385,8 @@ public sealed class ManagerTransportLE : IAsyncDisposable
             if (!verification.Success)
             {
                 SessionTransportLE failedSession =
-                    GetSessionLE(serial) ??
+                    GetSessionLE(
+                        serial) ??
                     session;
 
                 await FailAndCleanupLEAsync(
@@ -280,7 +399,8 @@ public sealed class ManagerTransportLE : IAsyncDisposable
             }
 
             SessionTransportLE? verifiedSession =
-                GetSessionLE(serial);
+                GetSessionLE(
+                    serial);
 
             if (verifiedSession is null)
             {
@@ -289,48 +409,84 @@ public sealed class ManagerTransportLE : IAsyncDisposable
                         CancellationToken.None)
                     .ConfigureAwait(false);
 
-                _portAllocator.Release(port);
+                _portAllocator.Release(
+                    hostPort);
 
                 return ResultCoreLE.Fail(
                     "ManagerTransportLE perdió la sesión después de verificar adb reverse.");
             }
 
-            if (!IsListenerActiveLE(serial))
+
+            // ========================================================
+            // LISTENER STILL ALIVE
+            // ========================================================
+
+            if (!IsListenerActiveLE(
+                    serial))
             {
                 await FailAndCleanupLEAsync(
                         serial,
                         verifiedSession,
-                        $"ListenerTransportLE dejó de escuchar en el puerto {port}.")
+                        $"ListenerTransportLE dejó de escuchar en el HostPort {hostPort}.")
                     .ConfigureAwait(false);
 
                 return ResultCoreLE.Fail(
-                    $"ListenerTransportLE dejó de escuchar en el puerto {port}.");
+                    $"ListenerTransportLE dejó de escuchar en el HostPort {hostPort}.");
             }
+
+
+            // ========================================================
+            // READY
+            // ========================================================
 
             verifiedSession =
                 verifiedSession with
                 {
-                    State = StateTransportLE.Ready,
-                    ReverseConfigured = true,
-                    ReverseVerified = true,
-                    ListenerStarted = true,
-                    ClientConnected = false,
-                    HandshakeVerified = false,
-                    SessionHealthy = false,
-                    UpdatedAtUtc = DateTimeOffset.UtcNow,
-                    LastVerifiedAtUtc = DateTimeOffset.UtcNow,
-                    LastError = null
+                    State =
+                        StateTransportLE.Ready,
+
+                    ReverseConfigured =
+                        true,
+
+                    ReverseVerified =
+                        true,
+
+                    ListenerStarted =
+                        true,
+
+                    ClientConnected =
+                        false,
+
+                    HandshakeVerified =
+                        false,
+
+                    SessionHealthy =
+                        false,
+
+                    UpdatedAtUtc =
+                        DateTimeOffset.UtcNow,
+
+                    LastVerifiedAtUtc =
+                        DateTimeOffset.UtcNow,
+
+                    LastError =
+                        null
                 };
 
             _sessions[serial] =
                 verifiedSession;
 
-            ResetHandshakeWaiterLE(serial);
-            EnsureAcceptLoopLE(serial);
+            ResetHandshakeWaiterLE(
+                serial);
+
+            EnsureAcceptLoopLE(
+                serial);
 
             return ResultCoreLE.Ok(
-                $"ManagerTransportLE READY. ListenerTransportLE LISTENING en 127.0.0.1:{port}; " +
-                $"adb reverse tcp:{port} -> tcp:{port} verificado; esperando cliente Android.");
+                $"ManagerTransportLE READY. " +
+                $"Android tcp:{devicePort} -> Windows tcp:{hostPort}; " +
+                $"ListenerTransportLE LISTENING en 127.0.0.1:{hostPort}; " +
+                $"adb reverse verificado; esperando cliente Android.");
         }
         catch (OperationCanceledException)
         {
@@ -339,7 +495,8 @@ public sealed class ManagerTransportLE : IAsyncDisposable
         catch (Exception ex)
         {
             SessionTransportLE? cleanupSession =
-                GetSessionLE(serial);
+                GetSessionLE(
+                    serial);
 
             if (cleanupSession is not null)
             {
@@ -358,7 +515,6 @@ public sealed class ManagerTransportLE : IAsyncDisposable
             sessionLock.Release();
         }
     }
-
     public async Task<ResultCoreLE> VerifyAsync(
         string serial,
         CancellationToken cancellationToken = default)
@@ -992,6 +1148,8 @@ public sealed class ManagerTransportLE : IAsyncDisposable
             _sessions[serial] =
                 connected;
 
+            PublishSessionChangedLE(connected);
+
             TaskCompletionSource<SessionTransportLE> waiter =
                 _handshakeWaiters.GetOrAdd(
                     serial,
@@ -1185,6 +1343,8 @@ public sealed class ManagerTransportLE : IAsyncDisposable
 
             _sessions[serial] =
                 healthy;
+
+            PublishSessionChangedLE(healthy);
         }
     }
 
@@ -1198,7 +1358,7 @@ public sealed class ManagerTransportLE : IAsyncDisposable
             return;
         }
 
-        _sessions[serial] =
+        SessionTransportLE degraded =
             session with
             {
                 State = StateTransportLE.Degraded,
@@ -1207,6 +1367,9 @@ public sealed class ManagerTransportLE : IAsyncDisposable
                 LastError =
                     "LE-004F heartbeat timeout."
             };
+
+        _sessions[serial] = degraded;
+        PublishSessionChangedLE(degraded);
     }
 
     private void MarkClientDisconnectedLE(
@@ -1229,7 +1392,7 @@ public sealed class ManagerTransportLE : IAsyncDisposable
         bool listenerActive =
             IsListenerActiveLE(serial);
 
-        _sessions[serial] =
+        SessionTransportLE disconnected =
             session with
             {
                 State =
@@ -1245,6 +1408,9 @@ public sealed class ManagerTransportLE : IAsyncDisposable
                         ? "Esperando reconexión Android."
                         : "Cliente desconectado y listener no disponible."
             };
+
+        _sessions[serial] = disconnected;
+        PublishSessionChangedLE(disconnected);
 
         ResetHandshakeWaiterLE(serial);
     }
@@ -1270,7 +1436,7 @@ public sealed class ManagerTransportLE : IAsyncDisposable
         bool listenerActive =
             IsListenerActiveLE(serial);
 
-        _sessions[serial] =
+        SessionTransportLE failed =
             session with
             {
                 State =
@@ -1285,7 +1451,27 @@ public sealed class ManagerTransportLE : IAsyncDisposable
                     $"Cliente Android desconectado: {message}"
             };
 
+        _sessions[serial] = failed;
+        PublishSessionChangedLE(failed);
+
         ResetHandshakeWaiterLE(serial);
+    }
+
+    private void PublishSessionChangedLE(
+        SessionTransportLE session)
+    {
+        try
+        {
+            SessionChangedLE?.Invoke(
+                this,
+                session);
+        }
+        catch
+        {
+            /*
+             * Observers nunca deben romper el transporte.
+             */
+        }
     }
 
     private void ReplaceClientLE(

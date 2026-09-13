@@ -13,8 +13,6 @@ namespace NOVORA.LinkEngine.Network;
 public sealed class ManagerNetworkLE :
     IAsyncDisposable
 {
-    private static readonly TimeSpan MaintenanceIntervalLE =
-        TimeSpan.FromSeconds(5);
 
     private readonly AdbService _adb;
     private readonly CollectorMetricsLE _metrics;
@@ -27,11 +25,8 @@ public sealed class ManagerNetworkLE :
     private readonly ConcurrentDictionary<string, SessionNetworkLE> _sessions =
         new(StringComparer.OrdinalIgnoreCase);
 
-    private readonly ConcurrentDictionary<string, CancellationTokenSource> _monitorCts =
-        new(StringComparer.OrdinalIgnoreCase);
-
-    private readonly ConcurrentDictionary<string, Task> _monitorTasks =
-        new(StringComparer.OrdinalIgnoreCase);
+    private readonly SemaphoreSlim _relayRecoveryGateLE =
+        new(1, 1);
 
     private bool _initialized;
     private bool _disposed;
@@ -53,7 +48,12 @@ public sealed class ManagerNetworkLE :
         _data =
             new DataTransportLE(
                 _adb);
+
+        _relay.ExitedLE +=
+            Relay_ExitedLE;
     }
+
+    public event EventHandler<SessionNetworkLE>? SessionChangedLE;
 
     public async Task InitializeAsync(
         CancellationToken cancellationToken = default)
@@ -117,7 +117,7 @@ public sealed class ManagerNetworkLE :
             DateTimeOffset now =
                 DateTimeOffset.UtcNow;
 
-            _sessions[serial] =
+            SessionNetworkLE onlineSession =
                 new SessionNetworkLE(
                     Serial:
                         serial,
@@ -146,6 +146,9 @@ public sealed class ManagerNetworkLE :
                     LastError:
                         null);
 
+            _sessions[serial] = onlineSession;
+            PublishSessionChangedLE(onlineSession);
+
             var metrics =
                 _metrics.GetOrCreate(
                     serial);
@@ -155,9 +158,6 @@ public sealed class ManagerNetworkLE :
 
             metrics.SetState(
                 StatesCoreLE.Online);
-
-            StartMonitorLE(
-                serial);
 
             return ResultCoreLE.Ok(
                 $"ManagerNetworkLE DATA ONLINE · relay TCP/UDP + adb reverse tcp:{DataTransportLE.DevicePortLE}.");
@@ -172,7 +172,7 @@ public sealed class ManagerNetworkLE :
                 .GetOrCreate(serial)
                 .SetInternetActive(false);
 
-            _sessions[serial] =
+            SessionNetworkLE failedSession =
                 SessionNetworkLE.CreateLE(
                     serial,
                     DataTransportLE.DevicePortLE) with
@@ -190,138 +190,128 @@ public sealed class ManagerNetworkLE :
                         ex.Message
                 };
 
+            _sessions[serial] = failedSession;
+            PublishSessionChangedLE(failedSession);
+
             return ResultCoreLE.Fail(
                 $"ManagerNetworkLE no pudo iniciar: {ex.Message}");
         }
     }
 
-    private void StartMonitorLE(
-        string serial)
+    private void Relay_ExitedLE(
+        object? sender,
+        EventArgs e)
     {
-        if (_monitorTasks.TryGetValue(
-                serial,
-                out Task? current) &&
-            !current.IsCompleted)
+        foreach ((string serial, SessionNetworkLE session) in
+                 _sessions.ToArray())
         {
-            return;
+            SessionNetworkLE degraded =
+                session with
+                {
+                    State = StateNetworkLE.Degraded,
+                    RelayRunning = false,
+                    UpdatedAtUtc = DateTimeOffset.UtcNow,
+                    Message = "LinkEngine Relay terminó inesperadamente.",
+                    LastError = "Relay process exited."
+                };
+
+            _sessions[serial] = degraded;
+            PublishSessionChangedLE(degraded);
+
+            _metrics
+                .GetOrCreate(serial)
+                .SetInternetActive(false);
         }
 
-        var cts =
-            new CancellationTokenSource();
-
-        _monitorCts[serial] =
-            cts;
-
-        _monitorTasks[serial] =
-            Task.Run(
-                () =>
-                    MaintainLEAsync(
-                        serial,
-                        cts.Token),
-                CancellationToken.None);
+        // Evento real: intentamos una recuperación única del Data Plane.
+        // No existe loop de mantenimiento ni reintento periódico.
+        _ = RecoverRelayAfterExitLEAsync();
     }
 
-    private async Task MaintainLEAsync(
-        string serial,
-        CancellationToken cancellationToken)
+    private async Task RecoverRelayAfterExitLEAsync()
     {
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
+            await _relayRecoveryGateLE.WaitAsync().ConfigureAwait(false);
             try
             {
+                string[] serials = _sessions.Keys.ToArray();
+                if (serials.Length == 0 || _disposed)
+                    return;
+
                 await _relay
-                    .EnsureRunningAsync(
-                        cancellationToken)
+                    .EnsureRunningAsync(CancellationToken.None)
                     .ConfigureAwait(false);
 
-                await _data
-                    .EnsureAsync(
-                        serial,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-
-                _metrics
-                    .GetOrCreate(serial)
-                    .SetInternetActive(true);
-
-                if (_sessions.TryGetValue(
-                        serial,
-                        out SessionNetworkLE? session))
+                foreach (string serial in serials)
                 {
-                    _sessions[serial] =
-                        session with
-                        {
-                            State =
-                                StateNetworkLE.Online,
+                    if (!_sessions.TryGetValue(serial, out SessionNetworkLE? current))
+                        continue;
 
-                            RelayRunning =
-                                true,
+                    try
+                    {
+                        await _data
+                            .EnsureAsync(serial, CancellationToken.None)
+                            .ConfigureAwait(false);
 
-                            DataReverseConfigured =
-                                true,
+                        SessionNetworkLE recovered =
+                            current with
+                            {
+                                State = StateNetworkLE.Online,
+                                RelayRunning = true,
+                                DataReverseConfigured = true,
+                                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                                Message = "LINKENGINE DATA PLANE RECOVERED BY EVENT.",
+                                LastError = null
+                            };
 
-                            UpdatedAtUtc =
-                                DateTimeOffset.UtcNow,
+                        _sessions[serial] = recovered;
+                        PublishSessionChangedLE(recovered);
 
-                            Message =
-                                "LINKENGINE DATA PLANE ONLINE.",
+                        var metrics = _metrics.GetOrCreate(serial);
+                        metrics.SetInternetActive(true);
+                        metrics.SetState(StatesCoreLE.Online);
+                    }
+                    catch (Exception ex)
+                    {
+                        SessionNetworkLE failed =
+                            current with
+                            {
+                                State = StateNetworkLE.Degraded,
+                                RelayRunning = _relay.IsRunningLE,
+                                DataReverseConfigured = false,
+                                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                                Message = "Data Plane degradado después de recuperación por evento.",
+                                LastError = ex.Message
+                            };
 
-                            LastError =
-                                null
-                        };
+                        _sessions[serial] = failed;
+                        PublishSessionChangedLE(failed);
+                        _metrics.GetOrCreate(serial).SetInternetActive(false);
+                    }
                 }
             }
-            catch (OperationCanceledException)
-                when (cancellationToken.IsCancellationRequested)
+            finally
             {
-                break;
+                _relayRecoveryGateLE.Release();
             }
-            catch (Exception ex)
-            {
-                _metrics
-                    .GetOrCreate(serial)
-                    .SetInternetActive(false);
+        }
+        catch
+        {
+            // El estado degradado ya quedó publicado; no creamos un poller de rescate.
+        }
+    }
 
-                if (_sessions.TryGetValue(
-                        serial,
-                        out SessionNetworkLE? session))
-                {
-                    _sessions[serial] =
-                        session with
-                        {
-                            State =
-                                StateNetworkLE.Degraded,
-
-                            RelayRunning =
-                                _relay.IsRunningLE,
-
-                            DataReverseConfigured =
-                                false,
-
-                            UpdatedAtUtc =
-                                DateTimeOffset.UtcNow,
-
-                            Message =
-                                "DATA degradado. Reintentando.",
-
-                            LastError =
-                                ex.Message
-                        };
-                }
-            }
-
-            try
-            {
-                await Task.Delay(
-                        MaintenanceIntervalLE,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-                when (cancellationToken.IsCancellationRequested)
-            {
-                break;
-            }
+    private void PublishSessionChangedLE(
+        SessionNetworkLE session)
+    {
+        try
+        {
+            SessionChangedLE?.Invoke(this, session);
+        }
+        catch
+        {
+            // Observers/UI nunca deben romper NetworkLE.
         }
     }
 
@@ -343,38 +333,6 @@ public sealed class ManagerNetworkLE :
 
         serial =
             serial.Trim();
-
-        if (_monitorCts.TryRemove(
-                serial,
-                out CancellationTokenSource? cts))
-        {
-            try
-            {
-                cts.Cancel();
-            }
-            catch
-            {
-            }
-        }
-
-        if (_monitorTasks.TryRemove(
-                serial,
-                out Task? task))
-        {
-            try
-            {
-                await task
-                    .WaitAsync(
-                        TimeSpan.FromSeconds(2),
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch
-            {
-            }
-        }
-
-        cts?.Dispose();
 
         await _data
             .StopAsync(
@@ -470,6 +428,9 @@ public sealed class ManagerNetworkLE :
             .DisposeAsync()
             .ConfigureAwait(false);
 
+        _relay.ExitedLE -=
+            Relay_ExitedLE;
+
         await _relay
             .DisposeAsync()
             .ConfigureAwait(false);
@@ -481,5 +442,7 @@ public sealed class ManagerNetworkLE :
 
         _disposed =
             true;
+
+        _relayRecoveryGateLE.Dispose();
     }
 }
