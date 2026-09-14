@@ -65,3 +65,22 @@ NOVORA-AUDIO-*.csv
 NOVORA-LATENCIA-*.csv
 
 *.log
+
+# Respaldo local autorizado: conservar herramientas de ejecución y APK canónica
+!src/NOVORA/Tools/**
+# Cachés de compilación, en cualquier nivel y combinación de mayúsculas
+**/[Bb][Ii][Nn]/
+**/[Oo][Bb][Jj]/
+**/target/
+**/artifacts/
+**/.vs/
+# Nunca respaldar claves privadas ni almacenes de firma
+*.keystore
+*.jks
+*.pfx
+*.p12
+.env
+.env.*
+
+# Perfiles generados de diagnóstico del editor
+*.cpuprofile.txt

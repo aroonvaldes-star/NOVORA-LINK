@@ -26,3 +26,7 @@ LinkEngineLE -> DeviceLE -> AdbService -> adb.exe -> Android
 - DetecciÃ³n inicial USB/Wi-Fi.
 - SesiÃ³n por dispositivo.
 - MÃ©tricas LE.
+
+## Respaldo local y cliente Android
+
+Consultar [base local y APK 1.4.A4](../../../docs/BASE-LOCAL-Y-APK.md) para la política de respaldo, identidad verificada y diferencias entre compilaciones.

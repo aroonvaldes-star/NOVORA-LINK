@@ -1,3 +1,5 @@
 # Tools
 
-Este directorio se rellena mediante `scripts/Setup-Tools.ps1`. Los binarios de scrcpy y ADB no se versionan; el script usa versiones fijadas y verifica SHA-256.
+Herramientas de ejecución incluidas en el respaldo de la base local. scripts/Setup-Tools.ps1 permite restaurar las herramientas externas con versiones fijadas y SHA-256.
+
+La APK canónica es Android/NOVORA.LinkEngine.Android.apk. Identidad, hash y limitaciones verificadas: [base local y APK](../../../docs/BASE-LOCAL-Y-APK.md). No usar copias antiguas de bin, obj o artifacts como distribución.

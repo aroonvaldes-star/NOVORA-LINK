@@ -42,3 +42,7 @@ ServerRemoteNV (Loopback)
 ```
 
 RemoteNV puede solicitar Start/Stop/Status de VisionEngine y LinkEngine. El token se genera en Windows para el dispositivo seleccionado y se entrega al cliente Android mediante ADB; no se persiste.
+
+## Respaldo local y cliente Android
+
+Consultar [base local y APK 1.4.A4](BASE-LOCAL-Y-APK.md) para la política de respaldo, identidad verificada y diferencias entre compilaciones.

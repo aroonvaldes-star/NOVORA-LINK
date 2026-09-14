@@ -30,7 +30,7 @@ NOVORA-LINK/
 │  ├─ Remote/
 │  ├─ Services/
 │  ├─ ViewModels/
-│  └─ Tools/                 # restaurado/generado; no versionar binarios
+│  └─ Tools/                 # herramientas de ejecución incluidas en el respaldo
 ├─ NOVORA.linkEngine.Android/
 ├─ tests/
 ├─ scripts/
@@ -60,8 +60,12 @@ Consulta `docs/ARCHITECTURE-RULES.md` y `docs/INTEGRATION-STATUS-1.4-A3.md`.
 
 ## Dependencias y licencias
 
-Los binarios de terceros se restauran mediante scripts y no deben versionarse en `src/NOVORA/Tools/`. Consulta `ACKNOWLEDGEMENTS.md`, `THIRD-PARTY-NOTICES.md`, `LICENSE` y `third_party/`.
+Las herramientas de ejecución se incluyen en este respaldo local; los scripts permiten restaurar las dependencias externas.
 
 ---
 
 NOVORA © 2026 Aaron Yair Galarza Valdes — All Rights Reserved.
+
+## Respaldo local y cliente Android
+
+Consultar [base local y APK 1.4.A4](docs/BASE-LOCAL-Y-APK.md) para la política de respaldo, identidad verificada y diferencias entre compilaciones.

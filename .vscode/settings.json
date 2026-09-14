@@ -1,0 +1,7 @@
+{
+    "files.readonlyInclude": {
+        "**/_decompiled_/**": true,
+        "{**/.c4z/.extsrcs/*.PROTSYM.cbl,**/.c4z/.extsrcs/*.PROTSYM.listing}": true
+    },
+    "csharp-dev-tools.build.configuration": "Release"
+}
