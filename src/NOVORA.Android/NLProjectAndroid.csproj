@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>NOVORA.AndroidApp</RootNamespace>
+    <ApplicationId>com.novora.appcontrol</ApplicationId>
+    <ApplicationVersion>9</ApplicationVersion>
+    <ApplicationDisplayVersion>1.4.8</ApplicationDisplayVersion>
+    <ApplicationTitle>NOVORA</ApplicationTitle>
+    <AndroidManifest>Properties\NLPropertiesAndroidManifest.xml</AndroidManifest>
+    <AndroidPackageFormats>apk</AndroidPackageFormats>
+    <AndroidBuildApplicationPackage>false</AndroidBuildApplicationPackage>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <AndroidLinkMode>None</AndroidLinkMode>
+    <!-- Evita el cierre de Mono observado en el Samsung ARM64 con AOT. -->
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <!-- Registro JNI dinámico: evita UnsatisfiedLinkError en MainActivity.n_onCreate. -->
+    <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\NOVORA\Control\NLControlProtocol.cs" Link="Control\NLControlProtocol.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlClient.cs" Link="Control\NLControlClient.cs" />
+    <AndroidResource Include="..\NOVORA\Asset\NLAssetNovoraLogo.png" Link="Resources\drawable\novora_logo.png" />
+    <AndroidResource Include="..\NOVORA\Asset\ANLAssetBienvenido.png" Link="Resources\drawable\novora_welcome.png" />
+  </ItemGroup>
+  <Target Name="NovoraRequireExplicitPackaging" BeforeTargets="_CreateBaseApk;_BuildApkEmbed;_BuildApkFastDev;SignAndroidPackage">
+    <Error Condition="'$(NovoraPackage)' != 'true'" Text="NOVORA no empaqueta automáticamente. Valida con -t:Compile; para una prueba instalada usa -p:NovoraPackage=true explícitamente." />
+  </Target>
+  <ItemGroup>
+    <PackageReference Include="ZXing.Net" Version="0.16.11" />
+  </ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA\Control\NLControlLanInvitation.cs" Link="Control\NLControlLanInvitation.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA\Control\NLControlLanDiscovery.cs" Link="Control\NLControlLanDiscovery.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA\Control\NLControlSession.cs" Link="Control\NLControlSession.cs" /></ItemGroup>
+  <ItemGroup><AndroidResource Include="AndroidResource\NLAndroidResourceNotification.xml" Link="Resources\drawable\novora_notification.xml" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA\Control\NLControlTrustedPc.cs" Link="Control\NLControlTrustedPc.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA\Control\NLControlVpnProtocol.cs" Link="Control\NLControlVpnProtocol.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA\Control\NLControlFile*.cs" Link="Control\%(Filename)%(Extension)" /></ItemGroup>
+</Project>

@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/target/
+*.apk
+*.dll
+*.exe
+*.pdb
+*.keystore
+*.jks
+.env*

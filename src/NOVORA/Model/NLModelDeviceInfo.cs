@@ -1,0 +1,100 @@
+namespace NOVORA.Model;
+
+public sealed class NLModelDeviceInfo
+{
+    public string Serial { get; init; } =
+        string.Empty;
+
+    public string Model { get; init; } =
+        "Dispositivo no detectado";
+
+    public string AndroidVersion { get; init; } =
+        string.Empty;
+
+    public string Build { get; init; } =
+        string.Empty;
+
+    public bool Connected { get; init; }
+
+    public string CustomName { get; init; } =
+        string.Empty;
+
+    /// <summary>
+    /// Nombre visible del dispositivo. Nunca muestra serial ni IP.
+    /// </summary>
+    public string FriendlyName
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(CustomName))
+                return CleanName(CustomName);
+
+            if (!string.IsNullOrWhiteSpace(Model) &&
+                !string.Equals(
+                    Model,
+                    "Dispositivo no detectado",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return CleanName(Model);
+            }
+
+            return Connected
+                ? "Dispositivo Android"
+                : "Dispositivo no detectado";
+        }
+    }
+
+    /// <summary>
+    /// Determina el transporte Ãºnicamente para presentaciÃ³n.
+    /// ADB por red normalmente usa host:puerto; el serial o la IP
+    /// nunca se incluyen en DisplayLabel.
+    /// </summary>
+    public bool IsWifiConnection =>
+        !string.IsNullOrWhiteSpace(Serial) &&
+        Serial.Contains(':', StringComparison.Ordinal);
+
+    public string ConnectionType =>
+        IsWifiConnection
+            ? "Wi-Fi"
+            : "USB";
+
+    /// <summary>
+    /// Texto que se muestra en el selector y demÃ¡s superficies de NOVORA.
+    /// Ejemplos:
+    ///   SM-A156M â€¢ USB
+    ///   SM-A156M â€¢ Wi-Fi
+    /// </summary>
+    public string DisplayLabel =>
+        Connected
+            ? $"{FriendlyName} - {ConnectionType}"
+            : $"{FriendlyName} - No disponible";
+
+    public NLModelDisplayModeInfo? BestDisplayMode { get; set; }
+
+    public IReadOnlyList<NLModelDisplayModeInfo> SupportedDisplayModes { get; set; } =
+        Array.Empty<NLModelDisplayModeInfo>();
+
+    public NLModelDeviceCapabilities Capabilities { get; init; } =
+        NLModelDeviceCapabilities.Unknown;
+
+    /// <summary>
+    /// Compatibilidad técnica detectada para este dispositivo.
+    ///
+    /// Puede provenir de un escaneo completo o de un perfil
+    /// reutilizado por modelo/build.
+    /// </summary>
+    public NLModelCompatibilityProfileDevice Compatibility { get; init; } =
+        NLModelCompatibilityProfileDevice.Unknown;
+
+    public string CompatibilityLabel =>
+        Compatibility.OverallLabel;
+
+    public override string ToString() =>
+        DisplayLabel;
+
+    private static string CleanName(string value) =>
+        value
+            .Trim()
+            .Replace('_', ' ');
+}
+

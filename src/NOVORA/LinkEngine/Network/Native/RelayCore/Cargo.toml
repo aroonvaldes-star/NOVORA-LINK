@@ -1,0 +1,30 @@
+[package]
+name = "novora-linkengine-relay"
+version = "0.0.1"
+authors = ["NOVORA LINK contributors"]
+edition = "2018"
+
+[lib]
+name = "relaylib"
+path = "src/LENativeLib.rs"
+
+[[bin]]
+name = "novora-linkengine-relay"
+path = "src/LENativeMain.rs"
+
+[dependencies]
+mio = "0.6"
+slab = "0.4"
+log = "0.4"
+chrono = "0.4"
+byteorder = "1.3"
+rand = "0.7"
+nvtx = { version = "2.0.0", default-features = false, optional = true }
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
+
+[features]
+nvtx = ["dep:nvtx"]
