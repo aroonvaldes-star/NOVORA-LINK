@@ -1,0 +1,457 @@
+{
+  "TimestampUtc": "2026-09-14T08:48:34.2461927+00:00",
+  "Serial": "R5CY3118MEW",
+  "Method": "2 rounds; first-frame readiness; 3s warmup; 12s measurement. Same user-controlled moving content, not deterministic replay. Render counters are event-published snapshots. No glass-to-glass measurement.",
+  "NVIDIA": [
+    {
+      "Requested": "Automatic",
+      "DetectionMilliseconds": 21.7696,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": true,
+          "CudaInitialized": true,
+          "CudaDeviceCount": 1,
+          "CudaDriverVersion": 13040,
+          "NvdecApiAvailable": true,
+          "NvencApiAvailable": true,
+          "NvencMaxApiVersion": 209,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg software",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T08:46:33.7955315+00:00",
+        "Message": "Perfil solicitado: Automatic. Funciones NVIDIA pendientes de implementaci\u00F3n; activo: FFmpeg software."
+      }
+    },
+    {
+      "Requested": "Disabled",
+      "DetectionMilliseconds": 0.0033,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": false,
+          "CudaInitialized": false,
+          "CudaDeviceCount": 0,
+          "CudaDriverVersion": 0,
+          "NvdecApiAvailable": false,
+          "NvencApiAvailable": false,
+          "NvencMaxApiVersion": 0,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T08:46:33.797111+00:00",
+        "Message": "NVIDIA desactivada; VisionEngine usar\u00E1 FFmpeg."
+      }
+    },
+    {
+      "Requested": "Competitive",
+      "DetectionMilliseconds": 2.1893,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": true,
+          "CudaInitialized": true,
+          "CudaDeviceCount": 1,
+          "CudaDriverVersion": 13040,
+          "NvdecApiAvailable": true,
+          "NvencApiAvailable": true,
+          "NvencMaxApiVersion": 209,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg software",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T08:46:33.7992942+00:00",
+        "Message": "Perfil solicitado: Competitive. Funciones NVIDIA pendientes de implementaci\u00F3n; activo: FFmpeg software."
+      }
+    },
+    {
+      "Requested": "Balanced",
+      "DetectionMilliseconds": 1.2647,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": true,
+          "CudaInitialized": true,
+          "CudaDeviceCount": 1,
+          "CudaDriverVersion": 13040,
+          "NvdecApiAvailable": true,
+          "NvencApiAvailable": true,
+          "NvencMaxApiVersion": 209,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg software",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T08:46:33.8005632+00:00",
+        "Message": "Perfil solicitado: Balanced. Funciones NVIDIA pendientes de implementaci\u00F3n; activo: FFmpeg software."
+      }
+    },
+    {
+      "Requested": "VisionPlus",
+      "DetectionMilliseconds": 1.2234,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": true,
+          "CudaInitialized": true,
+          "CudaDeviceCount": 1,
+          "CudaDriverVersion": 13040,
+          "NvdecApiAvailable": true,
+          "NvencApiAvailable": true,
+          "NvencMaxApiVersion": 209,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg software",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T08:46:33.8017888+00:00",
+        "Message": "Perfil solicitado: VisionPlus. Funciones NVIDIA pendientes de implementaci\u00F3n; activo: FFmpeg software."
+      }
+    },
+    {
+      "Requested": "Smooth",
+      "DetectionMilliseconds": 1.2202,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": true,
+          "CudaInitialized": true,
+          "CudaDeviceCount": 1,
+          "CudaDriverVersion": 13040,
+          "NvdecApiAvailable": true,
+          "NvencApiAvailable": true,
+          "NvencMaxApiVersion": 209,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg software",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T08:46:33.8030166+00:00",
+        "Message": "Perfil solicitado: Smooth. Funciones NVIDIA pendientes de implementaci\u00F3n; activo: FFmpeg software."
+      }
+    },
+    {
+      "Requested": "Stream",
+      "DetectionMilliseconds": 1.6991,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": true,
+          "CudaInitialized": true,
+          "CudaDeviceCount": 1,
+          "CudaDriverVersion": 13040,
+          "NvdecApiAvailable": true,
+          "NvencApiAvailable": true,
+          "NvencMaxApiVersion": 209,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg software",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T08:46:33.8047193+00:00",
+        "Message": "Perfil solicitado: Stream. Funciones NVIDIA pendientes de implementaci\u00F3n; activo: FFmpeg software."
+      }
+    }
+  ],
+  "Runs": [
+    {
+      "Round": 1,
+      "Profile": "Gaming",
+      "Requested": {
+        "VideoCodec": 1748121140,
+        "VideoBitRate": 4000000,
+        "MaxSize": 1280,
+        "MaxFps": 45,
+        "AudioEnabled": false,
+        "AudioCodec": 1869641075,
+        "AudioBitRate": 64000,
+        "AudioSource": 0,
+        "AudioPlaybackEnabled": false,
+        "ControlEnabled": true,
+        "ClipboardAutosync": true,
+        "CleanupEnabled": true
+      },
+      "Seconds": 12.0006484,
+      "Width": 1280,
+      "Height": 590,
+      "DecodedFrames": 350,
+      "DecodedFps": 29.165090779594877,
+      "PresentedFpsApprox": 28.99843311799719,
+      "ReceivedMbpsApprox": 1.4426667145751892,
+      "DecodeErrors": 0,
+      "RenderErrors": 0,
+      "DroppedFrames": 0,
+      "DecodeArrivalP95Ms": 45.8531,
+      "CpuPercent": 1.3237131975857794,
+      "RendererBackend": "direct3d11",
+      "DecodeBackend": "FFmpeg software",
+      "Passed": true
+    },
+    {
+      "Round": 1,
+      "Profile": "Balanced",
+      "Requested": {
+        "VideoCodec": 1748121140,
+        "VideoBitRate": 5000000,
+        "MaxSize": 1280,
+        "MaxFps": 45,
+        "AudioEnabled": false,
+        "AudioCodec": 1869641075,
+        "AudioBitRate": 64000,
+        "AudioSource": 0,
+        "AudioPlaybackEnabled": false,
+        "ControlEnabled": true,
+        "ClipboardAutosync": true,
+        "CleanupEnabled": true
+      },
+      "Seconds": 12.0000721,
+      "Width": 1280,
+      "Height": 590,
+      "DecodedFrames": 351,
+      "DecodedFps": 29.24982425730592,
+      "PresentedFpsApprox": 29.166491424664024,
+      "ReceivedMbpsApprox": 1.0467930438517947,
+      "DecodeErrors": 0,
+      "RenderErrors": 0,
+      "DroppedFrames": 0,
+      "DecodeArrivalP95Ms": 42.8003,
+      "CpuPercent": 0.8137971937685274,
+      "RendererBackend": "direct3d11",
+      "DecodeBackend": "FFmpeg software",
+      "Passed": true
+    },
+    {
+      "Round": 1,
+      "Profile": "Video",
+      "Requested": {
+        "VideoCodec": 1748121140,
+        "VideoBitRate": 6000000,
+        "MaxSize": 1600,
+        "MaxFps": 45,
+        "AudioEnabled": false,
+        "AudioCodec": 1869641075,
+        "AudioBitRate": 64000,
+        "AudioSource": 0,
+        "AudioPlaybackEnabled": false,
+        "ControlEnabled": true,
+        "ClipboardAutosync": true,
+        "CleanupEnabled": true
+      },
+      "Seconds": 12.0008558,
+      "Width": 1600,
+      "Height": 738,
+      "DecodedFrames": 361,
+      "DecodedFps": 30.081188043272714,
+      "PresentedFpsApprox": 30.497824996780647,
+      "ReceivedMbpsApprox": 3.730847928361909,
+      "DecodeErrors": 0,
+      "RenderErrors": 0,
+      "DroppedFrames": 0,
+      "DecodeArrivalP95Ms": 37.8877,
+      "CpuPercent": 1.2911405590480194,
+      "RendererBackend": "direct3d11",
+      "DecodeBackend": "FFmpeg software",
+      "Passed": true
+    },
+    {
+      "Round": 1,
+      "Profile": "Battery",
+      "Requested": {
+        "VideoCodec": 1748121140,
+        "VideoBitRate": 3000000,
+        "MaxSize": 960,
+        "MaxFps": 30,
+        "AudioEnabled": false,
+        "AudioCodec": 1869641075,
+        "AudioBitRate": 64000,
+        "AudioSource": 0,
+        "AudioPlaybackEnabled": false,
+        "ControlEnabled": true,
+        "ClipboardAutosync": true,
+        "CleanupEnabled": true
+      },
+      "Seconds": 12.0015806,
+      "Width": 960,
+      "Height": 442,
+      "DecodedFrames": 359,
+      "DecodedFps": 29.912726662019832,
+      "PresentedFpsApprox": 30.246016095579943,
+      "ReceivedMbpsApprox": 2.9570518403217654,
+      "DecodeErrors": 0,
+      "RenderErrors": 0,
+      "DroppedFrames": 0,
+      "DecodeArrivalP95Ms": 45.2084,
+      "CpuPercent": 1.3453089115056505,
+      "RendererBackend": "direct3d11",
+      "DecodeBackend": "FFmpeg software",
+      "Passed": true
+    },
+    {
+      "Round": 2,
+      "Profile": "Gaming",
+      "Requested": {
+        "VideoCodec": 1748121140,
+        "VideoBitRate": 4000000,
+        "MaxSize": 1280,
+        "MaxFps": 45,
+        "AudioEnabled": false,
+        "AudioCodec": 1869641075,
+        "AudioBitRate": 64000,
+        "AudioSource": 0,
+        "AudioPlaybackEnabled": false,
+        "ControlEnabled": true,
+        "ClipboardAutosync": true,
+        "CleanupEnabled": true
+      },
+      "Seconds": 12.0002444,
+      "Width": 1280,
+      "Height": 590,
+      "DecodedFrames": 431,
+      "DecodedFps": 35.91593517878686,
+      "PresentedFpsApprox": 35.66594027034983,
+      "ReceivedMbpsApprox": 4.045610271070813,
+      "DecodeErrors": 0,
+      "RenderErrors": 0,
+      "DroppedFrames": 0,
+      "DecodeArrivalP95Ms": 39.5326,
+      "CpuPercent": 1.3563091820585476,
+      "RendererBackend": "direct3d11",
+      "DecodeBackend": "FFmpeg software",
+      "Passed": true
+    },
+    {
+      "Round": 2,
+      "Profile": "Balanced",
+      "Requested": {
+        "VideoCodec": 1748121140,
+        "VideoBitRate": 5000000,
+        "MaxSize": 1280,
+        "MaxFps": 45,
+        "AudioEnabled": false,
+        "AudioCodec": 1869641075,
+        "AudioBitRate": 64000,
+        "AudioSource": 0,
+        "AudioPlaybackEnabled": false,
+        "ControlEnabled": true,
+        "ClipboardAutosync": true,
+        "CleanupEnabled": true
+      },
+      "Seconds": 12.0006856,
+      "Width": 1280,
+      "Height": 590,
+      "DecodedFrames": 421,
+      "DecodedFps": 35.08132902006865,
+      "PresentedFpsApprox": 34.581357585103305,
+      "ReceivedMbpsApprox": 2.7018623002672446,
+      "DecodeErrors": 0,
+      "RenderErrors": 0,
+      "DroppedFrames": 0,
+      "DecodeArrivalP95Ms": 42.8685,
+      "CpuPercent": 1.2043582743305934,
+      "RendererBackend": "direct3d11",
+      "DecodeBackend": "FFmpeg software",
+      "Passed": true
+    },
+    {
+      "Round": 2,
+      "Profile": "Video",
+      "Requested": {
+        "VideoCodec": 1748121140,
+        "VideoBitRate": 6000000,
+        "MaxSize": 1600,
+        "MaxFps": 45,
+        "AudioEnabled": false,
+        "AudioCodec": 1869641075,
+        "AudioBitRate": 64000,
+        "AudioSource": 0,
+        "AudioPlaybackEnabled": false,
+        "ControlEnabled": true,
+        "ClipboardAutosync": true,
+        "CleanupEnabled": true
+      },
+      "Seconds": 12.0011281,
+      "Width": 1600,
+      "Height": 738,
+      "DecodedFrames": 512,
+      "DecodedFps": 42.66265602147851,
+      "PresentedFpsApprox": 42.74598152152046,
+      "ReceivedMbpsApprox": 2.5230061497302074,
+      "DecodeErrors": 0,
+      "RenderErrors": 0,
+      "DroppedFrames": 0,
+      "DecodeArrivalP95Ms": 37.9078,
+      "CpuPercent": 1.8769936858408058,
+      "RendererBackend": "direct3d11",
+      "DecodeBackend": "FFmpeg software",
+      "Passed": true
+    }
+  ]
+}

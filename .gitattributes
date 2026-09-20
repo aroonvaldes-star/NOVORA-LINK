@@ -1,0 +1,52 @@
+# ============================================================
+# NOVORA-LINK
+# .gitattributes
+# ============================================================
+
+* text=auto
+
+# Source
+*.cs        text eol=crlf
+*.xaml      text eol=crlf
+*.csproj    text eol=crlf
+*.sln       text eol=crlf
+*.props     text eol=crlf
+*.targets   text eol=crlf
+
+# PowerShell / Windows scripts
+*.ps1       text eol=crlf
+*.cmd       text eol=crlf
+*.bat       text eol=crlf
+
+# Rust
+*.rs        text eol=lf
+Cargo.toml  text eol=lf
+Cargo.lock  text eol=lf
+
+# Web / config / docs
+*.json      text eol=lf
+*.xml       text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.md        text eol=lf
+*.txt       text eol=lf
+*.py        text eol=lf
+
+# Binary assets
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.webp      binary
+*.ico       binary
+*.gif       binary
+*.dll       binary
+*.exe       binary
+*.apk       binary
+*.aab       binary
+*.zip       binary
+*.7z        binary
+*.mp3       binary
+*.wav       binary
+*.ogg       binary
+*.mp4       binary
+*.mkv       binary

@@ -1,9 +1,0 @@
-{
-  "profiles": {
-    "NOVORA": {
-      "commandName": "Project",
-      "remoteDebugEnabled": false,
-      "debugEngines": "managed"
-    }
-  }
-}

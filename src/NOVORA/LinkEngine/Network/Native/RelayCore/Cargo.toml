@@ -6,11 +6,11 @@ edition = "2018"
 
 [lib]
 name = "relaylib"
-path = "src/lib.rs"
+path = "src/LENativeLib.rs"
 
 [[bin]]
 name = "novora-linkengine-relay"
-path = "src/main.rs"
+path = "src/LENativeMain.rs"
 
 [dependencies]
 mio = "0.6"

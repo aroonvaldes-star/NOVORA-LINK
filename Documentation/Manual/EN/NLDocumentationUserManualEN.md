@@ -1,0 +1,57 @@
+# User Manual — NOVORA-LINK 1.4 PRERELEASE PRE FINAL
+
+## English — secondary language
+
+### 1. What NOVORA-LINK is
+NOVORA-LINK connects a Windows PC with one Android device. The PC application uses a dynamic panel. Android uses the `com.novora.appcontrol` application.
+
+### 2. Connection
+**USB:** connect the phone with USB debugging already authorized. NOVORA prepares the link without relying on constant polling.  
+**LAN:** use PC discovery or invitation/QR when available. Always verify that you are pairing with the correct PC.
+
+NOVORA is designed for **one active Android device per computer**.
+
+### 3. Engines
+- **LinkEngine:** provides PC Internet access to Android through NOVORA's tunnel.
+- **VisionEngine:** screen, audio, control, gamepad, exchange and Android↔Windows integration.
+- **STEngine:** technical measurement for NOVORA.
+
+Each engine has its own recovery scope so one failure should not unnecessarily stop the other engines.
+
+### 4. Display
+The **Display** panel prepares video profile, resolution, FPS, bitrate, monitor and audio options. Start VisionEngine only when screen sharing/control is needed.
+
+### 5. Network
+The **Network** panel controls LinkEngine. Congestion/backpressure must not be treated as Recovery by itself.
+
+### 6. Game Input
+Supported controllers use VisionEngine's SDL/UHID path when the required backend is available.
+
+### 7. Integration
+NOVORA contains infrastructure for clipboard, files, Drag & Drop, sharing, notifications and other Android↔Windows capabilities. Some features depend on their backend being available.
+
+### 8. Privacy
+NOVORA minimizes personal-data storage. It should not unnecessarily store passwords, accounts, emails, contacts, OTP codes, tokens, cookies, clipboard history or private content.
+
+**Privacy Shield** may prevent video exposure, new audio, control, gamepad, clipboard and transfers in sensitive contexts.
+
+### 9. Android application
+On Android:
+- **Connect:** USB/LAN connection.
+- **Control:** engines and tools.
+- **Settings:** options confirmed by the PC.
+- **NOVORA Files:** available file functions.
+- **Manual:** Spanish and English.
+
+### 10. Updates
+NOVORA may check the official channel when the app opens. It should not continuously poll only to discover updates.
+
+### 11. Troubleshooting
+1. Verify that the phone is still connected/authorized.
+2. Check the affected engine status.
+3. Restart only that engine when possible.
+4. Do not disable Windows security as a general workaround.
+5. Report the first concrete error and the complete NOVORA version.
+
+### 12. Prerelease status
+This folder is **PRERELEASE PRE FINAL**. Physical tests, security, performance, quality and functional verification are still required before a stable publication.

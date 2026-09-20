@@ -1,86 +1,186 @@
-# Visual Studio
+# ============================================================
+# NOVORA-LINK
+# .gitignore
+# ============================================================
+
+# Visual Studio / IDE
 .vs/
-*.user
+.vscode/
+.idea/
 *.suo
+*.user
 *.userosscache
 *.sln.docstates
+*.rsuser
 
-# .NET build output
+# .NET / C# build
 **/bin/
 **/obj/
-
-# Test / coverage output
-TestResults/
-coverage/
-
-# Publish / CI artifacts
 artifacts/
-Installer/output/
+TestResults/
+*.pdb
+*.cache
+*.ilk
+*.exp
+*.lib
 
-# Local tooling / caches
-.nuget/
-packages/
+# Rust
+**/target/
 
-# OS files
-Thumbs.db
-Desktop.ini
-.DS_Store
+# Android / .NET Android
+**/.gradle/
+**/build/
+*.apk
+*.apk.idsig
+*.aab
 
-# Runtime tools restored by scripts/Setup-Tools.ps1
-src/NOVORA/Tools/*
-!src/NOVORA/Tools/README.md
-
-# ============================================================
-# NOVORA LOCAL / BUILD / DIAGNOSTICS
-# ============================================================
-
-.vs/
-**/.vs/
-
-**/bin/
-**/obj/
-
-*.user
-*.suo
-*.userosscache
-*.sln.docstates
-
+# Temporary / backup files
+*.tmp
+*.temp
 *.bak
 *.backup
-*.backup.*
 *.old
 *.orig
-*.fixbackup.*
+*.rej
+*~
+~$*
+*.swp
+*.swo
 
-**/*backup*/
-**/*Backup*/
-**/*BACKUP*/
-**/.audio-*-backup-*/
+# NOVORA temporary backups
+**/Backups/
+**/Backup/
+**/backups/
+**/backup/
+**/_backup_*/
+**/*-backup-*/
+**/*_backup_*/
+**/Temp/
+**/temp/
+**/Tmp/
+**/tmp/
 
-NOVORA-DIAGNOSTICO-*.txt
-NOVORA-*-DIAGNOSTIC*.txt
-NOVORA-*-RUNTIME-*.txt
-NOVORA-*-AUDIO-*.txt
-NOVORA-AUDIO-*.csv
-NOVORA-LATENCIA-*.csv
-
+# Logs / diagnostics
 *.log
+*.trace
+**/Logs/
+**/logs/
+**/Diagnostics/
+**/diagnostics/
+NOVORA-*-DIAGNOSTIC*.txt
+NOVORA-*-POSTCHECK*.txt
+NOVORA-*-RUNTIME*.txt
+NOVORA-*-AUDIT*.txt
 
-# Respaldo local autorizado: conservar herramientas de ejecución y APK canónica
-!src/NOVORA/Tools/**
-# Cachés de compilación, en cualquier nivel y combinación de mayúsculas
-**/[Bb][Ii][Nn]/
-**/[Oo][Bb][Jj]/
-**/target/
-**/artifacts/
-**/.vs/
-# Nunca respaldar claves privadas ni almacenes de firma
-*.keystore
-*.jks
+# Crash / dump files
+*.dmp
+*.dump
+*.mdmp
+
+# Benchmark / temporary measurements
+**/BenchmarkResults/
+**/PerformanceResults/
+**/StressResults/
+*.etl
+
+# OS generated
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Node / tooling
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# Local publish output
+**/publish/
+**/Publish/
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+
+# Installer generated output
+Installer/Output/
+installer/Output/
+**/InstallerOutput/
+**/SetupOutput/
+
+# Certificates / private signing material
 *.pfx
 *.p12
+*.jks
+*.keystore
+*.pem
+*.key
+*.cer.private
+*.crt.private
+
+# Environment / secrets
 .env
 .env.*
+!.env.example
+secrets.json
+secrets.*.json
+appsettings.Local.json
+appsettings.Development.local.json
 
-# Perfiles generados de diagnóstico del editor
-*.cpuprofile.txt
+# Local authentication / pairing material
+**/TrustedDevices.local.json
+**/TrustedPCs.local.json
+**/Pairing.local.json
+**/Certificates/Private/
+
+# GitHub / local generated artifacts
+*.sha256.tmp
+*.hash.tmp
+
+# PowerShell temporary output
+*.ps1.log
+
+# NOVORA generated snapshots / ZIPs
+NOVORA-LINK-SNAPSHOT-*.zip
+NOVORA-LINK-FINAL-LIMPIO-*.zip
+NL2-CODIGO.zip
+src/NOVORA.Android.zip
+
+# Important files that MUST remain trackable
+!README.md
+!ACKNOWLEDGEMENTS.md
+!LICENSE
+!LICENSE.*
+!NOTICE
+!NOTICE.*
+!THIRD-PARTY*
+!ThirdParty/**
+!*.cs
+!*.xaml
+!*.csproj
+!*.sln
+!*.rs
+!Cargo.toml
+!Cargo.lock
+!Documentation/**
+!Tool/**

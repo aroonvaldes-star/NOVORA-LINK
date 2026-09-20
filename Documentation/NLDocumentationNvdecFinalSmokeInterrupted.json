@@ -1,0 +1,227 @@
+{
+  "TimestampUtc": "2026-09-14T09:29:35.0305453+00:00",
+  "Serial": "R5CY3118MEW",
+  "Method": "2 rounds; first-frame readiness; 3s warmup; 12s measurement. Same user-controlled moving content, not deterministic replay. Render counters are event-published snapshots. No glass-to-glass measurement.",
+  "NVIDIA": [
+    {
+      "Requested": "Automatic",
+      "DetectionMilliseconds": 20.9427,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": true,
+          "CudaInitialized": true,
+          "CudaDeviceCount": 1,
+          "CudaDriverVersion": 13040,
+          "NvdecApiAvailable": true,
+          "NvencApiAvailable": true,
+          "NvencMaxApiVersion": 209,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg software",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T09:29:35.0198682+00:00",
+        "Message": "Perfil solicitado: Automatic (se aplica al iniciar). Sin decodificaci\u00F3n de video activa."
+      }
+    },
+    {
+      "Requested": "Disabled",
+      "DetectionMilliseconds": 0.0049,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": false,
+          "CudaInitialized": false,
+          "CudaDeviceCount": 0,
+          "CudaDriverVersion": 0,
+          "NvdecApiAvailable": false,
+          "NvencApiAvailable": false,
+          "NvencMaxApiVersion": 0,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T09:29:35.0210173+00:00",
+        "Message": "Perfil solicitado: Disabled (se aplica al iniciar). Sin decodificaci\u00F3n de video activa."
+      }
+    },
+    {
+      "Requested": "Competitive",
+      "DetectionMilliseconds": 1.6821,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": true,
+          "CudaInitialized": true,
+          "CudaDeviceCount": 1,
+          "CudaDriverVersion": 13040,
+          "NvdecApiAvailable": true,
+          "NvencApiAvailable": true,
+          "NvencMaxApiVersion": 209,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg software",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T09:29:35.022693+00:00",
+        "Message": "Perfil solicitado: Competitive (se aplica al iniciar). Sin decodificaci\u00F3n de video activa."
+      }
+    },
+    {
+      "Requested": "Balanced",
+      "DetectionMilliseconds": 1.9381,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": true,
+          "CudaInitialized": true,
+          "CudaDeviceCount": 1,
+          "CudaDriverVersion": 13040,
+          "NvdecApiAvailable": true,
+          "NvencApiAvailable": true,
+          "NvencMaxApiVersion": 209,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg software",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T09:29:35.024635+00:00",
+        "Message": "Perfil solicitado: Balanced (se aplica al iniciar). Sin decodificaci\u00F3n de video activa."
+      }
+    },
+    {
+      "Requested": "VisionPlus",
+      "DetectionMilliseconds": 1.605,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": true,
+          "CudaInitialized": true,
+          "CudaDeviceCount": 1,
+          "CudaDriverVersion": 13040,
+          "NvdecApiAvailable": true,
+          "NvencApiAvailable": true,
+          "NvencMaxApiVersion": 209,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg software",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T09:29:35.0262314+00:00",
+        "Message": "Perfil solicitado: VisionPlus (se aplica al iniciar). Sin decodificaci\u00F3n de video activa."
+      }
+    },
+    {
+      "Requested": "Smooth",
+      "DetectionMilliseconds": 2.0556,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": true,
+          "CudaInitialized": true,
+          "CudaDeviceCount": 1,
+          "CudaDriverVersion": 13040,
+          "NvdecApiAvailable": true,
+          "NvencApiAvailable": true,
+          "NvencMaxApiVersion": 209,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg software",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T09:29:35.0282965+00:00",
+        "Message": "Perfil solicitado: Smooth (se aplica al iniciar). Sin decodificaci\u00F3n de video activa."
+      }
+    },
+    {
+      "Requested": "Stream",
+      "DetectionMilliseconds": 1.3076,
+      "Status": {
+        "Capabilities": {
+          "CudaDriverLoaded": true,
+          "CudaInitialized": true,
+          "CudaDeviceCount": 1,
+          "CudaDriverVersion": 13040,
+          "NvdecApiAvailable": true,
+          "NvencApiAvailable": true,
+          "NvencMaxApiVersion": 209,
+          "NativeBridgeAvailable": false,
+          "RtxVideoAvailable": false,
+          "FrucAvailable": false,
+          "Backend": "FFmpeg software",
+          "FastPathReadyVE": false
+        },
+        "Pipeline": {
+          "Profile": 1,
+          "UseNvdec": false,
+          "UseZeroCopy": false,
+          "UseRtxVideo": false,
+          "UseFruc": false,
+          "UseNvenc": false,
+          "MaxReadyFrames": 2
+        },
+        "UpdatedAtUtc": "2026-09-14T09:29:35.0296162+00:00",
+        "Message": "Perfil solicitado: Stream (se aplica al iniciar). Sin decodificaci\u00F3n de video activa."
+      }
+    }
+  ],
+  "Runs": [],
+  "GamepadEnabled": false,
+  "AudioEnabled": false
+}

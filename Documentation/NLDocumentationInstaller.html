@@ -1,0 +1,107 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NOVORA-LINK 1.4 — Instalación y numeración</title><style>body{max-width:940px;margin:40px auto;padding:0 24px 64px;background:#101723;color:#eaf1ff;font:17px/1.7 system-ui}h1,h2{color:#76c9ff;line-height:1.3}h2{margin-top:2em;border-top:1px solid #2c3c50;padding-top:1em}a{color:#89d5ff;overflow-wrap:anywhere}pre,code{background:#1d2939;white-space:pre-wrap;overflow-wrap:anywhere}li{margin:.5em 0}@media print{body{background:white;color:black}h1,h2,a{color:#123}}</style></head><body><h1 id="novora-link-1.4-experimental-1">NOVORA-LINK 1.4 — Experimental 1</h1>
+<h2 id="descarga-instalacion-y-advertencias">Descarga, instalación y advertencias</h2>
+<p>Esta prerelease es una versión de prueba. El instalador reúne NOVORA PC 1.4.1-experimental, .NET, ADB, herramientas de pantalla y audio, LinkEngine con su dependencia de Microsoft Visual C++ y NOVORA Android 1.4.8. No necesitas instalar .NET, Java ni Android Studio para utilizar el paquete Windows. Los controladores USB específicos del fabricante, cuando sean necesarios, se obtienen de su fabricante.</p>
+<h2 id="requisitos-de-esta-edicion">1. Requisitos de esta edición</h2>
+<ul>
+<li>Windows 11 24H2 o posterior, x64 (compilación 26100 o posterior). El instalador respeta el mínimo declarado por este paquete; no certifica todos los equipos. Esta edición no admite Windows de 32 bits ni ARM64.</li>
+<li>Android 8.0 o posterior (API 26), según el mínimo del APK. La compatibilidad con cada fabricante y versión debe comprobarse.</li>
+<li>Cable USB de datos, teléfono desbloqueado y depuración USB autorizada para conexión por cable.</li>
+<li>Misma red local para control LAN. La PC necesita Internet para compartirlo por USB.</li>
+<li>Espacio suficiente en disco: el asistente calcula el espacio del programa. Reserva espacio adicional para archivos y grabaciones.</li>
+<li>NVIDIA es opcional; el paquete conserva los decodificadores por software. No se promete el mismo rendimiento en todos los equipos.</li>
+</ul>
+<h2 id="como-descargar">2. Cómo descargar</h2>
+<ol>
+<li>Abre <a href="https://github.com/aroonvaldes-star/NOVORA-LINK/releases/tag/v1.4.0-experimental.1">https://github.com/aroonvaldes-star/NOVORA-LINK/releases/tag/v1.4.0-experimental.1</a></li>
+<li>Busca la sección Assets (archivos adjuntos).</li>
+<li>Descarga NOVORA-LINK-1.4.1-experimental-Setup-x64.exe para instalar en Windows.</li>
+<li>No elijas Source code (zip/tar.gz): esos archivos contienen el código, no el instalador.</li>
+<li>El ZIP Windows es la alternativa portátil: extrae TODO su contenido y abre NOVORA.exe. No necesitas instalar ambos formatos.</li>
+<li>La app Android ya está incluida en el instalador Windows. El APK independiente es opcional si deseas instalarlo manualmente.</li>
+</ol>
+<p>Comprobación opcional de integridad: descarga SHA256SUMS-Aviso-1.4.txt desde la misma prerelease. En PowerShell, situado en tu carpeta de descargas, ejecuta:</p>
+<p>Get-FileHash -LiteralPath '.\NOVORA-LINK-1.4.1-experimental-Setup-x64.exe' -Algorithm SHA256</p>
+<p>Compara todos los caracteres con el archivo de huellas. Una huella comprueba integridad; no sustituye una firma digital ni certifica la ausencia de errores.</p>
+<h2 id="como-instalar-en-windows">3. Cómo instalar en Windows</h2>
+<ol>
+<li>Finaliza las grabaciones y transferencias y cierra NOVORA antes de instalar o actualizar.</li>
+<li>Ejecuta NOVORA-LINK-1.4.1-experimental-Setup-x64.exe.</li>
+<li>Lee las advertencias del asistente y elige la carpeta. La ubicación predeterminada es %LOCALAPPDATA%\Programs\NOVORA-LINK Experimental.</li>
+<li>Si lo deseas, marca el acceso directo del escritorio y pulsa Instalar.</li>
+<li>Abre NOVORA-LINK Experimental desde Inicio de Windows. También encontrarás la guía y el desinstalador en ese grupo.</li>
+</ol>
+<p>La instalación es para tu usuario y no solicita elevación de administrador. Al abrir la aplicación, NOVORA puede registrar su inicio con Windows (preferencia activada por defecto); puedes deshabilitar NOVORA-LINK en Configuración de Windows &gt; Aplicaciones &gt; Inicio. El paquete se instala sin descargar componentes adicionales. No concede permisos al teléfono, no instala controladores USB y no abre reglas de firewall automáticamente.</p>
+<h2 id="instalar-novora-en-android-desde-la-pc">4. Instalar NOVORA en Android desde la PC</h2>
+<ol>
+<li>Conecta un solo teléfono mediante un cable de datos, usando el usuario principal de Android.</li>
+<li>Activa la depuración USB en las opciones de desarrollador y acepta en el teléfono la autorización de tu computadora.</li>
+<li>Abre NOVORA PC, entra en Inicio y selecciona el dispositivo.</li>
+<li>Pulsa COMPROBAR APP y después INSTALAR NOVORA POR USB o ACTUALIZAR NOVORA ANDROID, según corresponda.</li>
+<li>Revisa el teléfono y las versiones indicadas, confirma y espera el resultado.</li>
+<li>La instalación puede desconectar el control y la VPN. Vuelve a preparar la conexión cuando termine.</li>
+</ol>
+<p>Si Android rechaza una firma incompatible, detén el intento y revisa la versión. No desinstales la app solo para eludir el rechazo: podrías perder sus datos. Si la instalación se interrumpe, pulsa COMPROBAR APP antes de repetirla.</p>
+<p>Alternativa manual: descarga el APK independiente de esta misma prerelease. Android puede pedir permiso al navegador o administrador de archivos para instalar aplicaciones de esa fuente. Concédelo únicamente si reconoces el archivo; puedes retirarlo al terminar. No desactives Play Protect ni otras protecciones para forzar una instalación bloqueada.</p>
+<h2 id="primera-conexion-y-uso">5. Primera conexión y uso</h2>
+<p>USB: en Inicio de PC pulsa PREPARAR CONTROL USB. En Android selecciona Conectar por USB e introduce el código de ocho dígitos. Caduca en dos minutos. Instalar la app no vincula el control automáticamente.</p>
+<p>Pantalla: selecciona teléfono, monitor y salida de audio; guarda las opciones y pulsa INICIAR en PC. VisionEngine también puede iniciarse desde Control en Android cuando PC anuncia la capacidad. Los cambios de video se aplican al iniciar o reiniciar la transmisión.</p>
+<p>LAN: pulsa PREPARAR LAN / QR en PC, elige la red compartida y escanea su QR desde Android. Encontrar una PC en la búsqueda no la autoriza. No compartas el QR ni los códigos. La conexión de control LAN no prepara por sí sola el enlace ADB necesario para capturar la pantalla. Usa redes de confianza; no abras puertos del router a Internet.</p>
+<p>Internet USB: requiere control USB autorizado para el mismo teléfono. Inicia LinkEngine desde Android, lee el aviso y acepta el permiso VPN si deseas continuar. Espera el estado y comprueba navegación real. Aceptar la solicitud no demuestra que ya haya Internet. Cambiar a control LAN o perder el USB cierra este túnel. Al detenerse, el teléfono puede volver a Wi-Fi o datos móviles. No es una VPN comercial ni garantiza anonimato.</p>
+<p>Archivos, capturas y grabaciones: se guardan en el Escritorio real de Windows, dentro de NOVORA-Files, organizados por tipo. En Android se utiliza la carpeta compartida NOVORA. Espera la confirmación antes de desconectar.</p>
+<h2 id="advertencias-de-la-prerelease">6. Advertencias de la prerelease</h2>
+<ul>
+<li>Versión experimental: puede fallar, desconectarse o no completar una transferencia/grabación. Conserva copias de archivos importantes y comprueba el resultado antes de borrar el original.</li>
+<li>El instalador NOVORA no tiene firma digital de editor. Windows o el navegador pueden mostrar avisos de archivo poco conocido o editor desconocido. Comprueba el origen y la huella. Si no confías en el archivo, cancela. No desactives Defender ni agregues exclusiones generales; una alerta no debe suponerse falsa.</li>
+<li>El APK utiliza una firma de desarrollo para pruebas. No es una distribución estable de tienda; no equivale a una aplicación certificada para todos los teléfonos.</li>
+<li>El instalador no concede permisos de cámara, carpeta, superposición o VPN. Android los solicita según la función. Otórgalos solo cuando quieras utilizarla.</li>
+<li>Pantalla, control remoto, portapapeles y archivos pueden mostrar o transmitir datos personales. Vincula únicamente tus equipos, no publiques códigos/QR ni incluyas secretos en capturas o reportes.</li>
+<li>Al usar LAN, Windows puede pedir permiso de red. Revisa que se trate de NOVORA y de tu red privada. No desactives el firewall completo.</li>
+<li>Esta revisión comprueba una vez al abrir si existe una release oficial posterior y muestra un enlace para verla. La descarga e instalación requieren tu acción. Las revisiones experimentales se descargan manualmente; no se anuncian como versiones oficiales.</li>
+<li>La carpeta de instalación experimental es independiente, pero la aplicación conserva su ubicación de preferencias %LOCALAPPDATA%\NOVORA. No se promete aislamiento de ajustes respecto de otras copias de NOVORA; evita ejecutarlas simultáneamente.</li>
+<li>La grabación requiere H.264 y audio del teléfono activos. H.265/AV1 no están habilitados para grabación. Ocultar la burbuja en capturas es experimental. Compartir admite hasta 100 archivos por selección y 2 GiB por archivo.</li>
+</ul>
+<h2 id="que-esta-comprobado-y-que-sigue-pendiente">7. Qué está comprobado y qué sigue pendiente</h2>
+<p>Los informes previos de esta versión registran compilaciones Windows, Android y RelayCore, 230 pruebas automatizadas .NET y arranque de Android 1.4.8 en Samsung SM-A566E con Android 16. Son resultados de la versión existente, no una nueva prueba física realizada por el instalador.</p>
+<p>Las pruebas de esta revisión se publican por separado en Verificacion-aviso-1.4.md; el informe Verificacion-instalador.md corresponde al instalador experimental anterior. Instalar o abrir correctamente no certifica Internet USB real, latencia de juegos, todas las funciones PC-Android, sesiones largas, permisos en todos los fabricantes ni compatibilidad universal. La revisión de archivos tampoco equivale a una auditoría de seguridad completa.</p>
+<h2 id="actualizar-o-desinstalar">8. Actualizar o desinstalar</h2>
+<p>Para actualizar, cierra NOVORA y ejecuta un instalador posterior compatible del mismo canal experimental. Revisa siempre sus notas. Esta primera edición no incluye una prueba de actualización desde versiones futuras. No reemplaza automáticamente una copia portátil ubicada en otra carpeta.</p>
+<p>Para desinstalar: Configuración de Windows &gt; Aplicaciones &gt; Aplicaciones instaladas &gt; NOVORA-LINK Experimental &gt; Desinstalar. También puedes utilizar el acceso del menú Inicio. Cierra las sesiones antes de hacerlo.</p>
+<p>El desinstalador retira los archivos que instaló y sus accesos directos. Retira también la entrada de inicio automático solo si apunta exactamente a la copia que se está desinstalando; conserva la de otra copia. Conserva los archivos personales de NOVORA-Files y las preferencias/confianza guardadas fuera de la carpeta del programa. No desinstala la app del teléfono ni revoca automáticamente los permisos guardados en Android.</p>
+<h2 id="reportar-problemas">9. Reportar problemas</h2>
+<p><a href="https://github.com/aroonvaldes-star/NOVORA-LINK/issues/new">https://github.com/aroonvaldes-star/NOVORA-LINK/issues/new</a></p>
+<p>Incluye versión, Windows, modelo y versión de Android, conexión USB/LAN, pasos, resultado esperado y mensaje de error. Oculta información personal. Los comentarios y sugerencias ayudan a mejorar NOVORA.</p>
+<h1 id="numeracion-y-paso-a-novora-link-1.4-oficial">Numeración y paso a NOVORA-LINK 1.4 oficial</h1>
+<h2 id="que-significa-el-numero">Qué significa el número</h2>
+<p><strong>1.4 es la versión de NOVORA-LINK.</strong> El número adicional <strong>.x</strong> identifica una revisión interna de trabajo: las compilaciones o ediciones que se fueron preparando para llegar a ese punto. No representa por sí solo una nueva versión principal ni una función adicional.</p>
+<p>Ejemplo: <strong>1.4.8 sigue perteneciendo a NOVORA-LINK 1.4</strong>; el 8 es una referencia interna de desarrollo. Para utilizar la app puedes ignorar ese contador y fijarte en <strong>1.4</strong> y en si la publicación está marcada como <strong>experimental</strong> u <strong>oficial</strong>. Conserva el número completo únicamente si vas a reportar un problema.</p>
+<p>PC y Android pueden tener contadores distintos dentro de la misma versión 1.4. El contador identifica las revisiones entregadas; no se utiliza como una certificación de calidad ni como prueba de que haya más funciones.</p>
+<h2 id="proxima-publicacion-prevista">Próxima publicación prevista</h2>
+<p>La próxima versión pública está prevista como <strong>NOVORA-LINK 1.4 oficial</strong>. Esta publicación sigue siendo una prerelease y no se convierte automáticamente en estable. La fecha y publicación oficial quedan pendientes de las comprobaciones y autorización correspondientes.</p>
+<h2 id="aviso-desde-esta-prerelease">Aviso desde esta prerelease</h2>
+<p>La revisión Windows <strong>1.4.1-experimental</strong> incorpora el aviso. Consulta una sola vez al abrir NOVORA el canal oficial de GitHub. Cuando exista una release oficial posterior válida, muestra <strong>VER 1.4 OFICIAL</strong> para abrir su publicación, instrucciones y descarga. No descarga ni instala automáticamente; no hay sondeo periódico. Si falla la consulta, se vuelve a intentar al abrir la aplicación de nuevo.</p>
+<p>La transición tiene en cuenta el canal: <strong>1.4 oficial sustituye a una 1.4.x experimental aunque el contador interno experimental sea mayor</strong>. No anuncia versiones anteriores ni otras prereleases.</p>
+<p>Quienes descargaron el primer instalador o ZIP experimental deben instalar esta revisión corregida una vez para obtener el nuevo aviso. Modificar las notas de GitHub no cambia las aplicaciones que ya están instaladas.</p>
+<h2 id="desde-la-1.3-y-la-1.3.1">Desde la 1.3 y la 1.3.1</h2>
+<p>En las fuentes históricas revisadas, se consulta al pulsar <strong>Actualizar</strong>. Cuando se publique la 1.4 oficial con el instalador compatible, podrán detectarla por esa opción. No se promete un aviso automático al iniciar versiones antiguas.</p>
+<p>Algunas instalaciones históricas consultan NOVORA-PROYECT y necesitan pasar primero por el <strong>puente 1.3.1</strong> publicado allí, que dirige sus consultas al repositorio oficial. La revisión fue de fuente y API; no certifica el contenido ni la instalación de todos los binarios históricos.</p>
+<p>La detección y la instalación son comprobaciones distintas: la migración desde la instalación antigua de 1.3, que utilizaba otra carpeta e instalación con administrador, debe probarse antes de declarar compatible la release oficial.</p>
+<h2 id="contrato-para-preparar-la-release-oficial-mantenimiento">Contrato para preparar la release oficial (mantenimiento)</h2>
+<ol>
+<li>Compilar la app como estable, sin sufijo experimental. Ejemplo de versión: <strong>1.4.0</strong>. Verificar también AssemblyInformationalVersion; no debe conservar el sufijo experimental.</li>
+<li>Preparar el tag <strong>v1.4.0</strong> sobre el código realmente verificado. No mover ni convertir el tag experimental.</li>
+<li>Preparar un instalador de la release oficial con el nombre <strong>NOVORA-Setup-1.4.0.exe</strong>, para que lo reconozcan los actualizadores históricos 1.3/1.3.1.</li>
+<li>Comprobar instalación desde cero y migración desde 1.3, puente 1.3.1 y esta prerelease, incluidos carpetas, accesos, preferencias, permisos y reinicio de la copia correcta. No basta con renombrar el instalador experimental.</li>
+<li>Subir primero el instalador validado y comprobar que el API de GitHub informa su <strong>digest sha256</strong> de 64 caracteres. El archivo lateral SHA256SUMS no sustituye ese campo para los clientes históricos.</li>
+<li>Publicar como <strong>release estable</strong>, sin draft ni prerelease, y marcarla <strong>Latest</strong>. Hasta entonces los clientes que consultan /latest siguen viendo la última estable anterior; no se debe anunciar la experimental como oficial para forzar el aviso.</li>
+<li>Verificar desde la nueva prerelease el aviso de la 1.4 oficial y desde 1.3/1.3.1 su opción Actualizar. Publicar el estado real de esas pruebas.</li>
+</ol>
+<p>Esta preparación no publica anticipadamente una 1.4 oficial ni programa una publicación automática.</p>
+<h2 id="referencias-de-compatibilidad-historica">Referencias de compatibilidad histórica</h2>
+<ul>
+<li><a href="https://github.com/aroonvaldes-star/NOVORA-LINK/blob/v1.3/src/NOVORA/Services/UpdateService.cs">https://github.com/aroonvaldes-star/NOVORA-LINK/blob/v1.3/src/NOVORA/Services/UpdateService.cs</a></li>
+<li><a href="https://github.com/aroonvaldes-star/NOVORA-LINK/blob/v1.3.1/src/NOVORA/Services/UpdateService.cs">https://github.com/aroonvaldes-star/NOVORA-LINK/blob/v1.3.1/src/NOVORA/Services/UpdateService.cs</a></li>
+<li><a href="https://github.com/aroonvaldes-star/NOVORA-PROYECT/releases/tag/v1.3.1">https://github.com/aroonvaldes-star/NOVORA-PROYECT/releases/tag/v1.3.1</a></li>
+</ul>
+<h2 id="verificacion-de-esta-revision">Verificación de esta revisión</h2>
+<p>Ver el informe Verificacion-aviso-1.4.md adjunto a la prerelease para los resultados nuevos. Las pruebas con respuestas de una futura release son simulaciones del contrato; no significan que 1.4 oficial ya se haya publicado.</p>
+</body></html>

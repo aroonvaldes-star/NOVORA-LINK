@@ -1,0 +1,29 @@
+{
+  "Package": "ffmpeg-n8.1-latest-win64-lgpl-shared-8.1.zip",
+  "ArchiveSha256": "4e2837040919c282046c72abe06b5b5b399ad6bd595b838165c578bb56fd296e",
+  "RetrievedOn": "2026-09-14",
+  "PackageUrl": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-lgpl-shared-8.1.zip",
+  "BuildRecipes": "https://github.com/BtbN/FFmpeg-Builds",
+  "FFmpegSource": "https://github.com/FFmpeg/FFmpeg/archive/5a03dfa0f6.tar.gz",
+  "License": "GNU LGPL version 3; see FFmpeg-LICENSE.txt and dependency licenses in build recipes",
+  "VersionOutput": "ffmpeg version n8.1.2-52-g5a03dfa0f6-20260913 Copyright (c) 2000-2026 the FFmpeg developers\nbuilt with gcc 16.2.0 (crosstool-NG 1.29.0.7_b1a94f6)\nconfiguration: --prefix=/ffbuild/prefix --pkg-config-flags=--static --pkg-config=pkg-config --cross-prefix=x86_64-w64-mingw32- --arch=x86_64 --target-os=mingw32 --enable-version3 --disable-debug --enable-shared --disable-static --disable-w32threads --enable-pthreads --enable-iconv --enable-zlib --enable-libxml2 --enable-libvmaf --enable-fontconfig --enable-libharfbuzz --enable-libfreetype --enable-libfribidi --enable-vulkan --enable-libshaderc --enable-libdav1d --enable-libvorbis --enable-librav1e --enable-librsvg --disable-libxcb --disable-xlib --disable-libpulse --enable-gmp --enable-lzma --enable-liblcevc-dec --enable-opencl --enable-amf --enable-libaom --disable-avisynth --enable-chromaprint --disable-libdavs2 --disable-libdvdread --disable-libdvdnav --disable-libfdk-aac --enable-ffnvcodec --enable-cuda-llvm --disable-frei0r --enable-libgme --enable-libkvazaar --enable-libaribb24 --enable-libaribcaption --enable-libass --enable-libbluray --enable-libjxl --enable-libmp3lame --enable-libopus --enable-libplacebo --enable-librist --enable-libssh --enable-libtheora --enable-libvpx --enable-libwebp --enable-libzmq --enable-lv2 --enable-libvpl --enable-openal --enable-liboapv --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenh264 --enable-libopenjpeg --enable-libopenmpt --disable-librubberband --enable-schannel --enable-sdl2 --enable-libsnappy --enable-libsoxr --enable-libsrt --enable-libsvtav1 --enable-libtwolame --enable-libuavs3d --disable-libdrm --enable-vaapi --disable-libvidstab --enable-libvvenc --disable-whisper --disable-libx264 --disable-libx265 --disable-libxavs2 --disable-libxvid --enable-libzimg --enable-libzvbi --extra-cflags=-DLIBTWOLAME_STATIC --extra-cxxflags= --extra-libs=-lgomp --extra-ldflags=-pthread --extra-ldexeflags= --cc=x86_64-w64-mingw32-gcc --cxx=x86_64-w64-mingw32-g++ --ar=x86_64-w64-mingw32-gcc-ar --ranlib=x86_64-w64-mingw32-gcc-ranlib --nm=x86_64-w64-mingw32-gcc-nm --extra-version=20260913\nlibavutil      60. 26.102 / 60. 26.102\nlibavcodec     62. 28.102 / 62. 28.102\nlibavformat    62. 12.102 / 62. 12.102\nlibavdevice    62.  3.102 / 62.  3.102\nlibavfilter    11. 14.102 / 11. 14.102\nlibswscale      9.  5.102 /  9.  5.102\nlibswresample   6.  3.102 /  6.  3.102\n\nExiting with exit code 0\n",
+  "Files": {
+    "avcodec-62.dll": {
+      "sha256": "a011e84f2e7bc32a6e08578a768e5ba7a32db9f3af844d0b47a07c1a65c36fbf",
+      "bytes": 90160640
+    },
+    "avformat-62.dll": {
+      "sha256": "cf8b82b293f13b80e14f2e31ec28185a5cf2a24a9f591a7f028fa639ff6fa048",
+      "bytes": 22623232
+    },
+    "avutil-60.dll": {
+      "sha256": "a1378131fc1f3f1791ad5232c3d2006b5c5f39f520a9d2c7b50a7258d24f553b",
+      "bytes": 3011584
+    },
+    "swresample-6.dll": {
+      "sha256": "f0a966a4cbbffac365cb6cd6cd5064e51e4d73b6c6dfbc1755107316b56a5c13",
+      "bytes": 733696
+    }
+  },
+  "Version": "n8.1.2-52-g5a03dfa0f6-20260913"
+}

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0-windows10.0.26100.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<UseWPF>true</UseWPF>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+		<UseWindowsForms>true</UseWindowsForms>
+		<RootNamespace>NOVORA</RootNamespace>
+		<AssemblyName>NOVORA</AssemblyName>
+		<Version>1.4.1-prerelease-prefinal</Version>
+		<InformationalVersion>1.4 PRERELEASE PRE FINAL</InformationalVersion>
+		<Platforms>AnyCPU</Platforms>
+		<PlatformTarget>AnyCPU</PlatformTarget>
+		<ApplicationIcon>Asset\NLAssetNOVORA11.ico</ApplicationIcon>
+	</PropertyGroup>
+	<ItemGroup>
+		<Content Include="Tools\**\*">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Include="NVIDIA\Native\**\*">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+		</Content>
+	</ItemGroup>
+	<ItemGroup>
+		
+	</ItemGroup>
+	<ItemGroup>
+		<None Update="Tools\LinkEngine\LENetworkRelay.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+		
+	</ItemGroup>
+	<ItemGroup>
+	</ItemGroup>
+	<ItemGroup>
+		<None Remove="Asset\NLAssetNOVORABRAND.png" />
+		<None Remove="Asset\NLAssetNOVORABRANDLIGHT.png" />
+		<Resource Include="Asset\NLAssetNOVORABRAND.png" />
+		<Resource Include="Asset\NLAssetNOVORABRANDLIGHT.png" />
+	</ItemGroup>
+
+  <ItemGroup>
+    
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Asset\NLAssetPDI2T.mp4"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="Application\NLApplicationApp.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ZXing.Net" Version="0.16.11" />
+  </ItemGroup>
+  <ItemGroup><PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" /></ItemGroup>
+  <ItemGroup>
+    <Content Include="Android\NLAndroidApp.apk" Condition="Exists('Android\NLAndroidApp.apk')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Android\NLAndroidRelease.json" Condition="Exists('Android\NLAndroidRelease.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\Documentation\Manual\ES\NLDocumentationManualUsuarioES.txt"
+             Link="Manual\NLManualUsuarioES.txt"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\Documentation\Manual\EN\NLDocumentationUserManualEN.txt"
+             Link="Manual\NLUserManualEN.txt"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
+
+

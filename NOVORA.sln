@@ -2,9 +2,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.9.12105.275
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NOVORA", "src\NOVORA\NOVORA.csproj", "{7A8E6B2E-0F9B-4C11-A4D7-1A2E3F8B4D21}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NOVORA", "src\NOVORA\NLProjectDesktop.csproj", "{7A8E6B2E-0F9B-4C11-A4D7-1A2E3F8B4D21}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NOVORA.linkEngine.Android", "NOVORA.linkEngine.Android\NOVORA.linkEngine.Android.csproj", "{44F81036-ECF9-4FEB-B33D-ED0F478ADF69}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NOVORA.Android", "src\NOVORA.Android\NLProjectAndroid.csproj", "{C2A58F5F-0A4B-4E8A-8C61-6A7E4F02A001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NOVORA.Tests", "tests\NOVORA.Tests\NLProjectTests.csproj", "{D3B69A60-1B5C-4F9B-9D72-7B8F5033B002}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -16,12 +18,12 @@ Global
 		{7A8E6B2E-0F9B-4C11-A4D7-1A2E3F8B4D21}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7A8E6B2E-0F9B-4C11-A4D7-1A2E3F8B4D21}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7A8E6B2E-0F9B-4C11-A4D7-1A2E3F8B4D21}.Release|Any CPU.Build.0 = Release|Any CPU
-		{44F81036-ECF9-4FEB-B33D-ED0F478ADF69}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{44F81036-ECF9-4FEB-B33D-ED0F478ADF69}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{44F81036-ECF9-4FEB-B33D-ED0F478ADF69}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
-		{44F81036-ECF9-4FEB-B33D-ED0F478ADF69}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{44F81036-ECF9-4FEB-B33D-ED0F478ADF69}.Release|Any CPU.Build.0 = Release|Any CPU
-		{44F81036-ECF9-4FEB-B33D-ED0F478ADF69}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{C2A58F5F-0A4B-4E8A-8C61-6A7E4F02A001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C2A58F5F-0A4B-4E8A-8C61-6A7E4F02A001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3B69A60-1B5C-4F9B-9D72-7B8F5033B002}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D3B69A60-1B5C-4F9B-9D72-7B8F5033B002}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D3B69A60-1B5C-4F9B-9D72-7B8F5033B002}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3B69A60-1B5C-4F9B-9D72-7B8F5033B002}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
