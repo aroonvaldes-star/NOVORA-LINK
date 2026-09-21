@@ -56,7 +56,8 @@ The user selects exactly one mode from the Android bubble or the equivalent PC c
 ### UI Mode
 
 - Game-oriented UHID output is withdrawn so applications do not receive accidental gameplay input.
-- Xbox D-pad sends directional Android navigation while the left stick controls a mouse pointer; `A` sends left click and `B` goes back.
+- Xbox D-pad sends directional Android navigation while the left stick controls a mouse pointer; `A` sends left click and `B` goes back. The right stick sends vertical and horizontal scrolling.
+- Xbox pointer motion uses the active controller calibration, a drift-safe deadzone, and progressive acceleration so fine movement remains precise without making long travel slow.
 - DualShock 4 buttons provide equivalent navigation using its physical labels and layout.
 - DualShock 4 touchpad remains an independent mouse with one-finger pointer movement, physical left click, and two-finger scrolling.
 - Pointer clicks are delivered as standard Android mouse interaction so touch-oriented games and applications that do not support gamepads can still be operated without per-title foreground detection.
