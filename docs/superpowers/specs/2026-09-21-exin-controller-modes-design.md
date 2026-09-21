@@ -8,7 +8,7 @@
 
 ## Objective
 
-Provide reliable controller input from NOVORA PC to one active Android phone across games, Android UI, and ordinary applications. Xbox-family and DualShock 4 controllers must retain distinct identities, calibration data, capabilities, and output behavior. Controller input must continue working across repeated matches and menu transitions without depending on VisionEngine lifecycle.
+Provide reliable controller input from NOVORA PC to one active Android phone across games, Android UI, and ordinary applications. The design is not specific to RB6: it must use Android-standard gamepad, mouse, keyboard-navigation, and click behavior so it remains broadly compatible with native-controller games, touch-oriented games, launchers, social applications, and future applications. Xbox-family and DualShock 4 controllers must retain distinct identities, calibration data, capabilities, and output behavior. Controller input must continue working across repeated matches and menu transitions without depending on VisionEngine lifecycle.
 
 ## Ownership and Boundaries
 
@@ -56,9 +56,11 @@ The user selects exactly one mode from the Android bubble or the equivalent PC c
 ### UI Mode
 
 - Game-oriented UHID output is withdrawn so applications do not receive accidental gameplay input.
-- Xbox D-pad and left stick navigate Android UI; `A` accepts and `B` goes back.
+- Xbox D-pad sends directional Android navigation while the left stick controls a mouse pointer; `A` sends left click and `B` goes back.
 - DualShock 4 buttons provide equivalent navigation using its physical labels and layout.
 - DualShock 4 touchpad remains an independent mouse with one-finger pointer movement, physical left click, and two-finger scrolling.
+- Pointer clicks are delivered as standard Android mouse interaction so touch-oriented games and applications that do not support gamepads can still be operated without per-title foreground detection.
+- UI mode does not pretend that every application implements every Android input standard. NOVORA provides standards-based pointer, click, scroll, Back, accept, and directional input; application-specific restrictions or anti-cheat policies are reported honestly during verification.
 - Navigation is event-driven and does not inspect the foreground app through ADB or periodic polling.
 
 ### Mode Transition
@@ -200,16 +202,28 @@ Automated tests cover:
 - Protocol validation, stale revision rejection, and snapshot round trips.
 - Bubble auto-hide, restoration, positioning, and busy-state behavior.
 
-Physical verification requires Xbox and DualShock 4 controllers and the active Android phone. It covers Launcher navigation, representative scrolling applications, RB6, DualShock touchpad mouse behavior, reconnects, mode changes, battery notifications when reproducible, and engine independence.
+Physical verification requires Xbox and DualShock 4 controllers and the active Android phone. It covers Launcher navigation, representative scrolling applications, native-controller games, touch-oriented games, touchpad and stick pointer behavior, reconnects, mode changes, battery notifications when reproducible, and engine independence.
 
-### Mandatory RB6 Release Gate
+### Cross-Application Compatibility Gate
 
-1. Enter RB6 in Game mode.
-2. Complete a match.
-3. Return to the game menu.
-4. Repeat for at least five consecutive matches.
-5. Start and stop VisionEngine between cycles.
-6. Visit Launcher or another app, return to RB6, and continue.
-7. Confirm buttons, sticks, triggers, and DualShock touchpad behavior without manual controller reconnection.
+The physical matrix must include, when installed and legally available on the test phone:
 
-Any controller loss in these cycles fails the release gate. Using `Reactivate controller` does not convert a failed run into a pass. Android `1.4.25` is not ready for release until this gate passes physically.
+- RB6 and Call of Duty Mobile in Game mode for native gamepad behavior.
+- Piano Tiles 3 and Clash Royale in UI mode for pointer and click behavior.
+- Instagram, Facebook, and TikTok in UI mode for navigation, pointer selection, Back, and scrolling.
+- Android Launcher and system surfaces in UI mode.
+
+Passing one title does not establish general compatibility. Failures must be classified as NOVORA defects, unsupported application input behavior, or application policy restrictions with reproducible evidence. No claim of universal Play Store compatibility may be made from a finite test set; the release claim is standards-based compatibility plus the documented physical matrix.
+
+### Mandatory Multi-Game Reliability Gate
+
+1. Enter RB6 in Game mode, complete a match, and return to its menu.
+2. Repeat for at least five consecutive RB6 matches.
+3. Repeat the available equivalent match/menu cycles in Call of Duty Mobile.
+4. Start and stop VisionEngine between cycles.
+5. Visit Launcher and a UI-mode application, return to each game, and continue.
+6. Exercise pointer and click interaction in Piano Tiles 3 and Clash Royale in UI mode.
+7. Exercise navigation, pointer selection, Back, and scrolling in Instagram, Facebook, and TikTok.
+8. Confirm buttons, sticks, triggers, pointer, click, scroll, and DualShock touchpad behavior without manual controller reconnection.
+
+Any NOVORA-caused controller loss in these cycles fails the release gate. Using `Reactivate controller` does not convert a failed run into a pass. An application that rejects standard Android input must be documented with evidence and must not be falsely presented as supported. Android `1.4.25` is not ready for release until the applicable matrix passes physically.
