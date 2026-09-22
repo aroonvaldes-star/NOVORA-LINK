@@ -185,9 +185,12 @@ public sealed class NLAndroidUIActivity : Activity
         Card(() => {
             Label("Destino del control", 15);
             Muted("Juego entrega el mando exclusivamente a Android. UI permite navegar aplicaciones y usar el puntero compatible.");
-            _exInGameMode = DetachedButton("Juego", () => SendAsync("exin.mode", "Game"), true);
-            _exInUiMode = DetachedButton("UI", () => SendAsync("exin.mode", "Ui"));
-            AddButtonRow(_exInGameMode, _exInUiMode);
+            var modes = NLAndroidUIExInPage.ModeSelector(this,
+                () => SendAsync("exin.mode", "Game"),
+                () => SendAsync("exin.mode", "Ui"));
+            _exInGameMode = modes.Game;
+            _exInUiMode = modes.Ui;
+            _body.AddView(modes.View, new LinearLayout.LayoutParams(-1, Dp(48)));
             _exInReactivate = DetachedButton("Reactivar control", () => SendAsync("exin.reactivate"));
             AddButtonRow(_exInReactivate);
         });
@@ -199,11 +202,8 @@ public sealed class NLAndroidUIActivity : Activity
         Card(() => {
             Label("Prueba en vivo", 17);
             Muted("Monitoreo de señales físicas recibido desde NOVORA PC.");
-            _exInLive = new TextView(this) { TextSize = 14, Typeface = Typeface.Monospace };
-            _exInLive.SetTextColor(Color.ParseColor(Palette.Text));
-            _exInLive.SetPadding(Dp(12), Dp(14), Dp(12), Dp(14));
-            _exInLive.Background = NLAndroidUIVisual.Surface(this, Palette.Navigation, Palette.Border, 6);
-            _body.AddView(_exInLive, new LinearLayout.LayoutParams(-1, Dp(226)));
+            _exInLive = NLAndroidUIExInPage.LivePanel(this);
+            _body.AddView(_exInLive, new LinearLayout.LayoutParams(-1, -2));
         });
         Card(() => {
             Label("Calibración automática del Engine", 17);
@@ -250,6 +250,7 @@ public sealed class NLAndroidUIActivity : Activity
         RowLink("Volver a Control", Android.Resource.Drawable.IcMediaPrevious, () => { ShowPage(_dashboardPage); return Task.CompletedTask; });
         Label("Configuraciones", 26);
         Muted("Control de NOVORA PC · valores confirmados por Windows");
+        _body.AddView(NLAndroidUIVisionSettingsPage.VideoSection(this));
         Card(() => {
             Label("VIDEO", 15);
             _monitor = SettingRow("Monitor del PC");
@@ -263,6 +264,7 @@ public sealed class NLAndroidUIActivity : Activity
             Muted("La salida de audio se controla desde Multimedia.");
         });
         _restart = Button("Aplicar cambios y reiniciar VE", ConfirmRestartAsync);
+        _body.AddView(NLAndroidUIVisionSettingsPage.ApplyHint(this));
         _settingsStatus = Muted("Elige todos los ajustes y aplícalos juntos. Si estás grabando, termina la grabación antes de reiniciar VE.");
         Card(() => {
             RowLink("LinkEngine", Android.Resource.Drawable.IcMenuShare, () => InfoAsync("LinkEngine", "Conexión: " + (_service?.Session.Current.Transport ?? "sin conexión") + "\n\nUSB físico es obligatorio para iniciar Internet por LinkEngine. Android puede pedir permiso VPN porque el túnel usa la API nativa de red; no se muestra como función separada de la UI.\n\n" + NOVORA.AndroidVpn.NLAndroidVpnService.Status));

@@ -6,6 +6,15 @@ namespace NOVORA.Tests.Test;
 public sealed class NLTestExInModes
 {
     [Fact]
+    public void Reactivation_contract_has_no_floating_ui_dependency()
+    {
+        var method = typeof(ExInCoreEngine).GetMethod(nameof(ExInCoreEngine.ReactivateAsync));
+
+        Assert.NotNull(method);
+        Assert.Equal([typeof(CancellationToken)], method.GetParameters().Select(parameter => parameter.ParameterType));
+    }
+
+    [Fact]
     public async Task Switch_neutralizes_destroys_and_recreates()
     {
         RecordingOutputVE output = new();
