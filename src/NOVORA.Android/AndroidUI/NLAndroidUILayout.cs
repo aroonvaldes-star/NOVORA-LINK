@@ -9,8 +9,9 @@ public static class NLAndroidUILayout
 {
     public static void Prepare(View root, Context context)
     {
-        int padding = (int)(16 * context.Resources!.DisplayMetrics!.Density);
-        root.SetBackgroundColor(Color.ParseColor("#10191E"));
+        NLAndroidUIPalette palette = NLAndroidUITheme.Current(context);
+        int padding = NLAndroidUIVisual.Dp(context, palette.PagePadding);
+        root.SetBackgroundColor(Color.ParseColor(palette.Background));
         root.SetPadding(padding, padding, padding, padding);
         root.SetOnApplyWindowInsetsListener(new Insets(padding));
     }
