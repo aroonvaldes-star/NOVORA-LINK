@@ -216,6 +216,7 @@ public sealed class NLAndroidUIActivity : Activity
 
         _filesPage = CreatePage(pages);
         PageHeader();
+        _body.AddView(NLAndroidUIFilesPage.Heading(this));
         Card(() => {
             Label("Archivos", 15);
             AddButtonRow(
@@ -228,6 +229,7 @@ public sealed class NLAndroidUIActivity : Activity
 
         _mediaPage = CreatePage(pages);
         PageHeader();
+        _body.AddView(NLAndroidUIMultimediaPage.Heading(this));
         Card(() => {
             Label("Multimedia", 15);
             _phoneAudio = ReadOnlySwitch("Audio interno teléfono");

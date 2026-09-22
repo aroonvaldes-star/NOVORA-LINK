@@ -3,6 +3,7 @@ using Android.Content;
 using Android.OS;
 using Android.Provider;
 using Android.Widget;
+using Android.Graphics;
 using NOVORA.AndroidService;
 using Uri = Android.Net.Uri;
 
@@ -43,22 +44,27 @@ public sealed class NLAndroidUIFilesActivity : Activity
     {
         base.OnCreate(state);
         var layout = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        layout.SetPadding(24, 24, 24, 24);
-        layout.SetBackgroundColor(Android.Graphics.Color.Rgb(16, 24, 30));
+        var palette = NLAndroidUITheme.Current(this);
+        int padding = NLAndroidUIVisual.Dp(this, palette.PagePadding);
+        layout.SetPadding(padding, padding, padding, padding);
+        layout.SetBackgroundColor(Color.ParseColor(palette.Background));
         _status = new TextView(this) { Text = "Elige la carpeta NOVORA del almacenamiento interno. Los archivos se organizan por tipo.", TextSize = 18 };
-        _status.SetTextColor(Android.Graphics.Color.White);
+        _status.SetTextColor(Color.ParseColor(palette.Text));
         layout.AddView(_status);
         var choose = new Button(this) { Text = "Elegir o crear carpeta NOVORA" };
+        NLAndroidUIVisual.Button(choose, true);
         choose.Click += (_, _) => StartActivityForResult(new Intent(Intent.ActionOpenDocumentTree)
             .AddFlags(ActivityFlags.GrantReadUriPermission | ActivityFlags.GrantWriteUriPermission | ActivityFlags.GrantPersistableUriPermission | ActivityFlags.GrantPrefixUriPermission), 1);
         layout.AddView(choose);
         foreach (string category in new[] { "Imagenes", "Videos", "Audio", "Documentos", "Comprimidos", "Instaladores", "Otros" })
         {
             var button = new Button(this) { Text = category };
+            NLAndroidUIVisual.Button(button);
             button.Click += (_, _) => OpenCategory(category);
             layout.AddView(button);
         }
         var send = new Button(this) { Text = "Enviar archivos a PC" };
+        NLAndroidUIVisual.Button(send);
         send.Click += (_, _) => StartActivity(new Intent(this, typeof(NLAndroidUIShareActivity)));
         layout.AddView(send);
         var scroll = new ScrollView(this); scroll.AddView(layout); NLAndroidUILayout.Prepare(scroll, this); SetContentView(scroll);

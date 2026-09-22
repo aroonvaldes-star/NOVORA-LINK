@@ -47,7 +47,8 @@ public sealed class NLAndroidUIFloatingSettingsActivity : Activity
     {
         var scroll = new ScrollView(this);
         scroll.SetOnApplyWindowInsetsListener(new SettingsInsets());
-        scroll.SetBackgroundColor(Color.ParseColor("#10191E"));
+        NLAndroidUIPalette palette = NLAndroidUITheme.Current(this);
+        scroll.SetBackgroundColor(Color.ParseColor(palette.Background));
         _body = new LinearLayout(this) { Orientation = Orientation.Vertical };
         _body.SetPadding(Dp(20), Dp(28), Dp(20), Dp(24));
         scroll.AddView(_body); SetContentView(scroll);
@@ -60,9 +61,14 @@ public sealed class NLAndroidUIFloatingSettingsActivity : Activity
         });
         Label("Aparece al salir de NOVORA mientras VisionEngine esté activo. Puedes moverlo, plegarlo u ocultarlo. La burbuja puede aparecer en la transmisión y grabación.");
         var enabled = new Switch(this) { Text = "Usar control flotante", Checked = NLAndroidUIFloatingPreferences.IsEnabled(this) };
-        enabled.SetTextColor(Color.White); enabled.SetPadding(0, Dp(12), 0, Dp(12));
-        enabled.CheckedChange += (_, e) => NLAndroidUIFloatingPreferences.SetEnabled(this, e.IsChecked);
+        enabled.SetTextColor(Color.ParseColor(palette.Text)); enabled.SetPadding(0, Dp(12), 0, Dp(12));
+        enabled.CheckedChange += (_, e) => { NLAndroidUIFloatingPreferences.SetEnabled(this, e.IsChecked); Render(); };
         _body.AddView(enabled);
+        if (!enabled.Checked)
+        {
+            Label("El control flotante está desactivado. ExInEngine conserva su modo y sesión.");
+            return;
+        }
         Label(Settings.CanDrawOverlays(this) ? "Permiso para mostrar sobre otras aplicaciones: concedido." : "Falta el permiso para mostrar sobre otras aplicaciones.");
         AddButton("Configurar permiso de Android", () =>
         {
@@ -72,7 +78,7 @@ public sealed class NLAndroidUIFloatingSettingsActivity : Activity
         Label("La burbuja y su panel son visibles en VisionEngine y sus grabaciones.");
         int opacity = NLAndroidUIFloatingPreferences.BubbleOpacity(this);
         var opacityLabel = new TextView(this) { Text = $"Opacidad de la burbuja: {opacity} %", TextSize = 16 };
-        opacityLabel.SetTextColor(Color.White); opacityLabel.SetPadding(0, Dp(10), 0, Dp(6)); _body.AddView(opacityLabel);
+        opacityLabel.SetTextColor(Color.ParseColor(palette.Text)); opacityLabel.SetPadding(0, Dp(10), 0, Dp(6)); _body.AddView(opacityLabel);
         var opacitySlider = new SeekBar(this) { Max = 80, Progress = opacity - 20, ContentDescription = "Opacidad de la burbuja, de 20 a 100 por ciento" };
         opacitySlider.SetOnSeekBarChangeListener(new OpacityListener(this, opacityLabel));
         _body.AddView(opacitySlider, new LinearLayout.LayoutParams(-1, -2));
@@ -115,7 +121,7 @@ public sealed class NLAndroidUIFloatingSettingsActivity : Activity
         list.ItemClick += (_, e) => { if (e.Position < 0 || e.Position >= filtered.Length) return; NLAndroidUIFloatingPreferences.SaveFavorites(this, NLAndroidUIFloatingPreferences.Favorites(this).Append(filtered[e.Position].Package)); dialog.Dismiss(); Render(); };
         dialog.Show();
     }
-    private void Label(string text, int size = 14) { var label = new TextView(this) { Text = text, TextSize = size }; label.SetTextColor(Color.White); label.SetPadding(0, Dp(10), 0, Dp(6)); _body.AddView(label); }
+    private void Label(string text, int size = 14) { var label = new TextView(this) { Text = text, TextSize = size }; label.SetTextColor(Color.ParseColor(NLAndroidUITheme.Current(this).Text)); label.SetPadding(0, Dp(10), 0, Dp(6)); _body.AddView(label); }
     private void AddButton(string text, Action action) { var button = new Button(this) { Text = text }; NLAndroidUIVisual.Button(button); button.Click += (_, _) => action(); _body.AddView(button, new LinearLayout.LayoutParams(-1, -2)); }
     private Button SmallButton(LinearLayout row, string text, Action action) { var button = new Button(this) { Text = text }; NLAndroidUIVisual.Button(button); button.Click += (_, _) => action(); row.AddView(button, new LinearLayout.LayoutParams(0, -2, 1)); return button; }
     private sealed class SettingsInsets : Java.Lang.Object, View.IOnApplyWindowInsetsListener

@@ -3,6 +3,7 @@ using Android.Content;
 using Android.OS;
 using Android.Provider;
 using Android.Widget;
+using Android.Graphics;
 using NOVORA.AndroidService;
 using NOVORA.Control;
 using Uri = Android.Net.Uri;
@@ -28,13 +29,22 @@ public sealed class NLAndroidUIShareActivity : Activity
     {
         base.OnCreate(savedInstanceState);
         var layout = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        layout.SetPadding(24, 24, 24, 24);
+        NLAndroidUIPalette palette = NLAndroidUITheme.Current(this);
+        int padding = NLAndroidUIVisual.Dp(this, palette.PagePadding);
+        layout.SetPadding(padding, padding, padding, padding);
+        layout.SetBackgroundColor(Color.ParseColor(palette.Background));
         _status = new TextView(this) { Text = "Conecta NOVORA con tu PC antes de enviar.", TextSize = 20 };
         _selection = new TextView(this) { TextSize = 16 };
         _pick = new Button(this) { Text = "Elegir archivos" };
         _send = new Button(this) { Text = "Enviar a la PC", Enabled = false };
         _stop = new Button(this) { Text = "Cancelar envío", Enabled = false };
         var open = new Button(this) { Text = "Abrir NOVORA para conectar" };
+        _status.SetTextColor(Color.ParseColor(palette.Text));
+        _selection.SetTextColor(Color.ParseColor(palette.Muted));
+        NLAndroidUIVisual.Button(_pick);
+        NLAndroidUIVisual.Button(_send, true);
+        NLAndroidUIVisual.Button(_stop);
+        NLAndroidUIVisual.Button(open);
         foreach (var view in new Android.Views.View[] { _status, _selection, _pick, _send, _stop, open }) layout.AddView(view);
         var scroll = new ScrollView(this); scroll.AddView(layout); NLAndroidUILayout.Prepare(scroll, this); SetContentView(scroll);
         _pick.Click += (_, _) =>

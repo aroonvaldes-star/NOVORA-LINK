@@ -35,19 +35,22 @@ public sealed class NLAndroidUIQrActivity : Activity, ISurfaceHolderCallback, Ca
     {
         base.OnCreate(savedInstanceState);
         Window?.AddFlags(WindowManagerFlags.Secure);
+        NLAndroidUIPalette palette = NLAndroidUITheme.Current(this);
         var body = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        body.SetBackgroundColor(Color.ParseColor("#151A20"));
+        body.SetBackgroundColor(Color.ParseColor(palette.Background));
         _message = new TextView(this)
         {
             Text = "Apunta al QR de enlace LAN que muestra HOME de NOVORA PC.", TextSize = 17
         };
-        _message.SetTextColor(Color.ParseColor("#F2F5F7"));
-        _message.SetPadding(24, 24, 24, 24);
+        _message.SetTextColor(Color.ParseColor(palette.Text));
+        int padding = NLAndroidUIVisual.Dp(this, palette.PagePadding);
+        _message.SetPadding(padding, padding, padding, padding);
         body.AddView(_message);
         _preview = new SurfaceView(this);
         _preview.Holder!.AddCallback(this);
         body.AddView(_preview, new LinearLayout.LayoutParams(-1, 0, 1));
         var close = new Button(this) { Text = "Cancelar" };
+        NLAndroidUIVisual.Button(close);
         close.Click += (_, _) => Finish();
         body.AddView(close, new LinearLayout.LayoutParams(-1, -2));
         SetContentView(body);
