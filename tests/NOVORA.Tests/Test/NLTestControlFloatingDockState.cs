@@ -6,6 +6,12 @@ namespace NOVORA.Tests.Test;
 public sealed class NLTestControlFloatingDockState
 {
     [Fact]
+    public void Removing_overlay_has_no_engine_side_effect()
+    {
+        Assert.Null(NLControlFloatingDockState.CommandOnRemoval);
+    }
+
+    [Fact]
     public void Docks_only_after_four_idle_seconds_when_interaction_is_clear()
     {
         Assert.False(NLControlFloatingDockState.ShouldDock(TimeSpan.FromMilliseconds(3999), false, false, false));

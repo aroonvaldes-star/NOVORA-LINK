@@ -11,16 +11,19 @@ internal static class NLAndroidUIFloatingInline
 {
     internal static void Build(Activity host, LinearLayout body)
     {
+        NLAndroidUIPalette palette = NLAndroidUITheme.Current(host);
         int Dp(int n) => NLAndroidUIVisual.Dp(host, n);
-        void Label(string value) { var text = new TextView(host) { Text = value, TextSize = 14 }; text.SetTextColor(Color.White); text.SetPadding(0,Dp(8),0,Dp(8)); body.AddView(text); }
+        void Label(string value) { var text = new TextView(host) { Text = value, TextSize = 14 }; text.SetTextColor(Color.ParseColor(palette.Text)); text.SetPadding(0,Dp(8),0,Dp(8)); body.AddView(text); }
         void Button(string label, Action action) {
             var button = new Button(host) { Text = label }; NLAndroidUIVisual.Button(button);
             button.Click += (_,_) => { try { action(); } catch (ActivityNotFoundException) { Toast.MakeText(host,"Abre este permiso desde Ajustes de Android.",ToastLength.Long)?.Show(); } };
             body.AddView(button,new LinearLayout.LayoutParams(-1,-2));
         }
         Label("BURBUJA Y APLICACIONES");
-        var enabled = new Switch(host) { Text = "Usar burbuja con VE", Checked = NLAndroidUIFloatingPreferences.IsEnabled(host) }; enabled.SetTextColor(Color.White);
-        enabled.CheckedChange += (_,e) => NLAndroidUIFloatingPreferences.SetEnabled(host,e.IsChecked); body.AddView(enabled);
+        var enabled = new Switch(host) { Text = "Usar burbuja con VE", Checked = NLAndroidUIFloatingPreferences.IsEnabled(host) }; enabled.SetTextColor(Color.ParseColor(palette.Text));
+        body.AddView(enabled);
+        int dependencyStart = body.ChildCount;
+        enabled.CheckedChange += (_,e) => { NLAndroidUIFloatingPreferences.SetEnabled(host,e.IsChecked); SetDetailsVisible(e.IsChecked); };
         Label("La burbuja y el panel se muestran en VE y en sus grabaciones.");
         Button("Permiso para mostrar la burbuja", () => host.StartActivity(new Intent(Settings.ActionManageOverlayPermission, Android.Net.Uri.Parse("package:" + host.PackageName))));
         Label("Opacidad de la burbuja");
@@ -58,5 +61,12 @@ internal static class NLAndroidUIFloatingInline
             list.ItemClick += (_,e)=> { if(e.Position<0 || e.Position>=filtered.Length) return; NLAndroidUIFloatingPreferences.SaveFavorites(host,selected.Append(filtered[e.Position].Package)); RenderFavorites(); dialog.Dismiss(); };
             dialog.Show();
         });
+        SetDetailsVisible(enabled.Checked);
+
+        void SetDetailsVisible(bool visible)
+        {
+            for (int index = dependencyStart; index < body.ChildCount; index++)
+                body.GetChildAt(index)!.Visibility = visible ? ViewStates.Visible : ViewStates.Gone;
+        }
     }
 }

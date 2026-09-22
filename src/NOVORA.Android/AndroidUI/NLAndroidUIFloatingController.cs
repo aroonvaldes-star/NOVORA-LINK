@@ -114,13 +114,14 @@ public sealed class NLAndroidUIFloatingController : IDisposable
     }
     private void Create()
     {
+        NLAndroidUIPalette palette = NLAndroidUITheme.Current(_context);
         _view = new LinearLayout(_context) { Orientation = Orientation.Vertical };
         var bubble = NLAndroidUIVisual.Logo(_context, 56); bubble.Clickable = true;
         bubble.Alpha = NLAndroidUIFloatingPreferences.BubbleOpacity(_context) / 100f;
         bubble.ContentDescription = "NOVORA: abrir controles. Mantén y arrastra para mover.";
         bubble.SetPadding(Dp(8), Dp(8), Dp(8), Dp(8));
         bubble.ClipToOutline = true;
-        var background = new GradientDrawable(); background.SetColor(Color.ParseColor("#E6202D35")); background.SetCornerRadius(Dp(28)); background.SetStroke(Dp(1), Color.Cyan); bubble.Background = background;
+        var background = new GradientDrawable(); background.SetColor(Color.ParseColor(palette.SurfaceRaised)); background.SetCornerRadius(Dp(28)); background.SetStroke(Dp(1), Color.ParseColor(palette.Accent)); bubble.Background = background;
         _view.AddView(bubble, new LinearLayout.LayoutParams(Dp(56), Dp(56)));
         bubble.Click += (_, _) =>
         {
@@ -131,7 +132,7 @@ public sealed class NLAndroidUIFloatingController : IDisposable
         };
         bubble.SetOnTouchListener(new DragListener(this));
         _panel = new LinearLayout(_context) { Orientation = Orientation.Vertical }; _panel.SetPadding(Dp(12), Dp(8), Dp(12), Dp(12));
-        _panel.Background = NLAndroidUIVisual.Surface(_context, "#192329", "#40545F", 18);
+        _panel.Background = NLAndroidUIVisual.Surface(_context, palette.Surface, palette.Border);
         var scroll = new ScrollView(_context); scroll.AddView(_panel);
         _view.AddView(scroll, new LinearLayout.LayoutParams(Dp(300), -2));
         _layout = new WindowManagerLayoutParams(-2, -2, WindowManagerTypes.ApplicationOverlay,
@@ -192,7 +193,8 @@ public sealed class NLAndroidUIFloatingController : IDisposable
         var header = new LinearLayout(_context) { Orientation = Orientation.Horizontal };
         header.SetGravity(GravityFlags.CenterVertical); _panel.AddView(header);
         header.AddView(NLAndroidUIVisual.Logo(_context, 30));
-        var name = new TextView(_context) { Text = "NOVORA", TextSize = 14 }; name.SetTextColor(Color.White); name.SetPadding(Dp(8),0,0,0);
+        NLAndroidUIPalette palette = NLAndroidUITheme.Current(_context);
+        var name = new TextView(_context) { Text = "NOVORA", TextSize = 14 }; name.SetTextColor(Color.ParseColor(palette.Text)); name.SetPadding(Dp(8),0,0,0);
         header.AddView(name, new LinearLayout.LayoutParams(0,-2,1));
         var close = new Button(_context) { Text = "Cerrar", ContentDescription = "Plegar herramientas" }; NLAndroidUIVisual.Button(close); close.TextSize = 11;
         close.Click += (_,_) => { _expanded = false; _renderKey = null; Refresh(); };
@@ -271,8 +273,9 @@ public sealed class NLAndroidUIFloatingController : IDisposable
         var button = new Button(_context) { Text = text, Enabled = enabled }; NLAndroidUIVisual.Button(button);
         button.TextSize = 11; button.SetMinHeight(Dp(82)); button.SetMinimumHeight(Dp(82));
         button.SetMaxLines(2); button.Ellipsize = Android.Text.TextUtils.TruncateAt.End;
-        button.Background = NLAndroidUIVisual.Surface(_context, "#232F37", "#32444E", 10);
-        var icon = _context.GetDrawable(iconResource)!.Mutate(); icon.SetTint(Color.ParseColor("#DDECF4")); icon.SetBounds(0,0,Dp(27),Dp(27));
+        NLAndroidUIPalette palette = NLAndroidUITheme.Current(_context);
+        button.Background = NLAndroidUIVisual.Surface(_context, palette.SurfaceRaised, palette.Border);
+        var icon = _context.GetDrawable(iconResource)!.Mutate(); icon.SetTint(Color.ParseColor(palette.Text)); icon.SetBounds(0,0,Dp(27),Dp(27));
         button.SetCompoundDrawables(null,icon,null,null); button.CompoundDrawablePadding = Dp(5);
         var lp = new LinearLayout.LayoutParams(0,Dp(104),1); lp.SetMargins(Dp(4),Dp(6),Dp(4),Dp(6)); row.AddView(button,lp);
         button.Click += async (_,_) => { button.Enabled = false; try { await action(); } catch(Exception ex) { Toast.MakeText(_context,ex.Message,ToastLength.Long)?.Show(); } finally { if(!_disposed) { _renderKey = null; Refresh(); } } };
@@ -364,7 +367,7 @@ public sealed class NLAndroidUIFloatingController : IDisposable
         Launch(intent);
     }
     private void Launch(Intent intent) { intent.AddFlags(ActivityFlags.NewTask); _context.StartActivity(intent); _expanded = false; }
-    private void Label(string text, int size) { var view = new TextView(_context) { Text = text, TextSize = size }; view.SetTextColor(Color.White); view.SetPadding(0, Dp(6), 0, Dp(6)); _panel!.AddView(view); }
+    private void Label(string text, int size) { var view = new TextView(_context) { Text = text, TextSize = size }; view.SetTextColor(Color.ParseColor(NLAndroidUITheme.Current(_context).Text)); view.SetPadding(0, Dp(6), 0, Dp(6)); _panel!.AddView(view); }
     private Button Button(string text, Func<Task> action, bool enabled = true)
     {
         var button = new Button(_context) { Text = text, Enabled = enabled }; NLAndroidUIVisual.Button(button);

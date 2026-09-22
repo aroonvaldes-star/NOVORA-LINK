@@ -8,6 +8,8 @@ public enum NLControlDockEdge
 
 public static class NLControlFloatingDockState
 {
+    public static string? CommandOnRemoval => null;
+
     public static readonly TimeSpan InactivityDelay = TimeSpan.FromSeconds(4);
 
     public static bool ShouldDock(TimeSpan inactiveFor, bool expanded, bool busy, bool dragging)
