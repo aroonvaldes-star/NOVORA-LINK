@@ -115,6 +115,7 @@ public sealed class NLAndroidUIActivity : Activity
 
         _connectionPage = CreatePage(pages);
         PageHeader();
+        _body.AddView(NLAndroidUIConnectPage.UsbPriorityLabel(this));
         Card(() => {
             Label("Conexión principal", 15);
             _usbState = StatusLine("USB físico", "No detectado");
@@ -123,6 +124,7 @@ public sealed class NLAndroidUIActivity : Activity
                 _cancel = DetachedButton("Desconectar", DisconnectAsync));
             Muted("USB es indispensable para LinkEngine.");
         });
+        _body.AddView(NLAndroidUIConnectPage.AuxiliaryLabel(this));
         Card(() => {
             Label("NOVORA PC ↔ Android", 15);
             StatusLine("Método de emparejamiento", "QR");
@@ -144,6 +146,7 @@ public sealed class NLAndroidUIActivity : Activity
 
         _enginesPage = CreatePage(pages);
         PageHeader();
+        _body.AddView(NLAndroidUIEnginesPage.IndependentLabel(this));
         Card(() => {
             Label("Engines de NOVORA-LINK", 15);
             _engineLinkState = EngineStatusRow("LinkEngine", "Enlace NOVORA PC ↔ Android · USB obligatorio");
@@ -300,7 +303,7 @@ public sealed class NLAndroidUIActivity : Activity
         var title = Label("NOVORA-LINK", 20);
         title.SetTypeface(null, TypefaceStyle.Bold);
         title.SetPadding(0, Dp(2), 0, 0);
-        var product = Muted("ANDROID · AppControl · v1.4.26");
+        var product = Muted("ANDROID · AppControl · v1.4.27");
         product.TextSize = 10;
         var state = Muted("●  USB OFF  ·  0/4 Engines activos");
         state.TextSize = 11;
@@ -342,13 +345,7 @@ public sealed class NLAndroidUIActivity : Activity
     }
     private Button HomeTile(string title, string subtitle, Action action)
     {
-        var button = new Button(this) { Text = $"{title}\n{subtitle}", TextSize = 12, Gravity = GravityFlags.Left | GravityFlags.CenterVertical };
-        button.SetAllCaps(false);
-        button.SetTextColor(Color.ParseColor(Palette.Text));
-        button.SetPadding(Dp(12), Dp(8), Dp(8), Dp(8));
-        button.Background = NLAndroidUIVisual.Surface(this, Palette.Surface, Palette.Border, 8);
-        button.Click += (_, _) => action();
-        return button;
+        return NLAndroidUIHomePage.Action(this, title, subtitle, action);
     }
     private Task ToggleExInCalibrationAsync() => SendAsync(_snapshot?.ExIn?.Calibrating == true
         ? "exin.calibration.finish" : "exin.calibration.start");
@@ -573,7 +570,7 @@ public sealed class NLAndroidUIActivity : Activity
         var card = new LinearLayout(this) { Orientation = Orientation.Vertical };
         var background = new GradientDrawable();
         background.SetColor(Color.ParseColor(Palette.Surface));
-        background.SetCornerRadius(Dp(12));
+        background.SetCornerRadius(Dp(Palette.CardRadius));
         background.SetStroke(Dp(1), Color.ParseColor(Palette.Border));
         card.Background = background;
         card.SetPadding(Dp(14), Dp(8), Dp(14), Dp(10));
@@ -778,15 +775,7 @@ public sealed class NLAndroidUIActivity : Activity
 
     private ScrollView CreatePage(FrameLayout host)
     {
-        var scroll = new ScrollView(this) { FillViewport = true };
-        _body = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        _body.SetPadding(Dp(18), Dp(8), Dp(18), Dp(20));
-        var lane = new FrameLayout(this);
-        int width = Math.Min(Resources!.DisplayMetrics!.WidthPixels, Dp(480));
-        lane.AddView(_body, new FrameLayout.LayoutParams(width, -2, GravityFlags.Top | GravityFlags.CenterHorizontal));
-        scroll.AddView(lane, new ScrollView.LayoutParams(-1, -2));
-        host.AddView(scroll, new FrameLayout.LayoutParams(-1, -1));
-        return scroll;
+        return NLAndroidUIMainShell.CreatePage(this, host, out _body);
     }
     private void ShowPage(ScrollView page)
     {
@@ -801,7 +790,7 @@ public sealed class NLAndroidUIActivity : Activity
     }
     private void BuildTabs(LinearLayout root)
     {
-        var tabs = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+        var tabs = NLAndroidUIMainShell.BottomNavigation(this);
         tabs.SetPadding(Dp(10), Dp(6), Dp(10), Dp(10));
         tabs.Background = NLAndroidUIVisual.Surface(this, Palette.Navigation, Palette.Border, 0);
         root.AddView(tabs, new LinearLayout.LayoutParams(-1, -2));
@@ -815,12 +804,7 @@ public sealed class NLAndroidUIActivity : Activity
     }
     private Button TabButton(string text, int icon, Action action)
     {
-        var button = new Button(this) { Text = "", ContentDescription = text };
-        button.SetAllCaps(false);
-        button.SetPadding(0, 0, 0, 0);
-        ButtonIcon(button, icon);
-        button.Click += (_, _) => action();
-        return button;
+        return NLAndroidUIComponents.BottomTab(this, text, icon, false, action);
     }
     private void UpdateTabs(ScrollView page)
     {
@@ -833,10 +817,13 @@ public sealed class NLAndroidUIActivity : Activity
     }
     private void SetTabState(Button tab, bool selected)
     {
-        NLAndroidUIVisual.Button(tab, selected);
-        var tint = selected ? Palette.AccentText : Palette.Text;
+        tab.Selected = selected;
+        tab.SetTextColor(Color.ParseColor(selected ? Palette.Accent : Palette.Muted));
+        tab.SetBackgroundColor(Color.Transparent);
+        var tint = selected ? Palette.Accent : Palette.Muted;
         var drawables = tab.GetCompoundDrawables();
-        if (drawables[0] is not null) drawables[0].SetTint(Color.ParseColor(tint));
+        foreach (var drawable in drawables)
+            drawable?.SetTint(Color.ParseColor(tint));
     }
     private sealed class NLAndroidUIInsets : Java.Lang.Object, View.IOnApplyWindowInsetsListener
     {
