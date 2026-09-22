@@ -5,25 +5,6 @@ namespace NOVORA.Tests.Test;
 
 public sealed class NLTestControlFloatingDockState
 {
-    [Theory]
-    [InlineData("Ui", true, false, true)]
-    [InlineData("Game", true, false, false)]
-    [InlineData("Ui", false, false, false)]
-    [InlineData("Ui", true, true, false)]
-    public void Removing_bubble_restores_game_mode_only_when_transition_is_available(
-        string mode,
-        bool canSetMode,
-        bool transitioning,
-        bool expected)
-    {
-        Assert.Equal(
-            expected,
-            NLControlFloatingDockState.ShouldRestoreGameMode(
-                mode,
-                canSetMode,
-                transitioning));
-    }
-
     [Fact]
     public void Docks_only_after_four_idle_seconds_when_interaction_is_clear()
     {

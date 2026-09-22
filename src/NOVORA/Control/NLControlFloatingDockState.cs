@@ -13,14 +13,6 @@ public static class NLControlFloatingDockState
     public static bool ShouldDock(TimeSpan inactiveFor, bool expanded, bool busy, bool dragging)
         => inactiveFor >= InactivityDelay && !expanded && !busy && !dragging;
 
-    public static bool ShouldRestoreGameMode(
-        string? currentMode,
-        bool canSetMode,
-        bool transitioning)
-        => canSetMode &&
-           !transitioning &&
-           string.Equals(currentMode, "Ui", StringComparison.Ordinal);
-
     public static NLControlDockEdge NearestEdge(int x, int surfaceWidth, int bubbleWidth)
     {
         int center = x + Math.Max(0, bubbleWidth) / 2;

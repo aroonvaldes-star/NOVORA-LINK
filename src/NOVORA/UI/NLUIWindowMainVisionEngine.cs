@@ -21,7 +21,6 @@ public partial class NLUIWindowMain
     private Task _exInInitialization = Task.CompletedTask;
     private readonly SemaphoreSlim _exInConnectionGate = new(1, 1);
     private readonly SemaphoreSlim _exInPresentationSyncGateVE = new(1, 1);
-    private bool _exInVisionOutputAttachedVE;
     private VERendererHost? _visionRendererHostVE;
     private VERendererWindow? _visionPresentationWindowVE;
     private VEControlRouter? _visionInputRouterVE;
@@ -1111,8 +1110,6 @@ public partial class NLUIWindowMain
                 _visionEngineVE is not null &&
                 _visionEngineVE.IsRunningVE)
             {
-                await DetachExInFromVisionControlVEAsync();
-
                 VECoreResult stop =
                     await _visionEngineVE
                         .StopAsync();
@@ -1137,8 +1134,6 @@ public partial class NLUIWindowMain
             CloseVisionPresentationVE(
                 restoreMainWindow: true,
                 refreshInformation: true);
-
-            await EnsureExInStandaloneAsync();
 
             UpdateRuntimeButtons();
 
@@ -1348,8 +1343,6 @@ public partial class NLUIWindowMain
 
         if (!running)
         {
-            await DetachExInFromVisionControlVEAsync();
-
             VECoreResult stop =
                 await _visionEngineVE!
                     .StopAsync();
@@ -1440,8 +1433,6 @@ public partial class NLUIWindowMain
             using CancellationTokenSource startupTimeout =
                 new(TimeSpan.FromSeconds(20));
 
-            await PrepareExInForVisionSessionVEAsync();
-
             VECoreResult start =
                 await _visionEngineVE!
                     .StartAsync(
@@ -1465,12 +1456,9 @@ public partial class NLUIWindowMain
 
             if (_closing || authorization?.Invoke() == false)
             {
-                await DetachExInFromVisionControlVEAsync();
                 await _visionEngineVE.StopAsync();
                 throw new InvalidOperationException("Inicio cancelado: la sesión o el dispositivo cambió.");
             }
-
-            await AttachExInToVisionControlVEAsync(startupTimeout.Token);
 
             AttachVisionInputVE();
 
@@ -1483,8 +1471,6 @@ public partial class NLUIWindowMain
         }
         catch (OperationCanceledException)
         {
-            await DetachExInFromVisionControlVEAsync();
-
             try
             {
                 await _visionEngineVE!
@@ -1501,16 +1487,12 @@ public partial class NLUIWindowMain
             CloseVisionPresentationVE(
                 restoreMainWindow: true,
                 refreshInformation: true);
-
-            await EnsureExInStandaloneAsync();
 
             throw new TimeoutException(
                 "VisionEngine no completó el arranque en 20 segundos. Se limpió la sesión USB; vuelve a iniciar una vez.");
         }
         catch
         {
-            await DetachExInFromVisionControlVEAsync();
-
             try
             {
                 await _visionEngineVE!
@@ -1528,55 +1510,7 @@ public partial class NLUIWindowMain
                 restoreMainWindow: true,
                 refreshInformation: true);
 
-            await EnsureExInStandaloneAsync();
-
             throw;
-        }
-    }
-
-    private async Task PrepareExInForVisionSessionVEAsync()
-    {
-        if (_exInControlSession is null || _exInEngine is null)
-            return;
-
-        await _exInConnectionGate.WaitAsync().ConfigureAwait(true);
-        try
-        {
-            await _exInControlSession.StopAsync().ConfigureAwait(true);
-        }
-        finally
-        {
-            _exInConnectionGate.Release();
-        }
-    }
-
-    private async Task AttachExInToVisionControlVEAsync(CancellationToken cancellationToken)
-    {
-        if (_exInVisionOutputAttachedVE || _exInEngine is null || _visionEngineVE is null ||
-            !_viewModel.ExInEnabled)
-            return;
-
-        VEControlManager control = _visionEngineVE.RuntimeVE.ControlVE;
-        if (!control.IsReadyVE)
-            throw new InvalidOperationException("ControlVE no está listo para enlazar ExInEngine.");
-
-        await _exInEngine.AttachOutputAsync(control, cancellationToken).ConfigureAwait(true);
-        _exInVisionOutputAttachedVE = true;
-    }
-
-    private async Task DetachExInFromVisionControlVEAsync()
-    {
-        if (!_exInVisionOutputAttachedVE || _exInEngine is null || _visionEngineVE is null)
-            return;
-
-        VEControlManager control = _visionEngineVE.RuntimeVE.ControlVE;
-        try
-        {
-            await _exInEngine.DetachOutputAsync(control).ConfigureAwait(true);
-        }
-        finally
-        {
-            _exInVisionOutputAttachedVE = false;
         }
     }
 
@@ -2080,8 +2014,6 @@ public partial class NLUIWindowMain
         {
             if (_visionEngineVE.IsRunningVE)
             {
-                await DetachExInFromVisionControlVEAsync();
-
                 await _visionEngineVE
                     .StopAsync();
             }
