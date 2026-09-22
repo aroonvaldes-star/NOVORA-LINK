@@ -7,8 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>NOVORA.AndroidApp</RootNamespace>
     <ApplicationId>com.novora.appcontrol</ApplicationId>
-    <ApplicationVersion>27</ApplicationVersion>
-    <ApplicationDisplayVersion>1.4.27</ApplicationDisplayVersion>
+    <ApplicationVersion>28</ApplicationVersion>
+    <ApplicationDisplayVersion>1.4.28</ApplicationDisplayVersion>
     <ApplicationTitle>NOVORA-LINK</ApplicationTitle>
     <AndroidManifest>Properties\NLPropertiesAndroidManifest.xml</AndroidManifest>
     <AndroidPackageFormats>apk</AndroidPackageFormats>

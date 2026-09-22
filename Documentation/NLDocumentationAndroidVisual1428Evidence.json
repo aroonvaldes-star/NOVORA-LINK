@@ -1,0 +1,38 @@
+{
+  "SchemaVersion": 1,
+  "Release": {
+    "PackageId": "com.novora.appcontrol",
+    "VersionCode": 28,
+    "VersionName": "1.4.28",
+    "MinSdk": 26,
+    "TargetSdk": 36,
+    "Sha256": "12740C9238043D813087E84E300D9E0ADAA8A685044078FD160835B2ED86DB30"
+  },
+  "AutomatedVerification": {
+    "DesktopReleaseBuild": "passed: 0 warnings, 0 errors",
+    "AndroidReleaseCompile": "passed: 0 warnings, 0 errors",
+    "SignedAndroidPackage": "passed: 0 warnings, 0 errors",
+    "Tests": "passed: 388/388",
+    "BinaryManifestInspection": "passed: package/version/minSdk/targetSdk confirmed"
+  },
+  "PhysicalDevice": {
+    "Serial": "R5CY3118MEW",
+    "Model": "SM_A566E",
+    "Install": "passed",
+    "Launch": "passed: MainActivity reported Status ok",
+    "InstalledManifest": "passed: versionCode 28, versionName 1.4.28, minSdk 26, targetSdk 36",
+    "VisualInspection": "pending: NotificationShade/keyguard remained focused during capture",
+    "DarkLightAndFontScale": "pending",
+    "OverlayFoldedExpandedAndDisabled": "pending",
+    "UsbAndLanDiscovery": "pending",
+    "VisionEngineStartStop": "pending",
+    "ExInWithVisionFullscreen": "pending",
+    "ExInWithoutOverlay": "pending",
+    "FilesCaptureRecordingReconnect": "pending"
+  },
+  "StaticContracts": {
+    "OverlayRemovalEngineCommand": null,
+    "FloatingExInCommands": "explicit visible Game/UI/reactivate controls only",
+    "EngineOwnership": "UI components own no transport, engine, recovery, or session"
+  }
+}

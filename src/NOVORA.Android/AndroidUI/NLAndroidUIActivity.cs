@@ -307,7 +307,7 @@ public sealed class NLAndroidUIActivity : Activity
         var title = Label("NOVORA-LINK", 20);
         title.SetTypeface(null, TypefaceStyle.Bold);
         title.SetPadding(0, Dp(2), 0, 0);
-        var product = Muted("ANDROID · AppControl · v1.4.27");
+        var product = Muted("ANDROID · AppControl · v1.4.28");
         product.TextSize = 10;
         var state = Muted("●  USB OFF  ·  0/4 Engines activos");
         state.TextSize = 11;
