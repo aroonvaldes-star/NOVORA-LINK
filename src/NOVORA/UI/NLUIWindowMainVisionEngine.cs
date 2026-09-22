@@ -20,6 +20,7 @@ public partial class NLUIWindowMain
     private ExInControlSession? _exInControlSession;
     private Task _exInInitialization = Task.CompletedTask;
     private readonly SemaphoreSlim _exInConnectionGate = new(1, 1);
+    private readonly SemaphoreSlim _exInPresentationSyncGateVE = new(1, 1);
     private VERendererHost? _visionRendererHostVE;
     private VERendererWindow? _visionPresentationWindowVE;
     private VEControlRouter? _visionInputRouterVE;
@@ -553,16 +554,7 @@ public partial class NLUIWindowMain
             return;
         }
 
-        try
-        {
-            if (_exInEngine is not null)
-                await _exInEngine.Manager.ResyncConnectedDevicesVEAsync();
-        }
-        catch (Exception ex)
-        {
-            _viewModel.ConnectionStatus =
-                $"ExInEngine: {ex.Message}";
-        }
+        await SynchronizeExInDevicesAfterPresentationAsync();
     }
 
     // ============================================================
@@ -716,16 +708,23 @@ public partial class NLUIWindowMain
 
     private async Task SynchronizeExInDevicesAfterPresentationAsync()
     {
+        if (!await _exInPresentationSyncGateVE.WaitAsync(0).ConfigureAwait(true))
+            return;
+
         try
         {
             await _exInInitialization.ConfigureAwait(true);
             if (!_closing && _exInEngine is not null)
-                await _exInEngine.Manager.SynchronizeDevicesAsync().ConfigureAwait(true);
+                await _exInEngine.Manager.ResyncConnectedDevicesVEAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
         {
             if (!_closing)
                 _viewModel.ConnectionStatus = "ExInEngine: " + ex.Message;
+        }
+        finally
+        {
+            _exInPresentationSyncGateVE.Release();
         }
     }
 
