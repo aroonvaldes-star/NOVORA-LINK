@@ -10,6 +10,7 @@ namespace NOVORA.VisionEngine.Server;
 /// Block B activa video + audio + control, pero el renderer de imagen sigue apagado.
 /// </summary>
 public sealed record VEServerOptions(
+    bool VideoEnabled,
     VEProtocolCodec VideoCodec,
     int VideoBitRate,
     int MaxSize,
@@ -55,6 +56,7 @@ public sealed record VEServerOptions(
 
     public static VEServerOptions CreateDefaultVE()
         => new(
+            VideoEnabled: true,
             VideoCodec: VEProtocolCodec.H264,
             VideoBitRate: 4_000_000,
             MaxSize: 1280,
@@ -76,9 +78,19 @@ public sealed record VEServerOptions(
             ControlEnabled = false
         };
 
+    public static VEServerOptions CreateControlOnlyVE()
+        => CreateDefaultVE() with
+        {
+            VideoEnabled = false,
+            AudioEnabled = false,
+            AudioPlaybackEnabled = false,
+            ControlEnabled = true,
+            ClipboardAutosync = false
+        };
+
     public void ValidateVE()
     {
-        if (!VideoCodec.IsVideoVE())
+        if (VideoEnabled && !VideoCodec.IsVideoVE())
         {
             throw new ArgumentOutOfRangeException(
                 nameof(VideoCodec),
@@ -125,22 +137,27 @@ public sealed record VEServerOptions(
             "log_level=info"
         ];
 
-        if (VideoBitRate > 0)
+        if (!VideoEnabled)
+        {
+            args.Add("video=false");
+        }
+
+        if (VideoEnabled && VideoBitRate > 0)
         {
             args.Add($"video_bit_rate={VideoBitRate}");
         }
 
-        if (VideoCodec != VEProtocolCodec.H264)
+        if (VideoEnabled && VideoCodec != VEProtocolCodec.H264)
         {
             args.Add($"video_codec={VideoCodec.GetServerNameVE()}");
         }
 
-        if (MaxSize > 0)
+        if (VideoEnabled && MaxSize > 0)
         {
             args.Add($"max_size={MaxSize}");
         }
 
-        if (MaxFps is double maxFps)
+        if (VideoEnabled && MaxFps is double maxFps)
         {
             args.Add(
                 "max_fps=" +

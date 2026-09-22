@@ -3,14 +3,14 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Channels;
 
-namespace NOVORA.VisionEngine.Gamepad;
+namespace NOVORA.ExInEngine;
 
 /// <summary>
 /// Adaptador SDL3 event-driven para gamepads.
 /// SDL_UpdateGamepads sólo se usa una vez al iniciar para sincronizar
 /// controles que ya estaban conectados; no existe loop de polling.
 /// </summary>
-public sealed class VEGamepadSdl : IDisposable
+public sealed class ExInSdl : IDisposable
 {
     private const uint SdlInitGamepadVE = 0x00002000;
 
@@ -20,10 +20,14 @@ public sealed class VEGamepadSdl : IDisposable
     private const uint SdlEventGamepadAddedVE = 0x653;
     private const uint SdlEventGamepadRemovedVE = 0x654;
     private const uint SdlEventGamepadRemappedVE = 0x655;
+    private const uint SdlEventGamepadTouchpadDownVE = 0x656;
+    private const uint SdlEventGamepadTouchpadMotionVE = 0x657;
+    private const uint SdlEventGamepadTouchpadUpVE = 0x658;
+    private const uint SdlEventJoystickBatteryUpdatedVE = 0x607;
 
     private readonly NLServiceNovoraPaths _paths;
-    private readonly Channel<VEGamepadEvent> _eventsVE =
-        Channel.CreateUnbounded<VEGamepadEvent>(
+    private readonly Channel<ExInEvent> _eventsVE =
+        Channel.CreateUnbounded<ExInEvent>(
             new UnboundedChannelOptions
             {
                 SingleReader = true,
@@ -39,6 +43,14 @@ public sealed class VEGamepadSdl : IDisposable
     private SdlCloseGamepadDelegate? _closeVE;
     private SdlGetGamepadIdDelegate? _getIdVE;
     private SdlGetGamepadNameDelegate? _getNameVE;
+    private SdlGetGamepadVendorDelegate? _getVendorVE;
+    private SdlGetGamepadProductDelegate? _getProductVE;
+    private SdlGetGamepadGuidForIdDelegate? _getGuidForIdVE;
+    private SdlGetGamepadTypeDelegate? _getTypeVE;
+    private SdlGetGamepadStringDelegate? _getPathVE;
+    private SdlGetGamepadStringDelegate? _getSerialVE;
+    private SdlGetGamepadMappingDelegate? _getMappingVE;
+    private SdlGetGamepadPowerInfoDelegate? _getPowerInfoVE;
     private SdlGetGamepadAxisDelegate? _axisVE;
     private SdlGetGamepadButtonDelegate? _buttonVE;
     private SdlUpdateGamepadsDelegate? _updateVE;
@@ -48,7 +60,7 @@ public sealed class VEGamepadSdl : IDisposable
     private bool _initializedVE;
     private bool _disposedVE;
 
-    public VEGamepadSdl(NLServiceNovoraPaths paths)
+    public ExInSdl(NLServiceNovoraPaths paths)
         => _paths = paths ?? throw new ArgumentNullException(nameof(paths));
 
     public void InitializeVE()
@@ -71,6 +83,14 @@ public sealed class VEGamepadSdl : IDisposable
             _closeVE = LoadVE<SdlCloseGamepadDelegate>("SDL_CloseGamepad");
             _getIdVE = LoadVE<SdlGetGamepadIdDelegate>("SDL_GetGamepadID");
             _getNameVE = LoadVE<SdlGetGamepadNameDelegate>("SDL_GetGamepadName");
+            _getVendorVE = TryLoadVE<SdlGetGamepadVendorDelegate>("SDL_GetGamepadVendor");
+            _getProductVE = TryLoadVE<SdlGetGamepadProductDelegate>("SDL_GetGamepadProduct");
+            _getGuidForIdVE = TryLoadVE<SdlGetGamepadGuidForIdDelegate>("SDL_GetGamepadGUIDForID");
+            _getTypeVE = TryLoadVE<SdlGetGamepadTypeDelegate>("SDL_GetGamepadType");
+            _getPathVE = TryLoadVE<SdlGetGamepadStringDelegate>("SDL_GetGamepadPath");
+            _getSerialVE = TryLoadVE<SdlGetGamepadStringDelegate>("SDL_GetGamepadSerial");
+            _getMappingVE = TryLoadVE<SdlGetGamepadMappingDelegate>("SDL_GetGamepadMapping");
+            _getPowerInfoVE = TryLoadVE<SdlGetGamepadPowerInfoDelegate>("SDL_GetGamepadPowerInfo");
             _axisVE = LoadVE<SdlGetGamepadAxisDelegate>("SDL_GetGamepadAxis");
             _buttonVE = LoadVE<SdlGetGamepadButtonDelegate>("SDL_GetGamepadButton");
             _updateVE = LoadVE<SdlUpdateGamepadsDelegate>("SDL_UpdateGamepads");
@@ -115,7 +135,7 @@ public sealed class VEGamepadSdl : IDisposable
         }
     }
 
-    public async IAsyncEnumerable<VEGamepadEvent> ReadEventsVE(
+    public async IAsyncEnumerable<ExInEvent> ReadEventsVE(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         EnsureInitializedVE();
@@ -136,14 +156,14 @@ public sealed class VEGamepadSdl : IDisposable
                 if (received &&
                     TryReadEventVE(
                         eventBuffer,
-                        out VEGamepadEvent? message) &&
+                        out ExInEvent? message) &&
                     message is not null)
                 {
                     yield return message.Value;
                     continue;
                 }
 
-                while (_eventsVE.Reader.TryRead(out VEGamepadEvent queued))
+                while (_eventsVE.Reader.TryRead(out ExInEvent queued))
                 {
                     yield return queued;
                 }
@@ -172,29 +192,80 @@ public sealed class VEGamepadSdl : IDisposable
         return value == IntPtr.Zero ? "Gamepad" : Marshal.PtrToStringUTF8(value) ?? "Gamepad";
     }
 
-    public VEGamepadState ReadStateVE(IntPtr gamepad)
+    public ExInControllerIdentity GetIdentityVE(IntPtr gamepad)
+    {
+        EnsureInitializedVE();
+        ArgumentOutOfRangeException.ThrowIfEqual(gamepad, IntPtr.Zero);
+
+        uint instanceId = GetIdVE(gamepad);
+        ushort vendorId = _getVendorVE?.Invoke(gamepad) ?? 0;
+        ushort productId = _getProductVE?.Invoke(gamepad) ?? 0;
+        Guid guid = _getGuidForIdVE is null ? Guid.Empty : _getGuidForIdVE(instanceId).ToGuidVE();
+
+        return ExInControllerIdentity.CreateVE(
+            instanceId,
+            vendorId,
+            productId,
+            guid,
+            GetNameVE(gamepad),
+            ReadUtf8VE(_getSerialVE?.Invoke(gamepad) ?? IntPtr.Zero),
+            ReadUtf8VE(_getPathVE?.Invoke(gamepad) ?? IntPtr.Zero));
+    }
+
+    public int? GetTypeVE(IntPtr gamepad)
+    {
+        EnsureInitializedVE();
+        ArgumentOutOfRangeException.ThrowIfEqual(gamepad, IntPtr.Zero);
+        return _getTypeVE?.Invoke(gamepad);
+    }
+
+    public string? GetMappingVE(IntPtr gamepad)
+    {
+        EnsureInitializedVE();
+        ArgumentOutOfRangeException.ThrowIfEqual(gamepad, IntPtr.Zero);
+        if (_getMappingVE is null) return null;
+
+        IntPtr value = _getMappingVE(gamepad);
+        if (value == IntPtr.Zero) return null;
+        try { return Marshal.PtrToStringUTF8(value); }
+        finally { _freeVE!(value); }
+    }
+
+    public ExInBatteryStatus GetBatteryStatusVE(IntPtr gamepad, ExInControllerIdentity identity)
+    {
+        EnsureInitializedVE();
+        ArgumentOutOfRangeException.ThrowIfEqual(gamepad, IntPtr.Zero);
+        ArgumentNullException.ThrowIfNull(identity);
+        if (_getPowerInfoVE is null)
+            return ExInBatteryStatus.CreateVE(identity.ProfileKey, identity.Name, -1, ExInBatteryState.Unknown);
+        int powerState = _getPowerInfoVE(gamepad, out int percent);
+        return ExInBatteryStatus.CreateVE(identity.ProfileKey, identity.Name, percent, MapPowerStateVE(powerState));
+    }
+
+    public ExInState ReadStateVE(IntPtr gamepad)
     {
         EnsureInitializedVE();
         short triggerL = Math.Max((short)0, _axisVE!(gamepad, 4));
         short triggerR = Math.Max((short)0, _axisVE!(gamepad, 5));
-        VEGamepadButtons buttons = VEGamepadButtons.None;
-        if (_buttonVE!(gamepad, 0)) buttons |= VEGamepadButtons.South;
-        if (_buttonVE!(gamepad, 1)) buttons |= VEGamepadButtons.East;
-        if (_buttonVE!(gamepad, 2)) buttons |= VEGamepadButtons.West;
-        if (_buttonVE!(gamepad, 3)) buttons |= VEGamepadButtons.North;
-        if (_buttonVE!(gamepad, 4)) buttons |= VEGamepadButtons.Back;
-        if (_buttonVE!(gamepad, 5)) buttons |= VEGamepadButtons.Guide;
-        if (_buttonVE!(gamepad, 6)) buttons |= VEGamepadButtons.Start;
-        if (_buttonVE!(gamepad, 7)) buttons |= VEGamepadButtons.LeftStick;
-        if (_buttonVE!(gamepad, 8)) buttons |= VEGamepadButtons.RightStick;
-        if (_buttonVE!(gamepad, 9)) buttons |= VEGamepadButtons.LeftShoulder;
-        if (_buttonVE!(gamepad, 10)) buttons |= VEGamepadButtons.RightShoulder;
-        if (_buttonVE!(gamepad, 11)) buttons |= VEGamepadButtons.DPadUp;
-        if (_buttonVE!(gamepad, 12)) buttons |= VEGamepadButtons.DPadDown;
-        if (_buttonVE!(gamepad, 13)) buttons |= VEGamepadButtons.DPadLeft;
-        if (_buttonVE!(gamepad, 14)) buttons |= VEGamepadButtons.DPadRight;
+        ExInButtons buttons = ExInButtons.None;
+        if (_buttonVE!(gamepad, 0)) buttons |= ExInButtons.South;
+        if (_buttonVE!(gamepad, 1)) buttons |= ExInButtons.East;
+        if (_buttonVE!(gamepad, 2)) buttons |= ExInButtons.West;
+        if (_buttonVE!(gamepad, 3)) buttons |= ExInButtons.North;
+        if (_buttonVE!(gamepad, 4)) buttons |= ExInButtons.Back;
+        if (_buttonVE!(gamepad, 5)) buttons |= ExInButtons.Guide;
+        if (_buttonVE!(gamepad, 6)) buttons |= ExInButtons.Start;
+        if (_buttonVE!(gamepad, 7)) buttons |= ExInButtons.LeftStick;
+        if (_buttonVE!(gamepad, 8)) buttons |= ExInButtons.RightStick;
+        if (_buttonVE!(gamepad, 9)) buttons |= ExInButtons.LeftShoulder;
+        if (_buttonVE!(gamepad, 10)) buttons |= ExInButtons.RightShoulder;
+        if (_buttonVE!(gamepad, 11)) buttons |= ExInButtons.DPadUp;
+        if (_buttonVE!(gamepad, 12)) buttons |= ExInButtons.DPadDown;
+        if (_buttonVE!(gamepad, 13)) buttons |= ExInButtons.DPadLeft;
+        if (_buttonVE!(gamepad, 14)) buttons |= ExInButtons.DPadRight;
+        if (_buttonVE!(gamepad, 20)) buttons |= ExInButtons.Touchpad;
 
-        return new VEGamepadState(
+        return new ExInState(
             _axisVE!(gamepad, 0),
             _axisVE!(gamepad, 1),
             _axisVE!(gamepad, 2),
@@ -216,7 +287,7 @@ public sealed class VEGamepadSdl : IDisposable
         {
             if (TryReadEventVE(
                     eventPointer,
-                    out VEGamepadEvent? message) &&
+                    out ExInEvent? message) &&
                 message is not null)
             {
                 _eventsVE.Writer.TryWrite(message.Value);
@@ -232,7 +303,7 @@ public sealed class VEGamepadSdl : IDisposable
 
     private static bool TryReadEventVE(
         IntPtr eventPointer,
-        out VEGamepadEvent? message)
+        out ExInEvent? message)
     {
         uint type =
             unchecked(
@@ -251,7 +322,7 @@ public sealed class VEGamepadSdl : IDisposable
             {
                 SdlEventGamepadAddedVE =>
                     new(
-                        VEGamepadTypeEvent.Added,
+                        ExInTypeEvent.Added,
                         which,
                         0,
                         0,
@@ -260,7 +331,7 @@ public sealed class VEGamepadSdl : IDisposable
 
                 SdlEventGamepadRemovedVE =>
                     new(
-                        VEGamepadTypeEvent.Removed,
+                        ExInTypeEvent.Removed,
                         which,
                         0,
                         0,
@@ -269,7 +340,7 @@ public sealed class VEGamepadSdl : IDisposable
 
                 SdlEventGamepadRemappedVE =>
                     new(
-                        VEGamepadTypeEvent.Remapped,
+                        ExInTypeEvent.Remapped,
                         which,
                         0,
                         0,
@@ -278,7 +349,7 @@ public sealed class VEGamepadSdl : IDisposable
 
                 SdlEventGamepadAxisMotionVE =>
                     new(
-                        VEGamepadTypeEvent.Axis,
+                        ExInTypeEvent.Axis,
                         which,
                         Marshal.ReadByte(eventPointer, 20),
                         Marshal.ReadInt16(eventPointer, 24),
@@ -287,7 +358,7 @@ public sealed class VEGamepadSdl : IDisposable
 
                 SdlEventGamepadButtonDownVE =>
                     new(
-                        VEGamepadTypeEvent.Button,
+                        ExInTypeEvent.Button,
                         which,
                         0,
                         0,
@@ -296,12 +367,40 @@ public sealed class VEGamepadSdl : IDisposable
 
                 SdlEventGamepadButtonUpVE =>
                     new(
-                        VEGamepadTypeEvent.Button,
+                        ExInTypeEvent.Button,
                         which,
                         0,
                         0,
                         Marshal.ReadByte(eventPointer, 20),
                         false),
+
+                SdlEventJoystickBatteryUpdatedVE =>
+                    new(
+                        ExInTypeEvent.Battery,
+                        which,
+                        0,
+                        0,
+                        0,
+                        false,
+                        MapPowerStateVE(Marshal.ReadInt32(eventPointer, 20)),
+                        Marshal.ReadInt32(eventPointer, 24)),
+
+                SdlEventGamepadTouchpadDownVE or SdlEventGamepadTouchpadMotionVE or SdlEventGamepadTouchpadUpVE =>
+                    new(
+                        type == SdlEventGamepadTouchpadDownVE ? ExInTypeEvent.TouchDown :
+                        type == SdlEventGamepadTouchpadMotionVE ? ExInTypeEvent.TouchMotion : ExInTypeEvent.TouchUp,
+                        which,
+                        0,
+                        0,
+                        0,
+                        false,
+                        ExInBatteryState.Unknown,
+                        -1,
+                        Marshal.ReadInt32(eventPointer, 20),
+                        Marshal.ReadInt32(eventPointer, 24),
+                        BitConverter.Int32BitsToSingle(Marshal.ReadInt32(eventPointer, 28)),
+                        BitConverter.Int32BitsToSingle(Marshal.ReadInt32(eventPointer, 32)),
+                        BitConverter.Int32BitsToSingle(Marshal.ReadInt32(eventPointer, 36))),
 
                 _ =>
                     null
@@ -313,6 +412,23 @@ public sealed class VEGamepadSdl : IDisposable
 
     private T LoadVE<T>(string export) where T : Delegate
         => Marshal.GetDelegateForFunctionPointer<T>(NativeLibrary.GetExport(_libraryVE, export));
+
+    private T? TryLoadVE<T>(string export) where T : Delegate
+        => NativeLibrary.TryGetExport(_libraryVE, export, out IntPtr address)
+            ? Marshal.GetDelegateForFunctionPointer<T>(address)
+            : null;
+
+    private static string? ReadUtf8VE(IntPtr value)
+        => value == IntPtr.Zero ? null : Marshal.PtrToStringUTF8(value);
+
+    private static ExInBatteryState MapPowerStateVE(int state) => state switch
+    {
+        1 => ExInBatteryState.OnBattery,
+        2 => ExInBatteryState.NoBattery,
+        3 => ExInBatteryState.Charging,
+        4 => ExInBatteryState.Charged,
+        _ => ExInBatteryState.Unknown
+    };
 
     private void EnsureInitializedVE()
     {
@@ -369,6 +485,27 @@ public sealed class VEGamepadSdl : IDisposable
     private delegate IntPtr SdlGetGamepadNameDelegate(IntPtr gamepad);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate ushort SdlGetGamepadVendorDelegate(IntPtr gamepad);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate ushort SdlGetGamepadProductDelegate(IntPtr gamepad);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate SdlGuidVE SdlGetGamepadGuidForIdDelegate(uint instanceId);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate int SdlGetGamepadTypeDelegate(IntPtr gamepad);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate IntPtr SdlGetGamepadStringDelegate(IntPtr gamepad);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate IntPtr SdlGetGamepadMappingDelegate(IntPtr gamepad);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate int SdlGetGamepadPowerInfoDelegate(IntPtr gamepad, out int percent);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate short SdlGetGamepadAxisDelegate(IntPtr gamepad, int axis);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -393,4 +530,19 @@ public sealed class VEGamepadSdl : IDisposable
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void SdlFreeDelegate(IntPtr memory);
+
+    [StructLayout(LayoutKind.Sequential, Size = 16)]
+    private struct SdlGuidVE
+    {
+        private ulong _lowVE;
+        private ulong _highVE;
+
+        public readonly Guid ToGuidVE()
+        {
+            Span<byte> bytes = stackalloc byte[16];
+            BitConverter.TryWriteBytes(bytes, _lowVE);
+            BitConverter.TryWriteBytes(bytes[8..], _highVE);
+            return new Guid(bytes);
+        }
+    }
 }

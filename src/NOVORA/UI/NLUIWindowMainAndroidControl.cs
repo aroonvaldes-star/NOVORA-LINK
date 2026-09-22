@@ -17,6 +17,7 @@ public partial class NLUIWindowMain
     private NLControlTrustServer? _androidLanControl;
     private NLControlLanDiscovery? _androidLanDiscovery;
     private bool AndroidControlSessionOpen => _androidControl is not null || _androidLanControl is not null;
+    private bool AndroidControlAuthorized => _androidControl?.IsAuthorized == true || _androidLanControl?.IsAuthorized == true;
     private string? _androidControlSerial;
     private long _androidControlRevision;
     private bool _androidControlPublishing;
@@ -24,6 +25,8 @@ public partial class NLUIWindowMain
     private bool _androidControlApplying;
     private bool _androidControlReverseOwned;
     private long _androidControlGeneration;
+    private NOVORA.ExInEngine.ExInBatteryAlert? _androidExInBatteryAlert;
+    private long _androidExInBatteryAlertSequence;
     private NLControlFileReceiver? _androidFileReceiver;
     private void ResetAndroidFileTransfer()
     {
@@ -54,6 +57,7 @@ public partial class NLUIWindowMain
         if (e.PropertyName is nameof(NLViewModelMain.Device) or nameof(NLViewModelMain.SelectedMonitor))
             AndroidEngineStateChanged();
         if (e.PropertyName == nameof(NLViewModelMain.Device)) QueueAutomaticUsb();
+        if (e.PropertyName == nameof(NLViewModelMain.Device)) _ = EnsureExInStandaloneAsync();
         if (e.PropertyName is nameof(NLViewModelMain.Bitrate) or nameof(NLViewModelMain.TargetFps) or
             nameof(NLViewModelMain.SelectedMonitor) or nameof(NLViewModelMain.Monitors) or
             nameof(NLViewModelMain.MaxSize) or nameof(NLViewModelMain.SelectedAudioOutput) or nameof(NLViewModelMain.AudioOutputOptions))
@@ -94,7 +98,45 @@ public partial class NLUIWindowMain
             new[] { 15, 24, 30, 45, 60, _viewModel.TargetFps }.Distinct().Order().Select(v => new NLControlOption(v.ToString(), v + " FPS")).ToArray(),
             _viewModel.SelectedMonitor?.DeviceName ?? "",
             _viewModel.Monitors.Select(m => new NLControlOption(m.DeviceName, m.DisplayLabel)).ToArray(), true),
-        CaptureAndroidMedia(), true);
+        CaptureAndroidMedia(), true, CaptureAndroidExIn());
+
+    private NLControlExIn CaptureAndroidExIn()
+    {
+        var live = _exInEngine?.LiveSnapshot;
+        var device = live?.Device;
+        var state = live?.State ?? default;
+        var corrected = live?.CorrectedState ?? default;
+        var calibration = live?.Calibration;
+        string? profileKey = device?.Identity?.ProfileKey;
+        var status = _exInEngine?.Status;
+        var diagnostic = profileKey is null ? null : status?.Diagnostics.FirstOrDefault(value => value.ProfileKey == profileKey);
+        var battery = profileKey is null ? null : status?.Batteries.FirstOrDefault(value => value.ProfileKey == profileKey);
+        static int Axis(short value) => (int)Math.Round(value / 32767d * 100);
+        static int Trigger(short value) => (int)Math.Round(Math.Max(0, (int)value) / 32767d * 100);
+        string[] buttons = Enum.GetValues<NOVORA.ExInEngine.ExInButtons>()
+            .Where(button => button != 0 && state.Buttons.HasFlag(button)).Select(button => button.ToString()).ToArray();
+        return new(device is not null, live?.DeviceName ?? "Sin control físico", device is null ? "---- : ----" : $"{device.VendorId:X4} : {device.ProductId:X4}",
+            Axis(state.LeftX), Axis(state.LeftY), Axis(state.RightX), Axis(state.RightY), Trigger(state.LeftTrigger), Trigger(state.RightTrigger),
+            buttons, live?.Calibrating == true, live?.Calibrated == true, live?.Deadzone ?? 0.05, live?.Message ?? "ExInEngine no está iniciado.",
+            device?.Identity?.Family.ToString() ?? "Unknown", _exInEngine?.Manager.ModeVE.ToString() ?? "Game", _androidControlApplying || _exInUiApplyingVE,
+            device is not null && !_androidControlApplying && !_exInUiApplyingVE,
+            device is not null && !_androidControlApplying && !_exInUiApplyingVE,
+            Axis(corrected.LeftX), Axis(corrected.LeftY), Axis(corrected.RightX), Axis(corrected.RightY),
+            Trigger(corrected.LeftTrigger), Trigger(corrected.RightTrigger),
+            diagnostic?.Classification.ToString() ?? "Unknown", diagnostic?.CalibrationCanCorrect == true,
+            diagnostic?.Explanation ?? "", battery?.State.ToString() ?? "Unknown", battery?.Percent ?? -1,
+            device?.Identity?.ProfileKey ?? "", calibration?.ConnectionType ?? "Unknown",
+            device is not null, device is not null,
+            device?.Identity?.Family == NOVORA.ExInEngine.ExInControllerFamily.DualShock4,
+            device is not null, device is not null && !_androidControlApplying && !_exInUiApplyingVE &&
+                _exInEngine?.Manager.IsPrivacyProtectedVE != true,
+            calibration is null ? "" :
+                $"DZ {calibration.Deadzone.LeftX:P0}/{calibration.Deadzone.LeftY:P0}/{calibration.Deadzone.RightX:P0}/{calibration.Deadzone.RightY:P0}; " +
+                $"LX {calibration.Minimum.LeftX}:{calibration.Maximum.LeftX}; LY {calibration.Minimum.LeftY}:{calibration.Maximum.LeftY}; " +
+                $"RX {calibration.Minimum.RightX}:{calibration.Maximum.RightX}; RY {calibration.Minimum.RightY}:{calibration.Maximum.RightY}; " +
+                $"LT {calibration.Minimum.LeftTrigger}:{calibration.Maximum.LeftTrigger}; RT {calibration.Minimum.RightTrigger}:{calibration.Maximum.RightTrigger}",
+            _androidExInBatteryAlert?.Kind.ToString() ?? "", _androidExInBatteryAlertSequence);
+    }
 
     private string GetAndroidControlAudioStatus()
     {
@@ -103,10 +145,37 @@ public partial class NLUIWindowMain
             ? audio.ActiveOutputVE : "Sin reproducción activa; salida solo configurada";
     }
 
-    private Task<NLControlReply> HandleAndroidControlAsync(NLControlRequest request, long generation) =>
-        Dispatcher.InvokeAsync(() => generation == _androidControlGeneration && AndroidControlSessionOpen
+    private Task<NLControlReply> HandleAndroidControlAsync(NLControlRequest request, long generation, string transport) =>
+        Dispatcher.InvokeAsync(() => generation == _androidControlGeneration && AndroidControlSessionOpen &&
+            (transport == "USB" || _androidControl?.IsAuthorized != true)
             ? ApplyAndroidControlAsync(request)
-            : Task.FromResult(new NLControlReply(NLControlProtocol.Version, request.Id, false, "Sesión revocada."))).Task.Unwrap();
+            : Task.FromResult(new NLControlReply(NLControlProtocol.Version, request.Id, false,
+                transport == "LAN" && _androidControl?.IsAuthorized == true
+                    ? "La sesión cambió a USB; LAN permanece disponible como respaldo."
+                    : "Sesión revocada."))).Task.Unwrap();
+
+    private async Task StopAutomaticUsbAsync()
+    {
+        NLControlTrustServer? server = _androidControl;
+        string? serial = _androidControlSerial;
+        bool owned = _androidControlReverseOwned;
+        _androidControl = null;
+        _androidControlSerial = null;
+        _androidControlReverseOwned = false;
+        _automaticUsbServerEpoch = -1;
+        if (server is not null) await server.DisposeAsync();
+        if (serial is not null && owned)
+        {
+            try { await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--remove", "tcp:27214" }); }
+            catch (Exception) { }
+        }
+        if (!AndroidControlAuthorized)
+        {
+            ResetAndroidFileTransfer();
+            await FinishAndroidRecordingAsync();
+            await StopAndroidOwnedLinkAsync();
+        }
+    }
 
     private async Task<NLControlReply> ApplyAndroidControlAsync(NLControlRequest request)
     {
@@ -174,6 +243,31 @@ public partial class NLUIWindowMain
                 case "startLink":
                 case "stopLink":
                     return await ApplyAndroidEngineActionAsync(request);
+                case "exin.calibration.start":
+                case "exin.calibration.finish":
+                case "exin.calibration.reset":
+                    var gamepad = _exInEngine?.Manager;
+                    if (gamepad is null) return Reply(false, "ExInEngine no está iniciado.");
+                    bool calibrated = request.Action switch
+                    {
+                        "exin.calibration.start" => gamepad.BeginCalibrationVE(),
+                        "exin.calibration.finish" => gamepad.FinishCalibrationVE(),
+                        _ => ResetExInCalibration(gamepad)
+                    };
+                    _androidControlRevision++;
+                    return Reply(calibrated, request.Action == "exin.calibration.start" ? "Calibración iniciada; mueve sticks y gatillos por todo su recorrido." :
+                        request.Action == "exin.calibration.finish" ? (calibrated ? "Calibración aplicada a esta sesión." : "El recorrido capturado fue insuficiente; repite la calibración.") : "Calibración restablecida.");
+                case "exin.mode":
+                    if (_exInEngine is null) return Reply(false, "ExInEngine no está iniciado.");
+                    var mode = Enum.Parse<NOVORA.ExInEngine.ExInInputMode>(request.Value!, ignoreCase: false);
+                    var modeResult = await _exInEngine.Manager.SetModeAsync(mode);
+                    if (modeResult.Success) _androidControlRevision++;
+                    return Reply(modeResult.Success, modeResult.Message);
+                case "exin.reactivate":
+                    if (_exInControlSession is null) return Reply(false, "La sesión ExIn no está iniciada.");
+                    var recoveryResult = await _exInControlSession.ReactivateAsync();
+                    if (recoveryResult.Success) _androidControlRevision++;
+                    return Reply(recoveryResult.Success, recoveryResult.Message);
             }
             RecalculateOutputProfile14();
             SaveSettingsFromViewModel14();
@@ -188,6 +282,12 @@ public partial class NLUIWindowMain
             _androidControlApplying = false;
             QueueAndroidControlSnapshot();
         }
+    }
+
+    private static bool ResetExInCalibration(NOVORA.ExInEngine.ExInManager gamepad)
+    {
+        gamepad.ResetCalibrationVE();
+        return true;
     }
 
     // Optional recovery button. Initial USB connection no longer depends on this click.

@@ -1,7 +1,7 @@
-namespace NOVORA.VisionEngine.Gamepad;
+namespace NOVORA.ExInEngine;
 
 [Flags]
-public enum VEGamepadButtons : uint
+public enum ExInButtons : uint
 {
     None = 0,
     South = 0x0001,
@@ -18,5 +18,6 @@ public enum VEGamepadButtons : uint
     DPadUp = 0x0001_0000,
     DPadDown = 0x0002_0000,
     DPadLeft = 0x0004_0000,
-    DPadRight = 0x0008_0000
+    DPadRight = 0x0008_0000,
+    Touchpad = 0x0010_0000
 }

@@ -1,15 +1,15 @@
 using System.Buffers.Binary;
 
-namespace NOVORA.VisionEngine.Gamepad;
+namespace NOVORA.ExInEngine;
 
 /// <summary>
 /// Genera el report UHID de 15 bytes usado por VisionEngine/scrcpy.
 /// </summary>
-public static class VEGamepadReport
+public static class ExInReport
 {
     public const int ReportSizeVE = 15;
 
-    public static byte[] BuildVE(VEGamepadState state)
+    public static byte[] BuildVE(ExInState state)
     {
         byte[] data = new byte[ReportSizeVE];
 
@@ -54,12 +54,12 @@ public static class VEGamepadReport
             ? (ushort)0
             : checked((ushort)value);
 
-    private static byte GetDPadVE(VEGamepadButtons buttons)
+    private static byte GetDPadVE(ExInButtons buttons)
     {
-        bool up = buttons.HasFlag(VEGamepadButtons.DPadUp);
-        bool down = buttons.HasFlag(VEGamepadButtons.DPadDown);
-        bool left = buttons.HasFlag(VEGamepadButtons.DPadLeft);
-        bool right = buttons.HasFlag(VEGamepadButtons.DPadRight);
+        bool up = buttons.HasFlag(ExInButtons.DPadUp);
+        bool down = buttons.HasFlag(ExInButtons.DPadDown);
+        bool left = buttons.HasFlag(ExInButtons.DPadLeft);
+        bool right = buttons.HasFlag(ExInButtons.DPadRight);
 
         if (up)
         {

@@ -1,6 +1,6 @@
-namespace NOVORA.VisionEngine.Gamepad;
+namespace NOVORA.ExInEngine;
 
-public enum VEGamepadStates
+public enum ExInStates
 {
     Stopped = 0,
     Ready = 1,

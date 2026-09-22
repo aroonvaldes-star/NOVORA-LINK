@@ -12,9 +12,19 @@ public sealed class NLTestAndroidEngines
     [Fact] public void UnavailableLinkCannotBeStarted() => Assert.NotNull(NLControlCommands.Validate(new(1, 1, "startLink", Revision:7), State()));
     [Fact] public void RunningVideoCanBeStopped() => Assert.Null(NLControlCommands.Validate(new(1, 1, "stopVideo", Revision:7), State() with { VideoRunning=true, Engines=State().Engines! with { VideoCanStart=false,VideoCanStop=true } }));
     [Fact] public void UsbReadyLinkCanBeStarted() => Assert.Null(NLControlCommands.Validate(new(1, 1, "startLink", Revision:7), State() with { Engines=State().Engines! with { LinkCanStart=true } }));
+    [Fact] public void AnotherPhoneCanTakeOverLinkSession() => Assert.Null(NLControlCommands.Validate(new(1, 1, "startLink", Revision:7), State() with { Engines=State().Engines! with { LinkCanStart=true, LinkRunning=true, LinkCanTakeOver=true } }));
     [Fact] public void PendingLinkCanBeStopped() => Assert.Null(NLControlCommands.Validate(new(1, 1, "stopLink", Revision:7), State() with { Engines=State().Engines! with { LinkCanStop=true, LinkState="Starting" } }));
     [Fact] public void EngineCommandsRejectUnexpectedArguments() => Assert.NotNull(NLControlCommands.Validate(new(1, 1, "startVideo", "anything", 7), State()));
     [Fact] public void StaleStartIsRejected() => Assert.NotNull(NLControlCommands.Validate(new(1, 1, "startVideo", Revision:6), State()));
+    [Fact] public void ExInCalibrationRequiresDetectedController() => Assert.NotNull(NLControlCommands.Validate(new(1, 1, "exin.calibration.start", Revision:7), State()));
+    [Fact] public void ExInCalibrationCanStartWithDetectedController()
+    {
+        var state = State() with { ExIn = new NLControlExIn(true, "Controller", "045E : 028E", 0, 0, 0, 0, 0, 0, [], false, false, 0.05, "Listo") with { CanCalibrate = true } };
+        Assert.Null(NLControlCommands.Validate(new(1, 1, "exin.calibration.start", Revision:7), state));
+        Assert.NotNull(NLControlCommands.Validate(new(1, 1, "exin.calibration.finish", Revision:7), state));
+        Assert.NotNull(NLControlCommands.Validate(new(1, 1, "exin.calibration.start", "unexpected", 7), state));
+        Assert.Null(NLControlCommands.Validate(new(1, 1, "exin.calibration.finish", Revision:7), state with { ExIn = state.ExIn! with { Calibrating = true } }));
+    }
     [Fact] public async Task OptionalEngineStateRoundTripsAndLegacySnapshotIsAccepted()
     {
         using var stream=new MemoryStream();

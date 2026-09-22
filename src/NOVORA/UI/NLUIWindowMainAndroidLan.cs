@@ -57,7 +57,7 @@ public partial class NLUIWindowMain
             long generation = _androidControlGeneration;
             _viewModel.RefreshAudioOutputOptions(_paths);
             var store = GetAndroidTrustStore();
-            var server = new NLControlTrustServer(address, request => HandleAndroidControlAsync(request, generation), store);
+            var server = new NLControlTrustServer(address, request => HandleAndroidControlAsync(request, generation, "LAN"), store);
             created = server;
             _androidLanControl = server;
 
@@ -65,8 +65,10 @@ public partial class NLUIWindowMain
             server.StatusChanged += (_, status) => Dispatcher.BeginInvoke(new Action(async () =>
             {
                 if (!ReferenceEquals(_androidLanControl, server)) return;
-                if (!server.IsAuthorized) { ResetAndroidFileTransfer(); await FinishAndroidRecordingAsync(); }
-                AndroidControlStatus.Text = status;
+                if (!server.IsAuthorized && !AndroidControlAuthorized) { ResetAndroidFileTransfer(); await FinishAndroidRecordingAsync(); }
+                AndroidControlStatus.Text = _androidControl?.IsAuthorized == true
+                    ? "USB activo; LAN permanece disponible como respaldo."
+                    : status;
                 if (server.IsAuthorized || server.IsClosed || !server.IsInvitationOpen)
                 {
                     var discovery = _androidLanDiscovery;

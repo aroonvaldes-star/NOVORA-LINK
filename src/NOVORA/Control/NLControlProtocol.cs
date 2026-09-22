@@ -9,18 +9,33 @@ public sealed record NLControlEngines(bool VideoCanStart, bool VideoCanStop, boo
     bool LinkCanStop, bool LinkRunning, string LinkState, string LinkMessage, string DeviceName,
     string VideoState = "", string VideoMessage = "",
     string ExInState = "NotDetected", string ExInMessage = "ExInEngine no reportado por esta PC.",
-    string StState = "NotDetected", string StMessage = "STEngine no reportado por esta PC.");
+    string StState = "NotDetected", string StMessage = "STEngine no reportado por esta PC.",
+    bool LinkCanTakeOver = false);
 public sealed record NLControlVideoSettings(string Resolution, string Fps,
     NLControlOption[] Resolutions, NLControlOption[] FrameRates,
     string Monitor = "", NLControlOption[]? Monitors = null, bool CanApplyTogether = false);
 public sealed record NLControlVideoChanges(string Profile, string Bitrate, string Resolution, string Fps, string Audio, string Monitor);
 public sealed record NLControlMedia(bool CanCapture, bool CanRecord, bool Recording, string Message,
     bool Starting = false, bool AudioIncluded = false);
+public sealed record NLControlExIn(bool Detected, string DeviceName, string VidPid,
+    int LeftX, int LeftY, int RightX, int RightY, int LeftTrigger, int RightTrigger,
+    string[] Buttons, bool Calibrating, bool Calibrated, double Deadzone, string Message,
+    string Family = "Unknown", string Mode = "Game", bool Transitioning = false,
+    bool CanSetMode = false, bool CanReactivate = false,
+    int CorrectedLeftX = 0, int CorrectedLeftY = 0, int CorrectedRightX = 0, int CorrectedRightY = 0,
+    int CorrectedLeftTrigger = 0, int CorrectedRightTrigger = 0,
+    string Health = "Unknown", bool Correctable = false, string DiagnosticMessage = "",
+    string BatteryState = "Unknown", int BatteryPercent = -1,
+    string Identity = "", string ConnectionType = "Unknown",
+    bool SupportsGamepad = true, bool SupportsPointer = false, bool SupportsTouchpad = false,
+    bool SupportsNavigation = false, bool CanCalibrate = false, string CalibrationDetails = "",
+    string BatteryAlert = "", long BatteryAlertSequence = 0);
 public sealed record NLControlSnapshot(
     long Revision, string PcName, string PcVersion, string Bitrate, string Profile,
     string AudioOutput, string ActiveAudioOutput, bool VideoRunning,
     NLControlOption[] Bitrates, NLControlOption[] Profiles, NLControlOption[] AudioOutputs, NLControlEngines? Engines = null,
-    NLControlVideoSettings? VideoSettings = null, NLControlMedia? Media = null, bool FileSharing = false);
+    NLControlVideoSettings? VideoSettings = null, NLControlMedia? Media = null, bool FileSharing = false,
+    NLControlExIn? ExIn = null);
 public sealed record NLControlRequest(int Version, long Id, string Action, string? Value = null,
     long Revision = -1, string? Code = null);
 public sealed record NLControlReply(int Version, long Id, bool Success, string Message,

@@ -13,7 +13,7 @@ internal static class NLServiceSettingsAdvanced
         settings.IntegrationApplicationsEnabled = view.IntegrationApplicationsEnabled;
         settings.IntegrationNotificationsEnabled = view.IntegrationNotificationsEnabled;
         settings.IntegrationDynamicResizeEnabled = view.IntegrationDynamicResizeEnabled;
-        settings.GamepadEnabled = view.GamepadEnabled;
+        settings.ExInEnabled = view.ExInEnabled;
         settings.NvidiaProfile = view.NvidiaProfile;
     }
 
@@ -26,7 +26,7 @@ internal static class NLServiceSettingsAdvanced
         view.IntegrationApplicationsEnabled = settings.IntegrationApplicationsEnabled;
         view.IntegrationNotificationsEnabled = settings.IntegrationNotificationsEnabled;
         view.IntegrationDynamicResizeEnabled = settings.IntegrationDynamicResizeEnabled;
-        view.GamepadEnabled = settings.GamepadEnabled;
+        view.ExInEnabled = settings.ExInEnabled;
         view.NvidiaProfile = settings.NvidiaProfile;
     }
 }

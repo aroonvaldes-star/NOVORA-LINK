@@ -1,4 +1,5 @@
 using NOVORA.VisionEngine.Control;
+using NOVORA.ExInEngine;
 using NOVORA.VisionEngine.Core;
 using NOVORA.VisionEngine.Exchange;
 using NOVORA.VisionEngine.Integration;
@@ -15,6 +16,10 @@ namespace NOVORA;
 public partial class NLUIWindowMain
 {
     private VECoreEngine? _visionEngineVE;
+    private ExInCoreEngine? _exInEngine;
+    private ExInControlSession? _exInControlSession;
+    private Task _exInInitialization = Task.CompletedTask;
+    private readonly SemaphoreSlim _exInConnectionGate = new(1, 1);
     private VERendererHost? _visionRendererHostVE;
     private VERendererWindow? _visionPresentationWindowVE;
     private VEControlRouter? _visionInputRouterVE;
@@ -23,6 +28,8 @@ public partial class NLUIWindowMain
     private VECoreStates? _lastVisionStateVE;
 
     private string? _activeVisionSerialVE;
+    private string? _visionUsbSerialVE;
+    private string? _visionLanSerialVE;
 
     private bool _lastRendererEnabledVE;
     private bool _closingPresentationVE;
@@ -32,6 +39,78 @@ public partial class NLUIWindowMain
 
     private const int MaxVisionRecoveryAttemptsVE =
         2;
+
+    private async Task PrepareVisionLanFallbackVEAsync()
+    {
+        if (_closing || IsVisionEngineRunningVE())
+        {
+            return;
+        }
+
+        string? usbSerial =
+            _viewModel.Device?.Serial?.Trim();
+
+        if (string.IsNullOrWhiteSpace(usbSerial) ||
+            usbSerial.Contains(':', StringComparison.Ordinal))
+        {
+            ShowTopMessage14(
+                "Conecta el teléfono por USB para preparar el failover LAN.",
+                NLUIMessageKind14.Warning);
+            return;
+        }
+
+        WifiAdbButton.IsEnabled = false;
+        ShowTopMessage14(
+            "Preparando la ruta LAN del mismo teléfono…",
+            NLUIMessageKind14.Info);
+
+        try
+        {
+            using CancellationTokenSource deadline =
+                new(TimeSpan.FromSeconds(20));
+
+            string lanSerial =
+                await _adb
+                    .ConnectOverWifiAsync(
+                        usbSerial,
+                        cancellationToken: deadline.Token)
+                    .ConfigureAwait(true);
+
+            if (!await _adb
+                    .IsDeviceOnlineAsync(
+                        lanSerial,
+                        deadline.Token)
+                    .ConfigureAwait(true))
+            {
+                throw new InvalidOperationException(
+                    "La ruta ADB por LAN no quedó disponible.");
+            }
+
+            _visionUsbSerialVE = usbSerial;
+            _visionLanSerialVE = lanSerial;
+
+            ShowTopMessage14(
+                $"Failover LAN listo para {lanSerial}.",
+                NLUIMessageKind14.Success);
+        }
+        catch (OperationCanceledException)
+        {
+            ShowTopMessage14(
+                "La preparación del failover LAN agotó el tiempo de espera.",
+                NLUIMessageKind14.Warning);
+        }
+        catch (Exception ex)
+        {
+            _visionLanSerialVE = null;
+            ShowTopMessage14(
+                $"No se pudo preparar el failover LAN: {ex.Message}",
+                NLUIMessageKind14.Error);
+        }
+        finally
+        {
+            UpdateRuntimeButtons();
+        }
+    }
 
     // ============================================================
     // INITIALIZATION
@@ -44,6 +123,13 @@ public partial class NLUIWindowMain
             return;
         }
 
+        _exInEngine ??= new ExInCoreEngine(_paths);
+        _exInEngine.Manager.StatusChangedVE -= ShellGamepad_StatusChangedVE;
+        _exInEngine.Manager.StatusChangedVE += ShellGamepad_StatusChangedVE;
+        _exInEngine.Manager.BatteryAlertVE -= ShellGamepad_BatteryAlertVE;
+        _exInEngine.Manager.BatteryAlertVE += ShellGamepad_BatteryAlertVE;
+        _exInInitialization = _exInEngine.InitializeAsync();
+        _exInControlSession ??= new ExInControlSession(_exInEngine, _paths, _adb);
         _visionEngineVE =
             new VECoreEngine(
                 _paths,
@@ -51,6 +137,8 @@ public partial class NLUIWindowMain
 
         _visionEngineVE.StatusChangedVE +=
             VisionEngine_StatusChangedVE;
+        _visionEngineVE.RuntimeVE.PrivacyVE.StatusChangedVE -= ShellPrivacy_StatusChangedVE;
+        _visionEngineVE.RuntimeVE.PrivacyVE.StatusChangedVE += ShellPrivacy_StatusChangedVE;
         _visionEngineVE.RuntimeVE.NvidiaVE.StatusChangedVE += ShellNvidia_StatusChangedVE;
 
         /*
@@ -131,6 +219,7 @@ public partial class NLUIWindowMain
         VECoreRuntime runtime =
             _visionEngineVE.RuntimeVE;
 
+        _exInEngine?.SetPrivacyProtected(_viewModel.PrivacyShieldEnabled);
         runtime.PrivacyVE.SetManualShieldVE(
             _viewModel.PrivacyShieldEnabled);
 
@@ -146,8 +235,7 @@ public partial class NLUIWindowMain
                 AndroidMicrophone: true,
                 PcMicrophoneToAndroid: false));
 
-        runtime.GamepadEnabledVE =
-            _viewModel.GamepadEnabled;
+        _ = ApplyExInRuntimeStateAsync(_viewModel.ExInEnabled);
 
         if (!Enum.TryParse(
                 _viewModel.NvidiaProfile,
@@ -166,30 +254,26 @@ public partial class NLUIWindowMain
 
         if (runtime.IsRunningVE)
         {
-            _ = ApplyGamepadRuntimeStateVEAsync(
-                runtime,
-                _viewModel.GamepadEnabled);
+            _ = ApplyExInRuntimeStateAsync(_viewModel.ExInEnabled);
         }
 
         UpdateAdvancedFeatureStatus14();
     }
 
-    private async Task ApplyGamepadRuntimeStateVEAsync(
-        VECoreRuntime runtime,
-        bool enabled)
+    private async Task ApplyExInRuntimeStateAsync(bool enabled)
     {
         try
         {
-            await runtime
-                .SetGamepadEnabledVEAsync(enabled)
-                .ConfigureAwait(true);
+            if (_exInEngine is null) return;
+            await _exInEngine.SetEnabledAsync(enabled).ConfigureAwait(true);
+            await EnsureExInStandaloneAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
         {
             if (!_closing)
             {
                 _viewModel.ConnectionStatus =
-                    $"Gamepad VisionEngine: {ex.Message}";
+                    $"ExInEngine: {ex.Message}";
             }
         }
     }
@@ -219,10 +303,7 @@ public partial class NLUIWindowMain
                 ? "Integración ON"
                 : "Integración OFF";
 
-        string gamepad =
-            _viewModel.GamepadEnabled
-                ? "Gamepad ON"
-                : "Gamepad OFF";
+        string gamepad = _viewModel.ExInEnabled ? "ExIn ON" : "ExIn OFF";
 
         string nvidia =
             $"NVIDIA {_viewModel.NvidiaProfile}";
@@ -474,15 +555,13 @@ public partial class NLUIWindowMain
 
         try
         {
-            await _visionEngineVE
-                .RuntimeVE
-                .GamepadVE
-                .ResyncConnectedDevicesVEAsync();
+            if (_exInEngine is not null)
+                await _exInEngine.Manager.ResyncConnectedDevicesVEAsync();
         }
         catch (Exception ex)
         {
             _viewModel.ConnectionStatus =
-                $"Gamepad VisionEngine: {ex.Message}";
+                $"ExInEngine: {ex.Message}";
         }
     }
 
@@ -1173,6 +1252,51 @@ public partial class NLUIWindowMain
         }
     }
 
+    private async Task EnsureExInStandaloneAsync()
+    {
+        if (_exInControlSession is null || _exInEngine is null) return;
+        await _exInConnectionGate.WaitAsync().ConfigureAwait(true);
+        try
+        {
+            var device = _viewModel.Device;
+            string? serial = ResolveExInSerialVE(
+                device.Connected ? device.Serial : null,
+                AndroidControlAuthorized ? _androidControlSerial : null,
+                _activeVisionSerialVE);
+            bool shouldRun = !_closing && _viewModel.ExInEnabled &&
+                !string.IsNullOrWhiteSpace(serial);
+            if (!shouldRun)
+            {
+                await _exInControlSession.StopAsync().ConfigureAwait(true);
+                return;
+            }
+            await _exInInitialization.ConfigureAwait(true);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            await _exInControlSession.StartAsync(serial!, timeout.Token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            _viewModel.ConnectionStatus = "ExInEngine no completó la sesión de control en 20 segundos.";
+        }
+        catch (Exception ex)
+        {
+            _viewModel.ConnectionStatus = "ExInEngine: " + ex.Message;
+        }
+        finally
+        {
+            _exInConnectionGate.Release();
+            AndroidEngineStateChanged();
+        }
+    }
+
+    internal static string? ResolveExInSerialVE(
+        string? connectedDeviceSerial,
+        string? authorizedUsbSerial,
+        string? activeVisionSerial)
+        => new[] { connectedDeviceSerial, authorizedUsbSerial, activeVisionSerial }
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?
+            .Trim();
+
     private async Task SetVisionEngineRunningCoreVEAsync(bool running, Func<bool>? authorization)
     {
         if (_closing || authorization?.Invoke() == false)
@@ -1221,6 +1345,8 @@ public partial class NLUIWindowMain
                           stop.Message);
             }
 
+            await EnsureExInStandaloneAsync();
+
             return;
         }
 
@@ -1257,6 +1383,12 @@ public partial class NLUIWindowMain
          */
         _activeVisionSerialVE =
             device.Serial.Trim();
+
+        if (!_activeVisionSerialVE.Contains(':'))
+        {
+            _visionUsbSerialVE =
+                _activeVisionSerialVE;
+        }
 
         UpdateOutputProfile();
 
@@ -1551,6 +1683,14 @@ public partial class NLUIWindowMain
                             case VECoreStates.Stopped:
                             case VECoreStates.Ready:
 
+                                if (_visionRecoveryRunningVE)
+                                {
+                                    SetVisionEngineStatus14(
+                                        "RECUPERANDO",
+                                        failed: false);
+                                    break;
+                                }
+
                                 _activeVisionSerialVE =
                                     null;
 
@@ -1622,9 +1762,14 @@ public partial class NLUIWindowMain
                 return;
             }
 
+            string recoverySerial =
+                await ResolveVisionRecoverySerialVEAsync(serial)
+                    .ConfigureAwait(true);
+
             VECoreResult stop =
                 await _visionEngineVE
-                    .StopAsync()
+                    .StopAsync(
+                        preserveRendererVE: true)
                     .ConfigureAwait(true);
 
             if (!stop.Success)
@@ -1656,7 +1801,7 @@ public partial class NLUIWindowMain
             VECoreResult start =
                 await _visionEngineVE
                     .StartAsync(
-                        serial,
+                        recoverySerial,
                         options)
                     .ConfigureAwait(true);
 
@@ -1669,12 +1814,20 @@ public partial class NLUIWindowMain
 
             AttachVisionInputVE();
 
+            _activeVisionSerialVE =
+                recoverySerial;
+
             _visionPresentationWindowVE?
                 .HostVE
                 .FocusInputVE();
 
             _viewModel.ConnectionStatus =
-                "VisionEngine recovery completado.";
+                string.Equals(
+                    recoverySerial,
+                    _visionLanSerialVE,
+                    StringComparison.OrdinalIgnoreCase)
+                    ? "VisionEngine continuó por LAN después de perder USB."
+                    : "VisionEngine recovery completado.";
         }
         catch (Exception ex)
         {
@@ -1700,6 +1853,68 @@ public partial class NLUIWindowMain
             AndroidEngineStateChanged();
             UpdateRuntimeButtons();
         }
+    }
+
+    private async Task<string> ResolveVisionRecoverySerialVEAsync(
+        string failedSerial)
+    {
+        List<string> candidates = [];
+
+        void AddCandidate(string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value) &&
+                !candidates.Contains(
+                    value,
+                    StringComparer.OrdinalIgnoreCase))
+            {
+                candidates.Add(value);
+            }
+        }
+
+        bool failedOverLan =
+            failedSerial.Contains(':');
+
+        if (failedOverLan)
+        {
+            AddCandidate(_visionUsbSerialVE);
+            AddCandidate(_visionLanSerialVE);
+        }
+        else
+        {
+            AddCandidate(_visionLanSerialVE);
+            AddCandidate(_visionUsbSerialVE);
+        }
+
+        AddCandidate(failedSerial);
+
+        using CancellationTokenSource deadline =
+            new(TimeSpan.FromSeconds(5));
+
+        foreach (string candidate in candidates)
+        {
+            try
+            {
+                if (await _adb
+                        .IsDeviceOnlineAsync(
+                            candidate,
+                            deadline.Token)
+                        .ConfigureAwait(true))
+                {
+                    return candidate;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch
+            {
+                // Recovery prueba sólo las rutas conocidas del teléfono activo.
+            }
+        }
+
+        throw new InvalidOperationException(
+            "VisionEngine perdió USB y no existe una ruta LAN preparada y online para el mismo teléfono.");
     }
 
     // ============================================================
@@ -1788,6 +2003,7 @@ public partial class NLUIWindowMain
 
             _visionEngineVE.StatusChangedVE -=
                 VisionEngine_StatusChangedVE;
+            _visionEngineVE.RuntimeVE.PrivacyVE.StatusChangedVE -= ShellPrivacy_StatusChangedVE;
             _visionEngineVE.RuntimeVE.NvidiaVE.StatusChangedVE -= ShellNvidia_StatusChangedVE;
 
             await _visionEngineVE

@@ -586,15 +586,18 @@ public sealed class LENetworkRelay :
 
     private static void KillStaleProcessesLE()
     {
-        Process[] processes =
-            Process.GetProcessesByName(
-                "NOVORA.LinkEngine.Relay");
+        string expected = Path.GetFullPath(ResolveExecutableLE());
+        Process[] processes = Process.GetProcessesByName(
+            Path.GetFileNameWithoutExtension(ExecutableLE));
 
-        foreach (Process process in
-                 processes)
+        foreach (Process process in processes)
         {
             try
             {
+                string? candidate = process.MainModule?.FileName;
+                if (candidate is null || !string.Equals(
+                    Path.GetFullPath(candidate), expected, StringComparison.OrdinalIgnoreCase))
+                    continue;
                 process.Kill(
                     entireProcessTree:
                         true);

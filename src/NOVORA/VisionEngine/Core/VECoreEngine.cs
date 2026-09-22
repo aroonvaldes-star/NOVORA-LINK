@@ -2,7 +2,6 @@ using NOVORA.Service;
 using NOVORA.VisionEngine.Audio;
 using NOVORA.VisionEngine.Control;
 using NOVORA.VisionEngine.Device;
-using NOVORA.VisionEngine.Gamepad;
 using NOVORA.VisionEngine.Renderer;
 using NOVORA.VisionEngine.Server;
 using NOVORA.VisionEngine.Transport;
@@ -42,8 +41,7 @@ public sealed class VECoreEngine : IAsyncDisposable
     public VECoreEngine(NLServiceNovoraPaths paths)
         : this(
             paths,
-            new NLServiceADB(
-                paths ?? throw new ArgumentNullException(nameof(paths))))
+            new NLServiceADB(paths ?? throw new ArgumentNullException(nameof(paths))))
     {
     }
 
@@ -264,7 +262,7 @@ public sealed class VECoreEngine : IAsyncDisposable
                         IsRunning = true,
                         RendererEnabled = false,
                         UpdatedAtUtc = DateTimeOffset.UtcNow,
-                        Message = "VisionEngine Block D: video, renderer, audio, control, gamepad y exchange activos.",
+                        Message = "VisionEngine Block D: video, renderer, audio, control y exchange activos.",
                         LastError = null
                     }));
 
@@ -292,7 +290,8 @@ public sealed class VECoreEngine : IAsyncDisposable
     }
 
     public async Task<VECoreResult> StopAsync(
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool preserveRendererVE = false)
     {
         ThrowIfDisposedVE();
 
@@ -320,7 +319,9 @@ public sealed class VECoreEngine : IAsyncDisposable
                     LastError = null
                 });
 
-            await _runtime.StopAsync(cancellationToken)
+            await _runtime.StopAsync(
+                    cancellationToken,
+                    preserveRendererVE)
                 .ConfigureAwait(false);
 
             VECoreSession? session = SessionVE;
@@ -386,7 +387,6 @@ public sealed class VECoreEngine : IAsyncDisposable
         VEVideoStatus video = _runtime.VideoVE.StatusVE;
         VEAudioStatus audio = _runtime.AudioVE.StatusVE;
         VEControlStatus control = _runtime.ControlVE.StatusVE;
-        VEGamepadStatus gamepad = _runtime.GamepadVE.StatusVE;
         VERendererStatus renderer = _runtime.RendererVE.StatusVE;
 
         return source with
@@ -406,8 +406,6 @@ public sealed class VECoreEngine : IAsyncDisposable
             ControlReady = control.State == VEControlStates.Ready,
             ControlMessagesSent = control.Stats.MessagesSent,
             ControlMessagesReceived = control.Stats.MessagesReceived,
-            ConnectedGamepads = gamepad.ConnectedGamepads,
-            GamepadReportsSent = gamepad.ReportsSent,
             RendererEnabled = renderer.RendererEnabled,
             RendererBackend = renderer.Backend,
             VideoFramesRendered = renderer.Metrics.FramesPresented,
@@ -427,7 +425,6 @@ public sealed class VECoreEngine : IAsyncDisposable
         VEVideoStatus video = _runtime.VideoVE.StatusVE;
         VEAudioStatus audio = _runtime.AudioVE.StatusVE;
         VEControlStatus control = _runtime.ControlVE.StatusVE;
-        VEGamepadStatus gamepad = _runtime.GamepadVE.StatusVE;
         VERendererStatus renderer = _runtime.RendererVE.StatusVE;
 
         if (video.State == VEVideoStates.Failed)
@@ -465,15 +462,6 @@ public sealed class VECoreEngine : IAsyncDisposable
                 LastError = control.LastError
             };
         }
-        else if (gamepad.State == VEGamepadStates.Failed)
-        {
-            updated = updated with
-            {
-                Message = "Gamepad VisionEngine falló sin detener video/audio.",
-                LastError = gamepad.LastError
-            };
-        }
-
         PublishStatusVE(updated);
     }
 

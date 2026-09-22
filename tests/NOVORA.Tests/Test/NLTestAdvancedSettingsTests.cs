@@ -19,7 +19,7 @@ public sealed class NLTestAdvancedSettingsTests
             IntegrationApplicationsEnabled = false,
             IntegrationNotificationsEnabled = false,
             IntegrationDynamicResizeEnabled = false,
-            GamepadEnabled = false,
+            ExInEnabled = false,
             NvidiaProfile = "Disabled"
         };
         var saved = new NLServiceNovoraSettings();
@@ -34,7 +34,7 @@ public sealed class NLTestAdvancedSettingsTests
         Assert.False(restored.IntegrationApplicationsEnabled);
         Assert.False(restored.IntegrationNotificationsEnabled);
         Assert.False(restored.IntegrationDynamicResizeEnabled);
-        Assert.False(restored.GamepadEnabled);
+        Assert.False(restored.ExInEnabled);
         Assert.Equal("Disabled", restored.NvidiaProfile);
     }
 
@@ -59,5 +59,12 @@ public sealed class NLTestAdvancedSettingsTests
         Assert.DoesNotContain("RemoteAndroidEnabled", JsonSerializer.Serialize(settings));
         Assert.False(settings.PrivacyShieldEnabled);
         Assert.DoesNotContain("token", JsonSerializer.Serialize(settings), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Legacy_gamepad_setting_migrates_to_exin()
+    {
+        var settings = JsonSerializer.Deserialize<NLServiceNovoraSettings>("{\"GamepadEnabled\":false}")!;
+        Assert.False(settings.ExInEnabled);
     }
 }

@@ -8,6 +8,8 @@ public sealed class NLServiceNovoraPaths
 
     public string ToolsDirectory { get; }
 
+    public string ExInProfilesDirectory { get; }
+
     public string Adb =>
         Path.Combine(
             ToolsDirectory,
@@ -45,6 +47,12 @@ public sealed class NLServiceNovoraPaths
             Path.Combine(
                 BaseDirectory,
                 "Tools");
+
+        ExInProfilesDirectory =
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "NOVORA-LINK",
+                "ExInProfiles");
     }
 
     public void ValidateRequiredTools()

@@ -1,3 +1,4 @@
+using NOVORA.ExInEngine;
 using NOVORA.VisionEngine.Transport;
 using System.Net.Sockets;
 
@@ -6,7 +7,7 @@ namespace NOVORA.VisionEngine.Control;
 /// <summary>
 /// Canal bidireccional de input, clipboard y UHID de VisionEngine.
 /// </summary>
-public sealed class VEControlManager : IAsyncDisposable
+public sealed class VEControlManager : IAsyncDisposable, IExInOutput, IExInUiOutput
 {
     private readonly SemaphoreSlim _sendGateVE = new(1, 1);
     private readonly object _statusGateVE = new();
@@ -37,6 +38,37 @@ public sealed class VEControlManager : IAsyncDisposable
     }
 
     public bool IsReadyVE => StatusVE.State == VEControlStates.Ready;
+    bool IExInOutput.IsReady => IsReadyVE;
+
+    Task IExInOutput.CreateAsync(ExInDevice device, byte[] descriptor, CancellationToken cancellationToken) =>
+        SendAsync(VEControlMessage.UhidCreateVE(device.UhidId, device.VendorId, device.ProductId, device.Name, descriptor), cancellationToken);
+    Task IExInOutput.SendAsync(ushort deviceId, byte[] report, CancellationToken cancellationToken) =>
+        SendAsync(VEControlMessage.UhidInputVE(deviceId, report), cancellationToken);
+    Task IExInOutput.DestroyAsync(ushort deviceId, CancellationToken cancellationToken) =>
+        SendAsync(VEControlMessage.UhidDestroyVE(deviceId), cancellationToken);
+    async Task IExInUiOutput.SendUiActionAsync(ExInUiAction action, CancellationToken cancellationToken)
+    {
+        uint? keycode = action switch
+        {
+            ExInUiAction.Up => 19,
+            ExInUiAction.Down => 20,
+            ExInUiAction.Left => 21,
+            ExInUiAction.Right => 22,
+            ExInUiAction.Select => 23,
+            _ => null
+        };
+
+        if (action == ExInUiAction.Back)
+        {
+            await SendAsync(VEControlMessage.BackOrScreenOnVE(VEControlActionKey.Down), cancellationToken).ConfigureAwait(false);
+            await SendAsync(VEControlMessage.BackOrScreenOnVE(VEControlActionKey.Up), cancellationToken).ConfigureAwait(false);
+        }
+        else if (keycode is uint value)
+        {
+            await SendAsync(VEControlMessage.KeycodeVE(VEControlActionKey.Down, value), cancellationToken).ConfigureAwait(false);
+            await SendAsync(VEControlMessage.KeycodeVE(VEControlActionKey.Up, value), cancellationToken).ConfigureAwait(false);
+        }
+    }
 
     public void SetPrivacyGatesVE(
         Func<VEControlMessage, bool>? canSendMessage,
@@ -88,10 +120,14 @@ public sealed class VEControlManager : IAsyncDisposable
             Interlocked.Add(ref _sentBytesVE, payload.Length);
             PublishSnapshotVE();
         }
-        catch
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
         {
             Interlocked.Increment(ref _errorsVE);
-            PublishSnapshotVE();
+            PublishVE(VEControlStates.Failed, "Falló la escritura del canal de control VisionEngine.", ex.Message);
             throw;
         }
         finally
@@ -100,7 +136,7 @@ public sealed class VEControlManager : IAsyncDisposable
         }
     }
 
-    public async Task StopAsync()
+    public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         CancellationTokenSource? cts = _readCtsVE;
         Task? task = _readTaskVE;
@@ -113,7 +149,7 @@ public sealed class VEControlManager : IAsyncDisposable
             cts.Cancel();
             try
             {
-                if (task is not null) await task.ConfigureAwait(false);
+                if (task is not null) await task.WaitAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { }
             catch { }

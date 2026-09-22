@@ -7,9 +7,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>NOVORA.AndroidApp</RootNamespace>
     <ApplicationId>com.novora.appcontrol</ApplicationId>
-    <ApplicationVersion>18</ApplicationVersion>
-    <ApplicationDisplayVersion>1.4.$(ApplicationVersion)</ApplicationDisplayVersion>
-    <ApplicationTitle>NOVORA</ApplicationTitle>
+    <ApplicationVersion>26</ApplicationVersion>
+    <ApplicationDisplayVersion>1.4.26</ApplicationDisplayVersion>
+    <ApplicationTitle>NOVORA-LINK</ApplicationTitle>
     <AndroidManifest>Properties\NLPropertiesAndroidManifest.xml</AndroidManifest>
     <AndroidPackageFormats>apk</AndroidPackageFormats>
     <AndroidBuildApplicationPackage>false</AndroidBuildApplicationPackage>
@@ -22,6 +22,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\NOVORA\Control\NLControlProtocol.cs" Link="Control\NLControlProtocol.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlFloatingDockState.cs" Link="Control\NLControlFloatingDockState.cs" />
     <Compile Include="..\NOVORA\Control\NLControlClient.cs" Link="Control\NLControlClient.cs" />
     <AndroidResource Include="..\NOVORA\Asset\NLAssetNovoraLogo.png" Link="Resources\drawable\novora_logo.png" />
     <AndroidResource Include="..\NOVORA\Asset\NLAssetBienvenido.png" Link="Resources\drawable\novora_welcome.png" />

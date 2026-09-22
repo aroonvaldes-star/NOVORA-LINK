@@ -175,7 +175,7 @@ public sealed class VETransportManager
 
         return ConnectAsync(
             tunnel,
-            videoEnabled: true,
+            videoEnabled: options.VideoEnabled,
             audioEnabled: options.AudioEnabled,
             controlEnabled: options.ControlEnabled,
             timeout: timeout,

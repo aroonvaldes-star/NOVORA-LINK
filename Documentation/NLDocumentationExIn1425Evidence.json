@@ -1,0 +1,44 @@
+{
+  "SchemaVersion": 1,
+  "RecordedOn": "2026-09-21",
+  "PcVersion": "1.4",
+  "AndroidVersionCode": 25,
+  "AndroidVersionName": "1.4.25",
+  "PackageId": "com.novora.appcontrol",
+  "MinSdk": 26,
+  "TargetSdk": 36,
+  "CanonicalSha256": "049EBB9D6C4DD9210F94296A5D0795D386B5E9BC3B10A95E7B3038118F56C981",
+  "Automated": {
+    "AndroidReleaseCompile": "passed: 0 warnings, 0 errors",
+    "AndroidSignedPackageTarget": "passed",
+    "AndroidBinaryManifest": "passed: package, versionCode, versionName and minSdk",
+    "DesktopReleaseBuild": "passed: 0 warnings, 0 errors",
+    "ReleaseTests": "passed: 374/374",
+    "CanonicalDesktopCopy": "passed: SHA-256 and descriptor match"
+  },
+  "Signature": {
+    "BuildSigningTarget": "passed",
+    "IndependentApkSignerVerification": "not_run: apksigner was not available"
+  },
+  "Physical": {
+    "DeviceDetectedByAdb": false,
+    "Installation": "pending: no Android device connected",
+    "XboxController": "pending",
+    "DualShock4Controller": "pending",
+    "Launcher": "pending",
+    "Instagram": "pending",
+    "Facebook": "pending",
+    "TikTok": "pending",
+    "PianoTiles3": "pending",
+    "ClashRoyale": "pending",
+    "RainbowSixMobile": "pending",
+    "CallOfDutyMobile": "pending",
+    "FiveMatchMenuCycles": "pending",
+    "ModeTransitions": "pending",
+    "PointerClickScroll": "pending",
+    "CalibrationDiagnostics": "pending",
+    "BatteryNotifications": "pending",
+    "UsbLanRecovery": "pending"
+  },
+  "ReleaseGate": "pending_physical_validation"
+}

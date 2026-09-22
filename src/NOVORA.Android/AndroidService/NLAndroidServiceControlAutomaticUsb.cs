@@ -27,15 +27,26 @@ public sealed partial class NLAndroidServiceControl
             var state = Session.Current;
             if (state.Transport == "USB" && state.Phase == NLControlSessionPhase.Connected &&
                 _automaticUsbIdentity == identity) return; // Same invitation, no duplicate socket.
+            NLControlTrustedPc? lanFallback = state.Transport == "LAN"
+                ? _recoveryPeer ?? _connectingPeer
+                : null;
             if (state.Transport == "LAN" && state.Phase is NLControlSessionPhase.Connected or NLControlSessionPhase.Connecting)
             {
-                RecoveryMessage = "LAN sigue activa. Desconectala antes de cambiar a USB.";
-                StatusChanged?.Invoke(this, EventArgs.Empty);
-                return;
+                await DisconnectAsync();
+                if (_destroyed || request != _automaticUsbRequest) return;
             }
-            AcceptUsbBootstrap(text);
-            _automaticUsbIdentity = identity;
-            await ConnectUsbCoreAsync(automatic: true);
+            try
+            {
+                AcceptUsbBootstrap(text);
+                _automaticUsbIdentity = identity;
+                await ConnectUsbCoreAsync(automatic: true);
+            }
+            catch (Exception ex) when (lanFallback is not null && !_destroyed && request == _automaticUsbRequest)
+            {
+                await ConnectTrustedAsync(lanFallback);
+                RecoveryMessage = "USB fue detectado, pero no se confirmó. La sesión LAN continúa activa.";
+                Android.Util.Log.Warn("NOVORA-USB", "AUTO_USB_FALLBACK_LAN " + ex.GetType().Name);
+            }
         }
         catch (Exception ex)
         {

@@ -46,6 +46,7 @@ public sealed partial class NLAndroidServiceControl : Service
     public string? RecoveryMessage { get; private set; }
     public event EventHandler? StatusChanged;
     private NLAndroidUIFloatingController? _floating;
+    private NLAndroidServiceControllerNotifications? _controllerNotifications;
     private int _visibleUi;
     public bool TransferInProgress { get; private set; }
     public bool BeginFileTransfer()
@@ -87,6 +88,7 @@ public sealed partial class NLAndroidServiceControl : Service
         _trustedStore = new NLAndroidStorageTrustedPcs(this);
         _main = new Handler(Looper.MainLooper!);
         _floating = new NLAndroidUIFloatingController(this, this);
+        _controllerNotifications = new NLAndroidServiceControllerNotifications(this);
         var manager = (NotificationManager)GetSystemService(NotificationService)!;
         manager.CreateNotificationChannel(new NotificationChannel(Channel, "Control de NOVORA PC", NotificationImportance.Low)
         { Description = "Conexión y controles de NOVORA PC", LockscreenVisibility = NotificationVisibility.Private });
@@ -354,6 +356,7 @@ public sealed partial class NLAndroidServiceControl : Service
         var current = Session.Current;
         PublishAutomaticUsbDiagnostics();
         _floating?.Update(current);
+        _controllerNotifications?.Update(current.Generation, current.Snapshot?.ExIn);
         if (_internetStopGeneration >= 0) _ = StopRemoteInternetAfterFailureAsync();
         if (_internetOwned && (current.Transport != "USB" || current.Phase != NLControlSessionPhase.Connected ||
             (!_internetStarting && current.Snapshot?.Engines is { LinkCanStart: true, LinkCanStop: false }))) StopLocalInternet();
@@ -454,6 +457,7 @@ public sealed partial class NLAndroidServiceControl : Service
     {
         _floating?.Dispose();
         _floating = null;
+        _controllerNotifications = null;
         NLAndroidVpnService.StatusChanged -= InternetStatusChanged;
         StopLocalInternet();
         CancelRecovery();

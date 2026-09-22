@@ -24,7 +24,9 @@ public sealed class NLAndroidUIFloatingController : IDisposable
     private LinearLayout? _view;
     private LinearLayout? _panel;
     private WindowManagerLayoutParams? _layout;
-    private bool _foreground = true, _hidden, _expanded, _disposed, _more;
+    private bool _foreground = true, _hidden, _expanded, _disposed, _more, _docked, _dragging;
+    private long _hideGeneration;
+    private bool _autoHideScheduled;
     private long _generation = -1;
     private string? _renderKey;
     private string? _quickAction;
@@ -44,7 +46,7 @@ public sealed class NLAndroidUIFloatingController : IDisposable
     public void SetForeground(bool foreground) { _foreground = foreground; Refresh(); }
     public void Update(NLControlSessionState state)
     {
-        if (state.Generation != _generation) { _hidden = false; _expanded = false; _quickAction = null; _feedback = ""; _generation = state.Generation; }
+        if (state.Generation != _generation) { _hidden = false; _expanded = false; _docked = false; _quickAction = null; _feedback = ""; _generation = state.Generation; }
         if (_state.Snapshot?.VideoRunning == true && state.Snapshot?.VideoRunning != true) _hidden = false;
         _state = state; Refresh();
     }
@@ -93,7 +95,7 @@ public sealed class NLAndroidUIFloatingController : IDisposable
     private void Refresh()
     {
         if (_disposed) return;
-        if (_foreground || _hidden || _state.Phase != NLControlSessionPhase.Connected || _state.Snapshot?.VideoRunning != true ||
+        if (_foreground || _hidden || _state.Phase != NLControlSessionPhase.Connected ||
             !NLAndroidUIFloatingPreferences.IsEnabled(_context) || !Settings.CanDrawOverlays(_context)) { Remove(); return; }
         try
         {
@@ -101,6 +103,7 @@ public sealed class NLAndroidUIFloatingController : IDisposable
             var key = $"{_state.Generation}:{_state.Snapshot?.Revision}:{_state.Busy}:{_service.TransferInProgress}:{_expanded}:{_quickAction}";
             if (key != _renderKey) { RenderPanel(); _renderKey = key; }
             ClampPosition();
+            ScheduleAutoHide();
         }
         catch (Exception ex) when (ex is Java.Lang.RuntimeException or System.ArgumentException)
         { Remove(); Toast.MakeText(_context, "No se pudo mostrar el control flotante. Abre NOVORA para continuar.", ToastLength.Long)?.Show(); }
@@ -115,7 +118,13 @@ public sealed class NLAndroidUIFloatingController : IDisposable
         bubble.ClipToOutline = true;
         var background = new GradientDrawable(); background.SetColor(Color.ParseColor("#E6202D35")); background.SetCornerRadius(Dp(28)); background.SetStroke(Dp(1), Color.Cyan); bubble.Background = background;
         _view.AddView(bubble, new LinearLayout.LayoutParams(Dp(56), Dp(56)));
-        bubble.Click += (_, _) => { _expanded = !_expanded; _renderKey = null; Refresh(); };
+        bubble.Click += (_, _) =>
+        {
+            if (_docked) Reveal();
+            else _expanded = !_expanded;
+            _renderKey = null;
+            Refresh();
+        };
         bubble.SetOnTouchListener(new DragListener(this));
         _panel = new LinearLayout(_context) { Orientation = Orientation.Vertical }; _panel.SetPadding(Dp(12), Dp(8), Dp(12), Dp(12));
         _panel.Background = NLAndroidUIVisual.Surface(_context, "#192329", "#40545F", 18);
@@ -158,7 +167,9 @@ public sealed class NLAndroidUIFloatingController : IDisposable
         if (scroll.LayoutParameters!.Width != w || scroll.LayoutParameters.Height != maxPanel)
             scroll.LayoutParameters = new LinearLayout.LayoutParams(w, maxPanel);
         int h = _expanded ? Dp(56) + maxPanel : Dp(56);
-        int x = Math.Clamp(_layout.X, 0, Math.Max(0, size.Width - w));
+        int x = _docked && !_expanded
+            ? NLControlFloatingDockState.DockedX(NLControlFloatingDockState.NearestEdge(_layout.X, size.Width, Dp(56)), size.Width, Dp(56), Dp(10))
+            : Math.Clamp(_layout.X, 0, Math.Max(0, size.Width - w));
         int y = Math.Clamp(_layout.Y, 0, Math.Max(0, size.Height - h));
         if (flagsChanged || _layout.X != x || _layout.Y != y) { _layout.X = x; _layout.Y = y; UpdateWindow(); }
     }
@@ -194,6 +205,20 @@ public sealed class NLAndroidUIFloatingController : IDisposable
             }
             Button("Volver al panel", () => { _quickAction = null; return Task.CompletedTask; });
             return;
+        }
+        if (snapshot.ExIn is { } controller)
+        {
+            Label("CONTROL", 11);
+            Label(controller.Detected
+                ? $"{controller.DeviceName} · {ControllerFamily(controller.Family)} · {Battery(controller)}"
+                : "Sin control físico detectado", 12);
+            var modes = new LinearLayout(_context) { Orientation = Orientation.Horizontal };
+            _panel.AddView(modes);
+            ModeButton(modes, "Juego", "Game", controller, ready);
+            ModeButton(modes, "UI", "Ui", controller, ready);
+            Button("Reactivar control", () => Send("exin.reactivate"), ready && controller.CanReactivate);
+            if (controller.Transitioning) Label("Cambiando el destino del control…", 12);
+            else if (!string.IsNullOrWhiteSpace(controller.Message)) Label(controller.Message, 12);
         }
         Label("HERRAMIENTAS", 11);
         var tools = new LinearLayout(_context) { Orientation = Orientation.Horizontal }; _panel.AddView(tools);
@@ -274,11 +299,37 @@ public sealed class NLAndroidUIFloatingController : IDisposable
             if (!_disposed && _service.Session.Current.Generation == state.Generation) _feedback = "Cambio no confirmado. Revisa la conexión con PC.";
         }
     }
-    private async Task Send(string action)
+    private void ModeButton(LinearLayout row, string text, string value, NLControlExIn controller, bool ready)
+    {
+        var button = new Button(_context) { Text = controller.Mode == value ? text + " · activo" : text,
+            Enabled = ready && controller.CanSetMode && controller.Mode != value };
+        NLAndroidUIVisual.Button(button);
+        button.Click += async (_, _) =>
+        {
+            button.Enabled = false;
+            try { await Send("exin.mode", value); }
+            catch (Exception ex) { Toast.MakeText(_context, ex.Message, ToastLength.Long)?.Show(); }
+            finally { if (!_disposed) { _renderKey = null; Refresh(); } }
+        };
+        var layout = new LinearLayout.LayoutParams(0, -2, 1); layout.SetMargins(Dp(3), Dp(3), Dp(3), Dp(3));
+        row.AddView(button, layout);
+    }
+
+    private static string ControllerFamily(string family) => family switch
+    {
+        "DualShock4" => "DualShock 4",
+        "Xbox" => "Xbox",
+        _ => family
+    };
+
+    private static string Battery(NLControlExIn controller)
+        => controller.BatteryPercent >= 0 ? controller.BatteryPercent + "%" : controller.BatteryState;
+
+    private async Task Send(string action, string? value = null)
     {
         var before = _state;
         if (before.Busy || _service.TransferInProgress || before.Phase != NLControlSessionPhase.Connected) return;
-        var reply = await _service.Session.SendAsync(action);
+        var reply = await _service.Session.SendAsync(action, value);
         if (!_disposed && _service.Session.Current.Generation == before.Generation)
             Toast.MakeText(_context, reply.Message, ToastLength.Long)?.Show();
     }
@@ -311,11 +362,51 @@ public sealed class NLAndroidUIFloatingController : IDisposable
     }
     private void Remove()
     {
+        CancelAutoHide();
         StopMedia();
         var view = _view; _view = null; _panel = null; _layout = null; _renderKey = null;
         if (view is not null) try { _manager.RemoveView(view); } catch (Java.Lang.RuntimeException) { }
     }
     public void Dispose() { if (_disposed) return; _disposed = true; NLAndroidUIFloatingPreferences.Changed -= PreferencesChanged; NLAndroidUIMediaAccess.AccessChanged -= MediaAccessChanged; Remove(); _main.RemoveCallbacksAndMessages(null); _main.Dispose(); }
+
+    private void Reveal()
+    {
+        if (!_docked) return;
+        CancelAutoHide();
+        _docked = false;
+        if (_layout is null) return;
+        var size = Size();
+        _layout.X = Math.Clamp(_layout.X < 0 ? 0 : size.Width - Dp(56), 0, Math.Max(0, size.Width - Dp(56)));
+        UpdateWindow();
+    }
+
+    private void ScheduleAutoHide()
+    {
+        if (_disposed || _view is null || _docked || _expanded || _dragging || _state.Busy || _service.TransferInProgress)
+        {
+            CancelAutoHide();
+            return;
+        }
+        if (_autoHideScheduled) return;
+        _autoHideScheduled = true;
+        long generation = ++_hideGeneration;
+        _main.PostDelayed(() =>
+        {
+            if (_disposed || generation != _hideGeneration) return;
+            _autoHideScheduled = false;
+            if (_view is null || _layout is null ||
+                !NLControlFloatingDockState.ShouldDock(NLControlFloatingDockState.InactivityDelay, _expanded,
+                    _state.Busy || _service.TransferInProgress, _dragging)) return;
+            _docked = true;
+            ClampPosition();
+        }, (long)NLControlFloatingDockState.InactivityDelay.TotalMilliseconds);
+    }
+
+    private void CancelAutoHide()
+    {
+        _hideGeneration++;
+        _autoHideScheduled = false;
+    }
     private sealed class DragListener(NLAndroidUIFloatingController owner) : Java.Lang.Object, View.IOnTouchListener
     {
         private float _x, _y; private int _startX, _startY; private bool _dragging;
@@ -324,7 +415,9 @@ public sealed class NLAndroidUIFloatingController : IDisposable
             if (motion is null || owner._layout is null || owner._view is null) return false;
             switch (motion.ActionMasked)
             {
-                case MotionEventActions.Down: _x = motion.RawX; _y = motion.RawY; _startX = owner._layout.X; _startY = owner._layout.Y; _dragging = false; return true;
+                case MotionEventActions.Down:
+                    owner.Reveal(); owner.CancelAutoHide(); owner._dragging = true;
+                    _x = motion.RawX; _y = motion.RawY; _startX = owner._layout.X; _startY = owner._layout.Y; _dragging = false; return true;
                 case MotionEventActions.Move:
                     float dx = motion.RawX - _x, dy = motion.RawY - _y;
                     _dragging |= Math.Abs(dx) + Math.Abs(dy) > owner.Dp(8);
@@ -336,10 +429,12 @@ public sealed class NLAndroidUIFloatingController : IDisposable
                     }
                     return true;
                 case MotionEventActions.Up:
+                    owner._dragging = false;
                     if (!_dragging) view?.PerformClick();
                     else { var size = owner.Size(); NLAndroidUIFloatingPreferences.SavePosition(owner._context, owner._layout.X / (float)Math.Max(1, size.Width - owner.Dp(56)), owner._layout.Y / (float)Math.Max(1, size.Height - owner.Dp(56))); }
+                    owner.ScheduleAutoHide();
                     return true;
-                case MotionEventActions.Cancel: return true;
+                case MotionEventActions.Cancel: owner._dragging = false; owner.ScheduleAutoHide(); return true;
                 default: return false;
             }
         }

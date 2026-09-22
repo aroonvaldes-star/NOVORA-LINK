@@ -2,12 +2,13 @@ using NOVORA.Model;
 using NOVORA.Service;
 using NOVORA.ViewModel;
 using NOVORA.STEngine.Core;
-using NOVORA.VisionEngine.Gamepad;
+using NOVORA.ExInEngine;
 using NOVORA.VisionEngine.Integration;
 using NOVORA.NVIDIA;
 using NOVORA.VisionEngine.Privacy;
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -45,6 +46,7 @@ public partial class NLUIWindowMain : Window
     private bool _informationalPollingSuspended14;
     private string _selectedPage14 = "Home";
     private CancellationTokenSource? _refreshCts14;
+    private bool _exInUiApplyingVE;
 
     public NLUIWindowMain()
     {
@@ -85,6 +87,7 @@ public partial class NLUIWindowMain : Window
 
         await RefreshDevicesAsync(
             force: true);
+        await EnsureExInStandaloneAsync();
 
         await RefreshPerformanceOnceAsync();
 
@@ -121,6 +124,19 @@ public partial class NLUIWindowMain : Window
             await StopDiscoveryLifecycleNVAsync();
             await ShutdownLinkEngineRuntimeLEAsync();
             await ShutdownVisionEngineRuntimeVEAsync();
+            if (_exInControlSession is not null)
+            {
+                await _exInControlSession.DisposeAsync();
+                _exInControlSession = null;
+            }
+            if (_exInEngine is not null)
+            {
+                _exInEngine.Manager.StatusChangedVE -= ShellGamepad_StatusChangedVE;
+                _exInEngine.Manager.BatteryAlertVE -= ShellGamepad_BatteryAlertVE;
+                await _exInInitialization;
+                await _exInEngine.DisposeAsync();
+                _exInEngine = null;
+            }
         }
         catch
         {
@@ -494,8 +510,7 @@ public partial class NLUIWindowMain : Window
             settings.IntegrationNotificationsEnabled;
         _viewModel.IntegrationDynamicResizeEnabled =
             settings.IntegrationDynamicResizeEnabled;
-        _viewModel.GamepadEnabled =
-            settings.GamepadEnabled;
+        _viewModel.ExInEnabled = settings.ExInEnabled;
         _viewModel.NvidiaProfile =
             settings.NvidiaProfile;
         ApplyAdvancedVisionSettingsVE();
@@ -540,7 +555,7 @@ public partial class NLUIWindowMain : Window
                 IntegrationApplicationsEnabled = _viewModel.IntegrationApplicationsEnabled,
                 IntegrationNotificationsEnabled = _viewModel.IntegrationNotificationsEnabled,
                 IntegrationDynamicResizeEnabled = _viewModel.IntegrationDynamicResizeEnabled,
-                GamepadEnabled = _viewModel.GamepadEnabled,
+                ExInEnabled = _viewModel.ExInEnabled,
                 NvidiaProfile = _viewModel.NvidiaProfile
             });
     }
@@ -651,7 +666,10 @@ public partial class NLUIWindowMain : Window
         UpdateLinkEngineButtonLE();
 
         WifiAdbButton.IsEnabled =
-            hasDevice && !_closing;
+            hasDevice &&
+            !_closing &&
+            !visionBusy &&
+            !IsVisionEngineRunningVE();
     }
 
     private void ShowTopMessage14(
@@ -686,7 +704,7 @@ public partial class NLUIWindowMain : Window
     }
 
     private void ApplyGamepadShell14(
-        VEGamepadStatus status)
+        ExInStatus status)
     {
         GamepadStatusText14.Text =
             string.IsNullOrWhiteSpace(status.LastError)
@@ -695,6 +713,144 @@ public partial class NLUIWindowMain : Window
 
         GamepadCountText14.Text =
             $"Mandos conectados: {status.ConnectedGamepads} - Reportes enviados: {status.ReportsSent:N0}";
+
+        ExInLiveSnapshot? live = _exInEngine?.LiveSnapshot;
+        ExInDevice? device = live?.Device;
+        ExInState raw = live?.State ?? default;
+        ExInState corrected = live?.CorrectedState ?? default;
+        string? profileKey = device?.Identity?.ProfileKey;
+        ExInDiagnosticStatus? diagnostic = profileKey is null
+            ? null : status.Diagnostics.FirstOrDefault(value => value.ProfileKey == profileKey);
+        ExInBatteryStatus? battery = profileKey is null
+            ? null : status.Batteries.FirstOrDefault(value => value.ProfileKey == profileKey);
+        ExInInputMode mode = _exInEngine?.Manager.ModeVE ?? ExInInputMode.Game;
+        bool available = device is not null && !_exInUiApplyingVE && !_androidControlApplying;
+        bool canCalibrate = available && _exInEngine?.Manager.IsPrivacyProtectedVE != true;
+
+        ExInIdentityText14.Text = device is null
+            ? "Sin control físico"
+            : $"{device.Identity?.Family ?? ExInControllerFamily.Generic} · {device.Name} · {device.VendorId:X4}:{device.ProductId:X4} · {live?.Calibration?.ConnectionType ?? "Conexión no reportada"}\n" +
+              (device.Identity?.Family == ExInControllerFamily.DualShock4
+                  ? "Juego · puntero · navegación · touchpad"
+                  : "Juego · puntero · navegación");
+        ExInCalibrationText14.Text = live?.Calibrating == true
+            ? "Capturando recorrido completo"
+            : live?.Calibration is { } profile
+                ? $"Perfil {profile.ProfileId} · DZ {profile.Deadzone.LeftX:P0}/{profile.Deadzone.LeftY:P0}/{profile.Deadzone.RightX:P0}/{profile.Deadzone.RightY:P0}\n" +
+                  $"LX {profile.Minimum.LeftX}:{profile.Maximum.LeftX} · LY {profile.Minimum.LeftY}:{profile.Maximum.LeftY} · RX {profile.Minimum.RightX}:{profile.Maximum.RightX} · RY {profile.Minimum.RightY}:{profile.Maximum.RightY}\n" +
+                  $"LT {profile.Minimum.LeftTrigger}:{profile.Maximum.LeftTrigger} · RT {profile.Minimum.RightTrigger}:{profile.Maximum.RightTrigger}"
+                : "Sin perfil activo";
+        static int AxisVE(short value) => (int)Math.Round(value / 32767d * 100);
+        static int TriggerVE(short value) => (int)Math.Round(Math.Max(0, (int)value) / 32767d * 100);
+        ExInAxesText14.Text =
+            $"RAW  L {AxisVE(raw.LeftX),4}/{AxisVE(raw.LeftY),4}  R {AxisVE(raw.RightX),4}/{AxisVE(raw.RightY),4}  T {TriggerVE(raw.LeftTrigger),3}/{TriggerVE(raw.RightTrigger),3}\n" +
+            $"CAL  L {AxisVE(corrected.LeftX),4}/{AxisVE(corrected.LeftY),4}  R {AxisVE(corrected.RightX),4}/{AxisVE(corrected.RightY),4}  T {TriggerVE(corrected.LeftTrigger),3}/{TriggerVE(corrected.RightTrigger),3}";
+        ExInMappingText14.Text = string.IsNullOrWhiteSpace(live?.SdlMapping)
+            ? "Mapping SDL no disponible"
+            : $"SDL: {live.SdlMapping}";
+        ExInTranslationText14.Text = live?.TranslationTrace ?? "Sin eventos traducidos";
+        ExInHealthText14.Text = diagnostic is null
+            ? "Diagnóstico no ejecutado"
+            : $"{diagnostic.Classification} · {diagnostic.Explanation}";
+        ExInBatteryText14.Text = battery is null
+            ? "Batería no reportada"
+            : battery.Percent is int percent ? $"{battery.State} · {percent}%" : battery.State.ToString();
+
+        ExInGameModeButton14.IsEnabled = available && mode != ExInInputMode.Game;
+        ExInUiModeButton14.IsEnabled = available && mode != ExInInputMode.Ui;
+        ExInReactivateButton14.IsEnabled = available;
+        ExInCalibrationStartButton14.IsEnabled = canCalibrate && live?.Calibrating != true;
+        ExInCalibrationFinishButton14.IsEnabled = canCalibrate && live?.Calibrating == true;
+        ExInCalibrationResetButton14.IsEnabled = canCalibrate && (live?.Calibrated == true || live?.Calibrating == true);
+        ExInGameModeButton14.SetResourceReference(System.Windows.Controls.Control.BackgroundProperty,
+            mode == ExInInputMode.Game ? "InputSelectedBackgroundBrush" : "PanelBrush2");
+        ExInUiModeButton14.SetResourceReference(System.Windows.Controls.Control.BackgroundProperty,
+            mode == ExInInputMode.Ui ? "InputSelectedBackgroundBrush" : "PanelBrush2");
+    }
+
+    private async void ExInGameMode_Click(object sender, RoutedEventArgs e)
+        => await SetExInModeFromUiVEAsync(ExInInputMode.Game);
+
+    private async void ExInUiMode_Click(object sender, RoutedEventArgs e)
+        => await SetExInModeFromUiVEAsync(ExInInputMode.Ui);
+
+    private void ExInWindowsCalibration_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("control.exe", "joy.cpl") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            ShowTopMessage14($"No fue posible abrir la calibración de Windows: {ex.Message}", NLUIMessageKind14.Error);
+        }
+    }
+
+    private async Task SetExInModeFromUiVEAsync(ExInInputMode mode)
+    {
+        if (_exInEngine is null || _exInUiApplyingVE || _androidControlApplying) return;
+        _exInUiApplyingVE = true;
+        ApplyGamepadShell14(_exInEngine.Status);
+        try
+        {
+            ExInModeResult result = await _exInEngine.Manager.SetModeAsync(mode);
+            if (result.Success) _androidControlRevision++;
+            else _viewModel.ConnectionStatus = result.Message;
+        }
+        catch (Exception ex) { _viewModel.ConnectionStatus = "ExInEngine: " + ex.Message; }
+        finally
+        {
+            _exInUiApplyingVE = false;
+            ApplyGamepadShell14(_exInEngine.Status);
+            QueueAndroidControlSnapshot();
+        }
+    }
+
+    private async void ExInReactivate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_exInControlSession is null || _exInUiApplyingVE || _androidControlApplying) return;
+        _exInUiApplyingVE = true;
+        if (_exInEngine is not null) ApplyGamepadShell14(_exInEngine.Status);
+        try
+        {
+            ExInModeResult result = await _exInControlSession.ReactivateAsync();
+            if (result.Success) _androidControlRevision++;
+            _viewModel.ConnectionStatus = result.Message;
+        }
+        catch (Exception ex) { _viewModel.ConnectionStatus = "ExInEngine: " + ex.Message; }
+        finally
+        {
+            _exInUiApplyingVE = false;
+            if (_exInEngine is not null) ApplyGamepadShell14(_exInEngine.Status);
+            QueueAndroidControlSnapshot();
+        }
+    }
+
+    private void ExInCalibrationStart_Click(object sender, RoutedEventArgs e)
+        => ApplyExInCalibrationUiVE(CanApplyExInCalibrationVE() && _exInEngine?.Manager.BeginCalibrationVE() == true, "No se pudo iniciar la calibración.", incrementRevision: true);
+
+    private void ExInCalibrationFinish_Click(object sender, RoutedEventArgs e)
+        => ApplyExInCalibrationUiVE(CanApplyExInCalibrationVE() && _exInEngine?.Manager.FinishCalibrationVE() == true, "El recorrido capturado fue insuficiente.", incrementRevision: true);
+
+    private void ExInCalibrationReset_Click(object sender, RoutedEventArgs e)
+    {
+        if (!CanApplyExInCalibrationVE()) return;
+        _exInEngine?.Manager.ResetCalibrationVE();
+        _androidControlRevision++;
+        if (_exInEngine is not null) ApplyGamepadShell14(_exInEngine.Status);
+        QueueAndroidControlSnapshot();
+    }
+
+    private bool CanApplyExInCalibrationVE()
+        => !_exInUiApplyingVE && !_androidControlApplying &&
+           _exInEngine?.Manager.IsPrivacyProtectedVE == false;
+
+    private void ApplyExInCalibrationUiVE(bool success, string failureMessage, bool incrementRevision)
+    {
+        if (success && incrementRevision) _androidControlRevision++;
+        if (!success) _viewModel.ConnectionStatus = failureMessage;
+        if (_exInEngine is not null) ApplyGamepadShell14(_exInEngine.Status);
+        QueueAndroidControlSnapshot();
     }
 
     private void ApplyIntegrationShell14(
@@ -763,16 +919,34 @@ public partial class NLUIWindowMain : Window
     private void ShellPrivacy_StatusChangedVE(
         object? sender,
         VEPrivacyStatus status)
-        => Dispatcher.Invoke(
-            () =>
-                ApplyPrivacyShell14(status));
+        => Dispatcher.Invoke(() =>
+        {
+            ApplyPrivacyShell14(status);
+            if (_exInEngine is not null) ApplyGamepadShell14(_exInEngine.Status);
+            _androidControlRevision++;
+            QueueAndroidControlSnapshot();
+        });
 
     private void ShellGamepad_StatusChangedVE(
         object? sender,
-        VEGamepadStatus status)
-        => Dispatcher.Invoke(
-            () =>
-                ApplyGamepadShell14(status));
+        ExInStatus status)
+        => Dispatcher.Invoke(() =>
+        {
+            ApplyGamepadShell14(status);
+            AndroidEngineStateChanged();
+            QueueAndroidControlSnapshot();
+        });
+
+    private void ShellGamepad_BatteryAlertVE(
+        object? sender,
+        ExInBatteryAlert alert)
+        => Dispatcher.Invoke(() =>
+        {
+            _androidExInBatteryAlert = alert;
+            _androidExInBatteryAlertSequence++;
+            _androidControlRevision++;
+            QueueAndroidControlSnapshot();
+        });
 
     private void ShellIntegration_StatusChangedVE(
         object? sender,
@@ -804,13 +978,11 @@ public partial class NLUIWindowMain : Window
         QueueSaveSelection14();
     }
 
-    private void WifiAdb_Click(
+    private async void WifiAdb_Click(
         object sender,
         RoutedEventArgs e)
     {
-        ShowTopMessage14(
-            "ADB por Wi-Fi se configura desde LinkEngine/Remote Android.",
-            NLUIMessageKind14.Info);
+        await PrepareVisionLanFallbackVEAsync();
     }
 
     private void ApplySTEngineShell14()

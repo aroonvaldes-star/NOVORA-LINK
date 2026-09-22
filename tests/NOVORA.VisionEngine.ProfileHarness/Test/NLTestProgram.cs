@@ -65,7 +65,7 @@ public static class NLTestProgram
             await Dispatcher.Yield(DispatcherPriority.Loaded);
             await using var engine = new VECoreEngine(paths);
             engine.AttachRendererHostVE(host);
-            engine.RuntimeVE.GamepadEnabledVE = false;
+            await engine.RuntimeVE.ExInEngine.SetEnabledAsync(false);
             engine.RuntimeVE.NvidiaVE.SetProfileVE(nvidiaProfile);
             engine.RuntimeVE.PerformanceVE.SetProfileVE(profile);
             var options = VEServerOptions.CreateForProfileVE(profile) with { AudioEnabled = false, AudioPlaybackEnabled = false };

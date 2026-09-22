@@ -1,4 +1,5 @@
 using NOVORA.Control;
+using NOVORA.ExInEngine;
 using NOVORA.LinkEngine.Runtime;
 using NOVORA.STEngine.Core;
 using NOVORA.VisionEngine.Core;
@@ -27,30 +28,35 @@ public partial class NLUIWindowMain
         var linkSession = link?.SessionLE;
         bool usbEligible = _androidControl?.IsAuthorized == true && _androidControlSerial is not null &&
             _androidControlSerial == device.Serial && device.Connected && !device.IsWifiConnection;
-        bool linkCanStop = _androidOwnedLinkRuntime is not null && !_androidLinkStopping;
+        bool linkUsesSelectedDevice = linkSession is not null && string.Equals(
+            linkSession.Serial, device.Serial, StringComparison.OrdinalIgnoreCase);
+        bool linkUsesOtherDevice = link?.EngineLE is not null && !linkUsesSelectedDevice;
+        bool linkCanTakeOver = usbEligible && linkUsesOtherDevice && !_androidLinkStarting && !_androidLinkStopping;
+        bool linkCanStop = _androidOwnedLinkRuntime is not null && linkUsesSelectedDevice && !_androidLinkStopping;
         string linkMessage = _androidLinkError ?? linkSession?.Message ?? "LinkEngine detenido.";
+        if (linkCanTakeOver) linkMessage += " Hay otra sesión activa; este teléfono puede tomar LinkEngine sin reiniciar NOVORA.";
         if (!usbEligible) linkMessage += " Para iniciar Internet USB, conecta este teléfono mediante el control USB autorizado.";
         var stSnapshot = RefreshSTEngineSnapshot14();
         string stState = stSnapshot.State switch
         {
             STCoreState.Healthy => "Active",
             STCoreState.Watch => "Detected",
-            STCoreState.Degraded => "Error",
-            STCoreState.Critical => "Error",
+            STCoreState.Degraded => "Degraded",
+            STCoreState.Critical => "Critical",
             _ => "NotDetected"
         };
-        string exInState = _viewModel.GamepadEnabled
-            ? (device.Connected ? "Detected" : "NotDetected")
-            : "NotDetected";
-        string exInMessage = _viewModel.GamepadEnabled
-            ? "ExInEngine habilitado. La detección y calibración dependen de entradas reales del control."
-            : "ExInEngine desactivado en PC; no se simula detección de mando.";
+        ExInStatus? exIn = _exInEngine?.Status;
+        string exInState = !_viewModel.ExInEnabled ? "NotDetected" : exIn?.State == ExInStates.Failed ? "Error" :
+            exIn?.ConnectedGamepads > 0 ? "Detected" : exIn?.State == ExInStates.Running ? "Active" : "NotDetected";
+        string exInMessage = !_viewModel.ExInEnabled
+            ? "ExInEngine desactivado en PC."
+            : exIn?.Message ?? "ExInEngine todavía no está inicializado.";
         return new NLControlEngines(
             !_closing && !videoBusy && !videoRunning && device.Connected &&
                 !string.IsNullOrWhiteSpace(device.Serial) && _viewModel.SelectedMonitor is not null,
             !_closing && !videoBusy && videoRunning,
-            !_closing && usbEligible && !_androidLinkStarting && !_androidLinkStopping &&
-                _androidOwnedLinkRuntime is null && link is not null && link.EngineLE is null,
+            !_closing && usbEligible && !_androidLinkStarting && !_androidLinkStopping && link is not null &&
+                (link.EngineLE is null || linkCanTakeOver),
             !_closing && linkCanStop,
             link?.IsRunningLE == true,
             _androidLinkStopping ? "Stopping" : _androidLinkStarting ? "Starting" :
@@ -64,7 +70,8 @@ public partial class NLUIWindowMain
             exInState,
             exInMessage,
             stState,
-            $"STEngine: {stSnapshot.Summary}");
+            $"STEngine: {stSnapshot.Summary}",
+            linkCanTakeOver);
     }
 
     // Existing engine/device events publish only changes relevant to the control UI.
@@ -111,8 +118,29 @@ public partial class NLUIWindowMain
                 return Reply(Authorized() && IsVisionEngineRunningVE(), "Reinicio de VisionEngine completado.");
             case "startLink":
                 if (!CaptureAndroidEngines().LinkCanStart)
-                    return Reply(false, "LinkEngine requiere el teléfono seleccionado y autorizado por control USB, sin otra sesión del motor.");
+                    return Reply(false, "LinkEngine requiere una sesión USB autorizada y disponible.");
                 var startRuntime = _linkEngineRuntimeLE!;
+                bool handoff = startRuntime.EngineLE is not null && !string.Equals(
+                    startRuntime.SessionLE?.Serial, serial, StringComparison.OrdinalIgnoreCase);
+                if (handoff)
+                {
+                    _androidLinkStopping = true;
+                    _androidLinkStartCancellation?.Cancel();
+                    AndroidEngineStateChanged();
+                    try
+                    {
+                        await _androidLinkStartTask;
+                        var stopped = await startRuntime.StopAsync();
+                        if (!stopped.Success) return Reply(false, "No se liberó la sesión LinkEngine anterior: " + stopped.Message);
+                        _androidOwnedLinkRuntime = null;
+                    }
+                    finally
+                    {
+                        _androidLinkStopping = false;
+                        AndroidEngineStateChanged();
+                    }
+                    if (!SameDevice()) return Reply(false, "La sesión USB cambió durante la transferencia de LinkEngine.");
+                }
                 var cancellation = new CancellationTokenSource();
                 _androidOwnedLinkRuntime = startRuntime;
                 _androidLinkStartCancellation = cancellation;
@@ -120,7 +148,9 @@ public partial class NLUIWindowMain
                 _androidLinkError = null;
                 AndroidEngineStateChanged();
                 _androidLinkStartTask = StartAndroidLinkAsync(startRuntime, serial, generation, cancellation);
-                return Reply(true, "Inicio de LinkEngine aceptado. Esperando el cliente Android y la confirmación real del túnel.");
+                return Reply(true, handoff
+                    ? "Transferencia de LinkEngine aceptada. La sesión anterior fue liberada; esperando el túnel de este teléfono."
+                    : "Inicio de LinkEngine aceptado. Esperando el cliente Android y la confirmación real del túnel.");
             case "stopLink":
                 if (_androidOwnedLinkRuntime is null)
                     return Reply(_linkEngineRuntimeLE?.EngineLE is null, "No hay una sesión LinkEngine iniciada por este control para detener.");

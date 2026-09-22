@@ -211,11 +211,13 @@ public sealed class VEVideoManager : IAsyncDisposable
         }
     }
 
-    public async Task StopAsync()
+    public async Task StopAsync(
+        bool preserveRendererVE = false)
     {
         if (_runTaskVE is null)
         {
-            if (_rendererVE is not null)
+            if (_rendererVE is not null &&
+                !preserveRendererVE)
             {
                 try
                 {
@@ -259,7 +261,8 @@ public sealed class VEVideoManager : IAsyncDisposable
 
             // Los VEVideoFrame clonados usan av_frame_free. El renderer debe
             // drenar/liberar su cola antes de descargar libavutil.
-            if (_rendererVE is not null)
+            if (_rendererVE is not null &&
+                !preserveRendererVE)
             {
                 try
                 {
@@ -282,8 +285,9 @@ public sealed class VEVideoManager : IAsyncDisposable
                 {
                     Stats = SnapshotStatsVE(),
                     Message =
-                        "Video VisionEngine detenido; " +
-                        "renderer detenido."
+                        preserveRendererVE
+                            ? "Video VisionEngine en transición; renderer conservado."
+                            : "Video VisionEngine detenido; renderer detenido."
                 });
         }
     }

@@ -43,7 +43,7 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
     private bool _integrationApplicationsEnabled = true;
     private bool _integrationNotificationsEnabled = true;
     private bool _integrationDynamicResizeEnabled = true;
-    private bool _gamepadEnabled = true;
+    private bool _exInEnabled = true;
     private string _nvidiaProfile = "Automatic";
 
     public bool AudioEnabled
@@ -311,10 +311,10 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
         set => Set(ref _integrationDynamicResizeEnabled, value);
     }
 
-    public bool GamepadEnabled
+    public bool ExInEnabled
     {
-        get => _gamepadEnabled;
-        set => Set(ref _gamepadEnabled, value);
+        get => _exInEnabled;
+        set => Set(ref _exInEnabled, value);
     }
 
     public string NvidiaProfile

@@ -646,7 +646,7 @@
 
                                 <StackPanel Grid.Column="2">
                                     <Button x:Name="LinkEngineTestButton" Content="INTERNET USB" Style="{StaticResource NvPrimaryButtonStyle}" IsEnabled="False" Margin="0,0,0,10"/>
-                                    <Button x:Name="WifiAdbButton" Content="ADB POR WI‑FI" Style="{StaticResource NvFlatButtonStyle}" Click="WifiAdb_Click" Margin="0,0,0,10"/>
+                                    <Button x:Name="WifiAdbButton" Content="PREPARAR FAILOVER LAN" Style="{StaticResource NvFlatButtonStyle}" Click="WifiAdb_Click" Margin="0,0,0,10"/>
                                     <Border Style="{StaticResource NvCardStyle}">
                                         <StackPanel>
                                             <TextBlock Text="Remote Android" Style="{StaticResource NvSectionTitleStyle}"/>
@@ -822,12 +822,49 @@
                             <TextBlock Text="Control físico → SDL3 → UHID → Android, integrado a VisionEngine y protegido por PrivacyVE."
                                        Style="{StaticResource NvCaptionStyle}" Margin="0,4,0,18"/>
                             <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,14">
-                                <StackPanel>
-                                    <TextBlock Text="Estado de GamepadVE" Style="{StaticResource NvSectionTitleStyle}"/>
-                                    <TextBlock x:Name="GamepadStatusText14" Text="Gamepad VisionEngine detenido." Foreground="{DynamicResource TextBrush}" FontSize="15" Margin="0,8,0,4" TextWrapping="Wrap"/>
-                                    <TextBlock x:Name="GamepadCountText14" Text="Mandos conectados: 0" Style="{StaticResource NvCaptionStyle}"/>
-                                </StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="Estado de ExInEngine" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <TextBlock x:Name="GamepadStatusText14" Text="ExInEngine detenido." Foreground="{DynamicResource TextBrush}" FontSize="15" Margin="0,8,0,4" TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="GamepadCountText14" Text="Mandos conectados: 0" Style="{StaticResource NvCaptionStyle}"/>
+                                    </StackPanel>
+                                    <Button x:Name="ExInReactivateButton14" Grid.Column="1" Content="REACTIVAR" Style="{StaticResource NvFlatButtonStyle}" Click="ExInReactivate_Click" Margin="18,0,0,0"/>
+                                </Grid>
                             </Border>
+                            <Grid Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="14"/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Style="{StaticResource NvCardStyle}">
+                                    <StackPanel>
+                                        <TextBlock Text="Modo de control" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <UniformGrid Columns="2" Margin="0,10,0,0">
+                                            <Button x:Name="ExInGameModeButton14" Content="JUEGO" Style="{StaticResource NvFlatButtonStyle}" Click="ExInGameMode_Click" Margin="0,0,4,0"/>
+                                            <Button x:Name="ExInUiModeButton14" Content="UI" Style="{StaticResource NvFlatButtonStyle}" Click="ExInUiMode_Click" Margin="4,0,0,0"/>
+                                        </UniformGrid>
+                                        <TextBlock x:Name="ExInIdentityText14" Text="Sin control físico" Style="{StaticResource NvCaptionStyle}" Margin="0,10,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="2" Style="{StaticResource NvCardStyle}">
+                                    <StackPanel>
+                                        <TextBlock Text="Calibración" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <UniformGrid Columns="4" Margin="0,10,0,0">
+                                            <Button x:Name="ExInCalibrationStartButton14" Content="INICIAR" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationStart_Click" Margin="0,0,4,0"/>
+                                            <Button x:Name="ExInCalibrationFinishButton14" Content="APLICAR" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationFinish_Click" Margin="4,0"/>
+                                            <Button x:Name="ExInCalibrationResetButton14" Content="LIMPIAR" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationReset_Click" Margin="4,0,0,0"/>
+                                            <Button x:Name="ExInWindowsCalibrationButton14" Content="WINDOWS" ToolTip="Abrir calibración de controles de Windows" Style="{StaticResource NvFlatButtonStyle}" Click="ExInWindowsCalibration_Click" Margin="4,0,0,0"/>
+                                        </UniformGrid>
+                                        <TextBlock x:Name="ExInCalibrationText14" Text="Sin perfil activo" Style="{StaticResource NvCaptionStyle}" Margin="0,10,0,0"/>
+                                        <TextBlock x:Name="ExInMappingText14" Text="Mapping SDL no disponible" Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition/>
@@ -836,15 +873,16 @@
                                 </Grid.ColumnDefinitions>
                                 <Border Grid.Column="0" Style="{StaticResource NvCardStyle}">
                                     <StackPanel>
-                                        <TextBlock Text="Compatibilidad actual" Style="{StaticResource NvSectionTitleStyle}"/>
-                                        <TextBlock Text="Xbox / XInput compatible mediante SDL3 y dispositivo UHID." Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,4"/>
-                                        <TextBlock Text="DualShock / DualSense entran por la capa SDL cuando el backend los expone como gamepad." Style="{StaticResource NvCaptionStyle}" Margin="0,4,0,0"/>
+                                        <TextBlock Text="Lectura del mando" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <TextBlock x:Name="ExInAxesText14" Text="Sticks y gatillos sin datos" Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0"/>
+                                        <TextBlock x:Name="ExInTranslationText14" Text="Sin eventos traducidos" Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
                                 <Border Grid.Column="2" Style="{StaticResource NvCardStyle}">
                                     <StackPanel>
-                                        <TextBlock Text="Política" Style="{StaticResource NvSectionTitleStyle}"/>
-                                        <TextBlock Text="Event-driven: no hay lectura periódica de botones. Privacy Shield neutraliza el estado enviado a Android." Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0"/>
+                                        <TextBlock Text="Salud y batería" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <TextBlock x:Name="ExInHealthText14" Text="Diagnóstico no ejecutado" Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0"/>
+                                        <TextBlock x:Name="ExInBatteryText14" Text="Batería no reportada" Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,0"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>

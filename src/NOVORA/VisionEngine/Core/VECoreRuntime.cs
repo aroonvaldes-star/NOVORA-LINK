@@ -4,7 +4,6 @@ using NOVORA.VisionEngine.Control;
 using NOVORA.VisionEngine.Device;
 using NOVORA.VisionEngine.Exchange;
 using NOVORA.VisionEngine.Events;
-using NOVORA.VisionEngine.Gamepad;
 using NOVORA.VisionEngine.Integration;
 using NOVORA.NVIDIA;
 using NOVORA.VisionEngine.Performance;
@@ -18,7 +17,7 @@ namespace NOVORA.VisionEngine.Core;
 
 /// <summary>
 /// Runtime Block D: Device -> Server -> transport -> decode -> renderer Direct3D11,
-/// además de audio, control, gamepad y exchange.
+/// además de audio, control y exchange. ExInEngine tiene ciclo de vida independiente.
 /// </summary>
 public sealed class VECoreRuntime : IAsyncDisposable
 {
@@ -54,7 +53,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
         VideoVE.RequestKeyFrameVE = token => ControlVE.IsReadyVE
             ? ControlVE.SendAsync(VEControlMessage.SimpleVE(VEControlType.ResetVideo), token)
             : Task.CompletedTask;
-        GamepadVE = new VEGamepadManager(ControlVE, paths);
 
         ControlVE.SetPrivacyGatesVE(
             message => PrivacyVE.CanSendControlVE(message.Type),
@@ -93,7 +91,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
         RendererVE.StatusChangedVE += Renderer_StatusChangedVE;
         AudioVE.StatusChangedVE += Audio_StatusChangedVE;
         ControlVE.StatusChangedVE += Control_StatusChangedVE;
-        GamepadVE.StatusChangedVE += Gamepad_StatusChangedVE;
         PrivacyVE.StatusChangedVE += Privacy_StatusChangedVE;
         IntegrationVE.StatusChangedVE += Integration_StatusChangedVE;
         NvidiaVE.StatusChangedVE += Nvidia_StatusChangedVE;
@@ -113,7 +110,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
     public VERendererManager RendererVE { get; }
     public VEAudioManager AudioVE { get; }
     public VEControlManager ControlVE { get; }
-    public VEGamepadManager GamepadVE { get; }
     public VEExchangeClipboard ClipboardVE { get; }
     public VEExchangeFile FilesVE { get; }
     public VEExchangeImage ImagesVE { get; }
@@ -131,7 +127,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
     public VETransportSession? TransportSessionVE => _transportSessionVE;
     public bool IsInitializedVE => _initialized;
     public bool IsRunningVE => _deviceSessionVE is not null && _serverSessionVE is not null && _transportSessionVE is not null;
-    public bool GamepadEnabledVE { get; set; } = true;
 
     public Task InitializeAsync(CancellationToken cancellationToken = default)
     {
@@ -143,31 +138,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
         _initialized = true;
         RaiseStatusChangedVE();
         return Task.CompletedTask;
-    }
-
-    public async Task SetGamepadEnabledVEAsync(
-        bool enabled,
-        CancellationToken cancellationToken = default)
-    {
-        ThrowIfDisposedVE();
-
-        GamepadEnabledVE = enabled;
-
-        if (!IsRunningVE)
-        {
-            return;
-        }
-
-        if (enabled)
-        {
-            await GamepadVE.StartAsync(cancellationToken)
-                .ConfigureAwait(false);
-        }
-        else
-        {
-            await GamepadVE.StopAsync()
-                .ConfigureAwait(false);
-        }
     }
 
     public async Task StartAsync(
@@ -209,9 +179,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
                 if (effectiveOptions.AudioEnabled)
                     await AudioVE.StartAsync(_transportSessionVE, effectiveOptions.AudioPlaybackEnabled, cancellationToken).ConfigureAwait(false);
 
-                if (effectiveOptions.ControlEnabled && GamepadEnabledVE)
-                    await GamepadVE.StartAsync(cancellationToken).ConfigureAwait(false);
-
                 RaiseStatusChangedVE();
             }
             catch
@@ -223,19 +190,21 @@ public sealed class VECoreRuntime : IAsyncDisposable
         finally { _gate.Release(); }
     }
 
-    public async Task StopAsync(CancellationToken cancellationToken = default)
+    public async Task StopAsync(
+        CancellationToken cancellationToken = default,
+        bool preserveRendererVE = false)
     {
         ThrowIfDisposedVE();
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try { await StopInternalAsync().ConfigureAwait(false); }
+        try { await StopInternalAsync(preserveRendererVE).ConfigureAwait(false); }
         finally { _gate.Release(); }
     }
 
-    private async Task StopInternalAsync()
+    private async Task StopInternalAsync(
+        bool preserveRendererVE = false)
     {
-        try { await GamepadVE.StopAsync().ConfigureAwait(false); } catch { }
         try { await AudioVE.StopAsync().ConfigureAwait(false); } catch { }
-        try { await VideoVE.StopAsync().ConfigureAwait(false); } catch { }
+        try { await VideoVE.StopAsync(preserveRendererVE).ConfigureAwait(false); } catch { }
         if (RecordingVE.StatusVE.Recording) { try { await RecordingVE.StopAsync().ConfigureAwait(false); } catch { } }
         try { await ControlVE.StopAsync().ConfigureAwait(false); } catch { }
 
@@ -287,7 +256,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
     private void Renderer_StatusChangedVE(object? sender, VERendererStatus e) => PublishStatusEventVE(VEEventsTypeEvent.RendererStatus);
     private void Audio_StatusChangedVE(object? sender, VEAudioStatus e) => PublishStatusEventVE(VEEventsTypeEvent.AudioStatus);
     private void Control_StatusChangedVE(object? sender, VEControlStatus e) => PublishStatusEventVE(VEEventsTypeEvent.ControlStatus);
-    private void Gamepad_StatusChangedVE(object? sender, VEGamepadStatus e) => PublishStatusEventVE(VEEventsTypeEvent.GamepadStatus);
     private void Integration_StatusChangedVE(object? sender, VEIntegrationStatus e) => PublishStatusEventVE(VEEventsTypeEvent.IntegrationStatus);
     private void Nvidia_StatusChangedVE(object? sender, NLNVIDIAStatus e) => PublishStatusEventVE(VEEventsTypeEvent.NvidiaStatus);
 
@@ -303,7 +271,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
         RecordingVE.SetProtected(protectedVE);
         RendererVE.SetPrivacyProtectedVE(protectedVE);
         AudioVE.SetPrivacyProtectedVE(protectedVE);
-        GamepadVE.SetPrivacyProtectedVE(protectedVE);
     }
 
     private void PublishStatusEventVE(VEEventsTypeEvent type)
@@ -324,7 +291,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
             try { await StopInternalAsync().ConfigureAwait(false); }
             finally { _gate.Release(); }
             ClipboardVE.Dispose();
-            await GamepadVE.DisposeAsync().ConfigureAwait(false);
             await AudioVE.DisposeAsync().ConfigureAwait(false);
             await RecordingVE.DisposeAsync().ConfigureAwait(false);
             await VideoVE.DisposeAsync().ConfigureAwait(false);
@@ -340,7 +306,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
             RendererVE.StatusChangedVE -= Renderer_StatusChangedVE;
             AudioVE.StatusChangedVE -= Audio_StatusChangedVE;
             ControlVE.StatusChangedVE -= Control_StatusChangedVE;
-            GamepadVE.StatusChangedVE -= Gamepad_StatusChangedVE;
             PrivacyVE.StatusChangedVE -= Privacy_StatusChangedVE;
             IntegrationVE.StatusChangedVE -= Integration_StatusChangedVE;
             NvidiaVE.StatusChangedVE -= Nvidia_StatusChangedVE;

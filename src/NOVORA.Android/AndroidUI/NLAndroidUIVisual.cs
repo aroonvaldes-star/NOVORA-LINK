@@ -12,29 +12,32 @@ namespace NOVORA.AndroidUI;
 internal static class NLAndroidUIVisual
 {
     internal static int Dp(Context c, int n) => (int)(n * c.Resources!.DisplayMetrics!.Density + .5f);
-    internal static GradientDrawable Surface(Context c, string fill = "#182228", string border = "#35434B", int radius = 12)
+    internal static GradientDrawable Surface(Context c, string? fill = null, string? border = null, int radius = 12)
     {
+        var palette = NLAndroidUITheme.Current(c);
+        fill ??= palette.Surface; border ??= palette.Border;
         var d = new GradientDrawable(); d.SetColor(Color.ParseColor(fill));
         d.SetCornerRadius(Dp(c, radius)); d.SetStroke(Dp(c, 1), Color.ParseColor(border)); return d;
     }
     internal static void Button(Button b, bool primary = false)
     {
         var c = b.Context!;
+        var palette = NLAndroidUITheme.Current(c);
         b.SetAllCaps(false); b.TextSize = 14; b.Gravity = GravityFlags.Center;
         b.SetTypeface(Typeface.Create("sans-serif-medium", TypefaceStyle.Normal), TypefaceStyle.Normal);
         b.SetMinHeight(Dp(c, 48)); b.SetMinimumHeight(Dp(c, 48)); b.SetMinWidth(0); b.SetMinimumWidth(0);
         b.SetPadding(Dp(c, 12), Dp(c, 8), Dp(c, 12), Dp(c, 8));
         var states = new StateListDrawable();
-        states.AddState([-Android.Resource.Attribute.StateEnabled], Surface(c, "#192329", "#28363E", 9));
-        states.AddState([Android.Resource.Attribute.StatePressed], Surface(c, primary ? "#54D7F3" : "#2B3C47", "#00BDEA", 9));
-        states.AddState([], Surface(c, primary ? "#00BDEA" : "#111B20", primary ? "#00BDEA" : "#4C606B", 9));
+        states.AddState([-Android.Resource.Attribute.StateEnabled], Surface(c, palette.SurfaceRaised, palette.Border, 9));
+        states.AddState([Android.Resource.Attribute.StatePressed], Surface(c, primary ? palette.Accent : palette.SurfaceRaised, palette.Accent, 9));
+        states.AddState([], Surface(c, primary ? palette.Accent : palette.Surface, primary ? palette.Accent : palette.Border, 9));
         b.Background = states; b.BackgroundTintList = null;
         b.SetTextColor(new ColorStateList([new[] { -Android.Resource.Attribute.StateEnabled }, Array.Empty<int>()],
-            [Color.ParseColor("#81939D").ToArgb(), Color.ParseColor(primary ? "#071319" : "#ECF3F6").ToArgb()]));
+            [Color.ParseColor(palette.Disabled).ToArgb(), Color.ParseColor(primary ? palette.AccentText : palette.Text).ToArgb()]));
     }
     internal static ImageView Icon(Context c, int resource, int size = 26)
     {
-        var v = new ImageView(c); v.SetImageResource(resource); v.SetColorFilter(Color.ParseColor("#00BDEA"));
+        var v = new ImageView(c); v.SetImageResource(resource); v.SetColorFilter(Color.ParseColor(NLAndroidUITheme.Current(c).Accent));
         v.SetScaleType(ImageView.ScaleType.FitCenter); v.ImportantForAccessibility = ImportantForAccessibility.No;
         v.LayoutParameters = new LinearLayout.LayoutParams(Dp(c, size), Dp(c, size)); return v;
     }

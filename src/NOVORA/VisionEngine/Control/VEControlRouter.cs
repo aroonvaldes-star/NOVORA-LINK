@@ -14,6 +14,7 @@ namespace NOVORA.VisionEngine.Control;
 public sealed class VEControlRouter : IDisposable
 {
     public const long MouseMoveIntervalMsVE = 8;
+    internal const int VerticalEdgeActivationPixelsVE = 12;
 
     private readonly VEControlManager _controlVE;
     private readonly VERendererManager _rendererVE;
@@ -147,7 +148,8 @@ public sealed class VEControlRouter : IDisposable
             !TryMapPositionVE(
                 e.X,
                 e.Y,
-                out VEControlPosition position))
+                out VEControlPosition position,
+                activateVerticalEdges: true))
         {
             return;
         }
@@ -220,10 +222,19 @@ public sealed class VEControlRouter : IDisposable
             return;
         }
 
+        uint buttons;
+
+        lock (_stateGateVE)
+        {
+            buttons =
+                _buttonsVE;
+        }
+
         if (!TryMapPositionVE(
                 e.X,
                 e.Y,
-                out VEControlPosition position))
+                out VEControlPosition position,
+                clampToViewport: buttons != 0))
         {
             return;
         }
@@ -232,13 +243,8 @@ public sealed class VEControlRouter : IDisposable
             ref _lastMouseMoveAtVE,
             now);
 
-        uint buttons;
-
         lock (_stateGateVE)
         {
-            buttons =
-                _buttonsVE;
-
             _lastPositionVE =
                 position;
         }
@@ -265,15 +271,6 @@ public sealed class VEControlRouter : IDisposable
         object? sender,
         Forms.MouseEventArgs e)
     {
-        if (!_controlVE.IsReadyVE ||
-            !TryMapPositionVE(
-                e.X,
-                e.Y,
-                out VEControlPosition position))
-        {
-            return;
-        }
-
         uint actionButton =
             GetMouseButtonVE(
                 e.Button);
@@ -285,6 +282,7 @@ public sealed class VEControlRouter : IDisposable
 
         uint buttons;
         VEControlActionMotion action;
+        VEControlPosition? lastPosition;
 
         lock (_stateGateVE)
         {
@@ -294,13 +292,39 @@ public sealed class VEControlRouter : IDisposable
             buttons =
                 _buttonsVE;
 
-            _lastPositionVE =
-                position;
+            lastPosition =
+                _lastPositionVE;
 
             action =
                 buttons == 0
                     ? VEControlActionMotion.Up
                     : VEControlActionMotion.ButtonRelease;
+        }
+
+        if (!_controlVE.IsReadyVE)
+        {
+            return;
+        }
+
+        if (!TryMapPositionVE(
+                e.X,
+                e.Y,
+                out VEControlPosition position,
+                clampToViewport: true))
+        {
+            if (lastPosition is not VEControlPosition fallback)
+            {
+                return;
+            }
+
+            position =
+                fallback;
+        }
+
+        lock (_stateGateVE)
+        {
+            _lastPositionVE =
+                position;
         }
 
         EnqueueVE(
@@ -537,7 +561,9 @@ public sealed class VEControlRouter : IDisposable
     private bool TryMapPositionVE(
         int clientX,
         int clientY,
-        out VEControlPosition position)
+        out VEControlPosition position,
+        bool clampToViewport = false,
+        bool activateVerticalEdges = false)
     {
         position =
             default;
@@ -586,14 +612,48 @@ public sealed class VEControlRouter : IDisposable
                 rotation);
 
         if (viewport.Width <= 0 ||
-            viewport.Height <= 0 ||
-            clientX < viewport.X ||
-            clientY < viewport.Y ||
-            clientX >= viewport.X + viewport.Width ||
-            clientY >= viewport.Y + viewport.Height)
+            viewport.Height <= 0)
         {
             return false;
         }
+
+        float viewportRight =
+            viewport.X + viewport.Width - 1;
+
+        float viewportBottom =
+            viewport.Y + viewport.Height - 1;
+
+        bool insideViewport =
+            clientX >= viewport.X &&
+            clientX <= viewportRight &&
+            clientY >= viewport.Y &&
+            clientY <= viewportBottom;
+
+        bool insideVerticalEdgeActivation =
+            activateVerticalEdges &&
+            clientX >= viewport.X &&
+            clientX <= viewportRight &&
+            clientY >= viewport.Y - VerticalEdgeActivationPixelsVE &&
+            clientY <= viewportBottom + VerticalEdgeActivationPixelsVE;
+
+        if (!insideViewport &&
+            !insideVerticalEdgeActivation &&
+            !clampToViewport)
+        {
+            return false;
+        }
+
+        float mappedClientX =
+            Math.Clamp(
+                clientX,
+                viewport.X,
+                viewportRight);
+
+        float mappedClientY =
+            Math.Clamp(
+                clientY,
+                viewport.Y,
+                viewportBottom);
 
         int rotatedWidth =
             VERendererRotation.SwapsDimensionsVE(
@@ -609,14 +669,14 @@ public sealed class VEControlRouter : IDisposable
 
         double normalizedX =
             Math.Clamp(
-                (clientX - viewport.X) /
+                (mappedClientX - viewport.X) /
                 viewport.Width,
                 0d,
                 1d);
 
         double normalizedY =
             Math.Clamp(
-                (clientY - viewport.Y) /
+                (mappedClientY - viewport.Y) /
                 viewport.Height,
                 0d,
                 1d);

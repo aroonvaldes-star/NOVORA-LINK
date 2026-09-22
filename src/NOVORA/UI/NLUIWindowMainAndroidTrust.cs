@@ -46,13 +46,15 @@ public partial class NLUIWindowMain
         if (_closing) return;
         var store = GetAndroidTrustStore();
         long generation = _androidControlGeneration;
-        var server = new NLControlTrustServer(address, request => HandleAndroidControlAsync(request, generation), store, allowPairing: false);
+        var server = new NLControlTrustServer(address, request => HandleAndroidControlAsync(request, generation, "LAN"), store, allowPairing: false);
         _androidLanControl = server;
         server.StatusChanged += (_, status) => Dispatcher.BeginInvoke(new Action(() =>
         {
             if (ReferenceEquals(_androidLanControl, server)) {
-                AndroidControlStatus.Text = status;
-                if (!server.IsAuthorized) { ResetAndroidFileTransfer(); _ = FinishAndroidRecordingAsync(); }
+                AndroidControlStatus.Text = _androidControl?.IsAuthorized == true
+                    ? "USB activo; LAN permanece disponible como respaldo."
+                    : status;
+                if (!server.IsAuthorized && !AndroidControlAuthorized) { ResetAndroidFileTransfer(); _ = FinishAndroidRecordingAsync(); }
             }
         }));
         try

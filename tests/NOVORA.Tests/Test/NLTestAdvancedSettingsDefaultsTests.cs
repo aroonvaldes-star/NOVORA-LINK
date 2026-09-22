@@ -17,7 +17,7 @@ public sealed class NLTestAdvancedSettingsDefaultsTests
         Assert.True(settings.IntegrationApplicationsEnabled);
         Assert.True(settings.IntegrationNotificationsEnabled);
         Assert.True(settings.IntegrationDynamicResizeEnabled);
-        Assert.True(settings.GamepadEnabled);
+        Assert.True(settings.ExInEnabled);
         Assert.Equal("Automatic", settings.NvidiaProfile);
     }
 }

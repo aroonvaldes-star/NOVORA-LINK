@@ -1,0 +1,44 @@
+{
+  "SchemaVersion": 1,
+  "RecordedOn": "2026-09-21",
+  "PcVersion": "1.4",
+  "AndroidVersionCode": 26,
+  "AndroidVersionName": "1.4.26",
+  "PackageId": "com.novora.appcontrol",
+  "MinSdk": 26,
+  "TargetSdk": 36,
+  "CanonicalSha256": "F95B77F7DE4B882FF6B25E75B595587F14471B31C5274C4E27AABA997FAF3EAC",
+  "UiParity": {
+    "Pc": "implemented: modes, reactivation, identity, capabilities, raw and corrected input, diagnosis, battery and calibration",
+    "AndroidMain": "implemented: modes, reactivation, identity, capabilities, raw and corrected input, diagnosis, battery and calibration",
+    "AndroidBubble": "implemented: modes, reactivation, family, battery and edge auto-hide"
+  },
+  "Automated": {
+    "AndroidReleaseCompile": "passed: 0 warnings, 0 errors",
+    "AndroidSignedPackageTarget": "passed",
+    "AndroidBinaryManifest": "passed: package, versionCode, versionName and minSdk",
+    "DesktopReleaseBuild": "passed: 0 warnings, 0 errors",
+    "FocusedTests": "passed: 10/10",
+    "ReleaseTests": "passed: 374/374",
+    "CanonicalDesktopCopy": "passed: SHA-256 and descriptor match",
+    "DiffCheck": "passed: no content errors; line-ending warnings only"
+  },
+  "Signature": {
+    "BuildSigningTarget": "passed",
+    "IndependentApkSignerVerification": "not_run: apksigner was not available"
+  },
+  "Physical": {
+    "Installation": "pending",
+    "XboxController": "pending",
+    "DualShock4Controller": "pending",
+    "LauncherAndApps": "pending",
+    "Games": "pending",
+    "FiveMatchMenuCycles": "pending",
+    "ModeTransitions": "pending",
+    "PointerClickScroll": "pending",
+    "CalibrationDiagnostics": "pending",
+    "BatteryNotifications": "pending",
+    "UsbLanRecovery": "pending"
+  },
+  "ReleaseGate": "pending_physical_validation"
+}

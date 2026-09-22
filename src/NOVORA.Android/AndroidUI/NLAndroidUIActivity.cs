@@ -12,12 +12,12 @@ using Resource = NOVORA.AndroidApp.Resource;
 
 namespace NOVORA.AndroidUI;
 
-[Activity(Name = "com.novora.appcontrol.MainActivity", Label = "NOVORA", MainLauncher = true,
+[Activity(Name = "com.novora.appcontrol.MainActivity", Label = "NOVORA-LINK", MainLauncher = true,
     Exported = true, LaunchMode = LaunchMode.SingleTop, Theme = "@android:style/Theme.Material.NoActionBar")]
 public sealed class NLAndroidUIActivity : Activity
 {
     private LinearLayout _body = null!;
-    private ScrollView _connectionPage = null!, _dashboardPage = null!, _enginesPage = null!, _filesPage = null!, _mediaPage = null!, _settingsPage = null!;
+    private ScrollView _connectionPage = null!, _dashboardPage = null!, _enginesPage = null!, _exInPage = null!, _filesPage = null!, _mediaPage = null!, _settingsPage = null!;
     private TextView _status = null!;
     private TextView _current = null!;
     private TextView _engineState = null!;
@@ -27,6 +27,9 @@ public sealed class NLAndroidUIActivity : Activity
     private TextView _homeLinkState = null!, _homeVideoState = null!, _homeExInState = null!, _homeStState = null!;
     private TextView _engineLinkState = null!, _engineVideoState = null!, _engineExInState = null!, _engineStState = null!;
     private TextView _usbState = null!, _filesStatus = null!;
+    private TextView _exInDevice = null!, _exInFamily = null!, _exInVidPid = null!, _exInConnection = null!, _exInProfile = null!;
+    private TextView _exInIdentity = null!, _exInCapabilities = null!, _exInDiagnostic = null!, _exInBattery = null!, _exInLive = null!, _exInCalibrationDetails = null!;
+    private Button _exInGameMode = null!, _exInUiMode = null!, _exInReactivate = null!, _exInCalibrate = null!, _exInReset = null!;
     private Switch _phoneAudio = null!, _internalAudio = null!;
     private string? _pendingUsbBootstrap;
     private bool _automaticUsbResumed; // NOVORA_AUTOUSB_V1
@@ -65,6 +68,8 @@ public sealed class NLAndroidUIActivity : Activity
     private string? _requestedPage;
     private long _requestedGeneration = -1, _requestedRevision = -1;
     private string? _uiServiceId;
+    private long _lastControllerMoveMs;
+    private NLAndroidUIPalette Palette => NLAndroidUITheme.Current(this);
 
 
     protected override void OnCreate(Bundle? state)
@@ -78,20 +83,20 @@ public sealed class NLAndroidUIActivity : Activity
         Intent?.RemoveExtra("novora.usb"); // Never trust externally supplied launcher extras.
         Window?.SetSoftInputMode(SoftInput.AdjustResize);
         var root = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        root.SetBackgroundColor(Color.ParseColor("#10191E"));
+        root.SetBackgroundColor(Color.ParseColor(Palette.Background));
         root.SetOnApplyWindowInsetsListener(new NLAndroidUIInsets());
         SetContentView(root);
         var pages = new FrameLayout(this);
         root.AddView(pages, new LinearLayout.LayoutParams(-1, 0, 1));
         _status = new TextView(this) { Text = "Preparando conexión…", TextSize = 12 };
-        _status.SetTextColor(Color.ParseColor("#A9BCC5"));
+        _status.SetTextColor(Color.ParseColor(Palette.Muted));
         _status.SetPadding(Dp(20), Dp(8), Dp(20), Dp(10));
         _status.AccessibilityLiveRegion = AccessibilityLiveRegion.Polite;
         root.AddView(_status);
 
         _dashboardPage = CreatePage(pages);
         PageHeader();
-        Card(() => Label("Bienvenido a NOVORA-LINK", 18));
+        WelcomeHero();
         var homeGrid = new LinearLayout(this) { Orientation = Orientation.Vertical };
         _body.AddView(homeGrid);
         AddHomeTileRow(homeGrid,
@@ -149,6 +154,61 @@ public sealed class NLAndroidUIActivity : Activity
             _videoEngine = DetachedButton("Iniciar VisionEngine", ToggleVideoEngineAsync);
             _linkEngine = DetachedButton("Iniciar LinkEngine", ToggleLinkEngineAsync);
             AddButtonRow(_videoEngine, _linkEngine);
+            var videoSettings = DetachedButton("Configurar VE", () =>
+            {
+                ShowPage(_settingsPage);
+                return Task.CompletedTask;
+            });
+            var exIn = DetachedButton("ExInEngine", () => { ShowPage(_exInPage); return Task.CompletedTask; });
+            AddButtonRow(videoSettings, exIn);
+        });
+
+        _exInPage = CreatePage(pages);
+        PageHeader();
+        RowLink("Volver a Engines", Android.Resource.Drawable.IcMediaPrevious, () => { ShowPage(_enginesPage); return Task.CompletedTask; });
+        var exInTitle = Label("ExInEngine", 24);
+        exInTitle.SetTypeface(null, TypefaceStyle.Bold);
+        Muted("NOVORA-LINK · Hardware diagnostic");
+        Card(() => {
+            Label("Control físico", 15);
+            _exInDevice = StatusLine("Dispositivo", "Sin detectar");
+            _exInFamily = StatusLine("Familia", "Desconocida");
+            _exInConnection = StatusLine("Conexión", "Sin datos");
+            _exInVidPid = StatusLine("VID / PID", "---- : ----");
+            _exInProfile = StatusLine("Perfil activo", "Sin calibrar");
+            _exInIdentity = Muted("Identidad de perfil no disponible.");
+            _exInCapabilities = Muted("Capacidades no reportadas.");
+        });
+        Card(() => {
+            Label("Destino del control", 15);
+            Muted("Juego entrega el mando exclusivamente a Android. UI permite navegar aplicaciones y usar el puntero compatible.");
+            _exInGameMode = DetachedButton("Juego", () => SendAsync("exin.mode", "Game"), true);
+            _exInUiMode = DetachedButton("UI", () => SendAsync("exin.mode", "Ui"));
+            AddButtonRow(_exInGameMode, _exInUiMode);
+            _exInReactivate = DetachedButton("Reactivar control", () => SendAsync("exin.reactivate"));
+            AddButtonRow(_exInReactivate);
+        });
+        Card(() => {
+            Label("Diagnóstico de sensor", 15);
+            _exInDiagnostic = Muted("ExInEngine espera datos reales del control.");
+            _exInBattery = Muted("Batería no reportada.");
+        });
+        Card(() => {
+            Label("Prueba en vivo", 17);
+            Muted("Monitoreo de señales físicas recibido desde NOVORA PC.");
+            _exInLive = new TextView(this) { TextSize = 14, Typeface = Typeface.Monospace };
+            _exInLive.SetTextColor(Color.ParseColor(Palette.Text));
+            _exInLive.SetPadding(Dp(12), Dp(14), Dp(12), Dp(14));
+            _exInLive.Background = NLAndroidUIVisual.Surface(this, Palette.Navigation, Palette.Border, 6);
+            _body.AddView(_exInLive, new LinearLayout.LayoutParams(-1, Dp(226)));
+        });
+        Card(() => {
+            Label("Calibración automática del Engine", 17);
+            Muted("1. Centra sticks  2. Inicia  3. Recorre sticks y gatillos  4. Finaliza");
+            _exInCalibrate = DetachedButton("Iniciar calibración", ToggleExInCalibrationAsync, true);
+            _exInReset = DetachedButton("Restablecer", () => SendAsync("exin.calibration.reset"));
+            AddButtonRow(_exInCalibrate, _exInReset);
+            _exInCalibrationDetails = Muted("Sin perfil de calibración activo.");
         });
 
         _filesPage = CreatePage(pages);
@@ -173,7 +233,7 @@ public sealed class NLAndroidUIActivity : Activity
             var row = new LinearLayout(this) { Orientation = Orientation.Horizontal };
             row.SetGravity(GravityFlags.CenterVertical); parent.AddView(row);
             var text = new TextView(this) { Text = "Audio independiente", TextSize = 13 };
-            text.SetTextColor(Color.ParseColor("#F2F5F7")); row.AddView(text, new LinearLayout.LayoutParams(0, -2, 1));
+            text.SetTextColor(Color.ParseColor(Palette.Text)); row.AddView(text, new LinearLayout.LayoutParams(0, -2, 1));
             _body = row; _audio = Selector("Audio independiente"); _body = parent;
         });
         Card(() => {
@@ -230,15 +290,40 @@ public sealed class NLAndroidUIActivity : Activity
     }
     private void PageHeader()
     {
-        var title = Label("N O V O R A - L I N K", 16);
+        var row = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+        row.SetGravity(GravityFlags.CenterVertical);
+        _body.AddView(row, new LinearLayout.LayoutParams(-1, -2));
+        var parent = _body;
+        var labels = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        row.AddView(labels, new LinearLayout.LayoutParams(0, -2, 1));
+        _body = labels;
+        var title = Label("NOVORA-LINK", 20);
         title.SetTypeface(null, TypefaceStyle.Bold);
         title.SetPadding(0, Dp(2), 0, 0);
-        var product = Muted("ANDROID · AppControl");
+        var product = Muted("ANDROID · AppControl · v1.4.26");
         product.TextSize = 10;
         var state = Muted("●  USB OFF  ·  0/4 Engines activos");
         state.TextSize = 11;
-        state.SetTextColor(Color.ParseColor("#FF5C65"));
+        state.SetTextColor(Color.ParseColor(Palette.Error));
         _headerStates.Add(state);
+        _body = parent;
+        var theme = new Button(this) { Text = NLAndroidUITheme.IsDark(this) ? "☀" : "☾", TextSize = 20, ContentDescription = "Cambiar tema Dark o Light" };
+        theme.SetAllCaps(false); theme.SetPadding(0, 0, 0, 0);
+        theme.Background = NLAndroidUIVisual.Surface(this, Palette.Surface, Palette.Border, 8);
+        theme.SetTextColor(Color.ParseColor(Palette.Accent));
+        theme.Click += (_, _) => { NLAndroidUITheme.Toggle(this); Recreate(); };
+        row.AddView(theme, new LinearLayout.LayoutParams(Dp(48), Dp(48)));
+    }
+    private void WelcomeHero()
+    {
+        var frame = new FrameLayout(this) { Background = NLAndroidUIVisual.Surface(this, "#000000", Palette.Border, 8) };
+        var image = new ImageView(this) { ContentDescription = "Bienvenido a NOVORA-LINK" };
+        image.SetImageResource(Resource.Drawable.novora_welcome);
+        image.SetScaleType(ImageView.ScaleType.CenterCrop);
+        frame.AddView(image, new FrameLayout.LayoutParams(-1, -1));
+        var layout = new LinearLayout.LayoutParams(-1, Dp(142));
+        layout.SetMargins(0, Dp(6), 0, Dp(7));
+        _body.AddView(frame, layout);
     }
     private void AddHomeTileRow(LinearLayout host,
         (string Title, string Subtitle, Action Action) left,
@@ -259,11 +344,122 @@ public sealed class NLAndroidUIActivity : Activity
     {
         var button = new Button(this) { Text = $"{title}\n{subtitle}", TextSize = 12, Gravity = GravityFlags.Left | GravityFlags.CenterVertical };
         button.SetAllCaps(false);
-        button.SetTextColor(Color.ParseColor("#F2F5F7"));
+        button.SetTextColor(Color.ParseColor(Palette.Text));
         button.SetPadding(Dp(12), Dp(8), Dp(8), Dp(8));
-        button.Background = NLAndroidUIVisual.Surface(this, "#192329", "#34434B", 8);
+        button.Background = NLAndroidUIVisual.Surface(this, Palette.Surface, Palette.Border, 8);
         button.Click += (_, _) => action();
         return button;
+    }
+    private Task ToggleExInCalibrationAsync() => SendAsync(_snapshot?.ExIn?.Calibrating == true
+        ? "exin.calibration.finish" : "exin.calibration.start");
+
+    public override bool DispatchKeyEvent(KeyEvent? e)
+    {
+        if (e is not null && IsControllerEvent(e.Source) && e.Action == KeyEventActions.Down)
+        {
+            bool handled = e.KeyCode switch
+            {
+                Keycode.ButtonA or Keycode.ButtonX or Keycode.Enter or Keycode.DpadCenter => ActivateFocusedControl(),
+                Keycode.ButtonB or Keycode.Back => NavigateBackFromController(),
+                Keycode.ButtonStart => ShowDashboardFromController(),
+                Keycode.ButtonL1 => FocusDirection(FocusSearchDirection.Left),
+                Keycode.ButtonR1 => FocusDirection(FocusSearchDirection.Right),
+                Keycode.DpadUp => FocusDirection(FocusSearchDirection.Up),
+                Keycode.DpadDown => FocusDirection(FocusSearchDirection.Down),
+                Keycode.DpadLeft => FocusDirection(FocusSearchDirection.Left),
+                Keycode.DpadRight => FocusDirection(FocusSearchDirection.Right),
+                _ => false
+            };
+            if (handled) return true;
+        }
+
+        return base.DispatchKeyEvent(e);
+    }
+
+    public override bool DispatchGenericMotionEvent(MotionEvent? e)
+    {
+        if (e is not null &&
+            e.Action == MotionEventActions.Move &&
+            IsControllerEvent(e.Source) &&
+            HandleControllerAxis(e))
+        {
+            return true;
+        }
+
+        return base.DispatchGenericMotionEvent(e);
+    }
+
+    private static bool IsControllerEvent(InputSourceType source)
+        => (source & InputSourceType.Gamepad) == InputSourceType.Gamepad ||
+           (source & InputSourceType.Joystick) == InputSourceType.Joystick ||
+           (source & InputSourceType.Dpad) == InputSourceType.Dpad;
+
+    private bool HandleControllerAxis(MotionEvent e)
+    {
+        long now = SystemClock.ElapsedRealtime();
+        if (now - _lastControllerMoveMs < 180) return false;
+
+        float x = ControllerAxis(e, Axis.X);
+        float y = ControllerAxis(e, Axis.Y);
+        if (Math.Abs(x) < 0.55f && Math.Abs(y) < 0.55f) return false;
+
+        _lastControllerMoveMs = now;
+        return Math.Abs(x) > Math.Abs(y)
+            ? FocusDirection(x > 0 ? FocusSearchDirection.Right : FocusSearchDirection.Left)
+            : FocusDirection(y > 0 ? FocusSearchDirection.Down : FocusSearchDirection.Up);
+    }
+
+    private static float ControllerAxis(MotionEvent e, Axis axis)
+    {
+        float value = e.GetAxisValue(axis);
+        if (Math.Abs(value) >= 0.1f) return value;
+        return axis == Axis.X ? e.GetAxisValue(Axis.HatX) : e.GetAxisValue(Axis.HatY);
+    }
+
+    private bool FocusDirection(FocusSearchDirection direction)
+    {
+        View? current = CurrentFocus ?? Window?.DecorView?.FindFocus();
+        View? next = current?.FocusSearch(direction) ?? Window?.DecorView?.FocusSearch(direction);
+        if (next is null || !next.Focusable || !next.Enabled) return false;
+        next.RequestFocus();
+        return true;
+    }
+
+    private bool ActivateFocusedControl()
+    {
+        View? focused = CurrentFocus ?? Window?.DecorView?.FindFocus();
+        if (focused is null || !focused.Enabled) return false;
+        return focused.PerformClick();
+    }
+
+    private bool ShowDashboardFromController()
+    {
+        ShowPage(_dashboardPage);
+        return true;
+    }
+
+    private bool NavigateBackFromController()
+    {
+        if (ReferenceEquals(_exInPage, VisiblePage()) || ReferenceEquals(_settingsPage, VisiblePage()))
+        {
+            ShowPage(_enginesPage);
+            return true;
+        }
+
+        if (!ReferenceEquals(_dashboardPage, VisiblePage()))
+        {
+            ShowPage(_dashboardPage);
+            return true;
+        }
+
+        return false;
+    }
+
+    private ScrollView? VisiblePage()
+    {
+        foreach (ScrollView page in new[] { _dashboardPage, _connectionPage, _enginesPage, _exInPage, _filesPage, _mediaPage, _settingsPage })
+            if (page.Visibility == ViewStates.Visible) return page;
+        return null;
     }
     private TextView EngineStatusRow(string title, string subtitle)
     {
@@ -274,11 +470,11 @@ public sealed class NLAndroidUIActivity : Activity
         var labels = new LinearLayout(this) { Orientation = Orientation.Vertical };
         row.AddView(labels, new LinearLayout.LayoutParams(0, -2, 1));
         var name = new TextView(this) { Text = title, TextSize = 13 };
-        name.SetTypeface(null, TypefaceStyle.Bold); name.SetTextColor(Color.White); labels.AddView(name);
+        name.SetTypeface(null, TypefaceStyle.Bold); name.SetTextColor(Color.ParseColor(Palette.Text)); labels.AddView(name);
         var detail = new TextView(this) { Text = subtitle, TextSize = 10 };
-        detail.SetTextColor(Color.ParseColor("#AFC0C8")); labels.AddView(detail);
+        detail.SetTextColor(Color.ParseColor(Palette.Muted)); labels.AddView(detail);
         var state = new TextView(this) { Text = "No detectado", TextSize = 13, Gravity = GravityFlags.Right | GravityFlags.CenterVertical };
-        state.SetTypeface(null, TypefaceStyle.Bold); state.SetTextColor(Color.ParseColor("#FF5C65"));
+        state.SetTypeface(null, TypefaceStyle.Bold); state.SetTextColor(Color.ParseColor(Palette.Error));
         row.AddView(state, new LinearLayout.LayoutParams(Dp(112), -1));
         return state;
     }
@@ -287,9 +483,9 @@ public sealed class NLAndroidUIActivity : Activity
         var row = new LinearLayout(this) { Orientation = Orientation.Horizontal };
         row.SetPadding(0, Dp(7), 0, Dp(7)); _body.AddView(row);
         var label = new TextView(this) { Text = title, TextSize = 13 };
-        label.SetTextColor(Color.White); row.AddView(label, new LinearLayout.LayoutParams(0, -2, 1));
+        label.SetTextColor(Color.ParseColor(Palette.Text)); row.AddView(label, new LinearLayout.LayoutParams(0, -2, 1));
         var state = new TextView(this) { Text = value, TextSize = 13, Gravity = GravityFlags.Right };
-        state.SetTextColor(Color.ParseColor("#F2F5F7")); row.AddView(state, new LinearLayout.LayoutParams(0, -2, 1));
+        state.SetTextColor(Color.ParseColor(Palette.Text)); row.AddView(state, new LinearLayout.LayoutParams(0, -2, 1));
         return state;
     }
     private Button DetachedButton(string text, Func<Task> action, bool primary = false)
@@ -316,7 +512,7 @@ public sealed class NLAndroidUIActivity : Activity
     private Switch ReadOnlySwitch(string title)
     {
         var toggle = new Switch(this) { Text = title, TextSize = 13, Enabled = false };
-        toggle.SetTextColor(Color.White);
+        toggle.SetTextColor(Color.ParseColor(Palette.Text));
         _body.AddView(toggle, new LinearLayout.LayoutParams(-1, Dp(48)));
         return toggle;
     }
@@ -328,7 +524,7 @@ public sealed class NLAndroidUIActivity : Activity
     private void ButtonIcon(Button button, int resource, bool primary = false)
     {
         var icon = GetDrawable(resource)!.Mutate();
-        icon.SetTint(Color.ParseColor(primary ? "#071319" : "#E7EFF4"));
+        icon.SetTint(Color.ParseColor(primary ? Palette.AccentText : Palette.Text));
         icon.SetBounds(0, 0, Dp(22), Dp(22));
         button.SetCompoundDrawables(icon, null, null, null); button.CompoundDrawablePadding = Dp(10);
     }
@@ -336,9 +532,9 @@ public sealed class NLAndroidUIActivity : Activity
     {
         var button = OutlineButton(text, action);
         button.Gravity = GravityFlags.CenterVertical | GravityFlags.Left;
-        button.Background = NLAndroidUIVisual.Surface(this, "#182228", "#26363F", 6);
+        button.Background = NLAndroidUIVisual.Surface(this, Palette.Surface, Palette.Border, 6);
         ButtonIcon(button, icon);
-        var arrow = GetDrawable(Android.Resource.Drawable.IcMediaNext)!.Mutate(); arrow.SetTint(Color.ParseColor("#8FA6B2"));
+        var arrow = GetDrawable(Android.Resource.Drawable.IcMediaNext)!.Mutate(); arrow.SetTint(Color.ParseColor(Palette.Muted));
         arrow.SetBounds(0, 0, Dp(14), Dp(14));
         var drawables = button.GetCompoundDrawables(); button.SetCompoundDrawables(drawables[0], null, arrow, null);
         return button;
@@ -359,7 +555,7 @@ public sealed class NLAndroidUIActivity : Activity
         var parent = _body;
         var row = new LinearLayout(this) { Orientation = Orientation.Horizontal };
         row.SetPadding(0, Dp(5), 0, Dp(5)); row.SetGravity(GravityFlags.CenterVertical); parent.AddView(row);
-        var name = new TextView(this) { Text = title, TextSize = 13 }; name.SetTextColor(Color.ParseColor("#D7E2E8"));
+        var name = new TextView(this) { Text = title, TextSize = 13 }; name.SetTextColor(Color.ParseColor(Palette.Text));
         row.AddView(name, new LinearLayout.LayoutParams(Dp(78), -2));
         var value = new LinearLayout(this) { Orientation = Orientation.Vertical }; row.AddView(value, new LinearLayout.LayoutParams(0, -2, 1)); _body = value;
         var spinner = Selector(title); _body = parent;
@@ -368,7 +564,7 @@ public sealed class NLAndroidUIActivity : Activity
     private TextView Muted(string text)
     {
         var label = Label(text, 13);
-        label.SetTextColor(Color.ParseColor("#ADBDC5"));
+        label.SetTextColor(Color.ParseColor(Palette.Muted));
         return label;
     }
     private void Card(Action build)
@@ -376,9 +572,9 @@ public sealed class NLAndroidUIActivity : Activity
         var parent = _body;
         var card = new LinearLayout(this) { Orientation = Orientation.Vertical };
         var background = new GradientDrawable();
-        background.SetColor(Color.ParseColor("#192329"));
+        background.SetColor(Color.ParseColor(Palette.Surface));
         background.SetCornerRadius(Dp(12));
-        background.SetStroke(Dp(1), Color.ParseColor("#34434B"));
+        background.SetStroke(Dp(1), Color.ParseColor(Palette.Border));
         card.Background = background;
         card.SetPadding(Dp(14), Dp(8), Dp(14), Dp(10));
         var layout = new LinearLayout.LayoutParams(-1, -2);
@@ -574,6 +770,7 @@ public sealed class NLAndroidUIActivity : Activity
     public override void OnBackPressed()
     {
         if (_settingsPage.Visibility == ViewStates.Visible) ShowPage(_dashboardPage);
+        else if (_exInPage.Visibility == ViewStates.Visible) ShowPage(_enginesPage);
         else if (_dashboardPage.Visibility == ViewStates.Visible) ShowPage(_connectionPage);
         else MoveTaskToBack(true);
     }
@@ -596,6 +793,7 @@ public sealed class NLAndroidUIActivity : Activity
         _connectionPage.Visibility = ReferenceEquals(page, _connectionPage) ? ViewStates.Visible : ViewStates.Gone;
         _dashboardPage.Visibility = ReferenceEquals(page, _dashboardPage) ? ViewStates.Visible : ViewStates.Gone;
         _enginesPage.Visibility = ReferenceEquals(page, _enginesPage) ? ViewStates.Visible : ViewStates.Gone;
+        _exInPage.Visibility = ReferenceEquals(page, _exInPage) ? ViewStates.Visible : ViewStates.Gone;
         _filesPage.Visibility = ReferenceEquals(page, _filesPage) ? ViewStates.Visible : ViewStates.Gone;
         _mediaPage.Visibility = ReferenceEquals(page, _mediaPage) ? ViewStates.Visible : ViewStates.Gone;
         _settingsPage.Visibility = ReferenceEquals(page, _settingsPage) ? ViewStates.Visible : ViewStates.Gone;
@@ -605,7 +803,7 @@ public sealed class NLAndroidUIActivity : Activity
     {
         var tabs = new LinearLayout(this) { Orientation = Orientation.Horizontal };
         tabs.SetPadding(Dp(10), Dp(6), Dp(10), Dp(10));
-        tabs.Background = NLAndroidUIVisual.Surface(this, "#121C21", "#273740", 0);
+        tabs.Background = NLAndroidUIVisual.Surface(this, Palette.Navigation, Palette.Border, 0);
         root.AddView(tabs, new LinearLayout.LayoutParams(-1, -2));
         _tabHome = TabButton("Inicio", Android.Resource.Drawable.IcMenuView, () => ShowPage(_dashboardPage));
         _tabConnect = TabButton("Conectar", Android.Resource.Drawable.IcMenuSearch, () => ShowPage(_connectionPage));
@@ -617,9 +815,9 @@ public sealed class NLAndroidUIActivity : Activity
     }
     private Button TabButton(string text, int icon, Action action)
     {
-        var button = new Button(this) { Text = text, TextSize = 9 };
+        var button = new Button(this) { Text = "", ContentDescription = text };
         button.SetAllCaps(false);
-        button.SetPadding(Dp(2), 0, Dp(2), 0);
+        button.SetPadding(0, 0, 0, 0);
         ButtonIcon(button, icon);
         button.Click += (_, _) => action();
         return button;
@@ -636,8 +834,7 @@ public sealed class NLAndroidUIActivity : Activity
     private void SetTabState(Button tab, bool selected)
     {
         NLAndroidUIVisual.Button(tab, selected);
-        tab.TextSize = 9;
-        var tint = selected ? "#071319" : "#DDE9EF";
+        var tint = selected ? Palette.AccentText : Palette.Text;
         var drawables = tab.GetCompoundDrawables();
         if (drawables[0] is not null) drawables[0].SetTint(Color.ParseColor(tint));
     }
@@ -664,7 +861,7 @@ public sealed class NLAndroidUIActivity : Activity
     private TextView Label(string text, int size)
     {
         var label = new TextView(this) { Text = text, TextSize = size };
-        label.SetTextColor(Color.ParseColor("#F2F5F7"));
+        label.SetTextColor(Color.ParseColor(Palette.Text));
         label.SetPadding(0, Dp(6), 0, Dp(6));
         _body.AddView(label);
         return label;
@@ -697,7 +894,7 @@ public sealed class NLAndroidUIActivity : Activity
                 else _drafts[spinner] = chosen;
             }
         };
-        spinner.Background = NLAndroidUIVisual.Surface(this, "#111B20", "#35434B", 7);
+        spinner.Background = NLAndroidUIVisual.Surface(this, Palette.Surface, Palette.Border, 7);
         _body.AddView(spinner, new LinearLayout.LayoutParams(-1, Dp(48)));
         return spinner;
     }
@@ -717,15 +914,15 @@ public sealed class NLAndroidUIActivity : Activity
         _sendFiles.Enabled = enabled && _snapshot?.FileSharing == true;
         var engines = _snapshot?.Engines;
         UpdateEngineButton(_videoEngine, "VisionEngine", enabled, engines?.VideoCanStart == true, engines?.VideoCanStop == true, _snapshot?.VideoRunning == true, true);
-        UpdateEngineButton(_linkEngine, "LinkEngine", enabled, engines?.LinkCanStart == true && _service?.Session.Current.Transport == "USB", engines?.LinkCanStop == true, engines?.LinkRunning == true, false);
+        UpdateEngineButton(_linkEngine, "LinkEngine", enabled, engines?.LinkCanStart == true && _service?.Session.Current.Transport == "USB", engines?.LinkCanStop == true, engines?.LinkRunning == true, false, engines?.LinkCanTakeOver == true);
         if (!enabled && _snapshot is null)
             _engineState.Text = "Sin estado confirmado de los motores. Conecta para consultar NOVORA PC.";
     }
-    private void UpdateEngineButton(Button button, string name, bool enabled, bool canStart, bool canStop, bool running, bool primaryStart)
+    private void UpdateEngineButton(Button button, string name, bool enabled, bool canStart, bool canStop, bool running, bool primaryStart, bool canTakeOver = false)
     {
-        bool stopping = canStop || running;
-        button.Text = stopping ? $"Detener {name}" : $"Iniciar {name}";
-        button.Enabled = enabled && (stopping ? canStop : canStart);
+        bool stopping = !canTakeOver && (canStop || running);
+        button.Text = canTakeOver ? $"Usar {name} aquí" : stopping ? $"Detener {name}" : $"Iniciar {name}";
+        button.Enabled = enabled && (canTakeOver ? canStart : stopping ? canStop : canStart);
         NLAndroidUIVisual.Button(button, !stopping && primaryStart);
         ButtonIcon(button, stopping ? Android.Resource.Drawable.IcMediaPause : Android.Resource.Drawable.IcMediaPlay, !stopping && primaryStart);
     }
@@ -959,7 +1156,7 @@ public sealed class NLAndroidUIActivity : Activity
         _current.Text = $"{snapshot.PcName}\nNOVORA-LINK {snapshot.PcVersion}\nConectado por {_service?.Session.Current.Transport}";
         if (snapshot.Engines is { } target) _current.Text += "\nTeléfono: " + target.DeviceName;
         _engineState.Text = snapshot.Engines is { } engines
-            ? $"Teléfono seleccionado en PC: {(string.IsNullOrWhiteSpace(engines.DeviceName) ? "ninguno" : engines.DeviceName)}\nVisionEngine: {EngineLabel(engines.VideoState, snapshot.VideoRunning ? "Active" : "NotDetected")}\nLinkEngine: {EngineLabel(engines.LinkState, engines.LinkRunning ? "Active" : "NotDetected")} · {(engines.LinkRunning ? "servicio activo" : "servicio no activo")}\nExInEngine: {EngineLabel(engines.ExInState, "NotDetected")}\nSTEngine: {EngineLabel(engines.StState, "NotDetected")}\n{engines.LinkMessage}"
+            ? engines.LinkMessage
             : "Esta PC no informa control de motores. Comprueba que NOVORA PC esté actualizado.";
         Populate(_bitrate, snapshot.Bitrates, snapshot.Bitrate, ref _bitrates);
         Populate(_profile, snapshot.Profiles, snapshot.Profile, ref _profiles);
@@ -971,12 +1168,9 @@ public sealed class NLAndroidUIActivity : Activity
         else if (snapshot.Media is { Recording: true } or { Starting: true }) _settingsStatus.Text = "Termina la grabación antes de aplicar cambios y reiniciar VE.";
         else if (_settingsStatus.Text is "Termina la grabación antes de aplicar cambios y reiniciar VE." or "Actualiza NOVORA PC para aplicar todos los ajustes juntos.")
             _settingsStatus.Text = "Elige todos los ajustes y aplícalos juntos.";
-        _engineState.Text += "\n" + snapshot.Engines?.VideoMessage + "\n" + snapshot.Engines?.ExInMessage + "\n" + snapshot.Engines?.StMessage + "\nAudio activo: " + snapshot.ActiveAudioOutput;
-        if (snapshot.Media is { } media) _engineState.Text += "\n" + media.Message;
         UpdateVisualSummary(snapshot);
         EnableActions(!_busy);
     }
-    private static string EngineLabel(string? state, string fallback) => string.IsNullOrWhiteSpace(state) ? fallback : state;
     private void UpdateVisualSummary(NLControlSnapshot? snapshot)
     {
         var engines = snapshot?.Engines;
@@ -1002,11 +1196,81 @@ public sealed class NLAndroidUIActivity : Activity
         _filesStatus.Text = snapshot?.FileSharing == true
             ? "Transferencia disponible. Abre Recibidos o Enviados para consultar contenido real."
             : "Transferencia no disponible hasta conectar con NOVORA PC.";
+        UpdateExIn(snapshot?.ExIn);
     }
+    private void UpdateExIn(NLControlExIn? exIn)
+    {
+        if (_exInDevice is null) return;
+        bool detected = exIn?.Detected == true;
+        _exInDevice.Text = exIn?.DeviceName ?? "Sin detectar";
+        _exInFamily.Text = exIn?.Family switch { "DualShock4" => "DualShock 4", "Xbox" => "Xbox", null or "Unknown" => "Desconocida", var family => family };
+        _exInVidPid.Text = exIn?.VidPid ?? "---- : ----";
+        _exInConnection.Text = detected ? exIn!.ConnectionType : "Sin datos";
+        _exInProfile.Text = exIn?.Calibrated == true ? "Calibrado para este mando" : "Sin calibrar";
+        _exInIdentity.Text = detected && !string.IsNullOrWhiteSpace(exIn!.Identity)
+            ? "Perfil: " + exIn.Identity
+            : "Identidad de perfil no disponible.";
+        _exInCapabilities.Text = detected
+            ? "Capacidades: " + string.Join(" · ", new[]
+            {
+                exIn!.SupportsGamepad ? "juego" : null,
+                exIn.SupportsNavigation ? "navegación" : null,
+                exIn.SupportsPointer ? "puntero" : null,
+                exIn.SupportsTouchpad ? "touchpad" : null
+            }.Where(value => value is not null))
+            : "Capacidades no reportadas.";
+        _exInDiagnostic.Text = detected
+            ? $"Salud: {FriendlyHealth(exIn!.Health)} · {(exIn.Correctable ? "corregible por calibración" : "sin corrección confirmada")}\n{exIn.DiagnosticMessage}\n{exIn.Message}"
+            : "ExInEngine espera un control físico detectado por NOVORA PC.";
+        _exInBattery.Text = detected
+            ? exIn!.BatteryPercent >= 0
+                ? $"Batería: {exIn.BatteryPercent}% · {FriendlyBattery(exIn.BatteryState)}"
+                : $"Batería: {FriendlyBattery(exIn.BatteryState)}"
+            : "Batería no reportada.";
+        _exInLive.Text = detected
+            ? $"CRUDO       L {exIn!.LeftX,4},{exIn.LeftY,4}  R {exIn.RightX,4},{exIn.RightY,4}\n" +
+              $"CORREGIDO   L {exIn.CorrectedLeftX,4},{exIn.CorrectedLeftY,4}  R {exIn.CorrectedRightX,4},{exIn.CorrectedRightY,4}\n\n" +
+              $"GATILLOS    {exIn.LeftTrigger,3}/{exIn.RightTrigger,3}%  →  {exIn.CorrectedLeftTrigger,3}/{exIn.CorrectedRightTrigger,3}%\n\n" +
+              $"BOTONES     {(exIn.Buttons.Length == 0 ? "Ninguno" : string.Join(" · ", exIn.Buttons))}"
+            : "STICK L       --\nSTICK R       --\n\nGATILLO LT    --\nGATILLO RT    --\n\nBOTONES       --";
+        _exInCalibrationDetails.Text = detected && !string.IsNullOrWhiteSpace(exIn!.CalibrationDetails)
+            ? exIn.CalibrationDetails
+            : "Sin perfil de calibración activo.";
+        bool ready = detected && !_busy && exIn?.Transitioning != true;
+        _exInGameMode.Text = exIn?.Mode == "Game" ? "Juego · activo" : "Juego";
+        _exInUiMode.Text = exIn?.Mode == "Ui" ? "UI · activo" : "UI";
+        NLAndroidUIVisual.Button(_exInGameMode, exIn?.Mode == "Game");
+        NLAndroidUIVisual.Button(_exInUiMode, exIn?.Mode == "Ui");
+        _exInGameMode.Enabled = ready && exIn?.CanSetMode == true && exIn.Mode != "Game";
+        _exInUiMode.Enabled = ready && exIn?.CanSetMode == true && exIn.Mode != "Ui";
+        _exInReactivate.Enabled = ready && exIn?.CanReactivate == true;
+        _exInCalibrate.Enabled = ready && exIn?.CanCalibrate == true;
+        _exInReset.Enabled = ready && exIn?.CanCalibrate == true && (exIn.Calibrated || exIn.Calibrating);
+        _exInCalibrate.Text = exIn?.Calibrating == true ? "Finalizar y aplicar" : "Iniciar calibración";
+    }
+
+    private static string FriendlyHealth(string value) => value switch
+    {
+        "Healthy" => "Correcto",
+        "Correctable" => "Requiere calibración",
+        "Faulty" => "Posible falla física",
+        _ => "Sin diagnóstico"
+    };
+
+    private static string FriendlyBattery(string value) => value switch
+    {
+        "OnBattery" => "en uso",
+        "Charging" => "cargando",
+        "Charged" => "cargado",
+        "NoBattery" => "sin batería",
+        _ => "no reportada"
+    };
     private static string FriendlyState(string? state, bool active, string fallback)
     {
         if (active || string.Equals(state, "Active", StringComparison.OrdinalIgnoreCase)) return "Activo";
         if (string.Equals(state, "Detected", StringComparison.OrdinalIgnoreCase) || string.Equals(state, "Ready", StringComparison.OrdinalIgnoreCase)) return "Detectado";
+        if (string.Equals(state, "Degraded", StringComparison.OrdinalIgnoreCase)) return "Degradado";
+        if (string.Equals(state, "Critical", StringComparison.OrdinalIgnoreCase)) return "Crítico";
         if (string.Equals(state, "Blocked", StringComparison.OrdinalIgnoreCase)) return "Bloqueado";
         if (string.Equals(state, "Error", StringComparison.OrdinalIgnoreCase)) return "Error";
         return fallback;
@@ -1014,7 +1278,7 @@ public sealed class NLAndroidUIActivity : Activity
     private static void SetState(TextView view, string value)
     {
         view.Text = value;
-        string color = value is "Activo" or "Detectado" ? "#55D98A" : value == "Bloqueado" || value == "Error" ? "#FF5C65" : "#FF5C65";
+        string color = value is "Activo" or "Detectado" ? "#55D98A" : value == "Degradado" ? "#E9A23B" : "#FF5C65";
         view.SetTextColor(Color.ParseColor(color));
     }
     private void Populate(Spinner spinner, NLControlOption[] options, string selected, ref NLControlOption[] stored)

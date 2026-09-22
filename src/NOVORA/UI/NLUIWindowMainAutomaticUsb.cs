@@ -70,11 +70,9 @@ public partial class NLUIWindowMain
                 _automaticUsbDirty = false;
                 string serial = _automaticUsb.Serial;
                 long epoch = _automaticUsb.Epoch;
-                // Preserve an explicitly selected LAN flow. USB never weakens its authentication.
-                if (_androidLanControl is { IsAuthorized: true } || _androidLanControl?.IsInvitationOpen == true) continue;
                 if (_androidControl is not null &&
                     (_androidControlSerial != serial || _automaticUsbServerEpoch != epoch))
-                    await StopAndroidControlAsync(preserveTrustListening: true);
+                    await StopAutomaticUsbAsync();
                 if (_closing || !_automaticUsb.IsCurrent(serial, epoch)) continue;
                 if (_androidControl is { IsAuthorized: true } && _androidControlSerial == serial) continue;
                 if (!_automaticUsb.TryBegin(_androidControlPreparing || _androidInstalling)) continue;
@@ -93,7 +91,7 @@ public partial class NLUIWindowMain
     {
         var device = _viewModel.Device;
         if (_closing || !_automaticUsb.IsCurrent(serial, epoch) || generation != _androidControlGeneration ||
-            !device.Connected || device.IsWifiConnection || device.Serial != serial || _androidLanControl is not null)
+            !device.Connected || device.IsWifiConnection || device.Serial != serial)
             throw new OperationCanceledException("USB cambio durante la preparacion.");
     }
 
@@ -120,10 +118,9 @@ public partial class NLUIWindowMain
         NLControlTrustServer? created = null;
         try
         {
-            if (_androidLanControl is { IsAuthorized: true } || _androidLanControl?.IsInvitationOpen == true) return;
-            // A saved but idle LAN listener must not block physical USB forever.
-            if (_androidControl is not null || _androidLanControl is not null)
-                await StopAndroidControlAsync(preserveTrustListening: true);
+            // LAN remains listening while USB is prepared. Android keeps one active
+            // session and USB receives command priority only after authorization.
+            if (_androidControl is not null) await StopAutomaticUsbAsync();
             long generation = _androidControlGeneration;
             CheckAutomaticUsb(serial, epoch, generation);
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -135,7 +132,7 @@ public partial class NLUIWindowMain
             CheckAutomaticUsb(serial, epoch, generation);
             _viewModel.RefreshAudioOutputOptions(_paths);
             created = new NLControlTrustServer(System.Net.IPAddress.Loopback,
-                request => HandleAndroidControlAsync(request, generation), GetAndroidUsbTrustStore(), NLControlProtocol.Port,
+                request => HandleAndroidControlAsync(request, generation, "USB"), GetAndroidUsbTrustStore(), NLControlProtocol.Port,
                 allowRemember: () => _allowUsbRemember, transport: "USB");
             // Binding must succeed before adopting an existing exact reverse mapping.
             created.Start();
@@ -146,15 +143,19 @@ public partial class NLUIWindowMain
             server.StatusChanged += (_, status) => Dispatcher.BeginInvoke(new Action(() =>
             {
                 if (!ReferenceEquals(_androidControl, server)) return;
-                AndroidControlStatus.Text = status;
-                if (!server.IsAuthorized)
+                AndroidControlStatus.Text = !server.IsAuthorized && _androidLanControl?.IsAuthorized == true
+                    ? "LAN activa; USB físico detectado y en preparación."
+                    : status;
+                if (server.IsAuthorized)
+                    _ = EnsureExInStandaloneAsync();
+                if (!server.IsAuthorized && !AndroidControlAuthorized)
                 {
                     ResetAndroidFileTransfer();
                     _ = FinishAndroidRecordingAsync();
                     _ = StopAndroidOwnedLinkAsync();
                 }
                 AndroidEngineStateChanged();
-                if (server.IsClosed) _ = StopAndroidControlAsync(preserveTrustListening: true);
+                if (server.IsClosed) _ = StopAutomaticUsbAsync();
             }));
             if (!reuseMapping)
                 await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--no-rebind", "tcp:27214", "tcp:27214" }, deadline.Token);
@@ -179,7 +180,7 @@ public partial class NLUIWindowMain
         catch (Exception ex)
         {
             if (created is not null && ReferenceEquals(_androidControl, created))
-                await StopAndroidControlAsync(preserveTrustListening: true);
+                await StopAutomaticUsbAsync();
             else if (created is not null) await created.DisposeAsync();
             if (!_closing && _automaticUsb.IsCurrent(serial, epoch))
                 AndroidControlStatus.Text = "No se completo USB automatico (" + ex.GetType().Name + "). Revisa la APK appcontrol y reintenta USB.";

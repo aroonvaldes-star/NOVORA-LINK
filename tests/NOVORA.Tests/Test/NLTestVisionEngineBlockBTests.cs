@@ -1,7 +1,7 @@
 
 using NOVORA.VisionEngine.Control;
 using NOVORA.VisionEngine.Exchange;
-using NOVORA.VisionEngine.Gamepad;
+using NOVORA.ExInEngine;
 using System.Buffers.Binary;
 using Xunit;
 
@@ -72,19 +72,19 @@ public sealed class NLTestVisionEngineBlockBTests
     [Fact]
     public void ReportGamepadVE_matches_scrcpy_15_byte_hid_layout()
     {
-        VEGamepadState state = new(
+        ExInState state = new(
             LeftX: 0,
             LeftY: 0,
             RightX: short.MaxValue,
             RightY: short.MinValue,
             LeftTrigger: 32767,
             RightTrigger: 0,
-            Buttons: VEGamepadButtons.South |
-                     VEGamepadButtons.Start |
-                     VEGamepadButtons.DPadUp |
-                     VEGamepadButtons.DPadRight);
+            Buttons: ExInButtons.South |
+                     ExInButtons.Start |
+                     ExInButtons.DPadUp |
+                     ExInButtons.DPadRight);
 
-        byte[] report = VEGamepadReport.BuildVE(state);
+        byte[] report = ExInReport.BuildVE(state);
 
         Assert.Equal(15, report.Length);
         Assert.Equal((ushort)0x8000, BinaryPrimitives.ReadUInt16LittleEndian(report.AsSpan(0, 2)));
@@ -93,6 +93,31 @@ public sealed class NLTestVisionEngineBlockBTests
         Assert.Equal((ushort)32767, BinaryPrimitives.ReadUInt16LittleEndian(report.AsSpan(8, 2)));
         Assert.Equal((ushort)0x0801, BinaryPrimitives.ReadUInt16LittleEndian(report.AsSpan(12, 2)));
         Assert.Equal((byte)2, report[14]);
+    }
+
+    [Theory]
+    [InlineData(ExInButtons.South, 0x0001)]
+    [InlineData(ExInButtons.East, 0x0002)]
+    [InlineData(ExInButtons.West, 0x0008)]
+    [InlineData(ExInButtons.North, 0x0010)]
+    [InlineData(ExInButtons.LeftShoulder, 0x0040)]
+    [InlineData(ExInButtons.RightShoulder, 0x0080)]
+    [InlineData(ExInButtons.Back, 0x0400)]
+    [InlineData(ExInButtons.Start, 0x0800)]
+    [InlineData(ExInButtons.Guide, 0x1000)]
+    [InlineData(ExInButtons.LeftStick, 0x2000)]
+    [InlineData(ExInButtons.RightStick, 0x4000)]
+    public void ReportGamepadVE_uses_xbox_android_hid_button_map(
+        ExInButtons button,
+        ushort expected)
+    {
+        ExInState state = new(0, 0, 0, 0, 0, 0, button);
+
+        byte[] report = ExInReport.BuildVE(state);
+
+        Assert.Equal(
+            expected,
+            BinaryPrimitives.ReadUInt16LittleEndian(report.AsSpan(12, 2)));
     }
 
     [Fact]
@@ -148,6 +173,21 @@ public sealed class NLTestVisionEngineBlockBTests
         Assert.Equal(
             64_000,
             stable.AudioBitRate);
+    }
+
+    [Fact]
+    public void ExIn_control_only_server_disables_video_and_audio()
+    {
+        var options = NOVORA.VisionEngine.Server.VEServerOptions.CreateControlOnlyVE();
+        var arguments = options.BuildArgumentsVE(0x1234, tunnelForward: false);
+        Assert.False(options.VideoEnabled);
+        Assert.False(options.AudioEnabled);
+        Assert.True(options.ControlEnabled);
+        Assert.Contains("video=false", arguments);
+        Assert.Contains("audio=false", arguments);
+        Assert.DoesNotContain("control=false", arguments);
+        Assert.DoesNotContain(arguments, value => value.StartsWith("video_bit_rate=", StringComparison.Ordinal));
+        Assert.DoesNotContain(arguments, value => value.StartsWith("max_fps=", StringComparison.Ordinal));
     }
 
     [Theory]

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Xml.Linq;
 using NOVORA.Service;
 using Xunit;
 
@@ -9,6 +10,20 @@ namespace NOVORA.Tests;
 
 public sealed class NLTestOfficialRelease
 {
+    [Fact]
+    public void Current_android_source_and_canonical_package_agree()
+    {
+        string root = RepositoryRoot();
+        var project = XDocument.Load(Path.Combine(root, "src", "NOVORA.Android", "NLProjectAndroid.csproj"));
+        Assert.Equal("26", project.Descendants("ApplicationVersion").Single().Value);
+        Assert.Equal("1.4.26", project.Descendants("ApplicationDisplayVersion").Single().Value);
+
+        var package = NLServiceAndroidPackage.Load(Path.Combine(root, "src", "NOVORA", "Android"));
+        Assert.Equal(26, package.VersionCode);
+        Assert.Equal("1.4.26", package.VersionName);
+        Assert.Equal(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(package.ApkPath))), package.Sha256);
+    }
+
     [Theory]
     [InlineData("1.4.1-experimental", "v1.4.0", true)]
     [InlineData("1.4.99-experimental.7+abc", "v1.4", true)]
@@ -171,5 +186,12 @@ public sealed class NLTestOfficialRelease
             Url = request.RequestUri?.AbsoluteUri;
             return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") });
         }
+    }
+
+    private static string RepositoryRoot()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+            if (File.Exists(Path.Combine(directory.FullName, "NOVORA.sln"))) return directory.FullName;
+        throw new DirectoryNotFoundException("No se encontró la raíz de NOVORA.");
     }
 }

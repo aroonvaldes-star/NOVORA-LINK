@@ -9,7 +9,7 @@ public static class NLControlCommands
         if (request.Action is "pair" or "get") return null;
         if (request.Action is "file.begin" or "file.chunk" or "file.end" or "file.cancel")
             return state.FileSharing ? null : "Esta PC no admite transferencia de archivos.";
-        if (request.Action is not ("applyVideoSettings" or "bitrate" or "profile" or "audio" or "resolution" or "fps" or "capture" or "startRecording" or "stopRecording" or "restartVideo" or "startVideo" or "stopVideo" or "startLink" or "stopLink"))
+        if (request.Action is not ("applyVideoSettings" or "bitrate" or "profile" or "audio" or "resolution" or "fps" or "capture" or "startRecording" or "stopRecording" or "restartVideo" or "startVideo" or "stopVideo" or "startLink" or "stopLink" or "exin.calibration.start" or "exin.calibration.finish" or "exin.calibration.reset" or "exin.mode" or "exin.reactivate"))
             return "Acción no disponible en este bloque.";
         if (request.Revision != state.Revision)
             return "Los ajustes cambiaron en PC. Revisa el estado actualizado y vuelve a aplicar.";
@@ -39,6 +39,28 @@ public static class NLControlCommands
                 _ => state.Media?.Recording == true
             };
             return available ? null : "Captura o grabación no disponible en este estado.";
+        }
+        if (request.Action.StartsWith("exin.calibration.", StringComparison.Ordinal))
+        {
+            if (request.Value is not null) return "La calibración no acepta valores adicionales.";
+            if (state.ExIn?.Detected != true) return "ExInEngine necesita un control físico detectado.";
+            if (state.ExIn.Transitioning || !state.ExIn.CanCalibrate) return "La calibración no está disponible en este estado.";
+            if (request.Action == "exin.calibration.finish" && state.ExIn.Calibrating != true)
+                return "No hay una calibración activa.";
+            return null;
+        }
+        if (request.Action == "exin.mode")
+        {
+            if (state.ExIn?.Detected != true) return "ExInEngine necesita un control físico detectado.";
+            if (state.ExIn.Transitioning || !state.ExIn.CanSetMode) return "ExInEngine está cambiando de estado.";
+            return request.Value is "Game" or "Ui" ? null : "Modo de control no válido.";
+        }
+        if (request.Action == "exin.reactivate")
+        {
+            if (request.Value is not null) return "La reactivación no acepta valores adicionales.";
+            if (state.ExIn?.Detected != true) return "No hay un control físico para reactivar.";
+            if (state.ExIn.Transitioning || !state.ExIn.CanReactivate) return "ExInEngine está cambiando de estado.";
+            return null;
         }
         if (request.Action is "startVideo" or "stopVideo" or "startLink" or "stopLink")
         {

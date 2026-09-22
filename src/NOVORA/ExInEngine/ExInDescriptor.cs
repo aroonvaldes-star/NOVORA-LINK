@@ -1,11 +1,11 @@
-namespace NOVORA.VisionEngine.Gamepad;
+namespace NOVORA.ExInEngine;
 
 /// <summary>
 /// Descriptor HID genérico de gamepad compatible con la implementación UHID
 /// de scrcpy 4.1: cuatro sticks de 16 bits, dos triggers de 16 bits,
 /// 16 botones y hat-switch para D-pad.
 /// </summary>
-public static class VEGamepadDescriptor
+public static class ExInDescriptor
 {
     private static readonly byte[] DescriptorVE =
     [

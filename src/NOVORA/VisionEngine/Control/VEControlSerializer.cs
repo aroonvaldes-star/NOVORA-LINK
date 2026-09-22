@@ -6,7 +6,7 @@ namespace NOVORA.VisionEngine.Control;
 /// <summary>
 /// Serializa los mensajes de control con el layout de scrcpy 4.1.
 /// Todos los enteros del control protocol son big-endian, salvo los HID
-/// reports que ya llegan como un blob opaco preparado por GamepadVE.
+/// reports que llegan como un blob opaco preparado por ExInEngine.
 /// </summary>
 public static class VEControlSerializer
 {
