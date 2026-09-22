@@ -29,7 +29,7 @@ public sealed record VEServerOptions(
         {
             VideoBitRate =
                 VideoBitRate > 0
-                    ? Math.Min(VideoBitRate, 4_000_000)
+                    ? Math.Clamp(VideoBitRate, 2_000_000, 15_000_000)
                     : VideoBitRate,
 
             MaxFps =
@@ -58,7 +58,7 @@ public sealed record VEServerOptions(
         => new(
             VideoEnabled: true,
             VideoCodec: VEProtocolCodec.H264,
-            VideoBitRate: 4_000_000,
+            VideoBitRate: 8_000_000,
             MaxSize: 1280,
             MaxFps: 45d,
             AudioEnabled: true,

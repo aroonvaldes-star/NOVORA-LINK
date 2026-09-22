@@ -243,10 +243,10 @@ public partial class NLUIWindowMain
                 out NLNVIDIAProfile profile) || !Enum.IsDefined(profile))
         {
             profile =
-                NLNVIDIAProfile.Automatic;
+                NLNVIDIAProfile.Competitive;
 
             _viewModel.NvidiaProfile =
-                NLNVIDIAProfile.Automatic.ToString();
+                NLNVIDIAProfile.Competitive.ToString();
         }
 
         runtime.NvidiaVE.SetProfileVE(
@@ -683,6 +683,8 @@ public partial class NLUIWindowMain
         AttachVisionRendererHostVE(
             presentation.HostVE);
 
+        _ = SynchronizeExInDevicesAfterPresentationAsync();
+
         /*
          * El polling informativo sólo se suspende
          * en fullscreen.
@@ -710,6 +712,21 @@ public partial class NLUIWindowMain
 
         return
             presentation.HostVE;
+    }
+
+    private async Task SynchronizeExInDevicesAfterPresentationAsync()
+    {
+        try
+        {
+            await _exInInitialization.ConfigureAwait(true);
+            if (!_closing && _exInEngine is not null)
+                await _exInEngine.Manager.SynchronizeDevicesAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            if (!_closing)
+                _viewModel.ConnectionStatus = "ExInEngine: " + ex.Message;
+        }
     }
 
     // ============================================================

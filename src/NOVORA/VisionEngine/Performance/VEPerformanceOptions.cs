@@ -31,7 +31,7 @@ public sealed record VEPerformanceOptions(
         }
         return profile switch
         {
-            VEPerformanceProfile.Gaming => new(profile, codec, 4_000_000, 1280, 45),
+            VEPerformanceProfile.Gaming => new(profile, codec, 8_000_000, 1280, 45),
             VEPerformanceProfile.Balanced => new(profile, codec, 5_000_000, 1280, 45),
             VEPerformanceProfile.Video => new(profile, codec, 6_000_000, 1600, 45),
             VEPerformanceProfile.Battery => new(profile, codec, 3_000_000, 960, 30),

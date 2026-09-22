@@ -27,7 +27,7 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
     private string _performanceSummary = "Esperando dispositivo...";
     private IReadOnlyList<NLModelMonitorInfo> _monitors = Array.Empty<NLModelMonitorInfo>();
     private NLModelOutputProfile? _outputProfile;
-    private string _bitrate = "4M";
+    private string _bitrate = "8M";
     private int _targetFps = 45;
     private int _maxSize = 1280;
     private string _theme = NLServiceTheme.Dark;
@@ -44,7 +44,7 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
     private bool _integrationNotificationsEnabled = true;
     private bool _integrationDynamicResizeEnabled = true;
     private bool _exInEnabled = true;
-    private string _nvidiaProfile = "Automatic";
+    private string _nvidiaProfile = "Competitive";
 
     public bool AudioEnabled
     {
@@ -343,21 +343,20 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
     public IReadOnlyList<NLViewModelSettingOption<string>> BitrateOptions { get; } =
         new[]
         {
-            new NLViewModelSettingOption<string>("1M", "1 Mb/s"),
             new NLViewModelSettingOption<string>("2M", "2 Mb/s"),
             new NLViewModelSettingOption<string>("3M", "3 Mb/s"),
             new NLViewModelSettingOption<string>("4M", "4 Mb/s"),
             new NLViewModelSettingOption<string>("5M", "5 Mb/s"),
             new NLViewModelSettingOption<string>("6M", "6 Mb/s"),
+            new NLViewModelSettingOption<string>("7M", "7 Mb/s"),
             new NLViewModelSettingOption<string>("8M", "8 Mb/s"),
+            new NLViewModelSettingOption<string>("9M", "9 Mb/s"),
             new NLViewModelSettingOption<string>("10M", "10 Mb/s"),
+            new NLViewModelSettingOption<string>("11M", "11 Mb/s"),
             new NLViewModelSettingOption<string>("12M", "12 Mb/s"),
-            new NLViewModelSettingOption<string>("16M", "16 Mb/s"),
-            new NLViewModelSettingOption<string>("20M", "20 Mb/s"),
-            new NLViewModelSettingOption<string>("25M", "25 Mb/s"),
-            new NLViewModelSettingOption<string>("30M", "30 Mb/s"),
-            new NLViewModelSettingOption<string>("40M", "40 Mb/s"),
-            new NLViewModelSettingOption<string>("50M", "50 Mb/s")
+            new NLViewModelSettingOption<string>("13M", "13 Mb/s"),
+            new NLViewModelSettingOption<string>("14M", "14 Mb/s"),
+            new NLViewModelSettingOption<string>("15M", "15 Mb/s")
         };
 
     public IReadOnlyList<NLViewModelSettingOption<string>> VideoPresentationModeOptions { get; } =

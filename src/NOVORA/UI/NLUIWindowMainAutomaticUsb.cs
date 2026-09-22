@@ -43,11 +43,21 @@ public partial class NLUIWindowMain
             _ = Dispatcher.BeginInvoke(new Action(QueueAutomaticUsb));
             return;
         }
-        var device = _viewModel.Device;
-        string serial = device.Serial ?? String.Empty;
-        bool online = _automaticUsbOnline is null || _automaticUsbOnline.Contains(serial);
+        string serial = NLControlUsbAutoPolicy.SelectPhysicalSerial(
+            _viewModel.Devices.Select(device =>
+                new NLControlUsbCandidate(device.Serial, device.Connected, device.IsWifiConnection)),
+            _automaticUsbOnline,
+            _viewModel.Device.Serial);
+        var device = _viewModel.Devices.FirstOrDefault(candidate =>
+            string.Equals(candidate.Serial, serial, StringComparison.OrdinalIgnoreCase));
+        bool online = device is not null &&
+            (_automaticUsbOnline is null || _automaticUsbOnline.Contains(serial));
         // Record every edge before coalescing work. Detach/attach invalidates an old await.
-        _automaticUsb.Observe(serial, device.Connected, device.IsWifiConnection, online);
+        _automaticUsb.Observe(
+            serial,
+            device?.Connected == true,
+            device?.IsWifiConnection == true,
+            online);
         _automaticUsbDirty = true;
         if (!_automaticUsbLoaded || _automaticUsbQueued || _automaticUsbBusy) return;
         _automaticUsbQueued = true;
@@ -89,9 +99,11 @@ public partial class NLUIWindowMain
 
     private void CheckAutomaticUsb(string serial, long epoch, long generation)
     {
-        var device = _viewModel.Device;
+        var device = _viewModel.Devices.FirstOrDefault(candidate =>
+            string.Equals(candidate.Serial, serial, StringComparison.OrdinalIgnoreCase));
         if (_closing || !_automaticUsb.IsCurrent(serial, epoch) || generation != _androidControlGeneration ||
-            !device.Connected || device.IsWifiConnection || device.Serial != serial)
+            device is null || !device.Connected || device.IsWifiConnection ||
+            !string.Equals(device.Serial, serial, StringComparison.OrdinalIgnoreCase))
             throw new OperationCanceledException("USB cambio durante la preparacion.");
     }
 
@@ -112,6 +124,11 @@ public partial class NLUIWindowMain
         return found;
     }
 
+    internal static bool IsNovoraAndroidInstalled(string output)
+        => output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Any(line => line.Trim().StartsWith("package:", StringComparison.OrdinalIgnoreCase) &&
+                line.Contains("com.novora.appcontrol", StringComparison.OrdinalIgnoreCase));
+
     private async Task PrepareAutomaticUsbAsync(string serial, long epoch)
     {
         _androidControlPreparing = true;
@@ -126,6 +143,12 @@ public partial class NLUIWindowMain
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             string state = await _adb.ExecuteRawAsync(new[] { "-s", serial, "get-state" }, deadline.Token);
             if (state.Trim() != "device") throw new InvalidOperationException("ADB no esta autorizado para este telefono.");
+            CheckAutomaticUsb(serial, epoch, generation);
+            string packagePath = await _adb.ExecuteRawAsync(
+                new[] { "-s", serial, "shell", "pm", "path", "com.novora.appcontrol" },
+                deadline.Token);
+            if (!IsNovoraAndroidInstalled(packagePath))
+                throw new FileNotFoundException("NOVORA Android no está instalada en el teléfono detectado.");
             CheckAutomaticUsb(serial, epoch, generation);
             string before = await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--list" }, deadline.Token);
             bool reuseMapping = HasAutomaticUsbMapping(before, true);
@@ -183,7 +206,9 @@ public partial class NLUIWindowMain
                 await StopAutomaticUsbAsync();
             else if (created is not null) await created.DisposeAsync();
             if (!_closing && _automaticUsb.IsCurrent(serial, epoch))
-                AndroidControlStatus.Text = "No se completo USB automatico (" + ex.GetType().Name + "). Revisa la APK appcontrol y reintenta USB.";
+                AndroidControlStatus.Text = ex is FileNotFoundException
+                    ? ex.Message
+                    : "No se completo USB automatico (" + ex.GetType().Name + "). Revisa la APK appcontrol y reintenta USB.";
         }
         finally { _androidControlPreparing = false; }
     }

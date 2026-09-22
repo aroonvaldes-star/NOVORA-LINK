@@ -44,6 +44,8 @@ public sealed class VEAudioPlayer : IDisposable
         ChannelsVE *
         BytesPerSampleVE;
 
+    private const int MaximumQueuedMillisecondsVE = 180;
+
     private const int TelemetryPeriodMsVE =
         250;
 
@@ -384,6 +386,19 @@ public sealed class VEAudioPlayer : IDisposable
                         "VEAudioPlayer no está abierto.");
                 }
 
+                int queuedBytes = GetQueuedBytesInternalVE();
+                if (ShouldResynchronizeVE(queuedBytes, buffer.Length) && _clearVE is not null)
+                {
+                    if (!_clearVE(_streamVE))
+                        throw new InvalidOperationException(
+                            "SDL_ClearAudioStream falló durante la resincronización: " +
+                            GetSdlErrorVE());
+
+                    WriteTelemetryVE(
+                        "SYNC_RESET",
+                        force: true);
+                }
+
                 if (
                     !_putVE!(
                         _streamVE,
@@ -405,6 +420,17 @@ public sealed class VEAudioPlayer : IDisposable
         {
             handle.Free();
         }
+    }
+
+    internal static bool ShouldResynchronizeVE(int queuedBytes, int incomingBytes)
+    {
+        if (queuedBytes < 0 || incomingBytes <= 0)
+            return false;
+
+        int maximumQueuedBytes =
+            BytesPerSecondVE * MaximumQueuedMillisecondsVE / 1000;
+
+        return (long)queuedBytes + incomingBytes > maximumQueuedBytes;
     }
 
 

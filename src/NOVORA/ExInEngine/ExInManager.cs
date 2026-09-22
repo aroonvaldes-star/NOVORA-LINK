@@ -253,6 +253,23 @@ public sealed class ExInManager : IAsyncDisposable
         PublishVE(ExInStates.Running, null);
     }
 
+    public async Task SynchronizeDevicesAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposedVE();
+        if (_eventsTaskVE is null)
+            return;
+
+        foreach (uint id in _sdlVE.GetDetectedIdsVE())
+        {
+            bool known;
+            lock (_gateVE)
+                known = _slotsVE.ContainsKey(id);
+
+            if (!known)
+                await OpenDeviceVE(id, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     public async Task SynchronizeOutputAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposedVE();

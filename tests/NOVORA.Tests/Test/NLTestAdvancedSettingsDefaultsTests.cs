@@ -1,4 +1,5 @@
 using NOVORA.Service;
+using NOVORA.ViewModel;
 using Xunit;
 
 namespace NOVORA.Tests;
@@ -18,6 +19,14 @@ public sealed class NLTestAdvancedSettingsDefaultsTests
         Assert.True(settings.IntegrationNotificationsEnabled);
         Assert.True(settings.IntegrationDynamicResizeEnabled);
         Assert.True(settings.ExInEnabled);
-        Assert.Equal("Automatic", settings.NvidiaProfile);
+        Assert.Equal("Competitive", settings.NvidiaProfile);
+        Assert.Equal("8M", settings.Bitrate);
+
+        var view = new NLViewModelMain();
+        Assert.Equal("Competitive", view.NvidiaProfile);
+        Assert.Equal("8M", view.Bitrate);
+        Assert.Equal(14, view.BitrateOptions.Count);
+        Assert.Equal("2M", view.BitrateOptions[0].Value);
+        Assert.Equal("15M", view.BitrateOptions[^1].Value);
     }
 }

@@ -11,7 +11,7 @@ public sealed class NLTestNvidiaTests
     public void Active_decode_survives_requested_profile_change_until_session_stops()
     {
         var manager = new NLNVIDIAManager(new NLServiceNovoraPaths());
-        Assert.Equal(NLNVIDIAProfile.Automatic, manager.BeginSessionVE());
+        Assert.Equal(NLNVIDIAProfile.Competitive, manager.BeginSessionVE());
         var streaming = VEVideoStatus.CreateInitialVE() with
         {
             State = VEVideoStates.Streaming, DecoderName = "h264_cuvid", NvdecActive = true
@@ -23,7 +23,7 @@ public sealed class NLTestNvidiaTests
         Assert.False(manager.StatusVE.Pipeline.UseZeroCopy);
         manager.SetProfileVE(NLNVIDIAProfile.Disabled);
         Assert.True(manager.StatusVE.Pipeline.UseNvdec); // Cambio solicitado para la próxima sesión.
-        Assert.Equal(NLNVIDIAProfile.Automatic, manager.StatusVE.Pipeline.Profile);
+        Assert.Equal(NLNVIDIAProfile.Competitive, manager.StatusVE.Pipeline.Profile);
         manager.UpdateDecoderVE(VEVideoStatus.CreateInitialVE());
         Assert.False(manager.StatusVE.Pipeline.UseNvdec);
         Assert.Equal("Sin decoder", manager.StatusVE.Capabilities.Backend);

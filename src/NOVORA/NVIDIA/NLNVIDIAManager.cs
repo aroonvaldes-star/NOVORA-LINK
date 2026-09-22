@@ -14,7 +14,7 @@ public sealed class NLNVIDIAManager
     private VEVideoStatus? _videoVE;
     private NLNVIDIAProfile _sessionProfileVE;
     private readonly object _gateVE = new();
-    private NLNVIDIAProfile _profileVE = NLNVIDIAProfile.Automatic;
+    private NLNVIDIAProfile _profileVE = NLNVIDIAProfile.Competitive;
     private NLNVIDIAStatus _statusVE = new(
         NLNVIDIACapabilities.NoneVE(),
         NLNVIDIAPipeline.FallbackVE(),

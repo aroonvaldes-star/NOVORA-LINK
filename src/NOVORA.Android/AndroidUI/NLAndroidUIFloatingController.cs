@@ -51,7 +51,21 @@ public sealed class NLAndroidUIFloatingController : IDisposable
         _state = state; Refresh();
     }
     public void RefreshPreferences() { _hidden = false; _renderKey = null; Remove(); Refresh(); }
-    private void PreferencesChanged(object? sender, EventArgs e) => _main.Post(() => { if (!_disposed) RefreshPreferences(); });
+    private void PreferencesChanged(object? sender, EventArgs e) => _main.Post(() =>
+    {
+        if (!_disposed)
+            _ = ApplyPreferencesChangedAsync();
+    });
+
+    private async Task ApplyPreferencesChangedAsync()
+    {
+        if (_disposed) return;
+
+        if (!NLAndroidUIFloatingPreferences.IsEnabled(_context))
+            await RestoreGameModeBeforeRemovalAsync(requireConfirmation: false);
+
+        RefreshPreferences();
+    }
     private void MediaAccessChanged(object? sender, EventArgs e) => _main.Post(() => {
         if (_disposed) return;
         StopMedia(); _renderKey = null; Refresh();
@@ -258,7 +272,7 @@ public sealed class NLAndroidUIFloatingController : IDisposable
         if (_more) {
             Button("Detener VisionEngine", () => { OpenMain("stopVideo"); return Task.CompletedTask; }, snapshot.Engines?.VideoCanStop == true && ready);
             Button("Abrir NOVORA", () => { OpenMain(null); return Task.CompletedTask; });
-            Button("Ocultar burbuja · mantener VE", () => { _hidden = true; Remove(); return Task.CompletedTask; });
+            Button("Ocultar burbuja · mantener VE", HideBubbleAsync);
             Label("La burbuja y el panel son visibles en VE y sus grabaciones.", 12);
         }
     }
@@ -332,6 +346,52 @@ public sealed class NLAndroidUIFloatingController : IDisposable
         var reply = await _service.Session.SendAsync(action, value);
         if (!_disposed && _service.Session.Current.Generation == before.Generation)
             Toast.MakeText(_context, reply.Message, ToastLength.Long)?.Show();
+    }
+
+    private async Task HideBubbleAsync()
+    {
+        if (!await RestoreGameModeBeforeRemovalAsync(requireConfirmation: true))
+            return;
+
+        _hidden = true;
+        Remove();
+    }
+
+    private async Task<bool> RestoreGameModeBeforeRemovalAsync(bool requireConfirmation)
+    {
+        NLControlSessionState state = _service.Session.Current;
+        NLControlExIn? controller = state.Snapshot?.ExIn;
+
+        if (controller is null ||
+            !NLControlFloatingDockState.ShouldRestoreGameMode(
+                controller.Mode,
+                controller.CanSetMode,
+                controller.Transitioning))
+        {
+            return true;
+        }
+
+        if (state.Busy || _service.TransferInProgress ||
+            state.Phase != NLControlSessionPhase.Connected)
+        {
+            if (requireConfirmation)
+                Toast.MakeText(_context, "Espera a que ExInEngine termine antes de ocultar la burbuja.", ToastLength.Long)?.Show();
+            return !requireConfirmation;
+        }
+
+        try
+        {
+            NLControlReply reply = await _service.Session.SendAsync("exin.mode", "Game");
+            if (reply.Success) return true;
+
+            Toast.MakeText(_context, "ExInEngine no confirmó el modo Juego: " + reply.Message, ToastLength.Long)?.Show();
+            return !requireConfirmation;
+        }
+        catch (Exception)
+        {
+            Toast.MakeText(_context, "No se confirmó el modo Juego. Abre NOVORA para reactivar ExInEngine.", ToastLength.Long)?.Show();
+            return !requireConfirmation;
+        }
     }
     private void OpenFavorite(string package)
     {

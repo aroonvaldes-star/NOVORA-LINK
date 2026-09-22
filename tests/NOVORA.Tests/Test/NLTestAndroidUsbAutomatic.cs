@@ -7,6 +7,36 @@ namespace NOVORA.Tests;
 public sealed class NLTestAndroidUsbAutomatic
 {
     [Fact]
+    public void AutomaticUsbPrefersPhysicalTransportWhenWifiEntryIsSelected()
+    {
+        var candidates = new[]
+        {
+            new NLControlUsbCandidate("10.0.0.33:5555", true, true),
+            new NLControlUsbCandidate("R5CY3118MEW", true, false)
+        };
+
+        string serial = NLControlUsbAutoPolicy.SelectPhysicalSerial(
+            candidates,
+            new HashSet<string>(StringComparer.Ordinal)
+            {
+                "10.0.0.33:5555",
+                "R5CY3118MEW"
+            },
+            "10.0.0.33:5555");
+
+        Assert.Equal("R5CY3118MEW", serial);
+    }
+
+    [Theory]
+    [InlineData("package:/data/app/com.novora.appcontrol/base.apk", true)]
+    [InlineData("", false)]
+    [InlineData("package:/data/app/com.example.other/base.apk", false)]
+    public void PcRecognizesInstalledNovoraAndroidPackage(string output, bool expected)
+    {
+        Assert.Equal(expected, NLUIWindowMain.IsNovoraAndroidInstalled(output));
+    }
+
+    [Fact]
     public void UsbInvitationAcceptsSmallPhonePcClockSkew()
     {
         var invitation = new NLControlLanInvitation(

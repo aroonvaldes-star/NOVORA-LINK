@@ -71,29 +71,39 @@ public partial class NLUIWindowMain : Window
         object sender,
         RoutedEventArgs e)
     {
-        _shellInitialized14 = true;
-        _ = CheckOfficialReleaseOnce14Async();
+        try
+        {
+            _shellInitialized14 = true;
+            _ = CheckOfficialReleaseOnce14Async();
 
-        LoadSettingsToViewModel14();
-        ApplyTheme14(_viewModel.Theme);
-        UpdateRuntimeButtons();
-        ApplySTEngineShell14();
-        ShowPage14(_selectedPage14);
+            LoadSettingsToViewModel14();
+            ApplyTheme14(_viewModel.Theme);
+            UpdateRuntimeButtons();
+            ApplySTEngineShell14();
+            ShowPage14(_selectedPage14);
 
-        _viewModel.PropertyChanged +=
-            ShellViewModel_PropertyChanged14;
+            _viewModel.PropertyChanged +=
+                ShellViewModel_PropertyChanged14;
 
-        Closed += ShellWindow_Closed14;
+            Closed += ShellWindow_Closed14;
 
-        await RefreshDevicesAsync(
-            force: true);
-        await EnsureExInStandaloneAsync();
+            await RefreshDevicesAsync(
+                force: true);
+            await EnsureExInStandaloneAsync();
 
-        await RefreshPerformanceOnceAsync();
+            await RefreshPerformanceOnceAsync();
 
-        await StartDiscoveryLifecycleNVAsync();
-        await RestoreAndroidTrustAsync();
-        await RefreshAndroidInstallationAsync();
+            await StartDiscoveryLifecycleNVAsync();
+            await RestoreAndroidTrustAsync();
+            await RefreshAndroidInstallationAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Window_Loaded error: {ex}");
+            ShowTopMessage14(
+                "No se pudo inicializar la UI. Revisa el diagnóstico del motor y el dispositivo.",
+                NLUIMessageKind14.Error);
+        }
     }
 
     private async void Window_Closing(
@@ -590,87 +600,6 @@ public partial class NLUIWindowMain : Window
     private void ApplyTheme14(
         string? theme)
         => NLServiceTheme.Apply(theme);
-
-    private async Task FadeToPage14(
-        string page)
-    {
-        _selectedPage14 =
-            string.IsNullOrWhiteSpace(page)
-                ? "Home"
-                : page;
-
-        ShowPage14(_selectedPage14);
-
-        if (string.Equals(
-                _selectedPage14,
-                "Performance",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            await RefreshPerformanceOnceAsync();
-        }
-    }
-
-    private void ShowPage14(
-        string page)
-    {
-        SetPageVisibility14(HomePage14, page, "Home");
-        SetPageVisibility14(ScreenPage14, page, "Screen");
-        SetPageVisibility14(NetworkPage14, page, "Network");
-        SetPageVisibility14(PerformancePage14, page, "Performance");
-        SetPageVisibility14(GameInputPage14, page, "GameInput");
-        SetPageVisibility14(IntegrationPage14, page, "Integration");
-        SetPageVisibility14(PrivacyPage14, page, "Privacy");
-        SetPageVisibility14(SettingsPage14, page, "Settings");
-    }
-
-    private static void SetPageVisibility14(
-        FrameworkElement pageElement,
-        string current,
-        string target)
-    {
-        pageElement.Visibility =
-            string.Equals(
-                current,
-                target,
-                StringComparison.OrdinalIgnoreCase)
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-    }
-
-    private void UpdateRuntimeButtons()
-    {
-        bool hasDevice =
-            _viewModel.Device.Connected;
-
-        bool visionBusy =
-            _visionCommandApplyingVE ||
-            _visionRecoveryRunningVE;
-
-        MainActionButton.IsEnabled =
-            hasDevice &&
-            !_closing &&
-            !visionBusy;
-
-        MainActionButton.Content =
-            visionBusy
-                ? IsVisionEngineRunningVE()
-                    ? "DETENIENDO…"
-                    : "INICIANDO…"
-                : IsVisionEngineRunningVE()
-                ? "DETENER"
-                : "INICIAR";
-
-        RefreshDevicesButton.IsEnabled =
-            !_closing;
-
-        UpdateLinkEngineButtonLE();
-
-        WifiAdbButton.IsEnabled =
-            hasDevice &&
-            !_closing &&
-            !visionBusy &&
-            !IsVisionEngineRunningVE();
-    }
 
     private void ShowTopMessage14(
         string message,

@@ -17,7 +17,7 @@ public sealed class NLServiceNovoraSettings
     public bool ExInEnabled { get; set; } = true;
     [System.Obsolete("Compatibilidad de configuración; usa ExInEnabled.")]
     public bool GamepadEnabled { get => ExInEnabled; set => ExInEnabled = value; }
-    public string NvidiaProfile { get; set; } = "Automatic";
+    public string NvidiaProfile { get; set; } = "Competitive";
 
     // ============================================================
     // AUDIO
@@ -43,7 +43,7 @@ public sealed class NLServiceNovoraSettings
     // VIDEO
     // ============================================================
 
-    public string Bitrate { get; set; } = "4M";
+    public string Bitrate { get; set; } = "8M";
 
     public int TargetFps { get; set; } = 45;
 
@@ -301,14 +301,14 @@ public sealed class NLServiceSettings
                 System.Globalization.CultureInfo.InvariantCulture,
                 out double mbps))
         {
-            return "4M";
+            return "8M";
         }
 
         mbps =
             Math.Clamp(
                 mbps,
-                1d,
-                4d);
+                2d,
+                15d);
 
         return
             mbps.ToString(

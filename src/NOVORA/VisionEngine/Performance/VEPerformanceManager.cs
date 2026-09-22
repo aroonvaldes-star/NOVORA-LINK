@@ -9,7 +9,7 @@ public sealed class VEPerformanceManager
     private VEPerformanceProfile _profileVE = VEPerformanceProfile.Gaming;
 
     public VEPerformanceManager(
-        int initialBitrate = 4_000_000,
+        int initialBitrate = 8_000_000,
         VEPerformanceBitrate? bitrate = null)
     {
         _bitrateVE = bitrate ?? new VEPerformanceBitrate();

@@ -148,7 +148,7 @@ public sealed class NLTestVisionEngineBlockBTests
     }
 
     [Fact]
-    public void OptionsServerVE_stream_stability_limits_bitrate_fps_and_audio()
+    public void OptionsServerVE_stream_stability_keeps_supported_bitrate_and_limits_audio()
     {
         var options =
             NOVORA.VisionEngine.Server.VEServerOptions.CreateDefaultVE()
@@ -163,7 +163,7 @@ public sealed class NLTestVisionEngineBlockBTests
             options.ApplyStreamStabilityVE();
 
         Assert.Equal(
-            4_000_000,
+            15_000_000,
             stable.VideoBitRate);
 
         Assert.Equal(
@@ -173,6 +173,22 @@ public sealed class NLTestVisionEngineBlockBTests
         Assert.Equal(
             64_000,
             stable.AudioBitRate);
+    }
+
+    [Theory]
+    [InlineData(0, 3_840, false)]
+    [InlineData(15_360, 3_840, false)]
+    [InlineData(34_560, 3_840, true)]
+    public void Audio_queue_resynchronizes_before_latency_can_keep_growing(
+        int queuedBytes,
+        int incomingBytes,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            NOVORA.VisionEngine.Audio.VEAudioPlayer.ShouldResynchronizeVE(
+                queuedBytes,
+                incomingBytes));
     }
 
     [Fact]

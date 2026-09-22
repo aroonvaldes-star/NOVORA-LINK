@@ -4,6 +4,11 @@ using System.Collections.Generic;
 
 namespace NOVORA.Control
 {
+    public sealed record NLControlUsbCandidate(
+        string Serial,
+        bool Connected,
+        bool Wifi);
+
     public sealed class NLControlUsbAutoPolicy
     {
         private string _serial = String.Empty;
@@ -40,6 +45,27 @@ namespace NOVORA.Control
 
         public void Pause() { _paused = true; Epoch++; }
         public void Retry() { _paused = false; _attempted = false; Epoch++; }
+
+        public static string SelectPhysicalSerial(
+            IEnumerable<NLControlUsbCandidate> candidates,
+            IReadOnlySet<string>? online,
+            string? selectedSerial)
+        {
+            ArgumentNullException.ThrowIfNull(candidates);
+
+            NLControlUsbCandidate[] physical = candidates
+                .Where(candidate =>
+                    candidate.Connected &&
+                    !candidate.Wifi &&
+                    !String.IsNullOrWhiteSpace(candidate.Serial) &&
+                    (online is null || online.Contains(candidate.Serial)))
+                .ToArray();
+
+            NLControlUsbCandidate? selected = physical.FirstOrDefault(candidate =>
+                String.Equals(candidate.Serial, selectedSerial, StringComparison.OrdinalIgnoreCase));
+
+            return (selected ?? physical.FirstOrDefault())?.Serial.Trim() ?? String.Empty;
+        }
 
         public static HashSet<string> ParseOnline(string snapshot)
         {

@@ -3,8 +3,8 @@ namespace NOVORA.VisionEngine.Performance;
 public sealed class VEPerformanceBitrate
 {
     public VEPerformanceBitrate(
-        int minBitrate = 1_000_000,
-        int maxBitrate = 6_000_000,
+        int minBitrate = 2_000_000,
+        int maxBitrate = 15_000_000,
         double decreaseFactor = 0.70,
         double increaseFactor = 1.0)
     {

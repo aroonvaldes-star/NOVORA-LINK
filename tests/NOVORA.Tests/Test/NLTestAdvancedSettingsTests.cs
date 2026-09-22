@@ -48,7 +48,7 @@ public sealed class NLTestAdvancedSettingsTests
         view.NvidiaProfile = "Disabled";
         NLServiceSettingsAdvanced.ApplyNV(snapshot, view);
         Assert.False(view.PrivacyShieldEnabled);
-        Assert.Equal("Automatic", view.NvidiaProfile);
+        Assert.Equal("Competitive", view.NvidiaProfile);
     }
 
     [Fact]

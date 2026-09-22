@@ -15,7 +15,7 @@ public sealed class NLServiceOutputProfile
     public NLModelOutputProfile Calculate(
         NLModelDeviceInfo device,
         NLModelMonitorInfo? monitor,
-        string bitrate = "4M",
+        string bitrate = "8M",
         int? targetFps = null,
         int? maxSize = null)
     {
@@ -206,21 +206,20 @@ public sealed class NLServiceOutputProfile
     {
         return new[]
         {
-            "1M",
             "2M",
             "3M",
             "4M",
             "5M",
             "6M",
+            "7M",
             "8M",
+            "9M",
             "10M",
+            "11M",
             "12M",
-            "16M",
-            "20M",
-            "25M",
-            "30M",
-            "40M",
-            "50M"
+            "13M",
+            "14M",
+            "15M"
         };
     }
 
@@ -381,7 +380,7 @@ public sealed class NLServiceOutputProfile
     {
         if (string.IsNullOrWhiteSpace(bitrate))
         {
-            return "4M";
+            return "8M";
         }
 
         string value =
