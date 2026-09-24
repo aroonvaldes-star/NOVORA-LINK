@@ -1,3 +1,21 @@
+
+«[!WARNING]
+
+⚠️ IMPORTANTE — ESTA VERSIÓN TODAVÍA PUEDE CONTENER ERRORES
+
+NOVORA-LINK 1.4 continúa en proceso de mejora.
+
+Aunque esta versión ya está disponible para su uso, todavía pueden existir errores, incompatibilidades o comportamientos inesperados en determinados dispositivos, configuraciones o funciones.
+
+Estos problemas se irán identificando y solucionando progresivamente mediante nuevas actualizaciones de NOVORA-LINK.
+
+Los comentarios, reportes y experiencias de los usuarios serán fundamentales para detectar problemas, mejorar la compatibilidad y seguir aumentando la estabilidad del proyecto.
+
+Si encuentras algún error durante el uso de NOVORA-LINK, repórtalo indicando, cuando sea posible, qué ocurrió, qué dispositivo utilizaste y qué función estaba activa.
+
+Gracias por probar NOVORA-LINK y contribuir a su desarrollo.»
+
+
 # NOVORA-LINK
 
 NOVORA-LINK conecta una computadora Windows con un dispositivo Android y organiza sus funciones en motores independientes.
