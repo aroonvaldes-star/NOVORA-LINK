@@ -128,13 +128,7 @@ public partial class NLUIWindowMain
             device?.Identity?.ProfileKey ?? "", calibration?.ConnectionType ?? "Unknown",
             device is not null, device is not null,
             device?.Identity?.Family == NOVORA.ExInEngine.ExInControllerFamily.DualShock4,
-            device is not null, device is not null && !_androidControlApplying && !_exInUiApplyingVE &&
-                _exInEngine?.Manager.IsPrivacyProtectedVE != true,
-            calibration is null ? "" :
-                $"DZ {calibration.Deadzone.LeftX:P0}/{calibration.Deadzone.LeftY:P0}/{calibration.Deadzone.RightX:P0}/{calibration.Deadzone.RightY:P0}; " +
-                $"LX {calibration.Minimum.LeftX}:{calibration.Maximum.LeftX}; LY {calibration.Minimum.LeftY}:{calibration.Maximum.LeftY}; " +
-                $"RX {calibration.Minimum.RightX}:{calibration.Maximum.RightX}; RY {calibration.Minimum.RightY}:{calibration.Maximum.RightY}; " +
-                $"LT {calibration.Minimum.LeftTrigger}:{calibration.Maximum.LeftTrigger}; RT {calibration.Minimum.RightTrigger}:{calibration.Maximum.RightTrigger}",
+            device is not null, false, "",
             _androidExInBatteryAlert?.Kind.ToString() ?? "", _androidExInBatteryAlertSequence);
     }
 
@@ -156,17 +150,25 @@ public partial class NLUIWindowMain
 
     private async Task StopAutomaticUsbAsync()
     {
+        await StopAppControlVideoSourceAsync();
         NLControlTrustServer? server = _androidControl;
         string? serial = _androidControlSerial;
         bool owned = _androidControlReverseOwned;
+        bool videoOwned = _androidVideoReverseOwned;
         _androidControl = null;
         _androidControlSerial = null;
         _androidControlReverseOwned = false;
+        _androidVideoReverseOwned = false;
         _automaticUsbServerEpoch = -1;
         if (server is not null) await server.DisposeAsync();
         if (serial is not null && owned)
         {
             try { await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--remove", "tcp:27214" }); }
+            catch (Exception) { }
+        }
+        if (serial is not null && videoOwned)
+        {
+            try { await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--remove", "tcp:27215" }); }
             catch (Exception) { }
         }
         if (!AndroidControlAuthorized)
@@ -238,25 +240,12 @@ public partial class NLUIWindowMain
                         ? "Salida guardada; requiere iniciar o reiniciar el video para activar esta configuración de audio."
                         : "Salida aceptada por AudioVE; consulta la salida activa mostrada abajo.");
                 case "startVideo":
+                case "startAppVideo":
                 case "stopVideo":
                 case "restartVideo":
                 case "startLink":
                 case "stopLink":
                     return await ApplyAndroidEngineActionAsync(request);
-                case "exin.calibration.start":
-                case "exin.calibration.finish":
-                case "exin.calibration.reset":
-                    var gamepad = _exInEngine?.Manager;
-                    if (gamepad is null) return Reply(false, "ExInEngine no está iniciado.");
-                    bool calibrated = request.Action switch
-                    {
-                        "exin.calibration.start" => gamepad.BeginCalibrationVE(),
-                        "exin.calibration.finish" => gamepad.FinishCalibrationVE(),
-                        _ => ResetExInCalibration(gamepad)
-                    };
-                    _androidControlRevision++;
-                    return Reply(calibrated, request.Action == "exin.calibration.start" ? "Calibración iniciada; mueve sticks y gatillos por todo su recorrido." :
-                        request.Action == "exin.calibration.finish" ? (calibrated ? "Calibración aplicada a esta sesión." : "El recorrido capturado fue insuficiente; repite la calibración.") : "Calibración restablecida.");
                 case "exin.mode":
                     if (_exInEngine is null) return Reply(false, "ExInEngine no está iniciado.");
                     var mode = Enum.Parse<NOVORA.ExInEngine.ExInInputMode>(request.Value!, ignoreCase: false);
@@ -268,6 +257,10 @@ public partial class NLUIWindowMain
                     var recoveryResult = await _exInControlSession.ReactivateAsync();
                     if (recoveryResult.Success) _androidControlRevision++;
                     return Reply(recoveryResult.Success, recoveryResult.Message);
+                case "exin.synchronize":
+                    if (_exInEngine is null) return Reply(false, "ExInEngine no está iniciado.");
+                    await _exInEngine.Manager.ResyncConnectedDevicesVEAsync();
+                    return Reply(true, "Control sincronizado con la aplicación activa.");
             }
             RecalculateOutputProfile14();
             SaveSettingsFromViewModel14();
@@ -282,12 +275,6 @@ public partial class NLUIWindowMain
             _androidControlApplying = false;
             QueueAndroidControlSnapshot();
         }
-    }
-
-    private static bool ResetExInCalibration(NOVORA.ExInEngine.ExInManager gamepad)
-    {
-        gamepad.ResetCalibrationVE();
-        return true;
     }
 
     // Optional recovery button. Initial USB connection no longer depends on this click.
@@ -306,6 +293,7 @@ public partial class NLUIWindowMain
     private async Task StopAndroidControlAsync(bool preserveTrustListening = false)
     {
         _androidControlGeneration++;
+        await StopAppControlVideoSourceAsync();
         ResetAndroidFileTransfer();
         Task finishRecording = FinishAndroidRecordingAsync();
         Task stopOwnedLink = StopAndroidOwnedLinkAsync();
@@ -316,7 +304,9 @@ public partial class NLUIWindowMain
         _androidLanDiscovery = null;
         string? serial = _androidControlSerial;
         bool owned = _androidControlReverseOwned;
+        bool videoOwned = _androidVideoReverseOwned;
         _androidControlReverseOwned = false;
+        _androidVideoReverseOwned = false;
         _androidControl = null;
         _androidControlSerial = null;
         if (discovery is not null) await discovery.DisposeAsync();
@@ -332,6 +322,11 @@ public partial class NLUIWindowMain
                 _ = ex;
                 // Phone may have been unplugged. Listener and authorization are already closed.
             }
+        }
+        if (serial is not null && videoOwned)
+        {
+            try { await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--remove", "tcp:27215" }); }
+            catch (Exception) { }
         }
         string? persistenceError = null;
         if (!preserveTrustListening && _androidTrustStore?.LastHost is { } host)

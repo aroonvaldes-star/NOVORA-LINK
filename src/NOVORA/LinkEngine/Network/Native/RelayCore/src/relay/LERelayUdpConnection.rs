@@ -30,7 +30,6 @@ use log::*;/*
  * limitations under the License.
  */
 
-use log::*;
 use mio::net::UdpSocket;
 use mio::{Event, PollOpt, Ready, Token};
 use std::cell::RefCell;
@@ -788,7 +787,7 @@ impl Connection for UdpConnection {
 impl PacketSource for UdpConnection {
     fn get(
         &mut self,
-    ) -> Option<Ipv4Packet> {
+    ) -> Option<Ipv4Packet<'_>> {
         match self
             .packet_for_client_length
         {

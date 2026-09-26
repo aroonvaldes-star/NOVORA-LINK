@@ -1,4 +1,5 @@
 using NOVORA.ExInEngine;
+using NOVORA.Contracts.Input;
 using Xunit;
 
 namespace NOVORA.Tests.Test;
@@ -6,7 +7,7 @@ namespace NOVORA.Tests.Test;
 public sealed class NLTestExInModes
 {
     [Fact]
-    public void Reactivation_contract_has_no_floating_ui_dependency()
+    public void Reactivation_contract_has_no_android_ui_dependency()
     {
         var method = typeof(ExInCoreEngine).GetMethod(nameof(ExInCoreEngine.ReactivateAsync));
 
@@ -192,7 +193,7 @@ public sealed class NLTestExInModes
     private static ExInControllerIdentity XboxIdentityVE()
         => ExInControllerIdentity.CreateVE(1, 0x045E, 0x028E, Guid.Empty, "Xbox", "serial", null);
 
-    private sealed class RecordingOutputVE : IExInOutput
+    private sealed class RecordingOutputVE : INLInputOutput
     {
         private TaskCompletionSource<bool>? _sendReleaseVE;
         public bool Ready { get; set; } = true;
@@ -204,7 +205,7 @@ public sealed class NLTestExInModes
         public List<byte[]> Reports { get; } = [];
         public TaskCompletionSource<bool> SendStartedVE { get; private set; } = NewCompletionVE();
 
-        public Task CreateAsync(ExInDevice device, byte[] descriptor, CancellationToken cancellationToken)
+        public Task CreateAsync(NLInputDevice device, byte[] descriptor, CancellationToken cancellationToken)
         {
             if (FailNextCreate)
             {

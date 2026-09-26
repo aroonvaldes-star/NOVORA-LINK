@@ -1,4 +1,4 @@
-; NOVORA-LINK 1.4 PRERELEASE PRE FINAL
+; NOVORA-LINK 1.4 RELEASE
 ; Build with Inno Setup 7.
 #ifndef PayloadDir
   #error PayloadDir must point to the verified release payload
@@ -13,8 +13,8 @@
 [Setup]
 AppId={{D3C7B995-96D4-4A47-AEC6-8A9BD67629CB}
 AppName=NOVORA-LINK
-AppVersion=1.4.1-prerelease-prefinal
-AppVerName=NOVORA-LINK 1.4 PRERELEASE PRE FINAL
+AppVersion=1.4.0
+AppVerName=NOVORA-LINK 1.4
 AppPublisher=aroonvaldes-star
 AppPublisherURL=https://github.com/aroonvaldes-star/NOVORA-LINK
 AppSupportURL=https://github.com/aroonvaldes-star/NOVORA-LINK/issues
@@ -29,16 +29,16 @@ MinVersion=10.0.26100
 WizardStyle=modern
 SetupIconFile={#BrandingIcon}
 UninstallDisplayIcon={app}\NOVORA.exe
-UninstallDisplayName=NOVORA-LINK 1.4 PRERELEASE PRE FINAL
+UninstallDisplayName=NOVORA-LINK 1.4
 OutputDir={#ArtifactDir}
-OutputBaseFilename=NOVORA-LINK-1.4-PRERELEASE-PRE-FINAL-Setup-x64
+OutputBaseFilename=NOVORA-LINK-1.4-Setup-x64
 Compression=lzma2/normal
 SolidCompression=yes
 SetupLogging=yes
 CloseApplications=yes
 RestartApplications=no
-VersionInfoVersion=1.4.1.0
-VersionInfoDescription=NOVORA-LINK 1.4 PRERELEASE PRE FINAL
+VersionInfoVersion=1.4.0.0
+VersionInfoDescription=NOVORA-LINK 1.4 Setup
 InfoBeforeFile={#PayloadDir}\Manual\NLManualUsuarioES.txt
 
 [Languages]

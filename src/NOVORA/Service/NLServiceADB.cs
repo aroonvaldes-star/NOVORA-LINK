@@ -13,6 +13,10 @@ namespace NOVORA.Service;
 /// </summary>
 public sealed class NLServiceADB
 {
+    internal sealed record NLAdbDeviceEntry(
+        string Serial,
+        string Details);
+
     private static readonly TimeSpan DeviceCacheLifetime =
         TimeSpan.FromSeconds(2);
 
@@ -59,22 +63,22 @@ public sealed class NLServiceADB
             await StartServerAsync(
                 cancellationToken);
 
-            var serials =
-                await QueryConnectedSerialsAsync(
+            var entries =
+                await QueryConnectedDeviceEntriesAsync(
                     cancellationToken);
 
             var devices =
                 new List<NLModelDeviceInfo>(
-                    serials.Count);
+                    entries.Count);
 
-            foreach (var serial in serials)
+            foreach (var entry in entries)
             {
                 cancellationToken
                     .ThrowIfCancellationRequested();
 
                 devices.Add(
                     await ReadDeviceAsync(
-                        serial,
+                        entry,
                         cancellationToken));
             }
 
@@ -126,8 +130,10 @@ public sealed class NLServiceADB
         await StartServerAsync(
             cancellationToken);
 
-        return await QueryConnectedSerialsAsync(
-            cancellationToken);
+        return (await QueryConnectedDeviceEntriesAsync(
+                cancellationToken))
+            .Select(entry => entry.Serial)
+            .ToArray();
     }
 
     public async Task<string> ConnectOverWifiAsync(
@@ -596,20 +602,28 @@ public sealed class NLServiceADB
             DateTimeOffset.MinValue;
     }
 
-    private async Task<IReadOnlyList<string>>
-        QueryConnectedSerialsAsync(
+    internal async Task<IReadOnlyList<NLAdbDeviceEntry>>
+        QueryConnectedDeviceEntriesAsync(
             CancellationToken cancellationToken)
     {
         var output =
             await RunAsync(
                 new[]
                 {
-                    "devices"
+                    "devices",
+                    "-l"
                 },
                 cancellationToken);
 
-        var serials =
-            new List<string>();
+        return ParseConnectedDeviceEntries(
+            output);
+    }
+
+    internal static IReadOnlyList<NLAdbDeviceEntry> ParseConnectedDeviceEntries(
+        string output)
+    {
+        var entries =
+            new List<NLAdbDeviceEntry>();
 
         foreach (var line in output.Split(
                      '\n',
@@ -625,7 +639,7 @@ public sealed class NLServiceADB
 
             var parts =
                 line.Split(
-                    '\t',
+                    new[] { ' ', '\t' },
                     StringSplitOptions.RemoveEmptyEntries |
                     StringSplitOptions.TrimEntries);
 
@@ -635,18 +649,30 @@ public sealed class NLServiceADB
                     "device",
                     StringComparison.OrdinalIgnoreCase))
             {
-                serials.Add(
-                    parts[0]);
+                var details =
+                    parts.Length > 2
+                        ? string.Join(
+                            ' ',
+                            parts.Skip(2))
+                        : string.Empty;
+
+                entries.Add(
+                    new NLAdbDeviceEntry(
+                        parts[0],
+                        details));
             }
         }
 
-        return serials;
+        return entries;
     }
 
     private async Task<NLModelDeviceInfo> ReadDeviceAsync(
-        string serial,
+        NLAdbDeviceEntry entry,
         CancellationToken cancellationToken)
     {
+        var serial =
+            entry.Serial;
+
         // No agrupamos los getprop dentro de printf/subshell. Algunos shells
         // de Android (especialmente builds Samsung) pueden devolver 255 con
         // expresiones complejas enviadas como un único argumento a adb shell.
@@ -688,6 +714,9 @@ public sealed class NLServiceADB
         return new NLModelDeviceInfo
         {
             Serial = serial,
+
+            AdbTransportDetails =
+                entry.Details,
 
             Model =
                 string.IsNullOrWhiteSpace(model)

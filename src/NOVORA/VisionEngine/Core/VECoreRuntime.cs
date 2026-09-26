@@ -27,6 +27,8 @@ public sealed class VECoreRuntime : IAsyncDisposable
     private VETransportTunnel? _tunnelVE;
     private VEServerSession? _serverSessionVE;
     private VETransportSession? _transportSessionVE;
+    private bool _appControlVideoActiveVE;
+    private int _appControlCleanupQueuedVE;
     private bool _initialized;
     private bool _disposed;
 
@@ -126,7 +128,9 @@ public sealed class VECoreRuntime : IAsyncDisposable
     public VEDeviceSession? DeviceSessionVE => _deviceSessionVE;
     public VETransportSession? TransportSessionVE => _transportSessionVE;
     public bool IsInitializedVE => _initialized;
-    public bool IsRunningVE => _deviceSessionVE is not null && _serverSessionVE is not null && _transportSessionVE is not null;
+    public bool IsRunningVE => _appControlVideoActiveVE ||
+        _deviceSessionVE is not null && _serverSessionVE is not null && _transportSessionVE is not null;
+    public bool IsAppControlVideoActiveVE => _appControlVideoActiveVE;
 
     public Task InitializeAsync(CancellationToken cancellationToken = default)
     {
@@ -190,6 +194,35 @@ public sealed class VECoreRuntime : IAsyncDisposable
         finally { _gate.Release(); }
     }
 
+    public async Task StartAppControlAsync(
+        Stream videoStream,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposedVE();
+        ArgumentNullException.ThrowIfNull(videoStream);
+        if (!_initialized) throw new InvalidOperationException("VECoreRuntime debe inicializarse antes de iniciar.");
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (IsRunningVE) throw new InvalidOperationException("VisionEngine ya tiene una sesión activa.");
+            try
+            {
+                RecordingVE.PhoneAudioAllowed = false;
+                VideoVE.PreferNvidiaVE = NvidiaVE.BeginSessionVE() != NLNVIDIAProfile.Disabled;
+                await VideoVE.StartAsync(videoStream, cancellationToken).ConfigureAwait(false);
+                _appControlVideoActiveVE = true;
+                RaiseStatusChangedVE();
+            }
+            catch
+            {
+                await StopInternalAsync().ConfigureAwait(false);
+                throw;
+            }
+        }
+        finally { _gate.Release(); }
+    }
+
     public async Task StopAsync(
         CancellationToken cancellationToken = default,
         bool preserveRendererVE = false)
@@ -224,6 +257,7 @@ public sealed class VECoreRuntime : IAsyncDisposable
             _tunnelVE = null;
         }
         _deviceSessionVE = null;
+        _appControlVideoActiveVE = false;
         DeviceVE.CloseVE();
         ServerVE.MarkStoppedVE();
         RaiseStatusChangedVE();
@@ -252,6 +286,16 @@ public sealed class VECoreRuntime : IAsyncDisposable
     {
         NvidiaVE.UpdateDecoderVE(e);
         PublishStatusEventVE(VEEventsTypeEvent.VideoStatus);
+        if (_appControlVideoActiveVE && e.State is VEVideoStates.EndOfStream or VEVideoStates.Failed &&
+            Interlocked.Exchange(ref _appControlCleanupQueuedVE, 1) == 0)
+            _ = StopAppControlAfterVideoEndAsync();
+    }
+
+    private async Task StopAppControlAfterVideoEndAsync()
+    {
+        try { await StopAsync().ConfigureAwait(false); }
+        catch { }
+        finally { Interlocked.Exchange(ref _appControlCleanupQueuedVE, 0); }
     }
     private void Renderer_StatusChangedVE(object? sender, VERendererStatus e) => PublishStatusEventVE(VEEventsTypeEvent.RendererStatus);
     private void Audio_StatusChangedVE(object? sender, VEAudioStatus e) => PublishStatusEventVE(VEEventsTypeEvent.AudioStatus);

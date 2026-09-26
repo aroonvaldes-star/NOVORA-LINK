@@ -1,0 +1,55 @@
+{
+  "capturedAtUtc": "2026-09-23T12:37:32.775779+00:00",
+  "note": "Snapshot local de solo lectura. No inicia motores ni ADB.",
+  "processes": [
+    {
+      "name": "adb",
+      "id": 2516,
+      "responding": true,
+      "path": "C:\\Users\\Aroon\\Desktop\\NOVORA-AUTO\\NOVORA-LINK 1.4  FINAL\\NOVORA-LINK\\src\\NOVORA\\bin\\Release\\net8.0-windows10.0.26100.0\\Tools\\adb.exe"
+    },
+    {
+      "name": "adb",
+      "id": 7368,
+      "responding": true,
+      "path": "C:\\Users\\Aroon\\Desktop\\NOVORA-AUTO\\NOVORA-LINK 1.4  FINAL\\NOVORA-LINK\\src\\NOVORA\\bin\\Release\\net8.0-windows10.0.26100.0\\Tools\\adb.exe"
+    },
+    {
+      "name": "adb",
+      "id": 8848,
+      "responding": true,
+      "path": "C:\\Users\\Aroon\\Desktop\\NOVORA-AUTO\\NOVORA-LINK 1.4  FINAL\\NOVORA-LINK\\src\\NOVORA\\bin\\Release\\net8.0-windows10.0.26100.0\\Tools\\adb.exe"
+    },
+    {
+      "name": "adb",
+      "id": 10432,
+      "responding": true,
+      "path": "C:\\Users\\Aroon\\Desktop\\NOVORA-AUTO\\NOVORA-LINK 1.4  FINAL\\NOVORA-LINK\\src\\NOVORA\\bin\\Release\\net8.0-windows10.0.26100.0\\Tools\\adb.exe"
+    },
+    {
+      "name": "adb",
+      "id": 15640,
+      "responding": true,
+      "path": "C:\\Users\\Aroon\\Desktop\\NOVORA-AUTO\\NOVORA-LINK 1.4  FINAL\\NOVORA-LINK\\src\\NOVORA\\bin\\Release\\net8.0-windows10.0.26100.0\\Tools\\adb.exe"
+    },
+    {
+      "name": "adb",
+      "id": 21152,
+      "responding": true,
+      "path": "C:\\Users\\Aroon\\Desktop\\NOVORA-AUTO\\NOVORA-LINK 1.4  FINAL\\NOVORA-LINK\\src\\NOVORA\\bin\\Release\\net8.0-windows10.0.26100.0\\Tools\\adb.exe"
+    },
+    {
+      "name": "adb",
+      "id": 26136,
+      "responding": true,
+      "path": "C:\\Users\\Aroon\\Desktop\\NOVORA-AUTO\\NOVORA-LINK 1.4  FINAL\\NOVORA-LINK\\src\\NOVORA\\bin\\Release\\net8.0-windows10.0.26100.0\\Tools\\adb.exe"
+    },
+    {
+      "name": "NOVORA",
+      "id": 29920,
+      "responding": true,
+      "path": "C:\\Users\\Aroon\\Desktop\\NOVORA-AUTO\\NOVORA-LINK 1.4  FINAL\\NOVORA-LINK\\src\\NOVORA\\bin\\Release\\net8.0-windows10.0.26100.0\\NOVORA.exe"
+    }
+  ],
+  "ports": []
+}

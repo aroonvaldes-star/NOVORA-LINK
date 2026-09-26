@@ -1,5 +1,6 @@
 using NOVORA.VisionEngine.Control;
 using NOVORA.ExInEngine;
+using NOVORA.Integration;
 using NOVORA.VisionEngine.Core;
 using NOVORA.VisionEngine.Exchange;
 using NOVORA.VisionEngine.Integration;
@@ -244,10 +245,10 @@ public partial class NLUIWindowMain
                 out NLNVIDIAProfile profile) || !Enum.IsDefined(profile))
         {
             profile =
-                NLNVIDIAProfile.Competitive;
+                NLNVIDIAProfile.Automatic;
 
             _viewModel.NvidiaProfile =
-                NLNVIDIAProfile.Competitive.ToString();
+                NLNVIDIAProfile.Automatic.ToString();
         }
 
         runtime.NvidiaVE.SetProfileVE(

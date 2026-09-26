@@ -1,0 +1,58 @@
+[
+  {
+    "from": "src/NOVORA/NLProjectDesktop.csproj",
+    "type": "PackageReference",
+    "to": "ZXing.Net",
+    "version": "0.16.11"
+  },
+  {
+    "from": "src/NOVORA/NLProjectDesktop.csproj",
+    "type": "PackageReference",
+    "to": "System.Security.Cryptography.ProtectedData",
+    "version": "8.0.0"
+  },
+  {
+    "from": "src/NOVORA.Android/NLProjectAndroid.csproj",
+    "type": "PackageReference",
+    "to": "ZXing.Net",
+    "version": "0.16.11"
+  },
+  {
+    "from": "tests/NOVORA.Tests/NLProjectTests.csproj",
+    "type": "ProjectReference",
+    "to": "..\\..\\src\\NOVORA\\NLProjectDesktop.csproj"
+  },
+  {
+    "from": "tests/NOVORA.Tests/NLProjectTests.csproj",
+    "type": "PackageReference",
+    "to": "Microsoft.NET.Test.Sdk",
+    "version": "17.11.1"
+  },
+  {
+    "from": "tests/NOVORA.Tests/NLProjectTests.csproj",
+    "type": "PackageReference",
+    "to": "xunit",
+    "version": "2.9.2"
+  },
+  {
+    "from": "tests/NOVORA.Tests/NLProjectTests.csproj",
+    "type": "PackageReference",
+    "to": "xunit.runner.visualstudio",
+    "version": "2.8.2"
+  },
+  {
+    "from": "tests/NOVORA.VisionEngine.BlockCHarness/NLProjectVisionEngineBlockCHarness.csproj",
+    "type": "ProjectReference",
+    "to": "..\\..\\src\\NOVORA\\NLProjectDesktop.csproj"
+  },
+  {
+    "from": "tests/NOVORA.VisionEngine.HeadlessHarness/NLProjectVisionEngineHeadlessHarness.csproj",
+    "type": "ProjectReference",
+    "to": "..\\..\\src\\NOVORA\\NLProjectDesktop.csproj"
+  },
+  {
+    "from": "tests/NOVORA.VisionEngine.ProfileHarness/NLProjectVisionEngineProfileHarness.csproj",
+    "type": "ProjectReference",
+    "to": "../../src/NOVORA/NLProjectDesktop.csproj"
+  }
+]

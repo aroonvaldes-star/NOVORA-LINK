@@ -17,7 +17,7 @@ public sealed class NLServiceNovoraSettings
     public bool ExInEnabled { get; set; } = true;
     [System.Obsolete("Compatibilidad de configuración; usa ExInEnabled.")]
     public bool GamepadEnabled { get => ExInEnabled; set => ExInEnabled = value; }
-    public string NvidiaProfile { get; set; } = "Competitive";
+    public string NvidiaProfile { get; set; } = "Automatic";
 
     // ============================================================
     // AUDIO

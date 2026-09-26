@@ -289,6 +289,67 @@ public sealed class VECoreEngine : IAsyncDisposable
         }
     }
 
+    public async Task<VECoreResult> StartAppControlAsync(
+        string deviceSerial,
+        Stream videoStream,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposedVE();
+        if (string.IsNullOrWhiteSpace(deviceSerial))
+            return VECoreResult.Fail("El serial del dispositivo es obligatorio.");
+        ArgumentNullException.ThrowIfNull(videoStream);
+
+        await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!_status.IsInitialized)
+                return VECoreResult.Fail("VisionEngine debe inicializarse antes de iniciar una sesión.");
+            if (_status.IsRunning)
+                return VECoreResult.Fail("VisionEngine ya tiene una sesión activa.");
+
+            string serial = deviceSerial.Trim();
+            VECoreSession session = VECoreSession.CreateVE(serial);
+            lock (_stateGate) _session = session;
+            PublishStatusVE(_status with
+            {
+                State = VECoreStates.Starting,
+                IsRunning = false,
+                DeviceSerial = serial,
+                SessionId = session.SessionId,
+                RendererEnabled = false,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Message = "Iniciando video desde AppControl.",
+                LastError = null
+            });
+
+            await _runtime.StartAppControlAsync(videoStream, cancellationToken).ConfigureAwait(false);
+            UpdateSessionVE(session with
+            {
+                State = VECoreStates.Running,
+                StartedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Message = "Video AppControl activo.",
+                LastError = null
+            });
+            PublishStatusVE(BuildRuntimeStatusVE(_status with
+            {
+                State = VECoreStates.Running,
+                IsRunning = true,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                Message = "VisionEngine recibe video desde AppControl.",
+                LastError = null
+            }));
+            return VECoreResult.Ok("VisionEngine inició video desde AppControl.");
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            PublishFailureVE("No fue posible iniciar video desde AppControl.", ex);
+            return VECoreResult.Fail("No fue posible iniciar video desde AppControl.", ex);
+        }
+        finally { _lifecycleGate.Release(); }
+    }
+
     public async Task<VECoreResult> StopAsync(
         CancellationToken cancellationToken = default,
         bool preserveRendererVE = false)
@@ -393,7 +454,8 @@ public sealed class VECoreEngine : IAsyncDisposable
         {
             DeviceReady = _runtime.DeviceVE.StatusVE.State == VEDeviceStates.Ready,
             ServerRunning = _runtime.ServerVE.StatusVE.State == VEServerStates.Running,
-            TransportConnected = _runtime.TransportVE.StateVE == VETransportStates.Connected,
+            TransportConnected = _runtime.IsAppControlVideoActiveVE ||
+                _runtime.TransportVE.StateVE == VETransportStates.Connected,
             VideoStreaming = video.State == VEVideoStates.Streaming,
             VideoPacketsReceived = video.Stats.PacketsReceived,
             VideoFramesDecoded = video.Stats.FramesDecoded,
@@ -460,6 +522,17 @@ public sealed class VECoreEngine : IAsyncDisposable
                 State = VECoreStates.Failed,
                 Message = "El canal de control VisionEngine falló.",
                 LastError = control.LastError
+            };
+        }
+        else if (!_runtime.IsRunningVE && video.State is VEVideoStates.EndOfStream or VEVideoStates.Stopped &&
+                 updated.IsRunning)
+        {
+            updated = updated with
+            {
+                State = VECoreStates.Stopped,
+                IsRunning = false,
+                Message = "El flujo de video AppControl terminó.",
+                LastError = null
             };
         }
         PublishStatusVE(updated);

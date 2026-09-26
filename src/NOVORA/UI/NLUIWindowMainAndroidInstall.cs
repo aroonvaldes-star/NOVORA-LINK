@@ -59,6 +59,7 @@ public partial class NLUIWindowMain
             AndroidInstallStatus.Text = "Comprobando el paquete de NOVORA Android…";
             var package = await Task.Run(() => NLServiceAndroidPackage.Load(directory), check.Token);
             if (generation != _androidInstallGeneration || _closing) return;
+            AndroidPackageTitle.Text = $"NOVORA Android {package.VersionName}";
             if (!device.Connected || device.IsWifiConnection || string.IsNullOrWhiteSpace(device.Serial))
             { AndroidInstallStatus.Text = $"NOVORA Android {package.VersionName} disponible. Selecciona un teléfono USB y autoriza la depuración USB en su pantalla."; return; }
             AndroidInstallStatus.Text = $"Comprobando NOVORA en {device.FriendlyName}…";

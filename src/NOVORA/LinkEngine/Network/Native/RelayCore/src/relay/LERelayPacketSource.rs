@@ -27,6 +27,6 @@ use super::selector::Selector;
 ///
 /// It is implemented by `TcpConnection`.
 pub trait PacketSource {
-    fn get(&mut self) -> Option<Ipv4Packet>;
+    fn get(&mut self) -> Option<Ipv4Packet<'_>>;
     fn next(&mut self, selector: &mut Selector);
 }

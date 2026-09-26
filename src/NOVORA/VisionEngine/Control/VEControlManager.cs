@@ -1,4 +1,4 @@
-using NOVORA.ExInEngine;
+using NOVORA.Contracts.Input;
 using NOVORA.VisionEngine.Transport;
 using System.Net.Sockets;
 
@@ -7,7 +7,7 @@ namespace NOVORA.VisionEngine.Control;
 /// <summary>
 /// Canal bidireccional de input, clipboard y UHID de VisionEngine.
 /// </summary>
-public sealed class VEControlManager : IAsyncDisposable, IExInOutput, IExInUiOutput
+public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInputUiOutput
 {
     private readonly SemaphoreSlim _sendGateVE = new(1, 1);
     private readonly object _statusGateVE = new();
@@ -38,27 +38,27 @@ public sealed class VEControlManager : IAsyncDisposable, IExInOutput, IExInUiOut
     }
 
     public bool IsReadyVE => StatusVE.State == VEControlStates.Ready;
-    bool IExInOutput.IsReady => IsReadyVE;
+    bool INLInputOutput.IsReady => IsReadyVE;
 
-    Task IExInOutput.CreateAsync(ExInDevice device, byte[] descriptor, CancellationToken cancellationToken) =>
-        SendAsync(VEControlMessage.UhidCreateVE(device.UhidId, device.VendorId, device.ProductId, device.Name, descriptor), cancellationToken);
-    Task IExInOutput.SendAsync(ushort deviceId, byte[] report, CancellationToken cancellationToken) =>
+    Task INLInputOutput.CreateAsync(NLInputDevice device, byte[] descriptor, CancellationToken cancellationToken) =>
+        SendAsync(VEControlMessage.UhidCreateVE(device.DeviceId, device.VendorId, device.ProductId, device.Name, descriptor), cancellationToken);
+    Task INLInputOutput.SendAsync(ushort deviceId, byte[] report, CancellationToken cancellationToken) =>
         SendAsync(VEControlMessage.UhidInputVE(deviceId, report), cancellationToken);
-    Task IExInOutput.DestroyAsync(ushort deviceId, CancellationToken cancellationToken) =>
+    Task INLInputOutput.DestroyAsync(ushort deviceId, CancellationToken cancellationToken) =>
         SendAsync(VEControlMessage.UhidDestroyVE(deviceId), cancellationToken);
-    async Task IExInUiOutput.SendUiActionAsync(ExInUiAction action, CancellationToken cancellationToken)
+    async Task INLInputUiOutput.SendUiActionAsync(NLInputUiAction action, CancellationToken cancellationToken)
     {
         uint? keycode = action switch
         {
-            ExInUiAction.Up => 19,
-            ExInUiAction.Down => 20,
-            ExInUiAction.Left => 21,
-            ExInUiAction.Right => 22,
-            ExInUiAction.Select => 23,
+            NLInputUiAction.Up => 19,
+            NLInputUiAction.Down => 20,
+            NLInputUiAction.Left => 21,
+            NLInputUiAction.Right => 22,
+            NLInputUiAction.Select => 23,
             _ => null
         };
 
-        if (action == ExInUiAction.Back)
+        if (action == NLInputUiAction.Back)
         {
             await SendAsync(VEControlMessage.BackOrScreenOnVE(VEControlActionKey.Down), cancellationToken).ConfigureAwait(false);
             await SendAsync(VEControlMessage.BackOrScreenOnVE(VEControlActionKey.Up), cancellationToken).ConfigureAwait(false);

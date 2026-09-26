@@ -25,7 +25,18 @@ public sealed record ExInLiveSnapshot(
     string Message,
     ExInCalibrationDetails? Calibration,
     string? SdlMapping,
-    string TranslationTrace);
+    string TranslationTrace,
+    ExInCalibrationProgress? CalibrationProgress);
+
+public sealed record ExInCalibrationProgress(
+    int LeftStick,
+    int RightStick,
+    int LeftTrigger,
+    int RightTrigger)
+{
+    public int Overall => Math.Min(Math.Min(LeftStick, RightStick), Math.Min(LeftTrigger, RightTrigger));
+    public bool Complete => LeftStick >= 90 && RightStick >= 90 && LeftTrigger >= 90 && RightTrigger >= 90;
+}
 
 public sealed record ExInCalibrationDetails(
     string ProfileId,

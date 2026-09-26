@@ -10,8 +10,8 @@
 		<UseWindowsForms>true</UseWindowsForms>
 		<RootNamespace>NOVORA</RootNamespace>
 		<AssemblyName>NOVORA</AssemblyName>
-		<Version>1.4.1-prerelease-prefinal</Version>
-		<InformationalVersion>1.4 PRERELEASE PRE FINAL</InformationalVersion>
+		<Version>1.4.0</Version>
+		<InformationalVersion>1.4 Release</InformationalVersion>
 		<Platforms>AnyCPU</Platforms>
 		<PlatformTarget>AnyCPU</PlatformTarget>
 		<ApplicationIcon>Asset\NLAssetNOVORA11.ico</ApplicationIcon>
@@ -74,5 +74,4 @@
   </ItemGroup>
 
 </Project>
-
 

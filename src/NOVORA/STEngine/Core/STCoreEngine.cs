@@ -1,424 +1,162 @@
-using NOVORA.LinkEngine.Core;
-using NOVORA.LinkEngine.Metrics;
-using NOVORA.LinkEngine.Runtime;
-using NOVORA.VisionEngine.Core;
-using NOVORA.VisionEngine.Metrics;
-using NOVORA.VisionEngine.Performance;
-using NOVORA.VisionEngine.Video;
+using NOVORA.Contracts.Stability;
 
 namespace NOVORA.STEngine.Core;
 
-/// <summary>
-/// Motor de medición bajo demanda para NOVORA.
-/// No crea timers ni polling: captura snapshots cuando el runtime lo solicita.
-/// </summary>
+/// <summary>Observador bajo demanda. No controla motores ni aplica recomendaciones.</summary>
 public sealed class STCoreEngine
 {
-    private readonly VEMetricsCollector _collectorVE =
-        new();
+    private readonly object _gateST = new();
+    private STCoreSnapshot _lastSnapshotST = STCoreSnapshot.EmptyST();
+    private STCoreSnapshotNovora _lastNovoraSnapshotST = STCoreSnapshotNovora.EmptyST();
 
-    private readonly object _gateST =
-        new();
-
-    private STCoreSnapshot _lastSnapshotST =
-        STCoreSnapshot.EmptyST();
-
-    private STCoreSnapshotNovora _lastNovoraSnapshotST =
-        STCoreSnapshotNovora.EmptyST();
-
-    public STCoreSnapshot LastSnapshotST
-    {
-        get
-        {
-            lock (_gateST)
-            {
-                return _lastSnapshotST;
-            }
-        }
-    }
-
-    public STCoreSnapshotNovora LastNovoraSnapshotST
-    {
-        get
-        {
-            lock (_gateST)
-            {
-                return _lastNovoraSnapshotST;
-            }
-        }
-    }
+    public STCoreSnapshot LastSnapshotST { get { lock (_gateST) return _lastSnapshotST; } }
+    public STCoreSnapshotNovora LastNovoraSnapshotST { get { lock (_gateST) return _lastNovoraSnapshotST; } }
 
     public STCoreSnapshotNovora CaptureNovoraST(
-        VECoreRuntime? visionRuntime,
-        LERuntimeManager? linkRuntime)
+        NLStabilityVisionSnapshot? vision,
+        IReadOnlyList<NLStabilityLinkSnapshot>? linkDevices,
+        NLStabilityExInSnapshot? exIn = null)
     {
-        STCoreSnapshot vision =
-            visionRuntime is null
-                ? LastSnapshotST
-                : CaptureVisionST(visionRuntime);
+        STCoreSnapshot visionSnapshot = vision is null ? LastSnapshotST : AnalyzeST(vision);
+        return AnalyzeNovoraST(visionSnapshot, linkDevices ?? Array.Empty<NLStabilityLinkSnapshot>(), exIn);
+    }
 
-        IReadOnlyList<LEMetricsDeviceMetricsSnapshot> linkDevices =
-            linkRuntime?.EngineLE?.Metrics.GetAllSnapshots()
-            ?? Array.Empty<LEMetricsDeviceMetricsSnapshot>();
-
-        return AnalyzeNovoraST(
-            vision,
-            linkDevices);
+    public STCoreSnapshot AnalyzeST(NLStabilityVisionSnapshot vision)
+    {
+        ArgumentNullException.ThrowIfNull(vision);
+        STCoreSnapshot snapshot = !vision.IsRunning || !vision.IsStreaming
+            ? BuildWaitingSnapshotST(vision)
+            : BuildSnapshotST(vision);
+        lock (_gateST) _lastSnapshotST = snapshot;
+        return snapshot;
     }
 
     public STCoreSnapshotNovora AnalyzeNovoraST(
         STCoreSnapshot vision,
-        IReadOnlyList<LEMetricsDeviceMetricsSnapshot> linkDevices)
+        IReadOnlyList<NLStabilityLinkSnapshot> linkDevices,
+        NLStabilityExInSnapshot? exIn = null)
     {
         ArgumentNullException.ThrowIfNull(vision);
         ArgumentNullException.ThrowIfNull(linkDevices);
-
-        return StoreNovoraST(
-            BuildNovoraSnapshotST(
-                vision,
-                linkDevices));
-    }
-
-    public STCoreSnapshot CaptureVisionST(
-        VECoreRuntime runtime)
-    {
-        ArgumentNullException.ThrowIfNull(runtime);
-
-        VEMetricsSnapshot metrics =
-            _collectorVE.CaptureVE(
-                runtime.VideoVE.StatusVE,
-                runtime.AudioVE.StatusVE,
-                runtime.ControlVE.StatusVE,
-                runtime.TransportVE.StateVE,
-                runtime.TransportSessionVE);
-
-        VEPerformanceSnapshot performance =
-            runtime.PerformanceVE.EvaluateVE(
-                metrics);
-
-        if (!runtime.IsRunningVE ||
-            runtime.VideoVE.StatusVE.State != VEVideoStates.Streaming)
-        {
-            return
-                StoreST(
-                    BuildWaitingSnapshotST(
-                        metrics,
-                        performance));
-        }
-
-        return
-            StoreST(
-                BuildSnapshotST(
-                    metrics,
-                    performance));
-    }
-
-    public STCoreSnapshot AnalyzeST(
-        VEMetricsSnapshot metrics,
-        VEPerformanceSnapshot performance)
-    {
-        ArgumentNullException.ThrowIfNull(metrics);
-        ArgumentNullException.ThrowIfNull(performance);
-
-        return
-            StoreST(
-                BuildSnapshotST(
-                    metrics,
-                    performance));
-    }
-
-    private STCoreSnapshot StoreST(
-        STCoreSnapshot snapshot)
-    {
-        lock (_gateST)
-        {
-            _lastSnapshotST =
-                snapshot;
-        }
-
+        STCoreSnapshotNovora snapshot = BuildNovoraSnapshotST(vision, linkDevices, exIn);
+        lock (_gateST) _lastNovoraSnapshotST = snapshot;
         return snapshot;
     }
 
-    private STCoreSnapshotNovora StoreNovoraST(
-        STCoreSnapshotNovora snapshot)
+    private static STCoreSnapshot BuildSnapshotST(NLStabilityVisionSnapshot vision)
     {
-        lock (_gateST)
-        {
-            _lastNovoraSnapshotST =
-                snapshot;
-        }
+        List<string> observations = [];
+        if (vision.VideoDecodeErrors > 0) observations.Add("Video reporta errores de decodificacion.");
+        if (vision.AudioDecodeErrors > 0 || vision.AudioPlaybackErrors > 0) observations.Add("Audio reporta errores de decodificacion o reproduccion.");
+        if (vision.ControlErrors > 0) observations.Add("Control reporta errores de input.");
+        if (vision.FramesPerSecond > 0 && vision.FramesPerSecond < 24) observations.Add("FPS bajo para stream interactivo.");
+        if (vision.FramesDecoded == 0 && vision.VideoConnected) observations.Add("Hay canal de video, pero aun no hay frames decodificados.");
+        if (vision.ProcessCpuPercent >= 85) observations.Add("CPU del proceso elevada.");
 
-        return snapshot;
+        STCoreState state = vision.PerformanceSeverity switch
+        {
+            NLStabilitySeverity.Critical => STCoreState.Critical,
+            NLStabilitySeverity.Degraded => STCoreState.Degraded,
+            NLStabilitySeverity.Watch => STCoreState.Watch,
+            _ => observations.Count == 0 ? STCoreState.Healthy : STCoreState.Watch
+        };
+        if (vision.VideoDecodeErrors > 0 || vision.ControlErrors > 0)
+            state = state < STCoreState.Degraded ? STCoreState.Degraded : state;
+
+        bool reduce = vision.ShouldReduceTelemetry || state >= STCoreState.Degraded;
+        return new STCoreSnapshot(DateTimeOffset.UtcNow, vision, state, reduce, state switch
+        {
+            STCoreState.Healthy => "STEngine: stream estable.",
+            STCoreState.Watch => "STEngine: observar el stream; hay señales leves.",
+            STCoreState.Degraded => "STEngine: stream degradado; reducir trabajo no critico.",
+            STCoreState.Critical => "STEngine: condicion critica; priorizar video/control.",
+            _ => "STEngine: estado desconocido."
+        }, observations);
     }
 
-    private static STCoreSnapshot BuildSnapshotST(
-        VEMetricsSnapshot metrics,
-        VEPerformanceSnapshot performance)
-    {
-        List<string> observations =
-            [];
-
-        if (metrics.Video.DecodeErrors > 0)
-        {
-            observations.Add(
-                "Video reporta errores de decodificacion.");
-        }
-
-        if (metrics.Audio.DecodeErrors > 0 ||
-            metrics.Audio.PlaybackErrors > 0)
-        {
-            observations.Add(
-                "Audio reporta errores de decodificacion o reproduccion.");
-        }
-
-        if (metrics.Control.Errors > 0)
-        {
-            observations.Add(
-                "Control reporta errores de input.");
-        }
-
-        if (metrics.Video.FramesPerSecond > 0 &&
-            metrics.Video.FramesPerSecond < 24)
-        {
-            observations.Add(
-                "FPS bajo para stream interactivo.");
-        }
-
-        if (metrics.Video.FramesDecoded == 0 &&
-            metrics.Transport.VideoConnected)
-        {
-            observations.Add(
-                "Hay canal de video, pero aun no hay frames decodificados.");
-        }
-
-        if (metrics.ProcessCpuPercent >= 85)
-        {
-            observations.Add(
-                "CPU del proceso elevada.");
-        }
-
-        STCoreState state =
-            performance.Congestion switch
-            {
-                VEPerformanceCongestion.Critical =>
-                    STCoreState.Critical,
-
-                VEPerformanceCongestion.Severe =>
-                    STCoreState.Critical,
-
-                VEPerformanceCongestion.Moderate =>
-                    STCoreState.Degraded,
-
-                VEPerformanceCongestion.Mild =>
-                    STCoreState.Watch,
-
-                _ =>
-                    observations.Count == 0
-                        ? STCoreState.Healthy
-                        : STCoreState.Watch
-            };
-
-        if (metrics.Video.DecodeErrors > 0 ||
-            metrics.Control.Errors > 0)
-        {
-            state =
-                state < STCoreState.Degraded
-                    ? STCoreState.Degraded
-                    : state;
-        }
-
-        bool reduce =
-            performance.ShouldReduceTelemetry ||
-            state >= STCoreState.Degraded;
-
-        string summary =
-            state switch
-            {
-                STCoreState.Healthy =>
-                    "STEngine: stream estable.",
-
-                STCoreState.Watch =>
-                    "STEngine: observar el stream; hay señales leves.",
-
-                STCoreState.Degraded =>
-                    "STEngine: stream degradado; reducir trabajo no critico.",
-
-                STCoreState.Critical =>
-                    "STEngine: condicion critica; priorizar video/control.",
-
-                _ =>
-                    "STEngine: estado desconocido."
-            };
-
-        return new STCoreSnapshot(
-            DateTimeOffset.UtcNow,
-            metrics,
-            performance,
-            state,
-            reduce,
-            summary,
-            observations);
-    }
-
-    private static STCoreSnapshot BuildWaitingSnapshotST(
-        VEMetricsSnapshot metrics,
-        VEPerformanceSnapshot performance)
-    {
-        return new STCoreSnapshot(
-            DateTimeOffset.UtcNow,
-            metrics,
-            performance,
-            STCoreState.Watch,
-            false,
-            "STEngine esperando stream activo.",
-            Array.Empty<string>());
-    }
+    private static STCoreSnapshot BuildWaitingSnapshotST(NLStabilityVisionSnapshot vision)
+        => new(DateTimeOffset.UtcNow, vision, STCoreState.Watch, false,
+            "STEngine esperando stream activo.", Array.Empty<string>());
 
     private static STCoreSnapshotNovora BuildNovoraSnapshotST(
         STCoreSnapshot vision,
-        IReadOnlyList<LEMetricsDeviceMetricsSnapshot> linkDevices)
+        IReadOnlyList<NLStabilityLinkSnapshot> linkDevices,
+        NLStabilityExInSnapshot? exIn)
     {
-        List<string> observations =
-            new(vision.Observations);
+        List<string> observations = new(vision.Observations);
+        STCoreState state = vision.State;
+        bool reduce = vision.ShouldReduceNonCriticalWork;
 
-        STCoreState state =
-            vision.State;
-
-        bool reduce =
-            vision.ShouldReduceNonCriticalWork;
-
-        foreach (LEMetricsDeviceMetricsSnapshot device in linkDevices)
+        foreach (NLStabilityLinkSnapshot device in linkDevices)
         {
-            STCoreState deviceState =
-                ClassifyLinkDeviceST(
-                    device,
-                    observations);
+            STCoreState deviceState = ClassifyLinkDeviceST(device, observations);
+            if (deviceState > state) state = deviceState;
+            if (deviceState >= STCoreState.Degraded) reduce = true;
+        }
+        if (linkDevices.Count == 0) observations.Add("LinkEngine no tiene sesiones medidas en este snapshot.");
 
-            if (deviceState > state)
-            {
-                state =
-                    deviceState;
-            }
-
-            if (deviceState >= STCoreState.Degraded)
-            {
-                reduce =
-                    true;
-            }
+        if (exIn is null || exIn.State == NLStabilityEngineState.Stopped)
+            observations.Add("ExInEngine no tiene control activo en este snapshot.");
+        else if (exIn.State == NLStabilityEngineState.Failed)
+        {
+            observations.Add($"ExInEngine esta en fallo: {exIn.LastError ?? "sin detalle"}");
+            if (state < STCoreState.Degraded) state = STCoreState.Degraded;
+            reduce = true;
+        }
+        else if (exIn.State == NLStabilityEngineState.Running && exIn.ConnectedGamepads == 0)
+        {
+            observations.Add("ExInEngine esta activo, pero no reporta mandos fisicos.");
+            if (state < STCoreState.Watch) state = STCoreState.Watch;
         }
 
-        if (linkDevices.Count == 0)
+        if (exIn?.HasUncorrectableCalibration == true)
         {
-            observations.Add(
-                "LinkEngine no tiene sesiones medidas en este snapshot.");
+            observations.Add("ExInEngine reporta diagnostico que no se corrige solo con calibracion.");
+            if (state < STCoreState.Degraded) state = STCoreState.Degraded;
+        }
+        if (exIn?.HasLowBattery == true)
+        {
+            observations.Add("ExInEngine reporta bateria baja en un control fisico.");
+            if (state < STCoreState.Watch) state = STCoreState.Watch;
         }
 
-        string summary =
+        return new STCoreSnapshotNovora(DateTimeOffset.UtcNow, vision, linkDevices.ToArray(), exIn, state, reduce,
             state switch
             {
-                STCoreState.Healthy =>
-                    "STEngine: NOVORA estable.",
-
-                STCoreState.Watch =>
-                    "STEngine: NOVORA en observacion.",
-
-                STCoreState.Degraded =>
-                    "STEngine: NOVORA degradado; reducir trabajo no critico.",
-
-                STCoreState.Critical =>
-                    "STEngine: NOVORA critico; priorizar rutas esenciales.",
-
-                _ =>
-                    "STEngine: estado global desconocido."
-            };
-
-        return new STCoreSnapshotNovora(
-            DateTimeOffset.UtcNow,
-            vision,
-            linkDevices.ToArray(),
-            state,
-            reduce,
-            summary,
-            observations);
+                STCoreState.Healthy => "STEngine: NOVORA estable.",
+                STCoreState.Watch => "STEngine: NOVORA en observacion.",
+                STCoreState.Degraded => "STEngine: NOVORA degradado; reducir trabajo no critico.",
+                STCoreState.Critical => "STEngine: NOVORA critico; priorizar rutas esenciales.",
+                _ => "STEngine: estado global desconocido."
+            }, observations);
     }
 
-    private static STCoreState ClassifyLinkDeviceST(
-        LEMetricsDeviceMetricsSnapshot device,
-        List<string> observations)
+    private static STCoreState ClassifyLinkDeviceST(NLStabilityLinkSnapshot device, List<string> observations)
     {
-        STCoreState state =
-            device.State switch
-            {
-                LECoreStates.Failed =>
-                    STCoreState.Critical,
-
-                LECoreStates.Degraded =>
-                    STCoreState.Degraded,
-
-                LECoreStates.Recovering =>
-                    STCoreState.Degraded,
-
-                LECoreStates.Connecting =>
-                    STCoreState.Watch,
-
-                _ =>
-                    device.Healthy
-                        ? STCoreState.Healthy
-                        : STCoreState.Watch
-            };
-
-        if (!device.Healthy &&
-            state < STCoreState.Degraded)
+        STCoreState state = device.State switch
         {
-            state =
-                STCoreState.Watch;
-
-            observations.Add(
-                $"LinkEngine {device.Serial} requiere observacion.");
-        }
-
+            NLStabilityEngineState.Failed => STCoreState.Critical,
+            NLStabilityEngineState.Degraded or NLStabilityEngineState.Recovering => STCoreState.Degraded,
+            NLStabilityEngineState.Starting => STCoreState.Watch,
+            _ => device.Healthy ? STCoreState.Healthy : STCoreState.Watch
+        };
+        if (!device.Healthy && state < STCoreState.Degraded) observations.Add($"LinkEngine {device.Serial} requiere observacion.");
         if (device.LatencyMs >= 250)
         {
-            observations.Add(
-                $"LinkEngine {device.Serial} reporta latencia alta.");
-
-            if (state < STCoreState.Degraded)
-            {
-                state =
-                    STCoreState.Degraded;
-            }
+            observations.Add($"LinkEngine {device.Serial} reporta latencia alta.");
+            if (state < STCoreState.Degraded) state = STCoreState.Degraded;
         }
-
         if (device.DnsFailures > 0)
         {
-            observations.Add(
-                $"LinkEngine {device.Serial} reporta fallos DNS.");
-
-            if (state < STCoreState.Degraded)
-            {
-                state =
-                    STCoreState.Degraded;
-            }
+            observations.Add($"LinkEngine {device.Serial} reporta fallos DNS.");
+            if (state < STCoreState.Degraded) state = STCoreState.Degraded;
         }
-
         if (device.RecoveryAttempts > device.SuccessfulRecoveries)
         {
-            observations.Add(
-                $"LinkEngine {device.Serial} tiene recovery pendiente.");
-
-            if (state < STCoreState.Degraded)
-            {
-                state =
-                    STCoreState.Degraded;
-            }
+            observations.Add($"LinkEngine {device.Serial} tiene recovery pendiente.");
+            if (state < STCoreState.Degraded) state = STCoreState.Degraded;
         }
-
-        if (device.State == LECoreStates.Failed)
-        {
-            observations.Add(
-                $"LinkEngine {device.Serial} esta en fallo.");
-        }
-
+        if (device.State == NLStabilityEngineState.Failed) observations.Add($"LinkEngine {device.Serial} esta en fallo.");
         return state;
     }
 }

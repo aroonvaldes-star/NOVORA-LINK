@@ -13,6 +13,7 @@ namespace NOVORA.ExInEngine;
 public sealed class ExInSdl : IDisposable
 {
     private const uint SdlInitGamepadVE = 0x00002000;
+    internal const string SdlJoystickAllowBackgroundEventsHintVE = "SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS";
 
     private const uint SdlEventGamepadAxisMotionVE = 0x650;
     private const uint SdlEventGamepadButtonDownVE = 0x651;
@@ -36,6 +37,7 @@ public sealed class ExInSdl : IDisposable
             });
 
     private IntPtr _libraryVE;
+    private SdlSetHintDelegate? _setHintVE;
     private SdlInitSubSystemDelegate? _initVE;
     private SdlQuitSubSystemDelegate? _quitVE;
     private SdlGetGamepadsDelegate? _getGamepadsVE;
@@ -76,6 +78,7 @@ public sealed class ExInSdl : IDisposable
 
         try
         {
+            _setHintVE = LoadVE<SdlSetHintDelegate>("SDL_SetHint");
             _initVE = LoadVE<SdlInitSubSystemDelegate>("SDL_InitSubSystem");
             _quitVE = LoadVE<SdlQuitSubSystemDelegate>("SDL_QuitSubSystem");
             _getGamepadsVE = LoadVE<SdlGetGamepadsDelegate>("SDL_GetGamepads");
@@ -97,6 +100,9 @@ public sealed class ExInSdl : IDisposable
             _waitEventTimeoutVE = LoadVE<SdlWaitEventTimeoutDelegate>("SDL_WaitEventTimeout");
             _setEventsEnabledVE = LoadVE<SdlSetGamepadEventsEnabledDelegate>("SDL_SetGamepadEventsEnabled");
             _freeVE = LoadVE<SdlFreeDelegate>("SDL_free");
+
+            if (!EnableBackgroundEventsVE((name, value) => _setHintVE(name, value)))
+                throw new InvalidOperationException("SDL3 no permitió habilitar eventos de control en segundo plano.");
 
             if (!_initVE(SdlInitGamepadVE))
                 throw new InvalidOperationException("SDL3 no pudo inicializar GAMEPAD.");
@@ -413,6 +419,12 @@ public sealed class ExInSdl : IDisposable
     private T LoadVE<T>(string export) where T : Delegate
         => Marshal.GetDelegateForFunctionPointer<T>(NativeLibrary.GetExport(_libraryVE, export));
 
+    internal static bool EnableBackgroundEventsVE(Func<string, string, bool> setHint)
+    {
+        ArgumentNullException.ThrowIfNull(setHint);
+        return setHint(SdlJoystickAllowBackgroundEventsHintVE, "1");
+    }
+
     private T? TryLoadVE<T>(string export) where T : Delegate
         => NativeLibrary.TryGetExport(_libraryVE, export, out IntPtr address)
             ? Marshal.GetDelegateForFunctionPointer<T>(address)
@@ -461,6 +473,12 @@ public sealed class ExInSdl : IDisposable
         CleanupVE();
         _disposedVE = true;
     }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private delegate bool SdlSetHintDelegate(
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string name,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]

@@ -2,7 +2,10 @@ using NOVORA.Model;
 using NOVORA.Service;
 using NOVORA.ViewModel;
 using NOVORA.STEngine.Core;
+using NOVORA.Contracts.Stability;
 using NOVORA.ExInEngine;
+using NOVORA.LinkEngine.Metrics;
+using NOVORA.VisionEngine.Metrics;
 using NOVORA.VisionEngine.Integration;
 using NOVORA.NVIDIA;
 using NOVORA.VisionEngine.Privacy;
@@ -42,6 +45,7 @@ public partial class NLUIWindowMain : Window
     private readonly STCoreEngine _stEngineST = new();
 
     private bool _closing;
+    private bool _closeCleanupCompleted14;
     private bool _shellInitialized14;
     private bool _informationalPollingSuspended14;
     private string _selectedPage14 = "Home";
@@ -110,6 +114,13 @@ public partial class NLUIWindowMain : Window
         object? sender,
         CancelEventArgs e)
     {
+        if (_closeCleanupCompleted14)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+
         if (_closing)
         {
             return;
@@ -125,31 +136,87 @@ public partial class NLUIWindowMain : Window
 
         try
         {
-            await StopAndroidControlAsync(preserveTrustListening: true);
-            _androidTrustStore?.Dispose();
-            _androidTrustStore = null;
-            _androidUsbTrustStore?.Dispose();
-            _androidUsbTrustStore = null;
-            _viewModel.PropertyChanged -= AndroidControlPropertyChanged;
-            await StopDiscoveryLifecycleNVAsync();
-            await ShutdownLinkEngineRuntimeLEAsync();
-            await ShutdownVisionEngineRuntimeVEAsync();
-            if (_exInControlSession is not null)
+            await CleanupBeforeClose14Async();
+        }
+        finally
+        {
+            _closeCleanupCompleted14 = true;
+
+            if (Dispatcher.CheckAccess())
             {
-                await _exInControlSession.DisposeAsync();
-                _exInControlSession = null;
+                Close();
             }
-            if (_exInEngine is not null)
+            else
             {
-                _exInEngine.Manager.StatusChangedVE -= ShellGamepad_StatusChangedVE;
-                _exInEngine.Manager.BatteryAlertVE -= ShellGamepad_BatteryAlertVE;
-                await _exInInitialization;
-                await _exInEngine.DisposeAsync();
-                _exInEngine = null;
+                _ = Dispatcher.InvokeAsync(
+                    Close);
             }
         }
-        catch
+    }
+
+    private async Task CleanupBeforeClose14Async()
+    {
+        await RunCloseStep14Async(
+            StopDiscoveryLifecycleNVAsync);
+
+        await RunCloseStep14Async(
+            () => StopAndroidControlAsync(
+                preserveTrustListening: true));
+
+        await RunCloseStep14Async(
+            () =>
+            {
+                _androidTrustStore?.Dispose();
+                _androidUsbTrustStore?.Dispose();
+                return Task.CompletedTask;
+            });
+
+        _androidTrustStore = null;
+        _androidUsbTrustStore = null;
+        _viewModel.PropertyChanged -= AndroidControlPropertyChanged;
+
+        await RunCloseStep14Async(
+            ShutdownLinkEngineRuntimeLEAsync);
+
+        await RunCloseStep14Async(
+            ShutdownVisionEngineRuntimeVEAsync);
+
+        if (_exInControlSession is { } controlSession14)
         {
+            await RunCloseStep14Async(
+                async () =>
+                    await controlSession14.DisposeAsync());
+
+            _exInControlSession = null;
+        }
+
+        if (_exInEngine is { } exInEngine14)
+        {
+            exInEngine14.Manager.StatusChangedVE -= ShellGamepad_StatusChangedVE;
+            exInEngine14.Manager.BatteryAlertVE -= ShellGamepad_BatteryAlertVE;
+
+            await RunCloseStep14Async(
+                async () =>
+                {
+                    await _exInInitialization;
+                    await exInEngine14.DisposeAsync();
+                });
+
+            _exInEngine = null;
+        }
+    }
+
+    private static async Task RunCloseStep14Async(
+        Func<Task> closeStep14)
+    {
+        try
+        {
+            await closeStep14();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(
+                $"NOVORA close cleanup error: {ex}");
         }
     }
 
@@ -663,12 +730,13 @@ public partial class NLUIWindowMain : Window
                   ? "Juego · puntero · navegación · touchpad"
                   : "Juego · puntero · navegación");
         ExInCalibrationText14.Text = live?.Calibrating == true
-            ? "Capturando recorrido completo"
+            ? "Capturando recorrido. Gira ambos sticks por el borde y presiona ambos gatillos hasta el fondo."
             : live?.Calibration is { } profile
                 ? $"Perfil {profile.ProfileId} · DZ {profile.Deadzone.LeftX:P0}/{profile.Deadzone.LeftY:P0}/{profile.Deadzone.RightX:P0}/{profile.Deadzone.RightY:P0}\n" +
                   $"LX {profile.Minimum.LeftX}:{profile.Maximum.LeftX} · LY {profile.Minimum.LeftY}:{profile.Maximum.LeftY} · RX {profile.Minimum.RightX}:{profile.Maximum.RightX} · RY {profile.Minimum.RightY}:{profile.Maximum.RightY}\n" +
                   $"LT {profile.Minimum.LeftTrigger}:{profile.Maximum.LeftTrigger} · RT {profile.Minimum.RightTrigger}:{profile.Maximum.RightTrigger}"
                 : "Sin perfil activo";
+        ApplyExInCalibrationProgressVE(live);
         static int AxisVE(short value) => (int)Math.Round(value / 32767d * 100);
         static int TriggerVE(short value) => (int)Math.Round(Math.Max(0, (int)value) / 32767d * 100);
         ExInAxesText14.Text =
@@ -689,12 +757,34 @@ public partial class NLUIWindowMain : Window
         ExInUiModeButton14.IsEnabled = available && mode != ExInInputMode.Ui;
         ExInReactivateButton14.IsEnabled = available;
         ExInCalibrationStartButton14.IsEnabled = canCalibrate && live?.Calibrating != true;
-        ExInCalibrationFinishButton14.IsEnabled = canCalibrate && live?.Calibrating == true;
+        ExInCalibrationFinishButton14.IsEnabled = canCalibrate && live?.Calibrating == true && live.CalibrationProgress?.Complete == true;
         ExInCalibrationResetButton14.IsEnabled = canCalibrate && (live?.Calibrated == true || live?.Calibrating == true);
         ExInGameModeButton14.SetResourceReference(System.Windows.Controls.Control.BackgroundProperty,
             mode == ExInInputMode.Game ? "InputSelectedBackgroundBrush" : "PanelBrush2");
         ExInUiModeButton14.SetResourceReference(System.Windows.Controls.Control.BackgroundProperty,
             mode == ExInInputMode.Ui ? "InputSelectedBackgroundBrush" : "PanelBrush2");
+    }
+
+    private void ApplyExInCalibrationProgressVE(ExInLiveSnapshot? live)
+    {
+        ExInCalibrationProgress progress = live?.CalibrationProgress ??
+            (live?.Calibrated == true ? new(100, 100, 100, 100) : new(0, 0, 0, 0));
+        ExInCalibrationOverallProgress14.Value = progress.Overall;
+        ExInCalibrationLeftProgress14.Value = progress.LeftStick;
+        ExInCalibrationRightProgress14.Value = progress.RightStick;
+        ExInCalibrationLeftTriggerProgress14.Value = progress.LeftTrigger;
+        ExInCalibrationRightTriggerProgress14.Value = progress.RightTrigger;
+        ExInCalibrationLeftText14.Text = $"Stick izquierdo · {progress.LeftStick}%";
+        ExInCalibrationRightText14.Text = $"Stick derecho · {progress.RightStick}%";
+        ExInCalibrationLeftTriggerText14.Text = $"Gatillo izquierdo · {progress.LeftTrigger}%";
+        ExInCalibrationRightTriggerText14.Text = $"Gatillo derecho · {progress.RightTrigger}%";
+        ExInCalibrationGuideText14.Text = live?.Calibrating == true
+            ? progress.Complete
+                ? "Recorrido completo. Suelta el mando y pulsa GUARDAR."
+                : "Gira ambos sticks por todo el borde y presiona los gatillos hasta el fondo."
+            : live?.Calibrated == true
+                ? "Perfil activo para este mando. Puedes repetirlo o restablecerlo."
+                : "Deja sticks y gatillos en reposo y pulsa INICIAR.";
     }
 
     private async void ExInGameMode_Click(object sender, RoutedEventArgs e)
@@ -1000,9 +1090,15 @@ public partial class NLUIWindowMain : Window
     {
         try
         {
+            NLStabilityVisionSnapshot? vision =
+                _visionEngineVE?.RuntimeVE is { } runtime
+                    ? VEStabilitySnapshotAdapter.CaptureVE(runtime)
+                    : null;
+
             return _stEngineST.CaptureNovoraST(
-                _visionEngineVE?.RuntimeVE,
-                _linkEngineRuntimeLE);
+                vision,
+                LEStabilitySnapshotAdapter.CaptureLE(_linkEngineRuntimeLE),
+                ExInStabilitySnapshotAdapter.CaptureExIn(_exInEngine?.Status));
         }
         catch
         {

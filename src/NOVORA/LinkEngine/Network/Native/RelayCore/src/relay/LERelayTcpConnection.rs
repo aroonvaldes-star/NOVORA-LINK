@@ -843,7 +843,7 @@ impl Connection for TcpConnection {
 }
 
 impl PacketSource for TcpConnection {
-    fn get(&mut self) -> Option<Ipv4Packet> {
+    fn get(&mut self) -> Option<Ipv4Packet<'_>> {
         if let Some(len) = self.packet_for_client_length {
             Some(self.network_to_client.inflate(len))
         } else {

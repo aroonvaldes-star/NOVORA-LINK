@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NOVORA comparable operational benchmark",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "capturedAtUtc", "baseline", "device", "pc", "workload", "engines", "samples", "percentiles", "evidenceLevel"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "capturedAtUtc": { "type": "string", "format": "date-time" },
+    "baseline": { "type": "string", "minLength": 7 },
+    "device": { "type": "string", "minLength": 1 },
+    "pc": { "type": "string", "minLength": 1 },
+    "workload": { "type": "string", "minLength": 1 },
+    "engines": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["VE", "LE", "ExIn", "ST"] }
+    },
+    "acceleration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backend", "available", "selected", "active", "benefitMeasured"],
+      "properties": {
+        "backend": { "enum": ["Software", "NvidiaNvdec", "Amd", "Intel"] },
+        "available": { "type": "boolean" },
+        "selected": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "benefitMeasured": { "type": ["boolean", "null"] }
+      }
+    },
+    "samples": { "type": "integer", "minimum": 1 },
+    "percentiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["p50", "p95", "p99", "unit"],
+      "properties": {
+        "p50": { "type": "number" },
+        "p95": { "type": "number" },
+        "p99": { "type": "number" },
+        "unit": { "type": "string", "minLength": 1 }
+      }
+    },
+    "lossPercent": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+    "queueDepth": { "type": ["number", "null"], "minimum": 0 },
+    "evidenceLevel": { "enum": ["synthetic", "local-runtime", "physical-device"] },
+    "notes": { "type": "string" }
+  }
+}

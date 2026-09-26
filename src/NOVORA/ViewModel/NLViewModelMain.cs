@@ -44,7 +44,7 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
     private bool _integrationNotificationsEnabled = true;
     private bool _integrationDynamicResizeEnabled = true;
     private bool _exInEnabled = true;
-    private string _nvidiaProfile = "Competitive";
+    private string _nvidiaProfile = "Automatic";
 
     public bool AudioEnabled
     {

@@ -1,57 +1,101 @@
-# Manual de Usuario — NOVORA-LINK 1.4 PRERELEASE PRE FINAL
+# Manual de Usuario - NOVORA-LINK 1.4 Release
 
-## Español — idioma principal
+## Espanol - idioma principal
 
-### 1. Qué es NOVORA-LINK
-NOVORA-LINK conecta una computadora Windows con un dispositivo Android. La interfaz de PC usa un panel dinámico. Android usa la app `com.novora.appcontrol`.
+Fecha de actualizacion: 23 de septiembre de 2026.
 
-### 2. Conexión
-**USB:** conecta el teléfono con depuración USB autorizada. NOVORA detecta el dispositivo y prepara el enlace sin requerir sondeo constante.  
-**LAN:** usa la búsqueda de PC o la invitación/QR cuando estén disponibles. Verifica siempre que estás conectando la PC correcta.
+### 1. Que es NOVORA-LINK
+NOVORA-LINK conecta una computadora Windows con un dispositivo Android activo. La PC concentra la sesion principal y Android usa la app `com.novora.appcontrol`.
 
-NOVORA está diseñada para **un dispositivo Android activo por computadora**.
+La version estable del producto es **NOVORA-LINK 1.4**.
 
-### 3. Motores
-- **LinkEngine:** comparte Internet desde la PC hacia Android mediante el túnel de NOVORA.
-- **VisionEngine:** pantalla, audio, control, gamepad, intercambio e integración Android↔Windows.
-- **STEngine:** medición técnica de NOVORA. Puede estar disponible sin obligar a detener otros motores.
+### 2. Estado de la Release
+NOVORA-LINK 1.4 esta disponible como Release estable para Windows y Android. En su validacion se verifico:
 
-Cada motor tiene su propio ámbito de recuperación. Si un motor falla, NOVORA intenta evitar detener los demás.
+- Escritorio Release: 0 advertencias y 0 errores.
+- Suite .NET: 405/405 pruebas aprobadas.
+- RelayCore: 34/34 pruebas aprobadas; un benchmark queda ignorado por diseno.
+- Android Release: `com.novora.appcontrol` version `1.4.34`, code `34`, minSdk `26`, targetSdk `36`.
+- APK canonico e instalado: SHA-256 `8F2E6E81FD70B692FD0E370A75A4BC482D598B468D70A0B4A12A61236A4BE405`.
+- Samsung SM-A566E `R5CY3118MEW`: instalacion incremental y arranque de `MainActivity` aprobados.
+- Instalador Windows: compilacion, instalacion, arranque y desinstalacion aprobados.
 
-### 4. Pantalla
-Desde **Pantalla** puedes preparar el perfil de video, resolución, FPS, bitrate, monitor y audio. Inicia VisionEngine sólo cuando quieras compartir/controlar la pantalla.
+### 3. Requisitos basicos
+- Windows 11 recomendado para la PC.
+- Un solo telefono Android activo por PC.
+- Cable USB confiable para el modo USB.
+- Depuracion USB autorizada en el telefono cuando se use USB.
+- Red local confiable cuando se use LAN/QR.
 
-### 5. Red
-Desde **Red** controla LinkEngine. La congestión o backpressure no deben confundirse con Recovery.
+No conectes varios telefonos activos a la vez para la misma PC; NOVORA esta disenada para concentrar recursos en una sesion.
 
-### 6. Game Input
-Los mandos compatibles pasan por la ruta SDL/UHID de VisionEngine cuando el backend está disponible.
+### 4. Conexion
+**USB:** conecta el telefono, acepta la autorizacion de depuracion USB y usa NOVORA para preparar la sesion. USB es la ruta preferida para pruebas y rendimiento controlado.
 
-### 7. Integración
-NOVORA incluye infraestructura para portapapeles, archivos, Drag & Drop, compartir, notificaciones y otras capacidades Android↔Windows. Algunas funciones dependen de que el backend correspondiente esté disponible.
+**LAN/QR:** usa descubrimiento, invitacion o QR cuando esten disponibles. Antes de aceptar, confirma que el nombre de la PC y la red sean correctos.
 
-### 8. Privacidad
-NOVORA intenta minimizar datos personales. No debe guardar innecesariamente contraseñas, cuentas, correos, contactos, OTP, tokens, cookies, historial del portapapeles ni contenido privado.
+NOVORA evita el sondeo constante siempre que puede. Las consultas repetitivas a Android solo deben usarse cuando no exista alternativa practica.
 
-**Privacy Shield** puede bloquear exposición de video, audio nuevo, control, gamepad, portapapeles y transferencias en contextos sensibles.
+### 5. Motores
+- **LinkEngine:** comparte Internet de la PC hacia Android mediante el tunel NOVORA.
+- **VisionEngine:** maneja pantalla, audio, control, gamepad, intercambio e integracion Android-Windows.
+- **ExInEngine:** traduce entrada externa, mandos y sesiones de control cuando el backend esta disponible.
+- **STEngine:** mide estabilidad y estado tecnico sin forzar cambios de bitrate, recovery o motores.
 
-### 9. App Android
-En Android:
-- **Conectar:** prepara USB/LAN.
-- **Control:** inicia/detiene motores y usa herramientas.
-- **Ajustes:** modifica opciones confirmadas por la PC.
-- **Archivos NOVORA:** acceso a funciones de archivos disponibles.
-- **Manual:** disponible en español e inglés.
+Cada motor mantiene su propio ambito de recuperacion. Un fallo en un motor no debe tumbar NOVORA completa ni detener motores independientes sin necesidad.
 
-### 10. Actualizaciones
-NOVORA puede comprobar el canal oficial al abrir. No debe mantener un sondeo periódico sólo para buscar una actualización.
+### 6. LinkEngine
+Desde **Red** puedes iniciar o detener LinkEngine. Cuando esta activo, NOVORA prepara los canales de control y datos usados por el tunel.
 
-### 11. Si algo falla
-1. Revisa que el teléfono siga conectado/autorizado.
-2. Revisa el estado del motor afectado.
-3. Detén/inicia sólo ese motor cuando sea posible.
-4. No desactives antivirus/seguridad de Windows como solución general.
-5. Reporta el primer error concreto y la versión completa de NOVORA.
+La congestion, `WouldBlock`, colas altas o backpressure no son por si solos una razon para Recovery. Recovery queda como ultimo recurso cuando el motor realmente pierde su estado operativo.
 
-### 12. Estado de esta prerelease
-Esta carpeta es **PRERELEASE PRE FINAL**. Antes de una publicación estable deben completarse las pruebas físicas, seguridad, rendimiento, calidad y funcionamiento exigidas por el reglamento del proyecto.
+### 7. VisionEngine
+Desde **Pantalla** puedes configurar resolucion, FPS, bitrate, monitor, audio y perfil de video. Inicia VisionEngine solo cuando quieras ver/controlar la pantalla Android desde la PC.
+
+VisionEngine utiliza el componente de transmision integrado en NOVORA-LINK para mostrar y controlar Android desde la PC.
+
+### 8. ExInEngine y Game Input
+Los mandos compatibles usan la ruta SDL/UHID cuando el backend esta disponible. En la validacion fisica reciente se detecto un Xbox One Elite 2 Controller (`045E:028E`) y se recibio telemetria neutral en vivo.
+
+La coexistencia VisionEngine/ExIn fue corregida: cada sesion usa su propio servidor remoto aislado por SCID, evitando que VisionEngine sobrescriba la sesion de control ExIn.
+
+Pendiente: probar cada stick, trigger y boton con traduccion Android completa.
+
+### 9. STEngine
+STEngine observa estabilidad y estado tecnico. Debe funcionar como medicion pasiva: no debe cambiar bitrate, recovery, colas ni ciclo de vida de otros motores por si solo.
+
+### 10. App Android
+En Android encontraras:
+
+- **Conectar:** preparacion USB/LAN.
+- **Control:** motores y herramientas disponibles.
+- **Ajustes:** opciones confirmadas por la PC.
+- **Archivos NOVORA:** funciones de archivos cuando el backend este disponible.
+- **Manual:** contenido en espanol e ingles.
+
+La app actual usa el paquete `com.novora.appcontrol`.
+
+### 11. Integracion Android-Windows
+NOVORA incluye infraestructura para portapapeles, archivos, Drag & Drop, compartir, notificaciones, captura, grabacion y otras capacidades Android-Windows. Algunas funciones dependen de que el backend correspondiente este listo y probado.
+
+No se debe presentar una funcion como final si solo existe, compila o aparece en UI. Debe distinguirse entre existe, compila, integrado, conectado, funcional y probado fisicamente.
+
+### 12. Privacidad y seguridad
+NOVORA minimiza datos personales. No debe guardar innecesariamente passwords, cuentas, correos, contactos, OTP, tokens, cookies, historial del portapapeles ni contenido privado.
+
+**Privacy Shield** puede bloquear exposicion de video, audio nuevo, control, gamepad, portapapeles y transferencias en contextos sensibles.
+
+No desactives antivirus, protecciones de Windows o controles de seguridad como solucion general.
+
+### 13. Actualizaciones
+NOVORA puede comprobar el canal oficial al abrir. No debe mantener un sondeo periodico solo para buscar actualizaciones.
+
+Las actualizaciones estables se publican mediante el canal oficial de NOVORA-LINK.
+
+### 14. Si algo falla
+1. Verifica que el telefono siga conectado y autorizado.
+2. Confirma que estas usando el APK/version esperada.
+3. Revisa el estado del motor afectado.
+4. Deten e inicia solo ese motor cuando sea posible.
+5. Evita reiniciar NOVORA completa si un motor independiente puede recuperarse.
+6. Reporta el primer error concreto, la version completa y si fue USB, LAN o QR.

@@ -55,7 +55,7 @@ impl Ipv4PacketBuffer {
         }
     }
 
-    pub fn as_ipv4_packet(&mut self) -> Option<Ipv4Packet> {
+    pub fn as_ipv4_packet(&mut self) -> Option<Ipv4Packet<'_>> {
         if self.available_packet_length().is_some() {
             let data = self.buf.peek_mut();
             Some(Ipv4Packet::parse(data))

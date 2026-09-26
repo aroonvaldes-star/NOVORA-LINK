@@ -1,4 +1,5 @@
 using NOVORA.Service;
+using NOVORA.Contracts.Input;
 
 namespace NOVORA.ExInEngine;
 
@@ -50,7 +51,7 @@ public sealed class ExInCoreEngine : IAsyncDisposable
         finally { _lifecycle.Release(); }
     }
 
-    public async Task AttachOutputAsync(IExInOutput output, CancellationToken cancellationToken = default)
+    public async Task AttachOutputAsync(INLInputOutput output, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         await _lifecycle.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -64,7 +65,7 @@ public sealed class ExInCoreEngine : IAsyncDisposable
         finally { _lifecycle.Release(); }
     }
 
-    public async Task DetachOutputAsync(IExInOutput output, CancellationToken cancellationToken = default)
+    public async Task DetachOutputAsync(INLInputOutput output, CancellationToken cancellationToken = default)
     {
         if (_disposed) return;
         await _lifecycle.WaitAsync(cancellationToken).ConfigureAwait(false);

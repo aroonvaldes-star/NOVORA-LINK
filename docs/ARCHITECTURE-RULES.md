@@ -25,7 +25,7 @@ RemoteNV usa protocolo v2. Cada configuración de dispositivo genera un token cr
 
 ## Capacidad
 
-LinkEngine soporta hasta **5 sesiones activas simultáneas dinámicas**. Una sesión finalizada libera su capacidad; no existe un límite permanente de cinco teléfonos conocidos.
+NOVORA puede recordar varios teléfonos conocidos, pero mantiene **una sola sesión activa por PC**. El teléfono activo concentra VE, LE, ExIn y control; cambiarlo es una transición explícita de lifecycle. Una futura capacidad simultánea requiere ADR, aislamiento por sesión y benchmarks de recursos.
 
 ## Nomenclatura
 

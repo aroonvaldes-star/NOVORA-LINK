@@ -99,4 +99,27 @@ public sealed class NLTestExInProfiles : IDisposable
     {
         try { Directory.Delete(_directoryVE, recursive: true); } catch { }
     }
+    [Fact]
+    public void Calibration_progress_requires_full_stick_and_trigger_travel()
+    {
+        ExInCalibrationProgress progress = ExInManager.CalibrationProgressVE(
+            new(short.MinValue, short.MinValue, -20000, -20000, 0, 0, 0),
+            new(short.MaxValue, short.MaxValue, 20000, 20000, short.MaxValue, 16384, 0));
+
+        Assert.Equal(100, progress.LeftStick);
+        Assert.Equal(61, progress.RightStick);
+        Assert.Equal(100, progress.LeftTrigger);
+        Assert.Equal(50, progress.RightTrigger);
+        Assert.Equal(50, progress.Overall);
+        Assert.False(progress.Complete);
+    }
+
+    [Fact]
+    public void Calibration_progress_is_complete_at_ninety_percent_coverage()
+    {
+        ExInCalibrationProgress progress = new(90, 95, 100, 91);
+
+        Assert.True(progress.Complete);
+        Assert.Equal(90, progress.Overall);
+    }
 }

@@ -39,7 +39,7 @@ jobs:
       - name: Add SecurityCodeScan analyzer to CI workspace
         shell: pwsh
         run: |
-          $project = ".\src\NOVORA\NOVORA.csproj"
+          $project = ".\src\NOVORA\NLProjectDesktop.csproj"
           $listed = dotnet list $project package
 
           if ($listed -notmatch "SecurityCodeScan\.VS2019") {
@@ -56,7 +56,7 @@ jobs:
           $rawSarif = "${{ github.workspace }}\securitycodescan-raw.sarif"
           $errorLogValue = "$rawSarif%2Cversion=2.1"
 
-          dotnet build .\src\NOVORA\NOVORA.csproj `
+          dotnet build .\src\NOVORA\NLProjectDesktop.csproj `
             -c Release `
             --no-restore `
             "-p:ErrorLog=$errorLogValue"

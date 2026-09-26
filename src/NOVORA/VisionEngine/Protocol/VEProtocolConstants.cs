@@ -23,5 +23,6 @@ public static class VEProtocolConstants
     public const string ScrcpyServerClassVE = "com.genymobile.scrcpy.Server";
     public const string ScrcpyCompatibilityVersionVE = "4.1";
     public const string ScrcpySocketPrefixVE = "scrcpy_";
-    public const string RemoteServerPathVE = "/data/local/tmp/novora-vision-server.jar";
+    public static string BuildRemoteServerPathVE(int scid)
+        => $"/data/local/tmp/novora-vision-server-{scid:x8}.jar";
 }

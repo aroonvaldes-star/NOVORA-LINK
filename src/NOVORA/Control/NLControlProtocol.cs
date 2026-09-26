@@ -39,7 +39,8 @@ public sealed record NLControlSnapshot(
 public sealed record NLControlRequest(int Version, long Id, string Action, string? Value = null,
     long Revision = -1, string? Code = null);
 public sealed record NLControlReply(int Version, long Id, bool Success, string Message,
-    NLControlSnapshot? Snapshot = null, NLControlTrustedPc? TrustedPc = null);
+    NLControlSnapshot? Snapshot = null, NLControlTrustedPc? TrustedPc = null, string? Value = null);
+public sealed record NLControlVideoSourceOffer(int Port, string Token, int Bitrate, int MaxSize, int Fps);
 
 /// <summary>Framed JSON: USB uses loopback ADB; LAN requires the pinned TLS transport. Never expose raw frames on a LAN socket.</summary>
 public static class NLControlProtocol

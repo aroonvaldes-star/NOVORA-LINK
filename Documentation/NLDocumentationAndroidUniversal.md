@@ -4,7 +4,9 @@
 
 La aplicación conserva Conectar, Control y Configuraciones. Los ajustes usan las capacidades anunciadas por PC, requieren confirmación y descartan operaciones de una sesión anterior. Los controles se adaptan al espacio disponible y respetan las barras del sistema.
 
-La burbuja flotante se habilita voluntariamente con el permiso de Android. Aparece con VisionEngine confirmado, permite moverla, abrir herramientas, capturar, grabar, ajustar y detener VE. Los accesos a aplicaciones son opcionales y configurables; sin favoritos no aparece esa sección. Ocultarla dura la sesión. El inicio automático se realiza tras confirmación de PC.
+Desde Android 1.4.30 no existe una burbuja superpuesta. El control operativo se ofrece mediante la notificación persistente de NOVORA, con acciones contextuales de ExIn, detención de pantalla y desconexión. La aplicación no solicita permiso para dibujar sobre otras aplicaciones.
+
+Desde Android 1.4.31 la calibración de controles pertenece exclusivamente a NOVORA PC. Android muestra el estado y la prueba en vivo de ExIn, pero no puede iniciar, guardar ni borrar perfiles de calibración.
 
 ## Archivos por tipo
 

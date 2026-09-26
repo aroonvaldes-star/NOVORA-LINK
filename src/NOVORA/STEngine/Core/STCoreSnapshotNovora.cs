@@ -1,11 +1,12 @@
-using NOVORA.LinkEngine.Metrics;
+using NOVORA.Contracts.Stability;
 
 namespace NOVORA.STEngine.Core;
 
 public sealed record STCoreSnapshotNovora(
     DateTimeOffset CapturedAtUtc,
     STCoreSnapshot Vision,
-    IReadOnlyList<LEMetricsDeviceMetricsSnapshot> LinkDevices,
+    IReadOnlyList<NLStabilityLinkSnapshot> LinkDevices,
+    NLStabilityExInSnapshot? ExIn,
     STCoreState State,
     bool ShouldReduceNonCriticalWork,
     string Summary,
@@ -14,17 +15,6 @@ public sealed record STCoreSnapshotNovora(
     public int LinkDeviceCount => LinkDevices.Count;
 
     public static STCoreSnapshotNovora EmptyST()
-    {
-        STCoreSnapshot vision =
-            STCoreSnapshot.EmptyST();
-
-        return new STCoreSnapshotNovora(
-            DateTimeOffset.UtcNow,
-            vision,
-            Array.Empty<LEMetricsDeviceMetricsSnapshot>(),
-            STCoreState.Watch,
-            false,
-            "STEngine esperando datos de NOVORA.",
-            Array.Empty<string>());
-    }
+        => new(DateTimeOffset.UtcNow, STCoreSnapshot.EmptyST(), Array.Empty<NLStabilityLinkSnapshot>(), null,
+            STCoreState.Watch, false, "STEngine esperando datos de NOVORA.", Array.Empty<string>());
 }

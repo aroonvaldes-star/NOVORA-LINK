@@ -18,6 +18,8 @@ public sealed record VEVideoStatus(
     public string DecoderName { get; init; } = "Sin decoder";
     public bool NvdecActive { get; init; }
     public string? DecoderFallbackReason { get; init; }
+    public VEAccelerationState Acceleration { get; init; } =
+        VEAccelerationState.Unavailable(VEAccelerationBackend.Software, "Sin decoder abierto.");
 
     public static VEVideoStatus CreateInitialVE()
         => new(

@@ -102,6 +102,8 @@ public partial class NLUIWindowMain
 
         switch (request.Action)
         {
+            case "startAppVideo":
+                return await PrepareAppControlVideoAsync(request);
             case "startVideo":
                 if (IsVisionEngineRunningVE()) return Reply(true, "VisionEngine ya está iniciado.");
                 await SetVisionEngineRunningVEAsync(true, SameDevice);
@@ -109,6 +111,11 @@ public partial class NLUIWindowMain
                     IsVisionEngineRunningVE() ? "VisionEngine iniciado." : "VisionEngine no se inició.");
             case "stopVideo":
                 if (!IsVisionEngineRunningVE()) return Reply(true, "VisionEngine ya está detenido.");
+                if (_visionEngineVE?.RuntimeVE.IsAppControlVideoActiveVE == true)
+                {
+                    await StopAppControlVideoSourceAsync();
+                    return Reply(Authorized() && !IsVisionEngineRunningVE(), "VisionEngine detenido.");
+                }
                 await SetVisionEngineRunningVEAsync(false, Authorized);
                 return Reply(Authorized() && !IsVisionEngineRunningVE(), "VisionEngine detenido.");
             case "restartVideo":

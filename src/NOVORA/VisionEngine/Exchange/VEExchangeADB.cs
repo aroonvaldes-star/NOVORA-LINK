@@ -1,8 +1,8 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using NOVORA.Service;
 
 namespace NOVORA.VisionEngine.Exchange;
 
@@ -68,96 +68,16 @@ internal static class VEExchangeADB
                 adbPath);
         }
 
-        ProcessStartInfo startInfo =
-            new()
-            {
-                FileName =
-                    adbPath,
-
-                UseShellExecute =
-                    false,
-
-                CreateNoWindow =
-                    true,
-
-                RedirectStandardOutput =
-                    true,
-
-                RedirectStandardError =
-                    true
-            };
-
-        startInfo.ArgumentList.Add(
-            "-s");
-
-        startInfo.ArgumentList.Add(
-            serial);
-
-        foreach (string argument in arguments)
-        {
-            startInfo.ArgumentList.Add(
-                argument);
-        }
-
-        using Process process =
-            new()
-            {
-                StartInfo =
-                    startInfo,
-
-                EnableRaisingEvents =
-                    true
-            };
-
-        if (!process.Start())
-        {
-            throw new InvalidOperationException(
-                "ExchangeVE no pudo iniciar ADB.");
-        }
-
-        try
-        {
-            /*
-             * La prioridad CPU se baja cuando Windows lo permite.
-             *
-             * Esto NO limita el bus USB, pero evita que un proceso
-             * adb pesado compita innecesariamente por CPU con VE.
-             */
-            process.PriorityClass =
-                ProcessPriorityClass.BelowNormal;
-        }
-        catch
-        {
-        }
-
-        Task<string> outputTask =
-            process.StandardOutput
-                .ReadToEndAsync(
-                    cancellationToken);
-
-        Task<string> errorTask =
-            process.StandardError
-                .ReadToEndAsync(
-                    cancellationToken);
-
-        await process
-            .WaitForExitAsync(
-                cancellationToken)
+        string[] command = ["-s", serial, .. arguments];
+        NLServiceProcessResult result = await new NLServiceProcess()
+            .RunAsync(adbPath, command, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
-
-        string output =
-            await outputTask
-                .ConfigureAwait(false);
-
-        string error =
-            await errorTask
-                .ConfigureAwait(false);
 
         return
             new VEExchangeResultADB(
-                process.ExitCode,
-                output,
-                error);
+                result.ExitCode,
+                result.StandardOutput,
+                result.StandardError);
     }
 }
 

@@ -152,6 +152,7 @@ public partial class NLUIWindowMain
             CheckAutomaticUsb(serial, epoch, generation);
             string before = await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--list" }, deadline.Token);
             bool reuseMapping = HasAutomaticUsbMapping(before, true);
+            bool reuseVideoMapping = HasAppControlVideoMapping(before);
             CheckAutomaticUsb(serial, epoch, generation);
             _viewModel.RefreshAudioOutputOptions(_paths);
             created = new NLControlTrustServer(System.Net.IPAddress.Loopback,
@@ -182,10 +183,16 @@ public partial class NLUIWindowMain
             }));
             if (!reuseMapping)
                 await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--no-rebind", "tcp:27214", "tcp:27214" }, deadline.Token);
-            _androidControlReverseOwned = true;
+            _androidControlReverseOwned = !reuseMapping;
+            if (!reuseVideoMapping)
+            {
+                await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--no-rebind", "tcp:27215", "tcp:27215" }, deadline.Token);
+                _androidVideoReverseOwned = true;
+            }
             CheckAutomaticUsb(serial, epoch, generation);
             string after = await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--list" }, deadline.Token);
             if (!HasAutomaticUsbMapping(after, false)) throw new InvalidOperationException("ADB no confirmo la ruta USB 27214.");
+            if (!HasAppControlVideoMapping(after)) throw new InvalidOperationException("ADB no confirmo la ruta USB 27215 para video.");
             CheckAutomaticUsb(serial, epoch, generation);
             string bootstrap = Convert.ToBase64String(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(server.Invitation));
             // The protected entry point accepts shell/system callers; MainActivity never trusts external bootstrap extras.

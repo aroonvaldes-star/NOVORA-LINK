@@ -43,11 +43,20 @@ public sealed class NLTestExInProtocol
     }
 
     [Fact]
-    public void Calibration_requires_explicit_capability()
+    public void Synchronize_requires_detected_stable_controller_and_no_value()
     {
-        Assert.Contains("no está disponible", NLControlCommands.Validate(RequestVE("exin.calibration.start"), SnapshotVE()));
-        NLControlSnapshot allowed = SnapshotVE() with { ExIn = SnapshotVE().ExIn! with { CanCalibrate = true } };
-        Assert.Null(NLControlCommands.Validate(RequestVE("exin.calibration.start"), allowed));
+        Assert.Null(NLControlCommands.Validate(RequestVE("exin.synchronize"), SnapshotVE()));
+        Assert.Contains("control físico", NLControlCommands.Validate(RequestVE("exin.synchronize"), SnapshotVE(detected: false)));
+        Assert.Contains("cambiando", NLControlCommands.Validate(RequestVE("exin.synchronize"), SnapshotVE(transitioning: true)));
+        Assert.Contains("no acepta", NLControlCommands.Validate(RequestVE("exin.synchronize", "x"), SnapshotVE()));
+    }
+
+    [Fact]
+    public void Calibration_is_not_available_over_android_control()
+    {
+        Assert.Contains("Acción no disponible", NLControlCommands.Validate(RequestVE("exin.calibration.start"), SnapshotVE()));
+        NLControlSnapshot advertised = SnapshotVE() with { ExIn = SnapshotVE().ExIn! with { CanCalibrate = true } };
+        Assert.Contains("Acción no disponible", NLControlCommands.Validate(RequestVE("exin.calibration.start"), advertised));
     }
 
     [Fact]

@@ -9,8 +9,9 @@ internal static class NLAndroidUIHomePage
     {
         int icon = title switch {
             "Conectar" => Android.Resource.Drawable.IcMenuSearch,
-            "Engines" => Android.Resource.Drawable.IcMenuManage,
+            "Control" => Android.Resource.Drawable.IcMenuManage,
             "Archivos" => Android.Resource.Drawable.IcMenuGallery,
+            "Ajustes" => Android.Resource.Drawable.IcMenuPreferences,
             _ => Android.Resource.Drawable.IcMenuSlideshow
         };
         return NLAndroidUIComponents.ActionTile(context, title, subtitle, icon, action);

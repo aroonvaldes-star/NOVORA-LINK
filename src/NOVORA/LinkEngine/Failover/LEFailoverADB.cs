@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using NOVORA.Service;
 
 namespace NOVORA.LinkEngine.Failover;
 
@@ -531,61 +530,18 @@ public sealed class LEFailoverADB
         CancellationToken cancellationToken,
         bool throwOnCancellation = true)
     {
-        ProcessStartInfo startInfo =
-            new()
-            {
-                FileName = _adbPath,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-                StandardOutputEncoding = Encoding.UTF8,
-                StandardErrorEncoding = Encoding.UTF8
-            };
-
-        foreach (string argument in arguments)
-        {
-            startInfo.ArgumentList.Add(
-                argument);
-        }
-
-        using Process process =
-            new()
-            {
-                StartInfo = startInfo,
-                EnableRaisingEvents = true
-            };
-
-        process.Start();
-
-        Task<string> stdoutTask =
-            process.StandardOutput.ReadToEndAsync();
-
-        Task<string> stderrTask =
-            process.StandardError.ReadToEndAsync();
-
         try
         {
-            await process
-                .WaitForExitAsync(
-                    cancellationToken)
+            NLServiceProcessResult result = await new NLServiceProcess()
+                .RunAsync(_adbPath, arguments, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
+            return new LEFailoverProcessResult(
+                result.ExitCode,
+                result.StandardOutput,
+                result.StandardError);
         }
         catch (OperationCanceledException)
         {
-            try
-            {
-                if (!process.HasExited)
-                {
-                    process.Kill(
-                        entireProcessTree: true);
-                }
-            }
-            catch
-            {
-                // Best effort.
-            }
-
             if (throwOnCancellation)
             {
                 throw;
@@ -597,18 +553,6 @@ public sealed class LEFailoverADB
                 "ADB cancelado.");
         }
 
-        string stdout =
-            await stdoutTask
-                .ConfigureAwait(false);
-
-        string stderr =
-            await stderrTask
-                .ConfigureAwait(false);
-
-        return new LEFailoverProcessResult(
-            process.ExitCode,
-            stdout,
-            stderr);
     }
 
     private sealed record LEFailoverProcessResult(

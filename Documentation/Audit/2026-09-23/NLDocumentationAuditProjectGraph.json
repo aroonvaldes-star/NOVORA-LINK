@@ -1,0 +1,42 @@
+[
+  {
+    "path": "src/NOVORA/LinkEngine/Network/Native/RelayCore/Cargo.toml",
+    "kind": "toml",
+    "sha256": "0E4CDE16E923A7B2697ABB93075D3449D872ADB950527E462AA062AB8D887C5F"
+  },
+  {
+    "path": "src/NOVORA/NLProjectDesktop.csproj",
+    "kind": "csproj",
+    "sha256": "56CBC039F158AF2D70230BF2FAFC55BFA862300F24306F0033206EF236410BC1"
+  },
+  {
+    "path": "src/NOVORA.Android/NLProjectAndroid.csproj",
+    "kind": "csproj",
+    "sha256": "1BB05490E2C8F74351CD090A5DCB44D177E3BA53E2C941255E95EA69488A08C1"
+  },
+  {
+    "path": "tests/NOVORA.Tests/NLProjectTests.csproj",
+    "kind": "csproj",
+    "sha256": "2B561F7BFB2BEAB811DF849E50C18657F34FD3F9E184AAEF97DCE6570514AEF5"
+  },
+  {
+    "path": "tests/NOVORA.VisionEngine.BlockCHarness/NLProjectVisionEngineBlockCHarness.csproj",
+    "kind": "csproj",
+    "sha256": "413DC7678F73638232263CAB65675C0D7186062EE54D04BCE9CD505AA073B3E5"
+  },
+  {
+    "path": "tests/NOVORA.VisionEngine.HeadlessHarness/NLProjectVisionEngineHeadlessHarness.csproj",
+    "kind": "csproj",
+    "sha256": "413DC7678F73638232263CAB65675C0D7186062EE54D04BCE9CD505AA073B3E5"
+  },
+  {
+    "path": "tests/NOVORA.VisionEngine.ProfileHarness/NLProjectVisionEngineProfileHarness.csproj",
+    "kind": "csproj",
+    "sha256": "98785C78063EF2A4375313C658863DD02E2B9D5006C8FD0AEDF4CBF086E2EF6E"
+  },
+  {
+    "path": "NOVORA.sln",
+    "kind": "sln",
+    "sha256": "2D4485D5490B7470815642DABBF64FDFF22E7323349BD2EF1D300ACF39BF46CE"
+  }
+]

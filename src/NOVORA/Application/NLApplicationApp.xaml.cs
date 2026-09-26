@@ -8,6 +8,7 @@ public partial class NLApplicationApp :
     System.Windows.Application
 {
     private NLServiceTray? _trayServiceNV;
+    private NLServiceSingleInstance? _singleInstanceNV;
     private bool _backgroundStartNV;
 
     internal static bool IsExplicitExitNV
@@ -20,6 +21,13 @@ public partial class NLApplicationApp :
         StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        _singleInstanceNV = NLServiceSingleInstance.TryAcquireNV();
+        if (_singleInstanceNV is null)
+        {
+            Shutdown();
+            return;
+        }
 
         bool autoStartNV =
             NLServiceAutoStart
@@ -242,6 +250,9 @@ public partial class NLApplicationApp :
 
         _trayServiceNV =
             null;
+
+        _singleInstanceNV?.Dispose();
+        _singleInstanceNV = null;
 
         base.OnExit(
             e);

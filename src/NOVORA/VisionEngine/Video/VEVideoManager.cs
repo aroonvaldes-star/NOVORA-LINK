@@ -85,25 +85,31 @@ public sealed class VEVideoManager : IAsyncDisposable
         });
     }
 
-    public async Task StartAsync(
+    public Task StartAsync(
         VETransportSession transport,
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposedVE();
         ArgumentNullException.ThrowIfNull(transport);
 
+        return StartAsync(
+            transport.VideoStream
+                ?? throw new InvalidOperationException(
+                    "La sesión VisionEngine no contiene un stream de video."),
+            cancellationToken);
+    }
+
+    public async Task StartAsync(
+        Stream videoStream,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposedVE();
+        ArgumentNullException.ThrowIfNull(videoStream);
+
         if (_runTaskVE is not null)
         {
             throw new InvalidOperationException(
                 "El pipeline de video VisionEngine ya fue iniciado.");
-        }
-
-        Stream? videoStream = transport.VideoStream;
-
-        if (videoStream is null)
-        {
-            throw new InvalidOperationException(
-                "La sesión VisionEngine no contiene un stream de video.");
         }
 
         ResetCountersVE();
@@ -590,9 +596,18 @@ public sealed class VEVideoManager : IAsyncDisposable
             {
                 DecoderName = _decoderVE.DecoderNameVE,
                 NvdecActive = status.State == VEVideoStates.Streaming && _decoderVE.NvdecActiveVE,
-                DecoderFallbackReason = _decoderVE.FallbackReasonVE
+                DecoderFallbackReason = _decoderVE.FallbackReasonVE,
+                Acceleration = VEAccelerationState.FromDecoder(
+                    _decoderVE.DecoderNameVE,
+                    status.Stats.FramesDecoded)
             };
-        else status = status with { NvdecActive = false };
+        else status = status with
+        {
+            NvdecActive = false,
+            Acceleration = VEAccelerationState.Unavailable(
+                VEAccelerationBackend.Software,
+                "Sin decoder abierto.")
+        };
         EventHandler<VEVideoStatus>? handler;
 
         lock (_statusGate)

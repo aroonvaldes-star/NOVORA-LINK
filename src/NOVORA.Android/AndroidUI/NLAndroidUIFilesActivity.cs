@@ -27,7 +27,7 @@ public sealed class NLAndroidUIFilesActivity : Activity
     }
     protected override void OnStop()
     {
-        _started = false; _service?.SetUiForeground(false); _service = null;
+        _started = false; _service = null;
         if (_bound && _connection is not null) UnbindService(_connection);
         _bound = false; _connection = null; base.OnStop();
     }
@@ -36,7 +36,7 @@ public sealed class NLAndroidUIFilesActivity : Activity
         public void OnServiceConnected(ComponentName? name, IBinder? binder)
         {
             if (!owner._started || !ReferenceEquals(owner._connection, this) || binder is not NLAndroidServiceControl.NLAndroidServiceBinder control) return;
-            owner._service = control.Owner; owner._service.SetUiForeground(true);
+            owner._service = control.Owner;
         }
         public void OnServiceDisconnected(ComponentName? name) { owner._service = null; }
     }

@@ -1,4 +1,5 @@
 using NOVORA.Service;
+using NOVORA.Contracts.Input;
 
 namespace NOVORA.ExInEngine;
 
@@ -16,7 +17,7 @@ public sealed class ExInManager : IAsyncDisposable
     private const string UhidDeviceNameVE = "Microsoft X-Box 360 Pad";
     private const long StatusPublishIntervalMsVE = 1000;
 
-    private readonly IExInOutput _output;
+    private readonly INLInputOutput _output;
     private readonly ExInSdl _sdlVE;
     private readonly ExInProfileStore _profilesVE;
     private readonly Dictionary<string, ExInCalibrationProfile> _loadedProfilesVE = [];
@@ -59,7 +60,7 @@ public sealed class ExInManager : IAsyncDisposable
         ExInOutputGeneration? PointerCompanion,
         ExInPointerTranslator Pointer);
 
-    public ExInManager(IExInOutput output, NLServiceNovoraPaths paths)
+    public ExInManager(INLInputOutput output, NLServiceNovoraPaths paths)
     {
         _output = output ?? throw new ArgumentNullException(nameof(output));
         ArgumentNullException.ThrowIfNull(paths);
@@ -101,15 +102,30 @@ public sealed class ExInManager : IAsyncDisposable
                     _loadedProfilesVE.TryGetValue(slotIdentity.ProfileKey, out ExInCalibrationProfile? profile))
                     calibration = new(slotIdentity.ProfileKey, "No reportado por SDL3", profile.Deadzone,
                         profile.Center, profile.Minimum, profile.Maximum);
+                ExInCalibrationProgress? progress = _calibratingVE && !protectedVE
+                    ? CalibrationProgressVE(_calibrationMinVE, _calibrationMaxVE)
+                    : null;
                 return new(slot?.Device, slot?.PhysicalName ?? "Sin control físico", visibleState, correctedState, _calibratingVE && !protectedVE, calibrated,
                     CalibrationDeadzoneVE, slot is null ? "Esperando un control físico." :
                     protectedVE ? "Estado del control oculto por Privacy Shield." :
                     _calibratingVE ? "Mueve ambos sticks y gatillos por todo su recorrido." :
                     calibrated ? "Calibración persistente activa para este control." : "Control detectado; calibración opcional.", calibration,
                     protectedVE ? null : slot?.SdlMapping,
-                    protectedVE ? "Traducción oculta por Privacy Shield." : slot?.TranslationTrace ?? "Sin eventos traducidos.");
+                    protectedVE ? "Traducción oculta por Privacy Shield." : slot?.TranslationTrace ?? "Sin eventos traducidos.",
+                    progress);
             }
         }
+    }
+
+    internal static ExInCalibrationProgress CalibrationProgressVE(ExInState minimum, ExInState maximum)
+    {
+        static int Axis(short min, short max) => (int)Math.Clamp(Math.Round((max - min) / 65535d * 100d), 0, 100);
+        static int Trigger(short min, short max) => (int)Math.Clamp(Math.Round((max - min) / 32767d * 100d), 0, 100);
+        return new(
+            Math.Min(Axis(minimum.LeftX, maximum.LeftX), Axis(minimum.LeftY, maximum.LeftY)),
+            Math.Min(Axis(minimum.RightX, maximum.RightX), Axis(minimum.RightY, maximum.RightY)),
+            Trigger(minimum.LeftTrigger, maximum.LeftTrigger),
+            Trigger(minimum.RightTrigger, maximum.RightTrigger));
     }
 
     public bool BeginCalibrationVE()
@@ -858,8 +874,8 @@ public sealed class ExInManager : IAsyncDisposable
                 effective.Buttons.HasFlag(ExInButtons.Touchpad))
                 pointer = pointer with { Buttons = (byte)(pointer.Buttons | 1) };
             sent = await slot.OutputGeneration.SendPointerAsync(pointer, cancellationToken).ConfigureAwait(false);
-            if (sent && pointer.Action != ExInUiAction.None && _output is IExInUiOutput uiOutput)
-                await uiOutput.SendUiActionAsync(pointer.Action, cancellationToken).ConfigureAwait(false);
+            if (sent && pointer.Action != ExInUiAction.None && _output is INLInputUiOutput uiOutput)
+                await uiOutput.SendUiActionAsync((NLInputUiAction)pointer.Action, cancellationToken).ConfigureAwait(false);
         }
         else
         {

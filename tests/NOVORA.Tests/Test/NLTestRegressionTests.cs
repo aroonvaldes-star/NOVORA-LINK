@@ -24,6 +24,21 @@ public sealed class NLTestRegressionTests
     }
 
     [Fact]
+    public void DeviceInfo_uses_adb_usb_evidence_before_serial_shape()
+    {
+        var device = new NLModelDeviceInfo
+        {
+            Serial = "R58TEST:5555",
+            Model = "SM-A566E",
+            Connected = true,
+            AdbTransportDetails = "usb:1-2 product:a15 model:SM_A566E"
+        };
+
+        Assert.False(device.IsWifiConnection);
+        Assert.Equal("USB", device.ConnectionType);
+    }
+
+    [Fact]
     public void MonitorInfo_ToString_returns_visible_label()
     {
         var monitor = new NLModelMonitorInfo(
@@ -85,6 +100,35 @@ public sealed class NLTestRegressionTests
     }
 
     [Fact]
+    public async Task Main_window_has_coordinated_async_close_gate()
+    {
+        var type = typeof(NLUIWindowMain);
+        var cleanupCompleted = type.GetField(
+            "_closeCleanupCompleted14",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        var cleanup = type.GetMethod(
+            "CleanupBeforeClose14Async",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        var closeStep = type.GetMethod(
+            "RunCloseStep14Async",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(cleanupCompleted);
+        Assert.Equal(typeof(bool), cleanupCompleted!.FieldType);
+        Assert.NotNull(cleanup);
+        Assert.Equal(typeof(Task), cleanup!.ReturnType);
+        Assert.NotNull(closeStep);
+        Assert.Equal(typeof(Task), closeStep!.ReturnType);
+
+        Func<Task> failingStep =
+            () => Task.FromException(
+                new InvalidOperationException("expected cleanup failure"));
+        var result = closeStep.Invoke(null, new object[] { failingStep });
+
+        await Assert.IsAssignableFrom<Task>(result);
+    }
+
+    [Fact]
     public void Adb_device_metadata_has_safe_shell_path()
     {
         var safeShell = typeof(NLServiceADB).GetMethod(
@@ -113,6 +157,24 @@ public sealed class NLTestRegressionTests
         {
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    [Fact]
+    public void Adb_devices_l_parser_keeps_only_authorized_devices_with_transport_details()
+    {
+        const string snapshot =
+            "List of devices attached\n" +
+            "R5CY3118MEW device usb:1-2 product:a15 model:SM_A566E transport_id:4\n" +
+            "10.0.0.33:5555 device product:a15 model:SM_A566E transport_id:5\n" +
+            "OFFLINE offline transport_id:6\n" +
+            "UNAUTH unauthorized transport_id:7\n";
+
+        var entries = NLServiceADB.ParseConnectedDeviceEntries(snapshot);
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("R5CY3118MEW", entries[0].Serial);
+        Assert.Contains("usb:1-2", entries[0].Details, StringComparison.Ordinal);
+        Assert.Equal("10.0.0.33:5555", entries[1].Serial);
     }
 
     [Fact]

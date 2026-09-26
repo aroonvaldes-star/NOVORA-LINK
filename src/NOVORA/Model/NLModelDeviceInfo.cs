@@ -16,6 +16,9 @@ public sealed class NLModelDeviceInfo
 
     public bool Connected { get; init; }
 
+    public string AdbTransportDetails { get; init; } =
+        string.Empty;
+
     public string CustomName { get; init; } =
         string.Empty;
 
@@ -51,7 +54,10 @@ public sealed class NLModelDeviceInfo
     /// </summary>
     public bool IsWifiConnection =>
         !string.IsNullOrWhiteSpace(Serial) &&
-        Serial.Contains(':', StringComparison.Ordinal);
+        Serial.Contains(':', StringComparison.Ordinal) &&
+        !AdbTransportDetails.Contains(
+            "usb:",
+            StringComparison.OrdinalIgnoreCase);
 
     public string ConnectionType =>
         IsWifiConnection

@@ -19,6 +19,8 @@ public sealed partial class NLAndroidServiceControl : Service
     private const string Channel = "novora_control";
     private const int NotificationId = 214;
     public const string DisconnectAction = "com.novora.appcontrol.DISCONNECT";
+    public const string ExInModeAction = "com.novora.appcontrol.EXIN_MODE";
+    public const string StopVideoAction = "com.novora.appcontrol.STOP_VIDEO";
     public const string UsbBootstrapAction = "com.novora.appcontrol.USB_BOOTSTRAP";
     public const string UsbBootstrapExtra = "novora.usb";
     public NLControlSession Session { get; } = new();
@@ -45,32 +47,21 @@ public sealed partial class NLAndroidServiceControl : Service
     private long _operation;
     public string? RecoveryMessage { get; private set; }
     public event EventHandler? StatusChanged;
-    private NLAndroidUIFloatingController? _floating;
     private NLAndroidServiceControllerNotifications? _controllerNotifications;
-    private int _visibleUi;
     public bool TransferInProgress { get; private set; }
     public bool BeginFileTransfer()
     {
         if (TransferInProgress || Session.Current.Busy || Session.Current.Phase != NLControlSessionPhase.Connected) return false;
         TransferInProgress = true;
         StatusChanged?.Invoke(this, EventArgs.Empty);
-        _floating?.Update(Session.Current);
         return true;
     }
     public void EndFileTransfer()
     {
         TransferInProgress = false;
         StatusChanged?.Invoke(this, EventArgs.Empty);
-        _floating?.Update(Session.Current);
     }
     public bool CanRememberCurrentPc => _freshInvitation is not null && Session.Current.Phase == NLControlSessionPhase.Connected;
-    public void SetUiForeground(bool foreground)
-    {
-        _visibleUi = Math.Max(0, _visibleUi + (foreground ? 1 : -1));
-        if (foreground) _floating?.RefreshPreferences();
-        _floating?.SetForeground(_visibleUi > 0);
-        _floating?.Update(Session.Current);
-    }
     public IReadOnlyList<NLControlTrustedPc> GetSavedPcs() => _trustedStore.Read();
     private Handler _main = null!;
     private bool _foreground;
@@ -87,7 +78,6 @@ public sealed partial class NLAndroidServiceControl : Service
         base.OnCreate();
         _trustedStore = new NLAndroidStorageTrustedPcs(this);
         _main = new Handler(Looper.MainLooper!);
-        _floating = new NLAndroidUIFloatingController(this, this);
         _controllerNotifications = new NLAndroidServiceControllerNotifications(this);
         var manager = (NotificationManager)GetSystemService(NotificationService)!;
         manager.CreateNotificationChannel(new NotificationChannel(Channel, "Control de NOVORA PC", NotificationImportance.Low)
@@ -103,6 +93,8 @@ public sealed partial class NLAndroidServiceControl : Service
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
     {
         if (intent?.Action == DisconnectAction) _ = DisconnectFromNotificationAsync();
+        else if (intent?.Action == ExInModeAction) _ = SendNotificationCommandAsync("exin.mode", intent.GetStringExtra("mode"));
+        else if (intent?.Action == StopVideoAction) _ = SendNotificationCommandAsync("stopVideo");
         else if (intent?.Action == UsbBootstrapAction)
         {
             string text = intent.GetStringExtra(UsbBootstrapExtra) ?? "";
@@ -276,6 +268,24 @@ public sealed partial class NLAndroidServiceControl : Service
         RenderNotification();
         StatusChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    public async Task SynchronizeExInAsync()
+    {
+        NLControlSessionState state = Session.Current;
+        if (state.Phase != NLControlSessionPhase.Connected ||
+            state.Snapshot?.ExIn is not { Detected: true, Transitioning: false }) return;
+
+        try
+        {
+            await Session.SendAsync("exin.synchronize");
+        }
+        catch (Exception ex) when (ex is IOException or System.Net.Sockets.SocketException or
+                                   System.OperationCanceledException or ObjectDisposedException)
+        {
+            // El recovery de la sesión conserva la propiedad de una pérdida real de transporte.
+        }
+    }
+
     private async Task RecoverAsync(NLControlTrustedPc peer, CancellationTokenSource cancellation, long operation)
     {
         try
@@ -355,7 +365,6 @@ public sealed partial class NLAndroidServiceControl : Service
     {
         var current = Session.Current;
         PublishAutomaticUsbDiagnostics();
-        _floating?.Update(current);
         _controllerNotifications?.Update(current.Generation, current.Snapshot?.ExIn);
         if (_internetStopGeneration >= 0) _ = StopRemoteInternetAfterFailureAsync();
         if (_internetOwned && (current.Transport != "USB" || current.Phase != NLControlSessionPhase.Connected ||
@@ -427,9 +436,45 @@ public sealed partial class NLAndroidServiceControl : Service
             .SetContentText(message).SetStyle(new Notification.BigTextStyle().BigText(message))
             .SetContentIntent(open).SetOnlyAlertOnce(true)
             .SetOngoing(ongoing).SetAutoCancel(!ongoing).SetVisibility(NotificationVisibility.Private)
-            .SetPublicVersion(generic).AddAction(new Notification.Action.Builder(null, "Abrir controles", open).Build());
-        if (ongoing) builder.AddAction(new Notification.Action.Builder(null, "Desconectar", disconnect).Build());
+            .SetPublicVersion(generic);
+        if (ongoing)
+        {
+            AddExInNotificationAction(builder, state);
+            if (state.Snapshot?.Engines?.VideoCanStop == true)
+                builder.AddAction(NotificationServiceAction(216, StopVideoAction, "Detener pantalla"));
+            builder.AddAction(new Notification.Action.Builder(null, "Desconectar", disconnect).Build());
+        }
         return builder.Build();
+    }
+    private void AddExInNotificationAction(Notification.Builder builder, NLControlSessionState state)
+    {
+        if (state.Snapshot?.ExIn is not { Detected: true, Transitioning: false } exIn) return;
+        if (!exIn.CanSetMode) return;
+        bool game = string.Equals(exIn.Mode, "Game", StringComparison.OrdinalIgnoreCase);
+        builder.AddAction(NotificationServiceAction(217, ExInModeAction,
+            game ? "Modo UI" : "Modo Juego", "mode", game ? "Ui" : "Game"));
+    }
+    private Notification.Action NotificationServiceAction(int requestCode, string action, string label,
+        string? extraName = null, string? extraValue = null)
+    {
+        var intent = new Intent(this, typeof(NLAndroidServiceControl)).SetAction(action);
+        if (extraName is not null) intent.PutExtra(extraName, extraValue);
+        var pending = PendingIntent.GetService(this, requestCode, intent,
+            PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable)!;
+        return new Notification.Action.Builder(null, label, pending).Build();
+    }
+    private async Task SendNotificationCommandAsync(string action, string? value = null)
+    {
+        var state = Session.Current;
+        if (state.Phase != NLControlSessionPhase.Connected || state.Busy) return;
+        try
+        {
+            await Session.SendAsync(action, value);
+        }
+        catch (Exception)
+        {
+            Post(RenderNotification);
+        }
     }
     private sealed class NLAndroidServiceNetworkWatch(NLAndroidServiceControl owner) : ConnectivityManager.NetworkCallback
     {
@@ -455,8 +500,6 @@ public sealed partial class NLAndroidServiceControl : Service
     }
     public override void OnDestroy()
     {
-        _floating?.Dispose();
-        _floating = null;
         _controllerNotifications = null;
         NLAndroidVpnService.StatusChanged -= InternetStatusChanged;
         StopLocalInternet();

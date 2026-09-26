@@ -1,0 +1,36 @@
+{
+  "SchemaVersion": 1,
+  "Release": {
+    "PackageId": "com.novora.appcontrol",
+    "VersionCode": 34,
+    "VersionName": "1.4.34",
+    "MinSdk": 26,
+    "TargetSdk": 36,
+    "Sha256": "8F2E6E81FD70B692FD0E370A75A4BC482D598B468D70A0B4A12A61236A4BE405"
+  },
+  "AutomatedVerification": {
+    "DesktopReleaseBuild": "passed: 0 warnings, 0 errors",
+    "AndroidReleaseCompile": "passed: 0 warnings, 0 errors",
+    "SignedAndroidPackage": "passed: package/version/minSdk/targetSdk confirmed",
+    "Tests": "passed: 405/405",
+    "RelayCore": "passed: 34/34, 1 ignored benchmark; release binary rebuilt and bundled",
+    "RepositoryVerification": "passed: 860 files checked"
+  },
+  "PhysicalDevice": {
+    "Serial": "R5CY3118MEW",
+    "Model": "SM_A566E",
+    "Install": "passed: incremental install preserved application data",
+    "Launch": "passed: MainActivity reported Status ok",
+    "InstalledManifest": "passed: versionCode 34, versionName 1.4.34, minSdk 26, targetSdk 36; installed base APK hash matches release",
+    "VisualInspection": "blocked: secure lock screen and NotificationShade retained focus; black capture stored as audit evidence",
+    "UsbAndLanDiscovery": "pending",
+    "VisionEngineStartStop": "pending",
+    "ExInWithVisionFullscreen": "pending",
+    "FilesCaptureRecordingReconnect": "pending"
+  },
+  "StaticContracts": {
+    "EngineOwnership": "UI components own no transport, engine, recovery, or session",
+    "OneActivePhone": true,
+    "ZeroPolling": "event-driven discovery and readiness; no periodic ADB discovery"
+  }
+}

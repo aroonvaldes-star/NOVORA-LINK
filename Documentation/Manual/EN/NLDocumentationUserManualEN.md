@@ -1,57 +1,101 @@
-# User Manual — NOVORA-LINK 1.4 PRERELEASE PRE FINAL
+# User Manual - NOVORA-LINK 1.4 Release
 
-## English — secondary language
+## English - secondary language
+
+Updated: September 23, 2026.
 
 ### 1. What NOVORA-LINK is
-NOVORA-LINK connects a Windows PC with one Android device. The PC application uses a dynamic panel. Android uses the `com.novora.appcontrol` application.
+NOVORA-LINK connects a Windows PC with one active Android device. The PC owns the main session and Android uses the `com.novora.appcontrol` app.
 
-### 2. Connection
-**USB:** connect the phone with USB debugging already authorized. NOVORA prepares the link without relying on constant polling.  
-**LAN:** use PC discovery or invitation/QR when available. Always verify that you are pairing with the correct PC.
+The stable product version is **NOVORA-LINK 1.4**.
 
-NOVORA is designed for **one active Android device per computer**.
+### 2. Release status
+NOVORA-LINK 1.4 is available as the stable Release for Windows and Android. Its validation confirmed:
 
-### 3. Engines
-- **LinkEngine:** provides PC Internet access to Android through NOVORA's tunnel.
-- **VisionEngine:** screen, audio, control, gamepad, exchange and Android↔Windows integration.
-- **STEngine:** technical measurement for NOVORA.
+- Desktop Release: 0 warnings and 0 errors.
+- .NET suite: 405/405 tests passed.
+- RelayCore: 34/34 tests passed; one benchmark remains ignored by design.
+- Android Release: `com.novora.appcontrol` version `1.4.34`, code `34`, minSdk `26`, targetSdk `36`.
+- Canonical and installed APK: SHA-256 `8F2E6E81FD70B692FD0E370A75A4BC482D598B468D70A0B4A12A61236A4BE405`.
+- Samsung SM-A566E `R5CY3118MEW`: incremental install and `MainActivity` launch passed.
+- Windows installer: build, install, launch and uninstall passed.
 
-Each engine has its own recovery scope so one failure should not unnecessarily stop the other engines.
+### 3. Basic requirements
+- Windows 11 is recommended for the PC.
+- One active Android phone per PC.
+- A reliable USB cable for USB mode.
+- USB debugging authorized on the phone when USB is used.
+- A trusted local network when LAN/QR is used.
 
-### 4. Display
-The **Display** panel prepares video profile, resolution, FPS, bitrate, monitor and audio options. Start VisionEngine only when screen sharing/control is needed.
+Do not connect multiple active phones to the same PC session; NOVORA is designed to focus resources on one device.
 
-### 5. Network
-The **Network** panel controls LinkEngine. Congestion/backpressure must not be treated as Recovery by itself.
+### 4. Connection
+**USB:** connect the phone, accept USB debugging authorization and let NOVORA prepare the session. USB is the preferred route for controlled tests and performance work.
 
-### 6. Game Input
-Supported controllers use VisionEngine's SDL/UHID path when the required backend is available.
+**LAN/QR:** use discovery, invitation or QR when available. Before accepting, confirm that the PC name and network are correct.
 
-### 7. Integration
-NOVORA contains infrastructure for clipboard, files, Drag & Drop, sharing, notifications and other Android↔Windows capabilities. Some features depend on their backend being available.
+NOVORA avoids constant polling whenever it can. Repeated Android queries should only be used when there is no practical alternative.
 
-### 8. Privacy
+### 5. Engines
+- **LinkEngine:** provides PC Internet access to Android through the NOVORA tunnel.
+- **VisionEngine:** handles screen, audio, control, gamepad, exchange and Android-Windows integration.
+- **ExInEngine:** translates external input, controllers and control sessions when the backend is available.
+- **STEngine:** measures stability and technical state without forcing bitrate, recovery or engine lifecycle changes.
+
+Each engine keeps its own recovery scope. A failure in one engine should not bring down all of NOVORA or unnecessarily stop independent engines.
+
+### 6. LinkEngine
+The **Network** panel starts and stops LinkEngine. When active, NOVORA prepares the control and data channels used by the tunnel.
+
+Congestion, `WouldBlock`, high queues or backpressure are not by themselves Recovery reasons. Recovery remains a last resort when the engine actually loses its operating state.
+
+### 7. VisionEngine
+The **Display** panel configures resolution, FPS, bitrate, monitor, audio and video profile. Start VisionEngine only when you want to view/control Android from the PC.
+
+VisionEngine uses the transmission component integrated with NOVORA-LINK to display and control Android from the PC.
+
+### 8. ExInEngine and Game Input
+Supported controllers use the SDL/UHID route when the required backend is available. Recent physical validation detected an Xbox One Elite 2 Controller (`045E:028E`) and received live neutral telemetry.
+
+VisionEngine/ExIn coexistence was corrected: each session now uses its own SCID-isolated remote server, preventing VisionEngine from overwriting the ExIn control session.
+
+Pending: test every stick, trigger and button with complete Android-side translation.
+
+### 9. STEngine
+STEngine observes stability and technical state. It should stay passive: it must not change bitrate, recovery, queues or other engine lifecycles on its own.
+
+### 10. Android app
+On Android you will find:
+
+- **Connect:** USB/LAN preparation.
+- **Control:** engines and available tools.
+- **Settings:** options confirmed by the PC.
+- **NOVORA Files:** file functions when the backend is available.
+- **Manual:** Spanish and English content.
+
+The current app package is `com.novora.appcontrol`.
+
+### 11. Android-Windows integration
+NOVORA includes infrastructure for clipboard, files, Drag & Drop, sharing, notifications, capture, recording and other Android-Windows capabilities. Some features depend on their backend being ready and tested.
+
+Do not treat a feature as final just because it exists, builds or appears in the UI. Distinguish between exists, builds, integrated, connected, functional and physically tested.
+
+### 12. Privacy and security
 NOVORA minimizes personal-data storage. It should not unnecessarily store passwords, accounts, emails, contacts, OTP codes, tokens, cookies, clipboard history or private content.
 
 **Privacy Shield** may prevent video exposure, new audio, control, gamepad, clipboard and transfers in sensitive contexts.
 
-### 9. Android application
-On Android:
-- **Connect:** USB/LAN connection.
-- **Control:** engines and tools.
-- **Settings:** options confirmed by the PC.
-- **NOVORA Files:** available file functions.
-- **Manual:** Spanish and English.
+Do not disable antivirus, Windows protections or security controls as a general workaround.
 
-### 10. Updates
+### 13. Updates
 NOVORA may check the official channel when the app opens. It should not continuously poll only to discover updates.
 
-### 11. Troubleshooting
-1. Verify that the phone is still connected/authorized.
-2. Check the affected engine status.
-3. Restart only that engine when possible.
-4. Do not disable Windows security as a general workaround.
-5. Report the first concrete error and the complete NOVORA version.
+Stable updates are published through the official NOVORA-LINK channel.
 
-### 12. Prerelease status
-This folder is **PRERELEASE PRE FINAL**. Physical tests, security, performance, quality and functional verification are still required before a stable publication.
+### 14. Troubleshooting
+1. Verify that the phone is still connected and authorized.
+2. Confirm that you are using the expected APK/version.
+3. Check the affected engine status.
+4. Restart only that engine when possible.
+5. Avoid restarting all of NOVORA when an independent engine can recover.
+6. Report the first concrete error, the complete version and whether it used USB, LAN or QR.

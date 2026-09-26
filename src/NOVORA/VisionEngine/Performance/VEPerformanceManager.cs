@@ -26,11 +26,32 @@ public sealed class VEPerformanceManager
         => VEPerformanceOptions.CreateVE(_profileVE, supportedCodecs);
 
     public VEPerformanceSnapshot EvaluateVE(VEMetricsSnapshot metrics)
+        => EvaluateVE(
+            metrics,
+            applyRecommendation: true);
+
+    public VEPerformanceSnapshot ObserveVE(VEMetricsSnapshot metrics)
+        => EvaluateVE(
+            metrics,
+            applyRecommendation: false);
+
+    private VEPerformanceSnapshot EvaluateVE(
+        VEMetricsSnapshot metrics,
+        bool applyRecommendation)
     {
         ArgumentNullException.ThrowIfNull(metrics);
 
         VEPerformanceCongestion congestion = DetectCongestionVE(metrics);
-        _currentBitrateVE = _bitrateVE.RecommendVE(_currentBitrateVE, congestion);
+        int recommendedBitrate =
+            _bitrateVE.RecommendVE(
+                _currentBitrateVE,
+                congestion);
+
+        if (applyRecommendation)
+        {
+            _currentBitrateVE =
+                recommendedBitrate;
+        }
 
         string reason = congestion switch
         {
@@ -45,7 +66,7 @@ public sealed class VEPerformanceManager
         return new VEPerformanceSnapshot(
             DateTimeOffset.UtcNow,
             congestion,
-            _currentBitrateVE,
+            recommendedBitrate,
             congestion >= VEPerformanceCongestion.Severe,
             metrics.RendererEnabled,
             reason);

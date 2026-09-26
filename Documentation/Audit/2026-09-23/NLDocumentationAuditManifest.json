@@ -1,0 +1,105 @@
+{
+  "generatedAtUtc": "2026-09-23T12:37:32.8032364+00:00",
+  "files": [
+    {
+      "file": "index.diff",
+      "length": 2,
+      "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6"
+    },
+    {
+      "file": "NLDocumentationAccelerationAndOperationalEnvelope.md",
+      "length": 1674,
+      "sha256": "1E4857EEC393339C001563C9BEC430063AD1498262BA5BC35652C64F591E65D8"
+    },
+    {
+      "file": "NLDocumentationAuditAndroidRuntime.json",
+      "length": 565,
+      "sha256": "5375B3A420148127F747241D1851822E2B6EDEA1C67931F7CD1383EFA645E095"
+    },
+    {
+      "file": "NLDocumentationAuditBaseline.md",
+      "length": 857,
+      "sha256": "85EE4723B976F78F285295F1CEB1103565C00EDB02CF93D76CE0E9CCBF35EB42"
+    },
+    {
+      "file": "NLDocumentationAuditCurrentArchitecture.md",
+      "length": 5516,
+      "sha256": "791AF87A50499D6B1121AF519816303F66CADA8CE206F84C3F122AB1285577D6"
+    },
+    {
+      "file": "NLDocumentationAuditDetections.json",
+      "length": 111474,
+      "sha256": "62F3D3001739A0EAAD715DB997805433A1EAEF0E3D09AE4431B6A3E63E808E90"
+    },
+    {
+      "file": "NLDocumentationAuditEnvironment.json",
+      "length": 1612,
+      "sha256": "516949F57011F04AEEDA4A7642C71CBA3A4F64F427AD0C7BAA9F122F94B3036A"
+    },
+    {
+      "file": "NLDocumentationAuditFindings.json",
+      "length": 7508,
+      "sha256": "0975BBAC8C755A754EAB725BF1DE92A95A177BAB67AD940CBCE929A15F0FAB86"
+    },
+    {
+      "file": "NLDocumentationAuditGitState.json",
+      "length": 4256,
+      "sha256": "845C28B075998BB9B07EE75C1D840F7C60822F53EF674DE5C440135830F1F44D"
+    },
+    {
+      "file": "NLDocumentationAuditIndependenceMatrix.json",
+      "length": 3682,
+      "sha256": "5839AA3226CD3A597951AB8E853D24313D38A0B059A148B0E21365D27340F6C6"
+    },
+    {
+      "file": "NLDocumentationAuditProjectGraph.json",
+      "length": 1496,
+      "sha256": "EECD9429557CC820D6059DCAB007C344465B5DA95608546A23F94A2920E827A1"
+    },
+    {
+      "file": "NLDocumentationAuditProjectReferences.json",
+      "length": 1714,
+      "sha256": "3952B37F797CA5326BDE0C8AB0EAA4294D0617DB32416DFDCC5E22A80699FAC2"
+    },
+    {
+      "file": "NLDocumentationAuditRuntimeSnapshot.json",
+      "length": 2152,
+      "sha256": "1C81736F3303B5B624EB2C8E4D6AC74193EEEFB96469BD7EAFFCF467614C2747"
+    },
+    {
+      "file": "NLDocumentationAuditToolManifest.json",
+      "length": 1476,
+      "sha256": "A645174450021F44ED26A78E2421069A03D51D07AF60AA19C0D213525D266D80"
+    },
+    {
+      "file": "NLDocumentationFinalAuditReport.md",
+      "length": 5980,
+      "sha256": "F8708C7E776DE48E5D4B5E2248EEE2D646DB46D35B5213E86BA769A994F6D2FC"
+    },
+    {
+      "file": "NLDocumentationNovoraProtocolAndScrcpyGates.md",
+      "length": 3537,
+      "sha256": "A293A63FF7F7A003BDFB2357A4932715C6DAB5BF71C62BA81D815FD3398652FF"
+    },
+    {
+      "file": "NLDocumentationOperationalBenchmark.schema.json",
+      "length": 1892,
+      "sha256": "702069258467965BF0AA012CC96CB9BF95A34A07C1C2B9C9986FDB46A5BAA1C5"
+    },
+    {
+      "file": "NLDocumentationProcessOwnership.md",
+      "length": 2571,
+      "sha256": "C3614A769A726A00E6805DF0633F0119FB1429261F21592499949BD6261F5397"
+    },
+    {
+      "file": "untracked-files.txt",
+      "length": 4765,
+      "sha256": "06CFF15C2F36D45B0B221A07AC72FFA7359535D9A685CBCBB8250FFA81C4737A"
+    },
+    {
+      "file": "working-tree.diff",
+      "length": 126739,
+      "sha256": "DC2232352B5C2F27494574B7748EBAA63AC1E12C6695CD1D3F18EBE42E49C1C6"
+    }
+  ]
+}

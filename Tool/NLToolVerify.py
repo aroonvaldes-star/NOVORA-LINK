@@ -82,7 +82,11 @@ for path in ROOT.rglob("*"):
         continue
 
     if rels.startswith("Documentation/"):
-        if name.endswith((".md", ".json", ".html", ".txt")) and not name.startswith("NLDocumentation"):
+        is_audit_support = rels.startswith("Documentation/Audit/") and (
+            name.startswith("ADR-") or name in {"untracked-files.txt"}
+        )
+        if (name.endswith((".md", ".json", ".html", ".txt"))
+                and not name.startswith("NLDocumentation") and not is_audit_support):
             issues.append(f"Documentation file must use NLDocumentation prefix: {rels}")
         checked += 1
         continue
@@ -117,6 +121,16 @@ for path in ROOT.rglob("*"):
     if rels.startswith("src/NOVORA/STEngine/"):
         if path.suffix.lower() == ".cs" and not name.startswith("ST"):
             issues.append(f"STEngine owned file must use ST prefix: {rels}")
+        checked += 1
+        continue
+
+    if rels.startswith("src/NOVORA/ExInEngine/"):
+        if path.suffix.lower() == ".cs" and not name.startswith("ExIn"):
+            issues.append(f"ExInEngine owned file must use ExIn prefix: {rels}")
+        checked += 1
+        continue
+
+    if rels == "src/NOVORA/Integration/ExInControlSession.cs":
         checked += 1
         continue
 

@@ -1,10 +1,11 @@
 using NOVORA.Service;
+using NOVORA.ExInEngine;
 using NOVORA.VisionEngine.Control;
 using NOVORA.VisionEngine.Device;
 using NOVORA.VisionEngine.Server;
 using NOVORA.VisionEngine.Transport;
 
-namespace NOVORA.ExInEngine;
+namespace NOVORA.Integration;
 
 public sealed class ExInControlSession : IAsyncDisposable
 {

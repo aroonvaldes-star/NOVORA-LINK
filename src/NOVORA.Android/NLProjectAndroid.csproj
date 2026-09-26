@@ -7,8 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>NOVORA.AndroidApp</RootNamespace>
     <ApplicationId>com.novora.appcontrol</ApplicationId>
-    <ApplicationVersion>28</ApplicationVersion>
-    <ApplicationDisplayVersion>1.4.28</ApplicationDisplayVersion>
+    <ApplicationVersion>34</ApplicationVersion>
+    <ApplicationDisplayVersion>1.4.34</ApplicationDisplayVersion>
     <ApplicationTitle>NOVORA-LINK</ApplicationTitle>
     <AndroidManifest>Properties\NLPropertiesAndroidManifest.xml</AndroidManifest>
     <AndroidPackageFormats>apk</AndroidPackageFormats>
@@ -22,8 +22,12 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\NOVORA\Control\NLControlProtocol.cs" Link="Control\NLControlProtocol.cs" />
-    <Compile Include="..\NOVORA\Control\NLControlFloatingDockState.cs" Link="Control\NLControlFloatingDockState.cs" />
     <Compile Include="..\NOVORA\Control\NLControlClient.cs" Link="Control\NLControlClient.cs" />
+    <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolCodec.cs" Link="VisionEngine\Protocol\VEProtocolCodec.cs" />
+    <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolConstants.cs" Link="VisionEngine\Protocol\VEProtocolConstants.cs" />
+    <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolExtensions.cs" Link="VisionEngine\Protocol\VEProtocolExtensions.cs" />
+    <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolSession.cs" Link="VisionEngine\Protocol\VEProtocolSession.cs" />
+    <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolWriter.cs" Link="VisionEngine\Protocol\VEProtocolWriter.cs" />
     <AndroidResource Include="..\NOVORA\Asset\NLAssetNovoraLogo.png" Link="Resources\drawable\novora_logo.png" />
     <AndroidResource Include="..\NOVORA\Asset\NLAssetBienvenido.png" Link="Resources\drawable\novora_welcome.png" />
   </ItemGroup>

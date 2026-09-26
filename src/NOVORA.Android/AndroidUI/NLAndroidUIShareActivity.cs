@@ -19,7 +19,7 @@ public sealed class NLAndroidUIShareActivity : Activity
     private readonly List<Uri> _uris = new();
     private NLAndroidServiceControl? _service;
     private Connection? _connection;
-    private bool _bound, _sending, _destroyed, _started, _uiRegistered;
+    private bool _bound, _sending, _destroyed;
     private CancellationTokenSource? _cancel;
     private TextView _status = null!;
     private TextView _selection = null!;
@@ -144,17 +144,6 @@ public sealed class NLAndroidUIShareActivity : Activity
             if (!_destroyed) { _pick.Enabled = true; _stop.Enabled = false; _send.Enabled = false; }
         }
     }
-    protected override void OnStart()
-    {
-        base.OnStart(); _started = true;
-        if (_service is { } service && !_uiRegistered) { service.SetUiForeground(true); _uiRegistered = true; }
-    }
-    protected override void OnStop()
-    {
-        _started = false;
-        if (_service is { } service && _uiRegistered) { service.SetUiForeground(false); _uiRegistered = false; }
-        base.OnStop();
-    }
     protected override void OnSaveInstanceState(Bundle outState)
     {
         outState.PutStringArray("uris", _uris.Select(x => x.ToString()!).ToArray());
@@ -173,7 +162,6 @@ public sealed class NLAndroidUIShareActivity : Activity
         {
             if (owner._destroyed || binder is not NLAndroidServiceControl.NLAndroidServiceBinder service) return;
             owner._service = service.Owner; owner._service.Session.Changed += owner.Changed; owner.UpdateSession();
-            if (owner._started && !owner._uiRegistered) { service.Owner.SetUiForeground(true); owner._uiRegistered = true; }
         }
         public void OnServiceDisconnected(ComponentName? name) { owner._cancel?.Cancel(); owner._service = null; owner.UpdateSession(); }
     }

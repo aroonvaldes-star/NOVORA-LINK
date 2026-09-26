@@ -1,8 +1,10 @@
+using NOVORA.Contracts.Input;
+
 namespace NOVORA.ExInEngine;
 
 public sealed class ExInOutputGeneration : IAsyncDisposable
 {
-    private readonly IExInOutput _outputVE;
+    private readonly INLInputOutput _outputVE;
     private readonly Func<ExInInputMode, ExInOutputProfile> _profileFactoryVE;
     private readonly SemaphoreSlim _transitionVE = new(1, 1);
     private ExInOutputProfile _currentVE;
@@ -11,7 +13,7 @@ public sealed class ExInOutputGeneration : IAsyncDisposable
     private bool _disposedVE;
 
     public ExInOutputGeneration(
-        IExInOutput output,
+        INLInputOutput output,
         ExInOutputProfile initialProfile,
         Func<ExInInputMode, ExInOutputProfile> profileFactory)
     {
@@ -35,7 +37,7 @@ public sealed class ExInOutputGeneration : IAsyncDisposable
             if (!_outputVE.IsReady) return;
             try
             {
-                await _outputVE.CreateAsync(_currentVE.Device, _currentVE.Descriptor, cancellationToken).ConfigureAwait(false);
+                await _outputVE.CreateAsync(ToContractVE(_currentVE.Device), _currentVE.Descriptor, cancellationToken).ConfigureAwait(false);
                 _createdVE = true;
                 await _outputVE.SendAsync(_currentVE.Device.UhidId, _currentVE.NeutralReport, cancellationToken).ConfigureAwait(false);
             }
@@ -74,7 +76,7 @@ public sealed class ExInOutputGeneration : IAsyncDisposable
                     await _outputVE.SendAsync(previous.Device.UhidId, previous.NeutralReport, cancellationToken).ConfigureAwait(false);
                     await _outputVE.DestroyAsync(previous.Device.UhidId, cancellationToken).ConfigureAwait(false);
                 }
-                await _outputVE.CreateAsync(next.Device, next.Descriptor, cancellationToken).ConfigureAwait(false);
+                await _outputVE.CreateAsync(ToContractVE(next.Device), next.Descriptor, cancellationToken).ConfigureAwait(false);
                 await _outputVE.SendAsync(next.Device.UhidId, next.NeutralReport, cancellationToken).ConfigureAwait(false);
                 _currentVE = next;
                 _createdVE = true;
@@ -86,7 +88,7 @@ public sealed class ExInOutputGeneration : IAsyncDisposable
                 bool restored = false;
                 try
                 {
-                    await _outputVE.CreateAsync(previous.Device, previous.Descriptor, CancellationToken.None).ConfigureAwait(false);
+                    await _outputVE.CreateAsync(ToContractVE(previous.Device), previous.Descriptor, CancellationToken.None).ConfigureAwait(false);
                     await _outputVE.SendAsync(previous.Device.UhidId, previous.NeutralReport, CancellationToken.None).ConfigureAwait(false);
                     _createdVE = true;
                     restored = true;
@@ -114,7 +116,7 @@ public sealed class ExInOutputGeneration : IAsyncDisposable
             bool created = false;
             try
             {
-                await _outputVE.CreateAsync(_currentVE.Device, _currentVE.Descriptor, cancellationToken).ConfigureAwait(false);
+                await _outputVE.CreateAsync(ToContractVE(_currentVE.Device), _currentVE.Descriptor, cancellationToken).ConfigureAwait(false);
                 created = true;
                 await _outputVE.SendAsync(_currentVE.Device.UhidId, _currentVE.NeutralReport, cancellationToken).ConfigureAwait(false);
                 _createdVE = true;
@@ -213,4 +215,7 @@ public sealed class ExInOutputGeneration : IAsyncDisposable
             _transitionVE.Release();
         }
     }
+
+    private static NLInputDevice ToContractVE(ExInDevice device)
+        => new(device.UhidId, device.Name, device.VendorId, device.ProductId);
 }

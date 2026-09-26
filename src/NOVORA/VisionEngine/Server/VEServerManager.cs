@@ -75,13 +75,15 @@ public sealed class VEServerManager
                 LastError: null));
 
         Process? processToCleanupVE = null;
+        string remoteServerPath =
+            VEProtocolConstants.BuildRemoteServerPathVE(tunnel.Scid);
 
         try
         {
             await _adb.PushAsync(
                     device.Serial,
                     _paths.ScrcpyServer,
-                    VEProtocolConstants.RemoteServerPathVE,
+                    remoteServerPath,
                     cancellationToken)
                 .ConfigureAwait(false);
 
@@ -97,7 +99,8 @@ public sealed class VEServerManager
                 CreateStartInfoVE(
                     device,
                     tunnel,
-                    options);
+                    options,
+                    remoteServerPath);
 
             Process process =
                 Process.Start(startInfo)
@@ -214,7 +217,8 @@ public sealed class VEServerManager
     private ProcessStartInfo CreateStartInfoVE(
         VEDeviceSession device,
         VETransportTunnel tunnel,
-        VEServerOptions options)
+        VEServerOptions options,
+        string remoteServerPath)
     {
         ProcessStartInfo startInfo =
             new()
@@ -231,7 +235,7 @@ public sealed class VEServerManager
         startInfo.ArgumentList.Add(device.Serial);
         startInfo.ArgumentList.Add("shell");
         startInfo.ArgumentList.Add(
-            $"CLASSPATH={VEProtocolConstants.RemoteServerPathVE}");
+            $"CLASSPATH={remoteServerPath}");
         startInfo.ArgumentList.Add("app_process");
         startInfo.ArgumentList.Add("/");
         startInfo.ArgumentList.Add(

@@ -206,27 +206,52 @@
             </Grid.RowDefinitions>
 
             <!-- TOP TITLE BAR -->
-            <Border Grid.Row="0" Background="{DynamicResource TitleBarBrush}">
-                <Grid MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Border Grid.Row="0"
+                    Background="{DynamicResource TitleBarBrush}"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid Margin="18,0,8,0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="286"/>
-                        <ColumnDefinition/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <Image
-                           Source="Asset/NLAssetNOVORABRAND.png"
-                           Width="266"
-                           Stretch="Uniform"
-                           HorizontalAlignment="Center"
-                           Margin="0,-6,0,0"
-                           IsHitTestVisible="False"/>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="/Asset/NLAssetNOVORABRAND.png"
+                               Width="281"
+                               Height="54"
+                               Stretch="Uniform"
+                               VerticalAlignment="Center"/>
+                        <TextBlock Text="1.4"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="18"
+                                   Margin="10,1,0,0"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
 
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,12,0" Height="0"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding DeviceDisplayName}"
+                               Foreground="{DynamicResource MutedBrush}"
+                               FontSize="12"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
 
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,10,0" VerticalAlignment="Center" Height="34">
-                        <Button Content="—" Style="{StaticResource NvWindowButtonStyle}" Click="Minimize_Click" ToolTip="Minimizar"/>
-                        <Button Content="✕" Style="{StaticResource NvWindowButtonStyle}" Click="Close_Click" ToolTip="Cerrar"/>
+                    <StackPanel Grid.Column="2"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <Button Content="➖"
+                                FontFamily="Segoe MDL2 Assets"
+                                AutomationProperties.Name="Minimizar NOVORA"
+                                ToolTip="Minimizar"
+                                Style="{StaticResource NvWindowButtonStyle}"
+                                Click="Minimize_Click"/>
+                        <Button Content="✖️"
+                                FontFamily="Segoe MDL2 Assets"
+                                AutomationProperties.Name="Cerrar NOVORA"
+                                ToolTip="Cerrar"
+                                Style="{StaticResource NvWindowButtonStyle}"
+                                Click="Close_Click"/>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -287,39 +312,39 @@
 
                         <StackPanel Margin="10,12,10,0">
                             <Button x:Name="NavHome14" Tag="Home" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}">
-                                <StackPanel Orientation="Horizontal">
+                                <StackPanel Orientation="Horizontal" Width="88">
                                     <TextBlock Text="⌂" FontSize="20" Width="34"/>
                                     <TextBlock Text="Inicio" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                             <Button x:Name="NavScreen14" Tag="Screen" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="VisionEngine" VerticalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" Width="78">
+                                    <TextBlock Text="VisionEngine" Width="80"/>
                                 </StackPanel>
                             </Button>
                             <Button x:Name="NavNetwork14" Tag="Network" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}">
-                                <StackPanel Orientation="Horizontal">
+                                <StackPanel Orientation="Horizontal" Width="67">
                                     <TextBlock Text="LinkEngine" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                             <Button x:Name="NavPerformance14" Tag="Performance" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="STEngine" VerticalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" Width="57">
+                                    <TextBlock Text="STEngine" Width="66"/>
                                 </StackPanel>
                             </Button>
                             <Button x:Name="NavGameInput14" Tag="GameInput" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="ExInEngine" VerticalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" Width="70">
+                                    <TextBlock Text="ExInEngine" Width="68"/>
                                 </StackPanel>
                             </Button>
                             <Button x:Name="NavIntegration14" Tag="Integration" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}">
-                                <StackPanel Orientation="Horizontal">
+                                <StackPanel Orientation="Horizontal" Width="107">
                                     <TextBlock Text="↔" FontSize="20" Width="34"/>
                                     <TextBlock Text="Integración" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                             <Button x:Name="NavPrivacy14" Tag="Privacy" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}">
-                                <StackPanel Orientation="Horizontal">
+                                <StackPanel Orientation="Horizontal" Width="106">
                                     <TextBlock Text="◆" FontSize="18" Width="34"/>
                                     <TextBlock Text="Privacidad" VerticalAlignment="Center"/>
                                 </StackPanel>
@@ -329,8 +354,8 @@
                         <StackPanel Grid.Row="2" Margin="10,0,10,12">
                             <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="8,0,8,8"/>
                             <Button x:Name="NavSettings14" Tag="Settings" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="⚙" FontSize="18" Width="34"/>
+                                <StackPanel Orientation="Horizontal" Width="123">
+                                    <TextBlock Text="🛠️" FontSize="18" Width="34"/>
                                     <TextBlock Text="Configuración" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
@@ -620,7 +645,7 @@
                                             <ComboBoxItem Tag="Stream" Content="Stream"/>
                                         </ComboBox>
 
-                                        <TextBlock Text="Por ahora, los perfiles NVIDIA habilitados comparten los mismos ajustes. No añaden interpolación ni mejoras de imagen."
+                                        <TextBlock Text="NVIDIA es opcional. NOVORA sólo marca NVDEC activo cuando VisionEngine decodifica frames reales por esa ruta; si no, usa FFmpeg."
                                                    Style="{StaticResource NvCaptionStyle}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                                         <TextBlock x:Name="NvidiaPipelineText14"
                                                    Text="Pipeline: FFmpeg"
@@ -844,12 +869,33 @@
                                 </Border>
                                 <Border Grid.Column="2" Style="{StaticResource NvCardStyle}">
                                     <StackPanel>
-                                        <TextBlock Text="Calibración" Style="{StaticResource NvSectionTitleStyle}"/>
-                                        <UniformGrid Columns="4" Margin="0,10,0,0">
-                                            <Button x:Name="ExInCalibrationStartButton14" Content="INICIAR" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationStart_Click" Margin="0,0,4,0"/>
-                                            <Button x:Name="ExInCalibrationFinishButton14" Content="APLICAR" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationFinish_Click" Margin="4,0"/>
-                                            <Button x:Name="ExInCalibrationResetButton14" Content="LIMPIAR" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationReset_Click" Margin="4,0,0,0"/>
-                                            <Button x:Name="ExInWindowsCalibrationButton14" Content="WINDOWS" ToolTip="Abrir calibración de controles de Windows" Style="{StaticResource NvFlatButtonStyle}" Click="ExInWindowsCalibration_Click" Margin="4,0,0,0"/>
+                                        <TextBlock Text="Calibración guiada" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <TextBlock x:Name="ExInCalibrationGuideText14" Text="Deja el mando quieto y pulsa INICIAR." Foreground="{DynamicResource TextBrush}" FontSize="14" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                        <ProgressBar x:Name="ExInCalibrationOverallProgress14" Minimum="0" Maximum="100" Value="0" Style="{StaticResource NvMetricProgressStyle}" Margin="0,10,0,8"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition/>
+                                                <ColumnDefinition Width="12"/>
+                                                <ColumnDefinition/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock x:Name="ExInCalibrationLeftText14" Text="Stick izquierdo · 0%" Style="{StaticResource NvCaptionStyle}"/>
+                                                <ProgressBar x:Name="ExInCalibrationLeftProgress14" Minimum="0" Maximum="100" Value="0" Style="{StaticResource NvMetricProgressStyle}" Margin="0,4,0,7"/>
+                                                <TextBlock x:Name="ExInCalibrationLeftTriggerText14" Text="Gatillo izquierdo · 0%" Style="{StaticResource NvCaptionStyle}"/>
+                                                <ProgressBar x:Name="ExInCalibrationLeftTriggerProgress14" Minimum="0" Maximum="100" Value="0" Style="{StaticResource NvMetricProgressStyle}" Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock x:Name="ExInCalibrationRightText14" Text="Stick derecho · 0%" Style="{StaticResource NvCaptionStyle}"/>
+                                                <ProgressBar x:Name="ExInCalibrationRightProgress14" Minimum="0" Maximum="100" Value="0" Style="{StaticResource NvMetricProgressStyle}" Margin="0,4,0,7"/>
+                                                <TextBlock x:Name="ExInCalibrationRightTriggerText14" Text="Gatillo derecho · 0%" Style="{StaticResource NvCaptionStyle}"/>
+                                                <ProgressBar x:Name="ExInCalibrationRightTriggerProgress14" Minimum="0" Maximum="100" Value="0" Style="{StaticResource NvMetricProgressStyle}" Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <UniformGrid Columns="4" Margin="0,12,0,0">
+                                            <Button x:Name="ExInCalibrationStartButton14" Content="INICIAR" ToolTip="Primero deja sticks y gatillos en reposo" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationStart_Click" Margin="0,0,4,0"/>
+                                            <Button x:Name="ExInCalibrationFinishButton14" Content="GUARDAR" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationFinish_Click" Margin="4,0"/>
+                                            <Button x:Name="ExInCalibrationResetButton14" Content="RESTABLECER" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationReset_Click" Margin="4,0"/>
+                                            <Button x:Name="ExInWindowsCalibrationButton14" Content="WINDOWS" ToolTip="Abrir controles de juego de Windows" Style="{StaticResource NvFlatButtonStyle}" Click="ExInWindowsCalibration_Click" Margin="4,0,0,0"/>
                                         </UniformGrid>
                                         <TextBlock x:Name="ExInCalibrationText14" Text="Sin perfil activo" Style="{StaticResource NvCaptionStyle}" Margin="0,10,0,0"/>
                                         <TextBlock x:Name="ExInMappingText14" Text="Mapping SDL no disponible" Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0" TextWrapping="Wrap"/>
@@ -891,6 +937,35 @@
                                     <TextBlock Text="Capacidades activas" Style="{StaticResource NvSectionTitleStyle}"/>
                                     <TextBlock x:Name="IntegrationStatusText14" Text="Clipboard · archivos · Drag &amp; Drop" Foreground="{DynamicResource TextBrush}" FontSize="15" Margin="0,8,0,0" TextWrapping="Wrap"/>
                                 </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,14">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Margin="0,0,18,0">
+                                        <TextBlock x:Name="AndroidPackageTitle" Text="NOVORA Android" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <TextBlock x:Name="AndroidInstallStatus"
+                                                   Text="Comprobando el paquete Android..."
+                                                   Style="{StaticResource NvCaptionStyle}"
+                                                   Margin="0,6,0,0"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button x:Name="AndroidInstallButton"
+                                                Content="INSTALAR NOVORA POR USB"
+                                                Style="{StaticResource NvPrimaryButtonStyle}"
+                                                Click="InstallAndroidApp_Click"
+                                                IsEnabled="False"
+                                                Margin="0,0,10,0"/>
+                                        <Button x:Name="AndroidInstallRefreshButton"
+                                                Content="COMPROBAR APP"
+                                                Style="{StaticResource NvFlatButtonStyle}"
+                                                Click="RefreshAndroidInstallation_Click"
+                                                IsEnabled="True"/>
+                                    </StackPanel>
+                                </Grid>
                             </Border>
                             <UniformGrid Columns="2" Rows="3">
                                 <Border Style="{StaticResource NvCardStyle}" Margin="0,0,7,7">
@@ -1039,17 +1114,6 @@
             <Grid Visibility="Collapsed">
                 <Button x:Name="RefreshDevicesButton"
                         Click="RefreshDevices_Click"/>
-
-                <Button x:Name="AndroidInstallButton"
-                    Content="INSTALAR NOVORA POR USB"
-                    IsEnabled="False"/>
-
-                <Button x:Name="AndroidInstallRefreshButton"
-                    Content="COMPROBAR APP"
-                    IsEnabled="True"/>
-
-                <TextBlock x:Name="AndroidInstallStatus"
-                       Text="Comprobando..."/>
 
                 <TextBlock x:Name="AndroidControlStatus"
                        Text="Control detenido."/>

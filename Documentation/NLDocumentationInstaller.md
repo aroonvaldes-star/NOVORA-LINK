@@ -72,7 +72,7 @@ Archivos, capturas y grabaciones: se guardan en el Escritorio real de Windows, d
 - Al usar LAN, Windows puede pedir permiso de red. Revisa que se trate de NOVORA y de tu red privada. No desactives el firewall completo.
 - Esta revisión comprueba una vez al abrir si existe una release oficial posterior y muestra un enlace para verla. La descarga e instalación requieren tu acción. Las revisiones experimentales se descargan manualmente; no se anuncian como versiones oficiales.
 - La carpeta de instalación experimental es independiente, pero la aplicación conserva su ubicación de preferencias %LOCALAPPDATA%\NOVORA. No se promete aislamiento de ajustes respecto de otras copias de NOVORA; evita ejecutarlas simultáneamente.
-- La grabación requiere H.264 y audio del teléfono activos. H.265/AV1 no están habilitados para grabación. Ocultar la burbuja en capturas es experimental. Compartir admite hasta 100 archivos por selección y 2 GiB por archivo.
+- La grabación requiere H.264 y audio del teléfono activos. H.265/AV1 no están habilitados para grabación. NOVORA no dibuja controles superpuestos; el control operativo permanece en la notificación. Compartir admite hasta 100 archivos por selección y 2 GiB por archivo.
 
 ## 7. Qué está comprobado y qué sigue pendiente
 
