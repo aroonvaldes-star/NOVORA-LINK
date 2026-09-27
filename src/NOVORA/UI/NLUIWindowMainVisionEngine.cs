@@ -1223,11 +1223,6 @@ public partial class NLUIWindowMain
         Show();
         Activate();
 
-        if (refreshInformation)
-        {
-            _ =
-                RefreshPerformanceOnceAsync();
-        }
     }
 
     // ============================================================
@@ -1610,7 +1605,6 @@ public partial class NLUIWindowMain
         object? sender,
         VECoreStatus status)
     {
-        RefreshSTEngineSnapshot14();
 
         bool stateChanged =
             _lastVisionStateVE !=
@@ -1654,7 +1648,6 @@ public partial class NLUIWindowMain
 
                         UpdateRuntimeButtons();
 
-                        ApplySTEngineShell14();
 
                         switch (status.State)
                         {
@@ -1742,6 +1735,18 @@ public partial class NLUIWindowMain
     private bool TryStartVisionRecoveryVE(
         VECoreStatus status)
     {
+        if (_visionEngineVE?.RuntimeVE.IsAppControlVideoActiveVE == true)
+        {
+            _activeVisionSerialVE = null;
+            SetVisionEngineStatus14(
+                "ERROR",
+                failed: true);
+            _viewModel.ConnectionStatus =
+                $"VisionEngine AppControl se detuvo: {status.LastError ?? status.Message}. Autoriza una sesión nueva desde Android.";
+            _ = StopAppControlVideoSourceAsync();
+            return false;
+        }
+
         if (
             _visionRecoveryRunningVE ||
             _visionRecoveryAttemptsVE >=

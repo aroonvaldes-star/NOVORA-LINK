@@ -7,6 +7,29 @@ namespace NOVORA.Tests;
 public sealed class NLTestAndroidUsbAutomatic
 {
     [Fact]
+    public void AutomaticUsbReconnectionChangesEpochForSameSerial()
+    {
+        var policy = new NLControlUsbAutoPolicy();
+
+        Assert.True(policy.Observe("PHONE", true, false, true, "PHONE|transport_id:2"));
+        Assert.True(policy.TryBegin(false));
+        long firstEpoch = policy.Epoch;
+
+        Assert.True(policy.Observe("PHONE", true, false, true, "PHONE|transport_id:3"));
+        Assert.NotEqual(firstEpoch, policy.Epoch);
+        Assert.True(policy.TryBegin(false));
+    }
+
+    [Fact]
+    public void AutomaticUsbParsesLongTrackDevicesTransportIdentity()
+    {
+        const string snapshot = "PHONE device product:x model:y transport_id:17\nOTHER offline transport_id:18";
+
+        Assert.Equal("PHONE|transport_id:17",
+            NLControlUsbAutoPolicy.ParseTransportIdentity(snapshot, "PHONE"));
+    }
+
+    [Fact]
     public void AutomaticUsbPrefersPhysicalTransportWhenWifiEntryIsSelected()
     {
         var candidates = new[]

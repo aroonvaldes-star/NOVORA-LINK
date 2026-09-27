@@ -6,6 +6,7 @@ using NOVORA.Service;
 using NOVORA.VisionEngine.Core;
 using NOVORA.VisionEngine.Protocol;
 using NOVORA.VisionEngine.Transport;
+using NOVORA.VisionEngine.Control;
 using Xunit;
 
 namespace NOVORA.Tests;
@@ -22,6 +23,8 @@ public sealed class NLTestAppControlVideoTransport
         Task<TcpClient> accepting = listener.AcceptTcpClientAsync();
         await sender.ConnectAsync(IPAddress.Loopback, port);
         using TcpClient receiver = await accepting;
+        await using MemoryStream control = new();
+        await using MemoryStream audio = CreateRawAudioStream();
         listener.Stop();
 
         var writer = new VEProtocolWriter(sender.GetStream());
@@ -34,7 +37,9 @@ public sealed class NLTestAppControlVideoTransport
 
         var started = await engine.StartAppControlAsync(
             "R5CY3118MEW",
-            receiver.GetStream());
+            receiver.GetStream(),
+            control,
+            audio);
 
         Assert.True(started.Success, started.Message);
         Assert.True(engine.IsRunningVE);
@@ -53,13 +58,15 @@ public sealed class NLTestAppControlVideoTransport
         Task<TcpClient> accepting = listener.AcceptTcpClientAsync();
         await sender.ConnectAsync(IPAddress.Loopback, port);
         using TcpClient receiver = await accepting;
+        await using MemoryStream control = new();
+        await using MemoryStream audio = CreateRawAudioStream();
         listener.Stop();
 
         var writer = new VEProtocolWriter(sender.GetStream());
         await writer.WriteVideoSessionAsync(VEProtocolCodec.H264, new VEProtocolSession(720, 1280, false));
         await using var engine = new VECoreEngine(new NLServiceNovoraPaths());
         Assert.True((await engine.InitializeAsync()).Success);
-        Assert.True((await engine.StartAppControlAsync("R5CY3118MEW", receiver.GetStream())).Success);
+        Assert.True((await engine.StartAppControlAsync("R5CY3118MEW", receiver.GetStream(), control, audio)).Success);
 
         sender.Dispose();
         await WaitUntilAsync(() => !engine.IsRunningVE, TimeSpan.FromSeconds(5));
@@ -114,7 +121,8 @@ public sealed class NLTestAppControlVideoTransport
     [Fact]
     public void AppControl_offer_carries_only_bounded_encoder_settings()
     {
-        var offer = new NLControlVideoSourceOffer(27215, new string('A', 64), 4_000_000, 1920, 60);
+        var offer = new NLControlVideoSourceOffer(27215, new string('A', 64), 4_000_000, 1920, 60,
+            27216, new string('B', 64), 27217, new string('C', 64));
 
         var restored = JsonSerializer.Deserialize<NLControlVideoSourceOffer>(
             JsonSerializer.Serialize(offer));
@@ -123,6 +131,10 @@ public sealed class NLTestAppControlVideoTransport
         Assert.Equal(4_000_000, restored!.Bitrate);
         Assert.Equal(1920, restored.MaxSize);
         Assert.Equal(60, restored.Fps);
+        Assert.Equal(27216, restored.ControlPort);
+        Assert.Equal(new string('B', 64), restored.ControlToken);
+        Assert.Equal(27217, restored.AudioPort);
+        Assert.Equal(new string('C', 64), restored.AudioToken);
     }
 
     [Theory]
@@ -132,6 +144,24 @@ public sealed class NLTestAppControlVideoTransport
     public void AppControl_video_mapping_requires_exact_USB_route(string output, bool expected)
     {
         Assert.Equal(expected, NLUIWindowMain.HasAppControlVideoMapping(output));
+    }
+
+    [Theory]
+    [InlineData("usb tcp:27216 tcp:27216", true)]
+    [InlineData("usb tcp:27216 tcp:30000", false)]
+    [InlineData("usb tcp:27215 tcp:27215", false)]
+    public void AppControl_control_mapping_requires_exact_USB_route(string output, bool expected)
+    {
+        Assert.Equal(expected, NLUIWindowMain.HasAppControlControlMapping(output));
+    }
+
+    [Theory]
+    [InlineData("usb tcp:27217 tcp:27217", true)]
+    [InlineData("usb tcp:27217 tcp:30000", false)]
+    [InlineData("usb tcp:27216 tcp:27216", false)]
+    public void AppControl_audio_mapping_requires_exact_USB_route(string output, bool expected)
+    {
+        Assert.Equal(expected, NLUIWindowMain.HasAppControlAudioMapping(output));
     }
 
     [Fact]
@@ -164,5 +194,33 @@ public sealed class NLTestAppControlVideoTransport
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => accepting);
         Assert.False(transport.IsConnectedVE);
+    }
+
+    [Fact]
+    public async Task AppControl_control_uses_the_native_framed_protocol()
+    {
+        await using var stream = new MemoryStream();
+        await using var control = new VEControlManager();
+        await control.StartNativeAsync(stream);
+
+        await control.SendAsync(VEControlMessage.TouchVE(
+            VEControlActionMotion.Up, 7, 120, 240, 720, 1280, 1f, 0, 1));
+
+        stream.Position = 0;
+        NLControlInputCommand command = await NLControlProtocol.ReadAsync<NLControlInputCommand>(
+            stream, CancellationToken.None);
+        Assert.Equal((int)VEControlType.InjectTouchEvent, command.Type);
+        Assert.Equal(120, command.X);
+        Assert.Equal(240, command.Y);
+        Assert.Equal((ushort)720, command.ScreenWidth);
+        Assert.Equal((ushort)1280, command.ScreenHeight);
+    }
+
+    private static MemoryStream CreateRawAudioStream()
+    {
+        var stream = new MemoryStream();
+        stream.Write([(byte)0x00, (byte)'r', (byte)'a', (byte)'w']);
+        stream.Position = 0;
+        return stream;
     }
 }

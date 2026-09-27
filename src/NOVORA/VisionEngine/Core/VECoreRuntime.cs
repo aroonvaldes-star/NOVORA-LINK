@@ -136,7 +136,7 @@ public sealed class VECoreRuntime : IAsyncDisposable
     {
         ThrowIfDisposedVE();
         cancellationToken.ThrowIfCancellationRequested();
-        ValidateBlockDToolsVE();
+        ValidateRuntimeToolsVE();
         NvidiaVE.EvaluateVE();
         ApplyPrivacyStateVE(PrivacyVE.StatusVE);
         _initialized = true;
@@ -196,10 +196,14 @@ public sealed class VECoreRuntime : IAsyncDisposable
 
     public async Task StartAppControlAsync(
         Stream videoStream,
+        Stream controlStream,
+        Stream audioStream,
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposedVE();
         ArgumentNullException.ThrowIfNull(videoStream);
+        ArgumentNullException.ThrowIfNull(controlStream);
+        ArgumentNullException.ThrowIfNull(audioStream);
         if (!_initialized) throw new InvalidOperationException("VECoreRuntime debe inicializarse antes de iniciar.");
 
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -208,7 +212,9 @@ public sealed class VECoreRuntime : IAsyncDisposable
             if (IsRunningVE) throw new InvalidOperationException("VisionEngine ya tiene una sesión activa.");
             try
             {
-                RecordingVE.PhoneAudioAllowed = false;
+                RecordingVE.PhoneAudioAllowed = true;
+                await ControlVE.StartNativeAsync(controlStream, cancellationToken).ConfigureAwait(false);
+                await AudioVE.StartAsync(audioStream, playbackEnabled: true, cancellationToken).ConfigureAwait(false);
                 VideoVE.PreferNvidiaVE = NvidiaVE.BeginSessionVE() != NLNVIDIAProfile.Disabled;
                 await VideoVE.StartAsync(videoStream, cancellationToken).ConfigureAwait(false);
                 _appControlVideoActiveVE = true;
@@ -263,12 +269,11 @@ public sealed class VECoreRuntime : IAsyncDisposable
         RaiseStatusChangedVE();
     }
 
-    private void ValidateBlockDToolsVE()
+    private void ValidateRuntimeToolsVE()
     {
         _paths.ValidateAdbTools();
         string[] required =
         [
-            _paths.ScrcpyServer,
             Path.Combine(_paths.ToolsDirectory, "avcodec-62.dll"),
             Path.Combine(_paths.ToolsDirectory, "avutil-60.dll"),
             Path.Combine(_paths.ToolsDirectory, "swresample-6.dll"),

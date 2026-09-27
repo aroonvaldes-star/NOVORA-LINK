@@ -12,6 +12,8 @@ public sealed record VETransportAppControlOffer(int Port, string Token);
 public sealed class VETransportAppControl : IAsyncDisposable
 {
     public const int DevicePortVE = 27215;
+    public const int ControlPortVE = 27216;
+    public const int AudioPortVE = 27217;
 
     private readonly IPAddress _address;
     private readonly int _requestedPort;
@@ -24,6 +26,12 @@ public sealed class VETransportAppControl : IAsyncDisposable
         : this(IPAddress.Loopback, DevicePortVE)
     {
     }
+
+    public static VETransportAppControl CreateControlVE() =>
+        new(IPAddress.Loopback, ControlPortVE);
+
+    public static VETransportAppControl CreateAudioVE() =>
+        new(IPAddress.Loopback, AudioPortVE);
 
     internal VETransportAppControl(IPAddress address, int port)
     {

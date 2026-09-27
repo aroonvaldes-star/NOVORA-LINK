@@ -35,6 +35,22 @@ public sealed class NLTestNovoraProtocolContract
     }
 
     [Fact]
+    public void AppControl_native_backend_has_no_scrcpy_runtime_dependency()
+    {
+        VEServerBackendDescriptor backend = VEServerBackendCatalog.Describe(
+            VEServerBackend.AppControlNative,
+            available: true,
+            selected: true,
+            active: true);
+
+        Assert.True(backend.Available);
+        Assert.True(backend.Selected);
+        Assert.True(backend.Active);
+        Assert.Equal(string.Empty, backend.RuntimeDependency);
+        Assert.Equal("NOVORA-VE-1", backend.ProtocolVersion);
+    }
+
+    [Fact]
     public async Task Control_protocol_rejects_oversize_and_truncated_frames()
     {
         byte[] oversize = new byte[4];

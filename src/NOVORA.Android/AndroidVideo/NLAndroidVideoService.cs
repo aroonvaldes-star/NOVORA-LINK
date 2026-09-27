@@ -30,6 +30,10 @@ public sealed class NLAndroidVideoService : Service
     private VirtualDisplay? _display;
     private NLAndroidVideoEncoder? _encoder;
     private TcpClient? _client;
+    private TcpClient? _controlClient;
+    private TcpClient? _audioClient;
+    private Task _controlTask = Task.CompletedTask;
+    private NLAndroidAudioCapture? _audioCapture;
 
     public static void Start(Context context, Result result, Intent projectionData, NLControlVideoSourceOffer offer)
     {
@@ -98,6 +102,15 @@ public sealed class NLAndroidVideoService : Service
             await _client.ConnectAsync("127.0.0.1", offer.Port, lifetime.Token);
             NetworkStream stream = _client.GetStream();
             await stream.WriteAsync(Convert.FromHexString(offer.Token), lifetime.Token);
+            _controlClient = new TcpClient { NoDelay = true };
+            await _controlClient.ConnectAsync("127.0.0.1", offer.ControlPort, lifetime.Token);
+            NetworkStream controlStream = _controlClient.GetStream();
+            await controlStream.WriteAsync(Convert.FromHexString(offer.ControlToken), lifetime.Token);
+            _controlTask = RunControlAsync(controlStream, lifetime.Token);
+            _audioClient = new TcpClient { NoDelay = true };
+            await _audioClient.ConnectAsync("127.0.0.1", offer.AudioPort, lifetime.Token);
+            NetworkStream audioStream = _audioClient.GetStream();
+            await audioStream.WriteAsync(Convert.FromHexString(offer.AudioToken), lifetime.Token);
             var writer = new VEProtocolWriter(stream);
             await writer.WriteVideoSessionAsync(VEProtocolCodec.H264,
                 new VEProtocolSession(width, height, false), lifetime.Token);
@@ -110,6 +123,10 @@ public sealed class NLAndroidVideoService : Service
                 ?? throw new InvalidOperationException("Android no entregó la captura de pantalla.");
             _projectionCallback = new NLAndroidProjectionCallback(() => lifetime.Cancel());
             _projection.RegisterCallback(_projectionCallback, new Handler(Looper.MainLooper!));
+            if (!OperatingSystem.IsAndroidVersionAtLeast(29))
+                throw new NotSupportedException("Audio AppControl requiere Android 10 o posterior.");
+            _audioCapture = new NLAndroidAudioCapture(_projection);
+            await _audioCapture.StartAsync(audioStream, lifetime.Token);
             // VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR is 16; the .NET binding exposes a legacy enum here.
             _display = _projection.CreateVirtualDisplay("NOVORA VisionEngine", width, height,
                 (int)metrics.DensityDpi, (Android.Views.DisplayFlags)16, _encoder.InputSurface, null, null)
@@ -121,17 +138,34 @@ public sealed class NLAndroidVideoService : Service
             if (encoderFailure is not null) throw encoderFailure;
         }
         catch (System.OperationCanceledException) when (lifetime.IsCancellationRequested) { }
-        catch (Exception) { }
+        catch (Exception ex)
+        {
+            Android.Util.Log.Error("NOVORA-VE", ex.ToString());
+        }
         finally { await StopVideoAsync(); }
     }
 
     private static void Validate(NLControlVideoSourceOffer offer)
     {
         if (offer.Port is < 1 or > 65535 || offer.Token.Length != 64 ||
+            offer.ControlPort is < 1 or > 65535 || offer.ControlToken.Length != 64 ||
+            offer.AudioPort is < 1 or > 65535 || offer.AudioToken.Length != 64 ||
             offer.Bitrate is < 250_000 or > 100_000_000 || offer.MaxSize is < 240 or > 4320 ||
             offer.Fps is < 10 or > 120)
             throw new InvalidDataException("Oferta de video AppControl inválida.");
         _ = Convert.FromHexString(offer.Token);
+        _ = Convert.FromHexString(offer.ControlToken);
+        _ = Convert.FromHexString(offer.AudioToken);
+    }
+
+    private static async Task RunControlAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            NLControlInputCommand command = await NLControlProtocol.ReadAsync<NLControlInputCommand>(
+                stream, cancellationToken);
+            await NLAndroidControlAccessibilityService.ExecuteAsync(command, cancellationToken);
+        }
     }
 
     private Notification BuildNotification()
@@ -158,8 +192,18 @@ public sealed class NLAndroidVideoService : Service
         _projectionCallback = null;
         if (_encoder is not null) await _encoder.DisposeAsync();
         _encoder = null;
+        if (_audioCapture is not null && OperatingSystem.IsAndroidVersionAtLeast(29))
+            await _audioCapture.DisposeAsync();
+        _audioCapture = null;
         try { _client?.Dispose(); } catch { }
         _client = null;
+        try { _controlClient?.Dispose(); } catch { }
+        _controlClient = null;
+        try { _audioClient?.Dispose(); } catch { }
+        _audioClient = null;
+        try { await _controlTask.ConfigureAwait(false); }
+        catch (Exception ex) when (ex is System.OperationCanceledException or IOException or ObjectDisposedException) { }
+        _controlTask = Task.CompletedTask;
         lifetime?.Dispose();
         StopForeground(StopForegroundFlags.Remove);
         StopSelf();

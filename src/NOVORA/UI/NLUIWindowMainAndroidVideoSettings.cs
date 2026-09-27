@@ -16,7 +16,12 @@ public partial class NLUIWindowMain
             _viewModel.Device.Connected && _viewModel.Device.Serial == serial;
         NLControlReply Reply(bool ok, string message) => new(NLControlProtocol.Version, request.Id, ok, message, CaptureAndroidControlSnapshot());
         var before = CaptureAndroidControlSnapshot();
-        if (before.VideoRunning) await SetVisionEngineRunningVEAsync(false, Authorized);
+        bool wasAppControlVideo = _visionEngineVE?.RuntimeVE.IsAppControlVideoActiveVE == true;
+        if (before.VideoRunning)
+        {
+            if (wasAppControlVideo) await StopAppControlVideoSourceAsync();
+            else await SetVisionEngineRunningVEAsync(false, Authorized);
+        }
         if (!Authorized() || IsVisionEngineRunningVE()) return Reply(false, "No se aplicaron los ajustes: no se confirmó la detención o cambió la sesión.");
         _viewModel.RefreshAudioOutputOptions(_paths);
         var current = CaptureAndroidControlSnapshot();
@@ -42,6 +47,9 @@ public partial class NLUIWindowMain
         RecalculateOutputProfile14();
         SaveSettingsFromViewModel14();
         _androidControlRevision++;
+        if (wasAppControlVideo)
+            return Reply(false,
+                "Ajustes guardados. Inicia VisionEngine otra vez para renovar el permiso de captura de Android.");
         try { await SetVisionEngineRunningVEAsync(true, Authorized); }
         catch (Exception ex) { return Reply(false, "Ajustes guardados; VE no pudo iniciar: " + ex.Message); }
         return Reply(Authorized() && IsVisionEngineRunningVE(), IsVisionEngineRunningVE()

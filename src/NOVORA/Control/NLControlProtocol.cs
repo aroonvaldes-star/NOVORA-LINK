@@ -9,7 +9,6 @@ public sealed record NLControlEngines(bool VideoCanStart, bool VideoCanStop, boo
     bool LinkCanStop, bool LinkRunning, string LinkState, string LinkMessage, string DeviceName,
     string VideoState = "", string VideoMessage = "",
     string ExInState = "NotDetected", string ExInMessage = "ExInEngine no reportado por esta PC.",
-    string StState = "NotDetected", string StMessage = "STEngine no reportado por esta PC.",
     bool LinkCanTakeOver = false);
 public sealed record NLControlVideoSettings(string Resolution, string Fps,
     NLControlOption[] Resolutions, NLControlOption[] FrameRates,
@@ -40,7 +39,17 @@ public sealed record NLControlRequest(int Version, long Id, string Action, strin
     long Revision = -1, string? Code = null);
 public sealed record NLControlReply(int Version, long Id, bool Success, string Message,
     NLControlSnapshot? Snapshot = null, NLControlTrustedPc? TrustedPc = null, string? Value = null);
-public sealed record NLControlVideoSourceOffer(int Port, string Token, int Bitrate, int MaxSize, int Fps);
+public sealed record NLControlVideoSourceOffer(int Port, string Token, int Bitrate, int MaxSize, int Fps,
+    int ControlPort = 0, string ControlToken = "", int AudioPort = 0, string AudioToken = "");
+public sealed record NLControlInputCommand(
+    int Type, int KeyAction = 0, uint Keycode = 0, uint Repeat = 0, uint MetaState = 0,
+    string? Text = null, int MotionAction = 0, ulong PointerId = 0,
+    int X = 0, int Y = 0, ushort ScreenWidth = 0, ushort ScreenHeight = 0,
+    float Pressure = 0, uint ActionButton = 0, uint Buttons = 0,
+    float HorizontalScroll = 0, float VerticalScroll = 0, int CopyKey = 0,
+    ulong Sequence = 0, bool Paste = false, bool BooleanValue = false,
+    ushort UhidId = 0, ushort VendorId = 0, ushort ProductId = 0,
+    string? Name = null, byte[]? Data = null, ushort Width = 0, ushort Height = 0);
 
 /// <summary>Framed JSON: USB uses loopback ADB; LAN requires the pinned TLS transport. Never expose raw frames on a LAN socket.</summary>
 public static class NLControlProtocol

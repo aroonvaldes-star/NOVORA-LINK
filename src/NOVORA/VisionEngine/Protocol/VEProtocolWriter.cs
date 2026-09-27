@@ -74,6 +74,45 @@ public sealed class VEProtocolWriter
         await _stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
     }
 
+    public async ValueTask WriteAudioSessionAsync(
+        VEProtocolCodec codec,
+        CancellationToken cancellationToken = default)
+    {
+        if (!codec.IsAudioVE())
+            throw new ArgumentException("El codec debe ser de audio.", nameof(codec));
+        byte[] codecId = new byte[VEProtocolConstants.CodecIdSizeVE];
+        BinaryPrimitives.WriteUInt32BigEndian(codecId, (uint)codec);
+        await _stream.WriteAsync(codecId, cancellationToken).ConfigureAwait(false);
+        _sessionWritten = true;
+    }
+
+    public ValueTask WriteAudioPacketAsync(
+        ReadOnlyMemory<byte> payload,
+        long presentationTimeUs,
+        CancellationToken cancellationToken = default)
+        => WriteMediaPacketAsync(payload, presentationTimeUs, false, cancellationToken);
+
+    private async ValueTask WriteMediaPacketAsync(
+        ReadOnlyMemory<byte> payload,
+        long presentationTimeUs,
+        bool keyFrame,
+        CancellationToken cancellationToken)
+    {
+        if (!_sessionWritten)
+            throw new InvalidOperationException("La sesión debe escribirse antes que sus paquetes.");
+        if (payload.IsEmpty || payload.Length > VEProtocolConstants.MaxPacketLengthVE)
+            throw new ArgumentException("El payload tiene una longitud inválida.", nameof(payload));
+        if (presentationTimeUs < 0 || (ulong)presentationTimeUs > VEProtocolConstants.PacketPtsMaskVE)
+            throw new ArgumentOutOfRangeException(nameof(presentationTimeUs));
+        ulong ptsFlags = (ulong)presentationTimeUs;
+        if (keyFrame) ptsFlags |= VEProtocolConstants.PacketFlagKeyFrameVE;
+        byte[] header = new byte[VEProtocolConstants.PacketHeaderSizeVE];
+        BinaryPrimitives.WriteUInt64BigEndian(header.AsSpan(0, 8), ptsFlags);
+        BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(8, 4), checked((uint)payload.Length));
+        await _stream.WriteAsync(header, cancellationToken).ConfigureAwait(false);
+        await _stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
+    }
+
     private async ValueTask WriteSessionHeaderAsync(
         VEProtocolSession session,
         CancellationToken cancellationToken)

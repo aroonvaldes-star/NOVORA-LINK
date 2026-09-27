@@ -1,6 +1,6 @@
 using NOVORA.Contracts.Input;
+using NOVORA.Control;
 using NOVORA.VisionEngine.Transport;
-using System.Net.Sockets;
 
 namespace NOVORA.VisionEngine.Control;
 
@@ -11,7 +11,8 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
 {
     private readonly SemaphoreSlim _sendGateVE = new(1, 1);
     private readonly object _statusGateVE = new();
-    private NetworkStream? _streamVE;
+    private Stream? _streamVE;
+    private bool _nativeProtocolVE;
     private CancellationTokenSource? _readCtsVE;
     private Task? _readTaskVE;
     private VEControlStatus _statusVE = VEControlStatus.CreateInitialVE();
@@ -84,7 +85,7 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
         ArgumentNullException.ThrowIfNull(transport);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (_readTaskVE is not null)
+        if (_streamVE is not null)
         {
             throw new InvalidOperationException("Control VisionEngine ya está iniciado.");
         }
@@ -99,6 +100,22 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
         return Task.CompletedTask;
     }
 
+    public Task StartNativeAsync(Stream stream, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposedVE();
+        ArgumentNullException.ThrowIfNull(stream);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_streamVE is not null)
+            throw new InvalidOperationException("Control VisionEngine ya está iniciado.");
+        if (!stream.CanWrite)
+            throw new ArgumentException("El canal AppControl no permite escribir.", nameof(stream));
+
+        _streamVE = stream;
+        _nativeProtocolVE = true;
+        PublishVE(VEControlStates.Ready, "Control VisionEngine listo por AppControl.", null);
+        return Task.CompletedTask;
+    }
+
     public async Task SendAsync(VEControlMessage message, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposedVE();
@@ -107,17 +124,28 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
         if (_canSendMessageVE is not null && !_canSendMessageVE(message))
             return;
 
-        NetworkStream stream = _streamVE
+        Stream stream = _streamVE
             ?? throw new InvalidOperationException("Control VisionEngine no está iniciado.");
 
-        byte[] payload = VEControlSerializer.SerializeVE(message);
         await _sendGateVE.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
-            await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            int sentBytes;
+            if (_nativeProtocolVE)
+            {
+                NLControlInputCommand command = ToNativeCommandVE(message);
+                await NLControlProtocol.WriteAsync(stream, command, cancellationToken).ConfigureAwait(false);
+                sentBytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(command).Length + 4;
+            }
+            else
+            {
+                byte[] payload = VEControlSerializer.SerializeVE(message);
+                await stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                sentBytes = payload.Length;
+            }
             Interlocked.Increment(ref _sentVE);
-            Interlocked.Add(ref _sentBytesVE, payload.Length);
+            Interlocked.Add(ref _sentBytesVE, sentBytes);
             PublishSnapshotVE();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -143,6 +171,7 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
         _readCtsVE = null;
         _readTaskVE = null;
         _streamVE = null;
+        _nativeProtocolVE = false;
 
         if (cts is not null)
         {
@@ -159,7 +188,7 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
         PublishVE(VEControlStates.Stopped, "Control VisionEngine detenido.", null);
     }
 
-    private async Task RunReaderVE(NetworkStream stream, CancellationToken cancellationToken)
+    private async Task RunReaderVE(Stream stream, CancellationToken cancellationToken)
     {
         VEControlReader reader = new(stream);
         try
@@ -208,6 +237,36 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
             PublishVE(VEControlStates.Failed, "Falló el canal de control VisionEngine.", ex.Message);
         }
     }
+
+    private static NLControlInputCommand ToNativeCommandVE(VEControlMessage message) => new(
+        Type: (int)message.Type,
+        KeyAction: (int)message.KeyAction,
+        Keycode: message.Keycode,
+        Repeat: message.Repeat,
+        MetaState: message.MetaState,
+        Text: message.Text,
+        MotionAction: (int)message.MotionAction,
+        PointerId: message.PointerId,
+        X: message.Position.X,
+        Y: message.Position.Y,
+        ScreenWidth: message.Position.ScreenWidth,
+        ScreenHeight: message.Position.ScreenHeight,
+        Pressure: message.Pressure,
+        ActionButton: message.ActionButton,
+        Buttons: message.Buttons,
+        HorizontalScroll: message.HorizontalScroll,
+        VerticalScroll: message.VerticalScroll,
+        CopyKey: (int)message.CopyKey,
+        Sequence: message.Sequence,
+        Paste: message.Paste,
+        BooleanValue: message.BooleanValue,
+        UhidId: message.UhidId,
+        VendorId: message.VendorId,
+        ProductId: message.ProductId,
+        Name: message.Name,
+        Data: message.Data,
+        Width: message.Width,
+        Height: message.Height);
 
     private VEControlStats SnapshotVE()
         => new(

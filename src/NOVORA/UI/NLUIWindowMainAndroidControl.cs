@@ -155,10 +155,14 @@ public partial class NLUIWindowMain
         string? serial = _androidControlSerial;
         bool owned = _androidControlReverseOwned;
         bool videoOwned = _androidVideoReverseOwned;
+        bool inputOwned = _androidControlInputReverseOwned;
+        bool audioOwned = _androidAudioReverseOwned;
         _androidControl = null;
         _androidControlSerial = null;
         _androidControlReverseOwned = false;
         _androidVideoReverseOwned = false;
+        _androidControlInputReverseOwned = false;
+        _androidAudioReverseOwned = false;
         _automaticUsbServerEpoch = -1;
         if (server is not null) await server.DisposeAsync();
         if (serial is not null && owned)
@@ -169,6 +173,16 @@ public partial class NLUIWindowMain
         if (serial is not null && videoOwned)
         {
             try { await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--remove", "tcp:27215" }); }
+            catch (Exception) { }
+        }
+        if (serial is not null && inputOwned)
+        {
+            try { await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--remove", "tcp:27216" }); }
+            catch (Exception) { }
+        }
+        if (serial is not null && audioOwned)
+        {
+            try { await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--remove", "tcp:27217" }); }
             catch (Exception) { }
         }
         if (!AndroidControlAuthorized)
@@ -305,8 +319,12 @@ public partial class NLUIWindowMain
         string? serial = _androidControlSerial;
         bool owned = _androidControlReverseOwned;
         bool videoOwned = _androidVideoReverseOwned;
+        bool inputOwned = _androidControlInputReverseOwned;
+        bool audioOwned = _androidAudioReverseOwned;
         _androidControlReverseOwned = false;
         _androidVideoReverseOwned = false;
+        _androidControlInputReverseOwned = false;
+        _androidAudioReverseOwned = false;
         _androidControl = null;
         _androidControlSerial = null;
         if (discovery is not null) await discovery.DisposeAsync();
@@ -326,6 +344,16 @@ public partial class NLUIWindowMain
         if (serial is not null && videoOwned)
         {
             try { await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--remove", "tcp:27215" }); }
+            catch (Exception) { }
+        }
+        if (serial is not null && inputOwned)
+        {
+            try { await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--remove", "tcp:27216" }); }
+            catch (Exception) { }
+        }
+        if (serial is not null && audioOwned)
+        {
+            try { await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--remove", "tcp:27217" }); }
             catch (Exception) { }
         }
         string? persistenceError = null;

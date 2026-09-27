@@ -26,11 +26,11 @@ public sealed class NLAndroidUIActivity : Activity
     private Button _videoEngine = null!, _linkEngine = null!;
     private Button? _tabHome, _tabConnect, _tabEngines, _tabFiles;
     private readonly List<TextView> _headerStates = [];
-    private TextView _homeLinkState = null!, _homeVideoState = null!, _homeExInState = null!, _homeStState = null!;
+    private TextView _homeLinkState = null!, _homeVideoState = null!, _homeExInState = null!;
     private TextView _flightConnectionState = null!, _flightEngineState = null!, _flightControlState = null!, _flightSummary = null!;
     private Button _flightGame = null!, _flightVideo = null!, _flightInternet = null!, _flightLaunch = null!;
     private string _flightMode = "Game";
-    private TextView _engineLinkState = null!, _engineVideoState = null!, _engineExInState = null!, _engineStState = null!;
+    private TextView _engineLinkState = null!, _engineVideoState = null!, _engineExInState = null!;
     private TextView _usbState = null!, _filesStatus = null!;
     private TextView _exInDevice = null!, _exInFamily = null!, _exInVidPid = null!, _exInConnection = null!;
     private TextView _exInIdentity = null!, _exInCapabilities = null!, _exInDiagnostic = null!, _exInBattery = null!, _exInLive = null!;
@@ -59,6 +59,7 @@ public sealed class NLAndroidUIActivity : Activity
     private const int ScanRequest = 214;
     private const int VpnRequest = 216;
     private const int VideoProjectionRequest = 217;
+    private const int AudioPermissionRequest = 218;
     private long _videoProjectionGeneration = -1, _videoProjectionRevision = -1;
     private long _vpnGeneration = -1, _vpnRevision = -1;
     private bool _vpnApproved;
@@ -128,7 +129,6 @@ public sealed class NLAndroidUIActivity : Activity
         _homeVideoState = HiddenState();
         _homeLinkState = HiddenState();
         _homeExInState = HiddenState();
-        _homeStState = HiddenState();
         UpdateFlightMode();
 
         _connectionPage = CreatePage(pages);
@@ -170,7 +170,6 @@ public sealed class NLAndroidUIActivity : Activity
             _engineVideoState = EngineStatusRow("VisionEngine", "Pantalla · audio · resolución · FPS · bitrate");
             _engineLinkState = EngineStatusRow("LinkEngine", "Internet USB · VPN Android · túnel DATA");
             _engineExInState = EngineStatusRow("ExInEngine", "Mando físico · modo Juego/UI · diagnóstico");
-            _engineStState = EngineStatusRow("STEngine", "Observa VE/LE/ExIn sin controlar Recovery");
             _engineState = Muted("Conecta para consultar los motores.");
             _videoEngine = DetachedButton("Iniciar VisionEngine", ToggleVideoEngineAsync);
             _linkEngine = DetachedButton("Iniciar LinkEngine", ToggleLinkEngineAsync);
@@ -357,17 +356,53 @@ public sealed class NLAndroidUIActivity : Activity
     private Task LaunchFlightAsync()
     {
         bool connected = _service?.Session.Current.Phase == NLControlSessionPhase.Connected && _snapshot is not null;
-        if (!connected) { ShowPage(_connectionPage); return Task.CompletedTask; }
+        if (!connected)
+        {
+            _status.Text = "Primero conecta este teléfono con NOVORA PC.";
+            ShowPage(_connectionPage);
+            return Task.CompletedTask;
+        }
+
         if (_flightMode == "Internet")
         {
             if (_snapshot?.Engines?.LinkRunning == true) { ShowPage(_enginesPage); return Task.CompletedTask; }
+            if (_service?.Session.Current.Transport != "USB")
+            {
+                _status.Text = "Internet USB requiere conexión USB autorizada.";
+                ShowPage(_connectionPage);
+                return Task.CompletedTask;
+            }
+
+            if (_snapshot?.Engines?.LinkCanStart != true)
+            {
+                _status.Text = _snapshot?.Engines?.LinkMessage ?? "LinkEngine todavía no está listo para iniciar.";
+                ShowPage(_enginesPage);
+                return Task.CompletedTask;
+            }
+
             return SendEngineAsync("startLink");
         }
+
         if (_snapshot?.VideoRunning == true)
         {
             ShowPage(_flightMode == "Game" ? _exInPage : _enginesPage);
             return Task.CompletedTask;
         }
+
+        if (_service?.Session.Current.Transport != "USB")
+        {
+            _status.Text = "Iniciar VisionEngine desde Android requiere USB autorizado.";
+            ShowPage(_connectionPage);
+            return Task.CompletedTask;
+        }
+
+        if (_snapshot?.Engines?.VideoCanStart != true)
+        {
+            _status.Text = _snapshot?.Engines?.VideoMessage ?? "VisionEngine todavía no está listo para iniciar.";
+            ShowPage(_enginesPage);
+            return Task.CompletedTask;
+        }
+
         return RequestVideoProjectionAsync();
     }
     private void AddHomeTileRow(LinearLayout host,
@@ -1006,6 +1041,14 @@ public sealed class NLAndroidUIActivity : Activity
     public override async void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
     {
         base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == AudioPermissionRequest)
+        {
+            if (grantResults.Length > 0 && grantResults[0] == Permission.Granted)
+                _ = RequestVideoProjectionAsync();
+            else
+                _status.Text = "VisionEngine necesita permiso de audio para completar la sesión AppControl.";
+            return;
+        }
         if (requestCode != NotificationPermissionRequest) return;
         var pending = _pendingConnect;
         _pendingConnect = null;
@@ -1199,15 +1242,13 @@ public sealed class NLAndroidUIActivity : Activity
         string link = FriendlyState(engines?.LinkState, engines?.LinkRunning == true, usb ? "No detectado" : "Bloqueado");
         string video = FriendlyState(engines?.VideoState, snapshot?.VideoRunning == true, "No detectado");
         string exin = FriendlyState(engines?.ExInState, false, "No detectado");
-        string st = FriendlyState(engines?.StState, false, "No detectado");
         SetState(_homeLinkState, link); SetState(_engineLinkState, link);
         SetState(_homeVideoState, video); SetState(_engineVideoState, video);
         SetState(_homeExInState, exin); SetState(_engineExInState, exin);
-        SetState(_homeStState, st); SetState(_engineStState, st);
-        int active = new[] { link, video, exin, st }.Count(value => value == "Activo");
+        int active = new[] { link, video, exin }.Count(value => value == "Activo");
         foreach (var header in _headerStates)
         {
-            header.Text = $"●  USB {(usb ? "ON" : "OFF")}  ·  {active}/4 Engines activos";
+            header.Text = $"●  USB {(usb ? "ON" : "OFF")}  ·  {active}/3 Engines activos";
             header.SetTextColor(Color.ParseColor(usb ? "#55D98A" : "#FF5C65"));
         }
         _usbState.Text = usb ? "Detectado" : "No detectado";
@@ -1243,9 +1284,14 @@ public sealed class NLAndroidUIActivity : Activity
         if (internet)
         {
             bool running = snapshot?.Engines?.LinkRunning == true;
-            _flightSummary.Text = running ? "Internet por PC está activo en este teléfono." : "LinkEngine usará el enlace USB y solicitará permiso VPN.";
+            bool usbReady = usb && snapshot?.Engines?.LinkCanStart == true;
+            _flightSummary.Text = running
+                ? "Internet por PC está activo en este teléfono."
+                : usbReady
+                    ? "LinkEngine usará el enlace USB y solicitará permiso VPN."
+                    : snapshot?.Engines?.LinkMessage ?? "Conecta USB y autoriza el control antes de iniciar Internet.";
             _flightLaunch.Text = running ? "VER INTERNET ACTIVO" : "INICIAR INTERNET";
-            _flightLaunch.Enabled = running || snapshot?.Engines?.LinkCanStart == true;
+            _flightLaunch.Enabled = true;
             return;
         }
 
@@ -1258,7 +1304,7 @@ public sealed class NLAndroidUIActivity : Activity
         _flightLaunch.Text = videoRunning
             ? (_flightMode == "Game" ? "ABRIR CONTROL DE JUEGO" : "VER SESIÓN ACTIVA")
             : (_flightMode == "Game" ? "INICIAR SESIÓN DE JUEGO" : "INICIAR VIDEO");
-        _flightLaunch.Enabled = videoRunning || snapshot?.Engines?.VideoCanStart == true;
+        _flightLaunch.Enabled = true;
     }
     private void UpdateExIn(NLControlExIn? exIn)
     {
@@ -1386,6 +1432,18 @@ public sealed class NLAndroidUIActivity : Activity
             !CanSendEngine("startAppVideo") || _videoProjectionGeneration >= 0)
         {
             if (_active) _status.Text = "VisionEngine desde AppControl requiere la conexión USB autorizada.";
+            return Task.CompletedTask;
+        }
+        if (!NLAndroidControlAccessibilityService.IsEnabled(this))
+        {
+            _status.Text = "Activa Control de NOVORA en Accesibilidad y vuelve a iniciar VisionEngine.";
+            StartActivity(new Intent(Android.Provider.Settings.ActionAccessibilitySettings));
+            return Task.CompletedTask;
+        }
+        if (CheckSelfPermission(Android.Manifest.Permission.RecordAudio) != Permission.Granted)
+        {
+            _status.Text = "Autoriza audio para compartir el sonido del teléfono con VisionEngine.";
+            RequestPermissions([Android.Manifest.Permission.RecordAudio], AudioPermissionRequest);
             return Task.CompletedTask;
         }
         _videoProjectionGeneration = _service.Session.Current.Generation;

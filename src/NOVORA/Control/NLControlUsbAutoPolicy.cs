@@ -1,6 +1,8 @@
 // NOVORA_AUTOUSB_V1 - pure event policy; no IO, timers, threads or polling.
+#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace NOVORA.Control
 {
@@ -12,6 +14,7 @@ namespace NOVORA.Control
     public sealed class NLControlUsbAutoPolicy
     {
         private string _serial = String.Empty;
+        private string _transportIdentity = String.Empty;
         private bool _attempted;
         private bool _paused;
         public string Serial { get { return _serial; } }
@@ -19,11 +22,24 @@ namespace NOVORA.Control
 
         // Call on the UI thread for each device event, even during preparation.
         public bool Observe(string serial, bool connected, bool wifi, bool adbOnline)
+            => Observe(serial, connected, wifi, adbOnline, String.Empty);
+
+        public bool Observe(
+            string serial,
+            bool connected,
+            bool wifi,
+            bool adbOnline,
+            string transportIdentity)
         {
             string next = connected && !wifi && adbOnline && !String.IsNullOrWhiteSpace(serial)
                 ? serial.Trim() : String.Empty;
-            if (String.Equals(next, _serial, StringComparison.Ordinal)) return false;
+            string nextTransportIdentity = next.Length == 0
+                ? String.Empty
+                : (transportIdentity ?? String.Empty).Trim();
+            if (String.Equals(next, _serial, StringComparison.Ordinal) &&
+                String.Equals(nextTransportIdentity, _transportIdentity, StringComparison.Ordinal)) return false;
             _serial = next;
+            _transportIdentity = nextTransportIdentity;
             Epoch++;
             _attempted = false;
             _paused = false;
@@ -76,6 +92,21 @@ namespace NOVORA.Control
                 if (columns.Length >= 2 && columns[1] == "device") online.Add(columns[0]);
             }
             return online;
+        }
+
+        public static string ParseTransportIdentity(string snapshot, string serial)
+        {
+            if (String.IsNullOrWhiteSpace(serial)) return String.Empty;
+            foreach (string line in (snapshot ?? String.Empty).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string[] columns = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (columns.Length < 2 || columns[1] != "device" ||
+                    !String.Equals(columns[0], serial, StringComparison.Ordinal)) continue;
+                string transport = columns.FirstOrDefault(column =>
+                    column.StartsWith("transport_id:", StringComparison.Ordinal)) ?? String.Empty;
+                return transport.Length == 0 ? String.Empty : columns[0] + "|" + transport;
+            }
+            return String.Empty;
         }
     }
 }

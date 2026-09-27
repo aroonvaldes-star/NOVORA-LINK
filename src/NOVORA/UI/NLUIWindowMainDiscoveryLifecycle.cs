@@ -98,6 +98,12 @@ public partial class NLUIWindowMain
                 .Task
                 .Unwrap()
                 .ConfigureAwait(false);
+
+            await Dispatcher
+                .InvokeAsync(
+                    QueueAutomaticUsb)
+                .Task
+                .ConfigureAwait(false);
         }
         catch
         {

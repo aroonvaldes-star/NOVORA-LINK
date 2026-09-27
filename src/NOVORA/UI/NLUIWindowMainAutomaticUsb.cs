@@ -13,6 +13,7 @@ public partial class NLUIWindowMain
 {
     private readonly NLControlUsbAutoPolicy _automaticUsb = new();
     private HashSet<string>? _automaticUsbOnline;
+    private string _automaticUsbSnapshot = string.Empty;
     private bool _automaticUsbLoaded, _automaticUsbQueued, _automaticUsbBusy, _automaticUsbDirty;
     private long _automaticUsbServerEpoch = -1;
 
@@ -30,6 +31,7 @@ public partial class NLUIWindowMain
         _ = Dispatcher.BeginInvoke(new Action(() =>
         {
             if (_closing) return;
+            _automaticUsbSnapshot = snapshot;
             _automaticUsbOnline = NLControlUsbAutoPolicy.ParseOnline(snapshot);
             QueueAutomaticUsb();
         }));
@@ -57,7 +59,8 @@ public partial class NLUIWindowMain
             serial,
             device?.Connected == true,
             device?.IsWifiConnection == true,
-            online);
+            online,
+            NLControlUsbAutoPolicy.ParseTransportIdentity(_automaticUsbSnapshot, serial));
         _automaticUsbDirty = true;
         if (!_automaticUsbLoaded || _automaticUsbQueued || _automaticUsbBusy) return;
         _automaticUsbQueued = true;
@@ -153,6 +156,8 @@ public partial class NLUIWindowMain
             string before = await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--list" }, deadline.Token);
             bool reuseMapping = HasAutomaticUsbMapping(before, true);
             bool reuseVideoMapping = HasAppControlVideoMapping(before);
+            bool reuseControlMapping = HasAppControlControlMapping(before);
+            bool reuseAudioMapping = HasAppControlAudioMapping(before);
             CheckAutomaticUsb(serial, epoch, generation);
             _viewModel.RefreshAudioOutputOptions(_paths);
             created = new NLControlTrustServer(System.Net.IPAddress.Loopback,
@@ -189,10 +194,22 @@ public partial class NLUIWindowMain
                 await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--no-rebind", "tcp:27215", "tcp:27215" }, deadline.Token);
                 _androidVideoReverseOwned = true;
             }
+            if (!reuseControlMapping)
+            {
+                await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--no-rebind", "tcp:27216", "tcp:27216" }, deadline.Token);
+                _androidControlInputReverseOwned = true;
+            }
+            if (!reuseAudioMapping)
+            {
+                await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--no-rebind", "tcp:27217", "tcp:27217" }, deadline.Token);
+                _androidAudioReverseOwned = true;
+            }
             CheckAutomaticUsb(serial, epoch, generation);
             string after = await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--list" }, deadline.Token);
             if (!HasAutomaticUsbMapping(after, false)) throw new InvalidOperationException("ADB no confirmo la ruta USB 27214.");
             if (!HasAppControlVideoMapping(after)) throw new InvalidOperationException("ADB no confirmo la ruta USB 27215 para video.");
+            if (!HasAppControlControlMapping(after)) throw new InvalidOperationException("ADB no confirmo la ruta USB 27216 para control.");
+            if (!HasAppControlAudioMapping(after)) throw new InvalidOperationException("ADB no confirmo la ruta USB 27217 para audio.");
             CheckAutomaticUsb(serial, epoch, generation);
             string bootstrap = Convert.ToBase64String(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(server.Invitation));
             // The protected entry point accepts shell/system callers; MainActivity never trusts external bootstrap extras.

@@ -27,6 +27,7 @@ public sealed class VEAudioManager : IAsyncDisposable
     private long _pcmBytesVE;
     private long _decodeErrorsVE;
     private long _playbackErrorsVE;
+    private long _rawSequenceVE;
 
     private long _lastStatusPublishMsVE;
 
@@ -223,6 +224,19 @@ public sealed class VEAudioManager : IAsyncDisposable
             throw new InvalidOperationException(
                 "La sesión VisionEngine no contiene audio socket.");
 
+        await StartAsync(stream, playbackEnabled, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task StartAsync(
+        Stream stream,
+        bool playbackEnabled,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposedVE();
+        ArgumentNullException.ThrowIfNull(stream);
+        if (_taskVE is not null)
+            throw new InvalidOperationException("Audio VisionEngine ya está iniciado.");
+
         ResetVE();
 
         PublishVE(
@@ -265,11 +279,12 @@ public sealed class VEAudioManager : IAsyncDisposable
                 "Android reportó error de configuración de audio VisionEngine.");
         }
 
-        VEAudioDecoder decoder =
-            new(_paths);
-
-        decoder.InitializeVE(
-            codec);
+        VEAudioDecoder? decoder = null;
+        if (codec != VEProtocolCodec.Raw)
+        {
+            decoder = new(_paths);
+            decoder.InitializeVE(codec);
+        }
 
         VEAudioPlayer? player =
             null;
@@ -292,8 +307,7 @@ public sealed class VEAudioManager : IAsyncDisposable
                 output);
         }
 
-        _decoderVE =
-            decoder;
+        _decoderVE = decoder;
 
         lock (_gateVE)
         {
@@ -385,7 +399,7 @@ public sealed class VEAudioManager : IAsyncDisposable
 
     private async Task RunVE(
         VEAudioDemuxer demuxer,
-        VEAudioDecoder decoder,
+        VEAudioDecoder? decoder,
         VEProtocolCodec codec,
         CancellationToken cancellationToken)
     {
@@ -421,9 +435,9 @@ public sealed class VEAudioManager : IAsyncDisposable
 
                 try
                 {
-                    frames =
-                        decoder.DecodeVE(
-                            packet);
+                    frames = codec == VEProtocolCodec.Raw
+                        ? DecodeRawVE(packet)
+                        : decoder!.DecodeVE(packet);
                 }
                 catch
                 {
@@ -513,6 +527,23 @@ public sealed class VEAudioManager : IAsyncDisposable
                 HasPlayerVE(),
                 "Falló Audio VisionEngine.");
         }
+    }
+
+    private IReadOnlyList<VEAudioFrame> DecodeRawVE(VEAudioPacket packet)
+    {
+        if (packet.Data.Length == 0 || packet.Data.Length % 4 != 0)
+            throw new InvalidDataException("PCM16LE estéreo recibió un paquete desalineado.");
+        return
+        [
+            new VEAudioFrame(
+                Interlocked.Increment(ref _rawSequenceVE),
+                packet.PresentationTimeUs,
+                48000,
+                2,
+                packet.Data.Length / 4,
+                packet.Data,
+                DateTimeOffset.UtcNow)
+        ];
     }
 
     private bool HasPlayerVE()
@@ -615,6 +646,7 @@ public sealed class VEAudioManager : IAsyncDisposable
         _pcmBytesVE = 0;
         _decodeErrorsVE = 0;
         _playbackErrorsVE = 0;
+        _rawSequenceVE = 0;
 
         _lastStatusPublishMsVE =
             0;

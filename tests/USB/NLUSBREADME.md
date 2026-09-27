@@ -6,7 +6,7 @@ El código activo ya había eliminado la entrada de ocho dígitos. Faltaban el d
 
 ## Pruebas
 
-`NLUSBTestPolicy.ps1` compila y ejecuta la clase real `NLControlUsbAutoPolicy` mediante Add-Type. Prueba 14 condiciones de autorización, duplicados, bloqueo por otra operación, desconexión, cambio de dispositivo y reconexión. No necesita Pester.
+`NLUSBTestPolicy.ps1` compila y ejecuta la clase real `NLControlUsbAutoPolicy` mediante Add-Type. Prueba 15 condiciones de autorización, duplicados, bloqueo por otra operación, desconexión, cambio de dispositivo y reconexión física. No necesita Pester.
 
 `NLUSBTestAutomaticSource.ps1` comprueba los contratos de integración. Un resultado correcto demuestra presencia de la integración, no comportamiento físico.
 

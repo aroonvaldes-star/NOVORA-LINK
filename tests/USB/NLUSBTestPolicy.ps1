@@ -38,4 +38,6 @@ Assert-UsbPolicy (-not $p.IsCurrent('PHONE-TEST', $epoch)) 'Cambiar telefono inv
 Assert-UsbPolicy ($p.TryBegin($false)) 'Nuevo telefono autorizado tiene su propio intento'
 $online = [NOVORA.Control.NLControlUsbAutoPolicy]::ParseOnline("A`tdevice`nB`toffline`nC`tunauthorized`n")
 Assert-UsbPolicy ($online.Contains('A') -and -not $online.Contains('B') -and -not $online.Contains('C')) 'Track-devices acepta solo estado device'
-Write-Host 'POLICY TESTS: 14 PASS' -ForegroundColor Green
+$transport = [NOVORA.Control.NLControlUsbAutoPolicy]::ParseTransportIdentity("PHONE device product:x transport_id:17`n", 'PHONE')
+Assert-UsbPolicy ($transport -eq 'PHONE|transport_id:17') 'Track-devices-l identifica la reconexion fisica'
+Write-Host 'POLICY TESTS: 15 PASS' -ForegroundColor Green

@@ -24,6 +24,13 @@ public static class VEServerBackendCatalog
                 Active: active,
                 RuntimeDependency: "scrcpy-server",
                 ProtocolVersion: "4.1"),
+            VEServerBackend.AppControlNative => new(
+                backend,
+                Available: available,
+                Selected: selected,
+                Active: active,
+                RuntimeDependency: string.Empty,
+                ProtocolVersion: "NOVORA-VE-1"),
             _ => throw new ArgumentOutOfRangeException(nameof(backend))
         };
 }

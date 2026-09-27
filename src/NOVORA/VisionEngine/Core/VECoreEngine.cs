@@ -292,12 +292,16 @@ public sealed class VECoreEngine : IAsyncDisposable
     public async Task<VECoreResult> StartAppControlAsync(
         string deviceSerial,
         Stream videoStream,
+        Stream controlStream,
+        Stream audioStream,
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposedVE();
         if (string.IsNullOrWhiteSpace(deviceSerial))
             return VECoreResult.Fail("El serial del dispositivo es obligatorio.");
         ArgumentNullException.ThrowIfNull(videoStream);
+        ArgumentNullException.ThrowIfNull(controlStream);
+        ArgumentNullException.ThrowIfNull(audioStream);
 
         await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -322,7 +326,7 @@ public sealed class VECoreEngine : IAsyncDisposable
                 LastError = null
             });
 
-            await _runtime.StartAppControlAsync(videoStream, cancellationToken).ConfigureAwait(false);
+            await _runtime.StartAppControlAsync(videoStream, controlStream, audioStream, cancellationToken).ConfigureAwait(false);
             UpdateSessionVE(session with
             {
                 State = VECoreStates.Running,

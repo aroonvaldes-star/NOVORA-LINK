@@ -30,6 +30,7 @@
     <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolWriter.cs" Link="VisionEngine\Protocol\VEProtocolWriter.cs" />
     <AndroidResource Include="..\NOVORA\Asset\NLAssetNovoraLogo.png" Link="Resources\drawable\novora_logo.png" />
     <AndroidResource Include="..\NOVORA\Asset\NLAssetBienvenido.png" Link="Resources\drawable\novora_welcome.png" />
+    <AndroidResource Include="AndroidResource\NLAndroidResourceAccessibility.xml" Link="Resources\xml\novora_accessibility.xml" />
   </ItemGroup>
   <Target Name="NovoraRequireExplicitPackaging" BeforeTargets="_CreateBaseApk;_BuildApkEmbed;_BuildApkFastDev;SignAndroidPackage">
     <Error Condition="'$(NovoraPackage)' != 'true'" Text="NOVORA no empaqueta automáticamente. Valida con -t:Compile; para una prueba instalada usa -p:NovoraPackage=true explícitamente." />
