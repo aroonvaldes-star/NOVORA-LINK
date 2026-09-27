@@ -26,11 +26,11 @@ public sealed class NLAndroidUIActivity : Activity
     private Button _videoEngine = null!, _linkEngine = null!;
     private Button? _tabHome, _tabConnect, _tabEngines, _tabFiles;
     private readonly List<TextView> _headerStates = [];
-    private TextView _homeLinkState = null!, _homeVideoState = null!, _homeExInState = null!;
+    private TextView _homeLinkState = null!, _homeVideoState = null!, _homeExInState = null!, _homeStState = null!;
     private TextView _flightConnectionState = null!, _flightEngineState = null!, _flightControlState = null!, _flightSummary = null!;
     private Button _flightGame = null!, _flightVideo = null!, _flightInternet = null!, _flightLaunch = null!;
     private string _flightMode = "Game";
-    private TextView _engineLinkState = null!, _engineVideoState = null!, _engineExInState = null!;
+    private TextView _engineLinkState = null!, _engineVideoState = null!, _engineExInState = null!, _engineStState = null!;
     private TextView _usbState = null!, _filesStatus = null!;
     private TextView _exInDevice = null!, _exInFamily = null!, _exInVidPid = null!, _exInConnection = null!;
     private TextView _exInIdentity = null!, _exInCapabilities = null!, _exInDiagnostic = null!, _exInBattery = null!, _exInLive = null!;
@@ -129,6 +129,7 @@ public sealed class NLAndroidUIActivity : Activity
         _homeVideoState = HiddenState();
         _homeLinkState = HiddenState();
         _homeExInState = HiddenState();
+        _homeStState = HiddenState();
         UpdateFlightMode();
 
         _connectionPage = CreatePage(pages);
@@ -170,6 +171,7 @@ public sealed class NLAndroidUIActivity : Activity
             _engineVideoState = EngineStatusRow("VisionEngine", "Pantalla · audio · resolución · FPS · bitrate");
             _engineLinkState = EngineStatusRow("LinkEngine", "Internet USB · VPN Android · túnel DATA");
             _engineExInState = EngineStatusRow("ExInEngine", "Mando físico · modo Juego/UI · diagnóstico");
+            _engineStState = EngineStatusRow("STEngine", "Observa VE/LE/ExIn sin controlar Recovery");
             _engineState = Muted("Conecta para consultar los motores.");
             _videoEngine = DetachedButton("Iniciar VisionEngine", ToggleVideoEngineAsync);
             _linkEngine = DetachedButton("Iniciar LinkEngine", ToggleLinkEngineAsync);
@@ -1242,13 +1244,15 @@ public sealed class NLAndroidUIActivity : Activity
         string link = FriendlyState(engines?.LinkState, engines?.LinkRunning == true, usb ? "No detectado" : "Bloqueado");
         string video = FriendlyState(engines?.VideoState, snapshot?.VideoRunning == true, "No detectado");
         string exin = FriendlyState(engines?.ExInState, false, "No detectado");
+        string st = FriendlyState(engines?.StState, false, "No detectado");
         SetState(_homeLinkState, link); SetState(_engineLinkState, link);
         SetState(_homeVideoState, video); SetState(_engineVideoState, video);
         SetState(_homeExInState, exin); SetState(_engineExInState, exin);
-        int active = new[] { link, video, exin }.Count(value => value == "Activo");
+        SetState(_homeStState, st); SetState(_engineStState, st);
+        int active = new[] { link, video, exin, st }.Count(value => value == "Activo");
         foreach (var header in _headerStates)
         {
-            header.Text = $"●  USB {(usb ? "ON" : "OFF")}  ·  {active}/3 Engines activos";
+            header.Text = $"●  USB {(usb ? "ON" : "OFF")}  ·  {active}/4 Engines activos";
             header.SetTextColor(Color.ParseColor(usb ? "#55D98A" : "#FF5C65"));
         }
         _usbState.Text = usb ? "Detectado" : "No detectado";

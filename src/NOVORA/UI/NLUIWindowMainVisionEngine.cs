@@ -1223,6 +1223,12 @@ public partial class NLUIWindowMain
         Show();
         Activate();
 
+        if (refreshInformation)
+        {
+            _ =
+                RefreshPerformanceOnceAsync();
+        }
+
     }
 
     // ============================================================
@@ -1605,6 +1611,7 @@ public partial class NLUIWindowMain
         object? sender,
         VECoreStatus status)
     {
+        RefreshSTEngineSnapshot14();
 
         bool stateChanged =
             _lastVisionStateVE !=
@@ -1648,6 +1655,7 @@ public partial class NLUIWindowMain
 
                         UpdateRuntimeButtons();
 
+                        ApplySTEngineShell14();
 
                         switch (status.State)
                         {

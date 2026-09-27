@@ -1,6 +1,7 @@
 using NOVORA.Control;
 using NOVORA.ExInEngine;
 using NOVORA.LinkEngine.Runtime;
+using NOVORA.STEngine.Core;
 using NOVORA.VisionEngine.Core;
 
 namespace NOVORA;
@@ -35,6 +36,15 @@ public partial class NLUIWindowMain
         string linkMessage = _androidLinkError ?? linkSession?.Message ?? "LinkEngine detenido.";
         if (linkCanTakeOver) linkMessage += " Hay otra sesión activa; este teléfono puede tomar LinkEngine sin reiniciar NOVORA.";
         if (!usbEligible) linkMessage += " Para iniciar Internet USB, conecta este teléfono mediante el control USB autorizado.";
+        var stSnapshot = RefreshSTEngineSnapshot14();
+        string stState = stSnapshot.State switch
+        {
+            STCoreState.Healthy => "Active",
+            STCoreState.Watch => "Detected",
+            STCoreState.Degraded => "Degraded",
+            STCoreState.Critical => "Critical",
+            _ => "NotDetected"
+        };
         ExInStatus? exIn = _exInEngine?.Status;
         string exInState = !_viewModel.ExInEnabled ? "NotDetected" : exIn?.State == ExInStates.Failed ? "Error" :
             exIn?.ConnectedGamepads > 0 ? "Detected" : exIn?.State == ExInStates.Running ? "Active" : "NotDetected";
@@ -59,6 +69,8 @@ public partial class NLUIWindowMain
                 videoBusy ? "VisionEngine está cambiando de estado." : "",
             exInState,
             exInMessage,
+            stState,
+            $"STEngine: {stSnapshot.Summary}",
             linkCanTakeOver);
     }
 

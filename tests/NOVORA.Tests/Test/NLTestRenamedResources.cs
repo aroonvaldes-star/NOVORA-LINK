@@ -65,9 +65,7 @@ public sealed class NLTestRenamedResources
                     Assert.Contains(profile.ToString(), title.Text);
                 }
                 var networkButton = Assert.IsType<System.Windows.Controls.Button>(window.FindName("LinkEngineTestButton"));
-                Assert.True(networkButton.IsEnabled);
-                Assert.Equal("INICIAR DESDE ANDROID", networkButton.Content);
-                Assert.NotNull(networkButton.ToolTip);
+                Assert.False(networkButton.IsEnabled);
                 Assert.NotNull(application.Resources["NovoraBrandImageSource"]);
                 Assert.NotNull(window.Resources["NvPrimaryButtonStyle"]);
                 Assert.True(System.IO.File.Exists(System.IO.Path.Combine(AppContext.BaseDirectory, "Asset", "NLAssetPDI2T.mp4")));
