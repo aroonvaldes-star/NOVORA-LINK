@@ -1,5 +1,17 @@
 # Validacion de la entrega
 
+## Auditoria del baseline local - 2026-09-27
+
+- Comparacion realizada contra `origin/NOVORA-LINK` en `33960c0`.
+- Desktop compilo mediante `dotnet test` con salida aislada.
+- Suite .NET: 408 aprobadas de 423. Las 15 restantes no llegaron a ejecutar su asercion porque una instancia activa de NOVORA ocupaba el puerto del servidor de confianza; no se clasifican como aprobadas.
+- Android `Release -t:Compile`: correcto, cero errores y cero advertencias.
+- RelayCore: 35 pruebas aprobadas, cero fallidas y un benchmark ignorado.
+- El verificador historico `Verify-EngineNaming.ps1` falla porque espera nombres anteriores registrados en el mapa; no se considera PASS.
+- No se ejecutaron instalacion APK, prueba fisica PC-Android, rendimiento sostenido ni gates externos de seguridad.
+- STEngine y los adaptadores de estabilidad fueron retirados del baseline actual; las referencias dentro de expedientes fechados son historicas.
+- Git excluye `bin`, `obj`, `target`, `.vs`, APK y salidas de compilacion.
+
 Actualización NVIDIA/VE: [NVDEC opcional, recuperación y mediciones](../src/NOVORA/NVIDIA/NLNVIDIANvdec.md).
 
 ## Perfiles y NVIDIA: revisión posterior

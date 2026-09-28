@@ -19,6 +19,7 @@ Detener LinkEngine cierra la VPN local y solicita detener el motor que inició e
 - LinkEngine CONTROL: Android 127.0.0.1:27183 mediante ADB reverse; longitud int32 big-endian, HELLO/ACK y HEARTBEAT/ACK. Latidos cada dos segundos; no representan tráfico de usuario.
 - LinkEngine DATA: Android 127.0.0.1:27184 mediante ADB reverse; identificador inicial de cuatro bytes seguido de paquetes IPv4 sin un encabezado adicional.
 - TUN IPv4 10.0.0.2/32, MTU 1500, ruta IPv4 por defecto y DNS 8.8.8.8. La salida de DNS va a través de PC. El relay existente atiende TCP/UDP; esta entrega no agrega soporte ICMP ni IPv6.
+- En Android 10 o posterior, el túnel USB se declara no medido. Antes de establecerlo se selecciona, si existe, una red subyacente validada que no sea VPN para que Android conserve información real de conectividad. La ausencia de esa red no se reemplaza con datos ficticios.
 - NOVORA se excluye del túnel para mantener sus canales de control y protege los sockets USB. Las demás apps del perfil Android usan el túnel mientras esté activo. No se activa bypass IPv6: la familia no configurada queda bloqueada por Android.
 - No es una VPN comercial ni un túnel cifrado extremo a extremo hacia Internet. CONTROL/DATA de LinkEngine dependen del enlace local USB/ADB y no se exponen a LAN. La conexión de PC y el cifrado propio de cada aplicación determinan la salida a Internet.
 - Sin inicio automático al arrancar Android, sin always-on y sin recuperación automática de la VPN. Si falla, se libera la ruta y se requiere iniciar otra vez. El teléfono puede volver a su red normal después de cerrar el túnel; no se implementa un bloqueo permanente de Internet.
@@ -53,3 +54,7 @@ APK 1.4.8, versionCode 9, instalado mediante actualización conservando datos. A
 Windows, Android y los tres proyectos auxiliares de VE compilan. 230 pruebas .NET aprobadas. RelayCore Release compila con 21 advertencias existentes y aviso de dependencia net2. Los proyectos WPF se verificaron secuencialmente tras una colisión de archivos generados al intentar compilarlos en paralelo.
 
 Referencia del problema de enlace en .NET: https://github.com/dotnet/maui/issues/35209
+
+## Baseline auditado - 27 septiembre 2026
+
+El código Android compiló con `Release -t:Compile`, cero errores y cero advertencias. RelayCore aprobó 35 pruebas; una prueba de rendimiento permanece ignorada por diseño. La ampliación del buffer UDP y la selección de red subyacente están verificadas a nivel de código, compilación y pruebas unitarias. Esta auditoría no repitió la navegación física de YouTube/TikTok ni una prueba sostenida del túnel, por lo que esas capas permanecen pendientes.

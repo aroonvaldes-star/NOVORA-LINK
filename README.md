@@ -8,9 +8,11 @@ NOVORA-LINK conecta una computadora Windows con un dispositivo Android y organiz
 
 - **LinkEngine (LE):** conectividad/reverse tethering y transporte de red.
 - **VisionEngine (VE):** pantalla, audio, control, gamepad, intercambio e integración Android↔Windows.
-- **STEngine (ST):** medición técnica de NOVORA.
+- **ExInEngine:** entrada externa y sesiones de control independientes.
 - **NL / común:** aplicación, interfaz, servicios, modelos, control y descubrimiento.
 - **NLNVIDIA:** integración/aceleración NVIDIA opcional; VisionEngine conserva su fallback cuando corresponda.
+
+STEngine y sus adaptadores de estabilidad no forman parte de este baseline. Sus expedientes anteriores se conservan como historia de auditoría, pero no representan una función disponible.
 
 Los motores deben poder detenerse o recuperarse de forma independiente siempre que la función no requiera explícitamente otra capa.
 
@@ -41,7 +43,6 @@ Prefijos vigentes:
 | `NL` | NOVORA-LINK / común |
 | `LE` | LinkEngine |
 | `VE` | VisionEngine |
-| `ST` | STEngine |
 | `NLNVIDIA` | NVIDIA |
 
 La autoridad para migraciones de nombres es:

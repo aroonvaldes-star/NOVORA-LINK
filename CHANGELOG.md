@@ -1,5 +1,22 @@
 # Changelog
 
+## Baseline local auditado - 2026-09-27
+
+### Arquitectura y funciones
+- Se retiraron STEngine, sus snapshots, adaptadores de estabilidad y pruebas asociadas. Los informes históricos permanecen como evidencia y no describen el runtime actual.
+- LinkEngine conserva Recovery propio. Congestión, `WouldBlock` y backpressure siguen sin tratarse automáticamente como fallos de Recovery.
+- Android marca la VPN USB como no medida en Android 10 o posterior y selecciona una red subyacente validada que no sea VPN cuando el sistema ofrece una.
+- RelayCore amplía el buffer de ráfagas UDP de 2 a 4 paquetes máximos y agrega una prueba para tráfico QUIC.
+- La acción de LinkEngine en PC permanece disponible para mostrar el estado e indicar que el inicio seguro se realiza desde Android.
+
+### Verificación de esta auditoría
+- Desktop compiló mediante la suite en una salida aislada.
+- Suite .NET: 408 aprobadas de 423; 15 no pudieron ejecutarse porque una instancia activa de NOVORA ocupaba el puerto fijo del servidor de confianza.
+- Android `Release -t:Compile`: 0 errores y 0 advertencias.
+- RelayCore: 35 aprobadas, 0 fallidas y 1 benchmark ignorado.
+- `bin/`, `obj/`, `target/`, `.vs/`, APK y salidas locales permanecen excluidos de Git.
+- No se realizaron nuevas pruebas físicas PC-Android ni se declara Release estable con esta auditoría.
+
 ## NOVORA-LINK 1.4 PRERELEASE PRE FINAL — 2026-09-17
 
 ### Estructura
@@ -39,5 +56,5 @@
 ### Pendiente antes de Release estable
 - Ejecutar `Tool/NLToolReleaseGate.ps1` en Windows con los SDK requeridos.
 - Prueba física USB y LAN.
-- Pruebas de LinkEngine, VisionEngine, STEngine y Recovery independiente.
+- Pruebas de LinkEngine, VisionEngine, ExInEngine y Recovery independiente.
 - Investigación final de rendimiento, seguridad y calidad.

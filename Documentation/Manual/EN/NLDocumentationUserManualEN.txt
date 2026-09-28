@@ -1,16 +1,16 @@
-User Manual - NOVORA-LINK 1.4 Release
+User Manual - NOVORA-LINK 1.4 PRERELEASE
 
 English - secondary language
 
-Updated: September 23, 2026.
+Updated: September 27, 2026.
 
 1. What NOVORA-LINK is
 NOVORA-LINK connects a Windows PC with one active Android device. The PC owns the main session and Android uses the com.novora.appcontrol app.
 
-The stable product version is NOVORA-LINK 1.4.
+This manual describes the 1.4 baseline under validation. It does not make the current folder a stable Release.
 
 2. Release status
-NOVORA-LINK 1.4 is available as the stable Release for Windows and Android. Its validation confirmed:
+The following evidence belongs to the earlier 1.4 validation and is retained for reference. The current baseline removed STEngine and must repeat the affected gates before a new Release:
 
 - Desktop Release: 0 warnings and 0 errors.
 - .NET suite: 405/405 tests passed.
@@ -40,7 +40,6 @@ NOVORA avoids constant polling whenever it can. Repeated Android queries should 
 - LinkEngine: provides PC Internet access to Android through the NOVORA tunnel.
 - VisionEngine: handles screen, audio, control, gamepad, exchange and Android-Windows integration.
 - ExInEngine: translates external input, controllers and control sessions when the backend is available.
-- STEngine: measures stability and technical state without forcing bitrate, recovery or engine lifecycle changes.
 
 Each engine keeps its own recovery scope. A failure in one engine should not bring down all of NOVORA or unnecessarily stop independent engines.
 
@@ -61,10 +60,7 @@ VisionEngine/ExIn coexistence was corrected: each session now uses its own SCID-
 
 Pending: test every stick, trigger and button with complete Android-side translation.
 
-9. STEngine
-STEngine observes stability and technical state. It should stay passive: it must not change bitrate, recovery, queues or other engine lifecycles on its own.
-
-10. Android app
+9. Android app
 On Android you will find:
 
 - Connect: USB/LAN preparation.
@@ -75,24 +71,24 @@ On Android you will find:
 
 The current app package is com.novora.appcontrol.
 
-11. Android-Windows integration
+10. Android-Windows integration
 NOVORA includes infrastructure for clipboard, files, Drag & Drop, sharing, notifications, capture, recording and other Android-Windows capabilities. Some features depend on their backend being ready and tested.
 
 Do not treat a feature as final just because it exists, builds or appears in the UI. Distinguish between exists, builds, integrated, connected, functional and physically tested.
 
-12. Privacy and security
+11. Privacy and security
 NOVORA minimizes personal-data storage. It should not unnecessarily store passwords, accounts, emails, contacts, OTP codes, tokens, cookies, clipboard history or private content.
 
 Privacy Shield may prevent video exposure, new audio, control, gamepad, clipboard and transfers in sensitive contexts.
 
 Do not disable antivirus, Windows protections or security controls as a general workaround.
 
-13. Updates
+12. Updates
 NOVORA may check the official channel when the app opens. It should not continuously poll only to discover updates.
 
 Stable updates are published through the official NOVORA-LINK channel.
 
-14. Troubleshooting
+13. Troubleshooting
 1. Verify that the phone is still connected and authorized.
 2. Confirm that you are using the expected APK/version.
 3. Check the affected engine status.

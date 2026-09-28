@@ -1,6 +1,6 @@
 # NOVORA-LINK 1.4 PRERELEASE PRE FINAL — Análisis funcional
 
-Fecha de preparación: 2026-09-17
+Fecha de preparación: 2026-09-17. Estado del baseline actualizado: 2026-09-27.
 
 ## Alcance
 
@@ -64,12 +64,7 @@ Este informe se basa en el contexto maestro de la raíz activa `NL2\NOVORA-LINK`
 
 ## STEngine
 
-| Área | Estado | Observación |
-|---|---|---|
-| Motor bajo demanda | ✅ | `STCoreEngine` no crea timer/polling propio. |
-| Análisis VisionEngine | ✅ | Puede analizar métricas VE cuando existen. |
-| Análisis NOVORA | ✅ | Puede combinar snapshot VE + métricas LE. |
-| Independencia total | 🟠 | Su utilidad actual consume snapshots de otros motores; puede existir en espera, pero todavía no ofrece un banco amplio de pruebas completamente autónomas. |
+STEngine, sus contratos de snapshot, adaptadores VE/LE/ExIn y pruebas fueron retirados del baseline del 27 de septiembre de 2026. No se presenta como disponible, integrado ni verificado. Los informes de auditoría anteriores se conservan únicamente como evidencia histórica.
 
 ## NVIDIA
 
@@ -143,7 +138,7 @@ La lista de exclusiones está en `Documentation/Archive/NLDocumentationExcludedD
 ## P1 — Debe terminarse o validarse
 
 - Determinar qué funciones de `IntegrationVE` tienen backend real y cuáles deben mostrarse como no disponibles.
-- Ampliar STEngine si debe funcionar como banco de medición autónomo, no sólo como analizador de LE/VE.
+- Rediseñar STEngine fuera de la rama principal antes de considerar su reingreso; deberá incluir Recovery propio, integración completa y evidencia física.
 - Completar revisión de persistencia/logs sensibles.
 - Decidir si `scrcpy.exe` sigue siendo realmente necesario; VisionEngine afirma no ejecutarlo para el pipeline principal.
 
