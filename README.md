@@ -75,7 +75,46 @@ El manual español es prioritario. Ambas apps exponen acceso al manual.
 En Windows, use:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Tool\NLToolReleaseGate.ps1
+Set-Location "$env:USERPROFILE\Desktop\NOVORA-LINK"
+
+dotnet build .\NOVORA.sln `
+  -c Release `
+  -p:UseSharedCompilation=false
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Falló la compilación Release de NOVORA PC."
+}
+
+dotnet build .\src\NOVORA.Android\NLProjectAndroid.csproj `
+  -c Release `
+  -p:NovoraPackage=true `
+  -p:UseSharedCompilation=false
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Falló la compilación Release de NOVORA Android."
+}
+
+$novoraExe = Join-Path $PWD "src\NOVORA\bin\Release\net8.0-windows10.0.26100.0\NOVORA.exe"
+$novoraDirectory = Split-Path -Parent $novoraExe
+$androidApk = Join-Path $PWD "src\NOVORA.Android\bin\Release\net10.0-android\com.novora.appcontrol-Signed.apk"
+
+if (-not (Test-Path -LiteralPath $novoraExe)) {
+    throw "No se encontró NOVORA.exe: $novoraExe"
+}
+
+if (-not (Test-Path -LiteralPath $androidApk)) {
+    throw "No se encontró el APK: $androidApk"
+}
+
+Write-Host ""
+Write-Host "Compilación completa." -ForegroundColor Green
+Write-Host "PC:      $novoraExe"
+Write-Host "Android: $androidApk"
+Write-Host ""
+
+Start-Process `
+  -FilePath $novoraExe `
+  -WorkingDirectory $novoraDirectory
 ```
 
 El gate ejecuta validaciones por bloque y no confunde build con prueba física.
