@@ -98,6 +98,10 @@ NOVORA conserva temporalmente componentes de terceros mientras no exista una sus
 
 No se reclama autoría sobre componentes de terceros.
 
+## Licencia
+
+El código original de NOVORA-LINK se distribuye bajo la `NOVORA-LINK COMMUNITY PROPRIETARY LICENSE (NLCPL) v1.0`. Consulte `LICENSE`. Los componentes de terceros mantienen sus licencias propias.
+
 ## Estado funcional
 
 Consulte `Documentation/Release/NLDocumentationPreFinalFunctionalAnalysis.md`. Ese documento diferencia entre:
