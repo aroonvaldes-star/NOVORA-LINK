@@ -117,11 +117,11 @@ public sealed class NLAndroidVideoService : Service
 
             Exception? encoderFailure = null;
             _encoder = new NLAndroidVideoEncoder(width, height, offer.Bitrate, offer.Fps,
-                ex => { encoderFailure = ex; lifetime.Cancel(); });
+                ex => { encoderFailure = ex; TryCancel(lifetime); });
             var projectionManager = (MediaProjectionManager)GetSystemService(MediaProjectionService)!;
             _projection = projectionManager.GetMediaProjection((int)result, projectionData)
                 ?? throw new InvalidOperationException("Android no entregó la captura de pantalla.");
-            _projectionCallback = new NLAndroidProjectionCallback(() => lifetime.Cancel());
+            _projectionCallback = new NLAndroidProjectionCallback(() => TryCancel(lifetime));
             _projection.RegisterCallback(_projectionCallback, new Handler(Looper.MainLooper!));
             if (!OperatingSystem.IsAndroidVersionAtLeast(29))
                 throw new NotSupportedException("Audio AppControl requiere Android 10 o posterior.");
@@ -184,12 +184,16 @@ public sealed class NLAndroidVideoService : Service
     private async Task StopVideoAsync()
     {
         var lifetime = Interlocked.Exchange(ref _lifetime, null);
-        lifetime?.Cancel();
+        TryCancel(lifetime);
         try { _display?.Release(); } catch { }
         _display = null;
+        if (_projection is not null && _projectionCallback is not null)
+        {
+            try { _projection.UnregisterCallback(_projectionCallback); } catch { }
+        }
+        _projectionCallback = null;
         try { _projection?.Stop(); } catch { }
         _projection = null;
-        _projectionCallback = null;
         if (_encoder is not null) await _encoder.DisposeAsync();
         _encoder = null;
         if (_audioCapture is not null && OperatingSystem.IsAndroidVersionAtLeast(29))
@@ -211,8 +215,15 @@ public sealed class NLAndroidVideoService : Service
 
     public override void OnDestroy()
     {
-        _lifetime?.Cancel();
+        TryCancel(_lifetime);
         base.OnDestroy();
+    }
+
+    private static void TryCancel(CancellationTokenSource? source)
+    {
+        if (source is null) return;
+        try { source.Cancel(); }
+        catch (ObjectDisposedException) { }
     }
 
     private sealed class NLAndroidProjectionCallback(Action stopped) : MediaProjection.Callback

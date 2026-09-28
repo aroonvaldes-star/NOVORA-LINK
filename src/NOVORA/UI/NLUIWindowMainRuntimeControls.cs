@@ -23,7 +23,9 @@ public partial class NLUIWindowMain
             !visionBusy;
 
         MainActionButton.Content =
-            visionBusy
+            _pcVideoAuthorizationRequested
+                ? "CANCELAR SOLICITUD"
+                : visionBusy
                 ? IsVisionEngineRunningVE()
                     ? "DETENIENDO…"
                     : "INICIANDO…"

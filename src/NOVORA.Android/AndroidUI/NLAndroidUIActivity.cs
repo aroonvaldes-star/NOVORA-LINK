@@ -61,6 +61,7 @@ public sealed class NLAndroidUIActivity : Activity
     private const int VideoProjectionRequest = 217;
     private const int AudioPermissionRequest = 218;
     private long _videoProjectionGeneration = -1, _videoProjectionRevision = -1;
+    private bool _pcVideoAuthorizationObserved;
     private long _vpnGeneration = -1, _vpnRevision = -1;
     private bool _vpnApproved;
     private Spinner _resolution = null!, _fps = null!, _monitor = null!;
@@ -1234,6 +1235,17 @@ public sealed class NLAndroidUIActivity : Activity
             _settingsStatus.Text = "Elige todos los ajustes y aplícalos juntos.";
         UpdateVisualSummary(snapshot);
         EnableActions(!_busy);
+        bool pcRequestedVideo = snapshot.Engines?.VideoAuthorizationRequested == true;
+        if (pcRequestedVideo && !_pcVideoAuthorizationObserved)
+        {
+            _pcVideoAuthorizationObserved = true;
+            _status.Text = "La PC solicita autorización para iniciar VisionEngine.";
+            _ = RequestVideoProjectionAsync();
+        }
+        else if (!pcRequestedVideo)
+        {
+            _pcVideoAuthorizationObserved = false;
+        }
     }
     private void UpdateVisualSummary(NLControlSnapshot? snapshot)
     {
@@ -1436,6 +1448,7 @@ public sealed class NLAndroidUIActivity : Activity
         }
         if (!NLAndroidControlAccessibilityService.IsEnabled(this))
         {
+            _pcVideoAuthorizationObserved = false;
             _status.Text = "Activa Control de NOVORA en Accesibilidad y vuelve a iniciar VisionEngine.";
             StartActivity(new Intent(Android.Provider.Settings.ActionAccessibilitySettings));
             return Task.CompletedTask;
@@ -1449,7 +1462,10 @@ public sealed class NLAndroidUIActivity : Activity
         _videoProjectionGeneration = _service.Session.Current.Generation;
         _videoProjectionRevision = _snapshot!.Revision;
         var manager = (MediaProjectionManager)GetSystemService(MediaProjectionService)!;
-        StartActivityForResult(manager.CreateScreenCaptureIntent(), VideoProjectionRequest);
+        Intent captureIntent = OperatingSystem.IsAndroidVersionAtLeast(34)
+            ? manager.CreateScreenCaptureIntent(MediaProjectionConfig.CreateConfigForDefaultDisplay())
+            : manager.CreateScreenCaptureIntent();
+        StartActivityForResult(captureIntent, VideoProjectionRequest);
         return Task.CompletedTask;
     }
 

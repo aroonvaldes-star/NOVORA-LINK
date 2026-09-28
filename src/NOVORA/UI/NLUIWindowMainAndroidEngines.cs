@@ -15,6 +15,8 @@ public partial class NLUIWindowMain
     private bool _androidLinkStarting;
     private bool _androidLinkStopping;
     private string? _androidLinkError;
+    private bool _pcVideoAuthorizationRequested;
+    private CancellationTokenSource? _pcVideoAuthorizationTimeout;
 
     private NLControlEngines CaptureAndroidEngines()
     {
@@ -59,7 +61,8 @@ public partial class NLUIWindowMain
                 videoBusy ? "VisionEngine está cambiando de estado." : "",
             exInState,
             exInMessage,
-            linkCanTakeOver);
+            linkCanTakeOver,
+            _pcVideoAuthorizationRequested);
     }
 
     // Existing engine/device events publish only changes relevant to the control UI.
@@ -91,6 +94,7 @@ public partial class NLUIWindowMain
         switch (request.Action)
         {
             case "startAppVideo":
+                ClearPcVideoAuthorizationRequest();
                 return await PrepareAppControlVideoAsync(request);
             case "startVideo":
                 if (IsVisionEngineRunningVE()) return Reply(true, "VisionEngine ya está iniciado.");
@@ -160,6 +164,55 @@ public partial class NLUIWindowMain
             default:
                 return Reply(false, "Acción de motor desconocida.");
         }
+    }
+
+    private Task RequestAppControlVideoFromPcAsync()
+    {
+        var device = _viewModel.Device;
+        bool authorizedUsb = AndroidControlSessionOpen && _androidControl?.IsAuthorized == true &&
+            _androidControlSerial == device.Serial && device.Connected && !device.IsWifiConnection;
+        if (!authorizedUsb)
+            throw new InvalidOperationException(
+                "VisionEngine nativo requiere AppControl conectado y autorizado por USB.");
+        if (_viewModel.SelectedMonitor is null)
+            throw new InvalidOperationException("Selecciona el monitor que compartirá VisionEngine.");
+
+        _pcVideoAuthorizationTimeout?.Cancel();
+        _pcVideoAuthorizationTimeout?.Dispose();
+        _pcVideoAuthorizationTimeout = new CancellationTokenSource();
+        _pcVideoAuthorizationRequested = true;
+        _viewModel.ConnectionStatus = "Autoriza compartir pantalla en Android.";
+        UpdateRuntimeButtons();
+        AndroidEngineStateChanged();
+        _ = ExpirePcVideoAuthorizationRequestAsync(_pcVideoAuthorizationTimeout.Token);
+        return Task.CompletedTask;
+    }
+
+    private async Task ExpirePcVideoAuthorizationRequestAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(45), cancellationToken);
+            if (cancellationToken.IsCancellationRequested) return;
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (!_pcVideoAuthorizationRequested) return;
+                ClearPcVideoAuthorizationRequest();
+                _viewModel.ConnectionStatus = "La autorización de Android venció. Intenta iniciar de nuevo.";
+            });
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private void ClearPcVideoAuthorizationRequest()
+    {
+        if (!_pcVideoAuthorizationRequested && _pcVideoAuthorizationTimeout is null) return;
+        _pcVideoAuthorizationRequested = false;
+        _pcVideoAuthorizationTimeout?.Cancel();
+        _pcVideoAuthorizationTimeout?.Dispose();
+        _pcVideoAuthorizationTimeout = null;
+        UpdateRuntimeButtons();
+        AndroidEngineStateChanged();
     }
 
     private async Task StartAndroidLinkAsync(LERuntimeManager runtime, string serial, long generation,

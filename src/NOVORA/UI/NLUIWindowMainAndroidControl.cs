@@ -150,6 +150,7 @@ public partial class NLUIWindowMain
 
     private async Task StopAutomaticUsbAsync()
     {
+        ClearPcVideoAuthorizationRequest();
         await StopAppControlVideoSourceAsync();
         NLControlTrustServer? server = _androidControl;
         string? serial = _androidControlSerial;

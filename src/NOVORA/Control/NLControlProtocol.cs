@@ -9,7 +9,7 @@ public sealed record NLControlEngines(bool VideoCanStart, bool VideoCanStop, boo
     bool LinkCanStop, bool LinkRunning, string LinkState, string LinkMessage, string DeviceName,
     string VideoState = "", string VideoMessage = "",
     string ExInState = "NotDetected", string ExInMessage = "ExInEngine no reportado por esta PC.",
-    bool LinkCanTakeOver = false);
+    bool LinkCanTakeOver = false, bool VideoAuthorizationRequested = false);
 public sealed record NLControlVideoSettings(string Resolution, string Fps,
     NLControlOption[] Resolutions, NLControlOption[] FrameRates,
     string Monitor = "", NLControlOption[]? Monitors = null, bool CanApplyTogether = false);

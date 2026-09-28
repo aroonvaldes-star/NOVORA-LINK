@@ -1231,8 +1231,18 @@ public partial class NLUIWindowMain
 
     private bool _visionCommandApplyingVE;
 
-    private Task ToggleVisionEngineVEAsync() =>
-        SetVisionEngineRunningVEAsync(!IsVisionEngineRunningVE());
+    private Task ToggleVisionEngineVEAsync()
+    {
+        if (IsVisionEngineRunningVE())
+            return SetVisionEngineRunningVEAsync(false);
+        if (_pcVideoAuthorizationRequested)
+        {
+            ClearPcVideoAuthorizationRequest();
+            _viewModel.ConnectionStatus = "Solicitud de VisionEngine cancelada.";
+            return Task.CompletedTask;
+        }
+        return RequestAppControlVideoFromPcAsync();
+    }
 
     private async Task SetVisionEngineRunningVEAsync(bool running, Func<bool>? authorization = null)
     {

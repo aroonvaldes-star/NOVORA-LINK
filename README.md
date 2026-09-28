@@ -80,6 +80,55 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Tool\NLToolReleaseGate
 
 El gate ejecuta validaciones por bloque y no confunde build con prueba física.
 
+### Compilar PC y Android, validar artefactos y ejecutar NOVORA
+
+Si descargó la carpeta con el nombre `NOVORA-LINK` dentro del Escritorio, puede ejecutar todo el proceso con un único bloque de PowerShell:
+
+```powershell
+Set-Location "$env:USERPROFILE\Desktop\NOVORA-LINK"
+
+dotnet build .\NOVORA.sln `
+  -c Release `
+  -p:UseSharedCompilation=false
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Falló la compilación Release de NOVORA PC."
+}
+
+dotnet build .\src\NOVORA.Android\NLProjectAndroid.csproj `
+  -c Release `
+  -p:NovoraPackage=true `
+  -p:UseSharedCompilation=false
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Falló la compilación Release de NOVORA Android."
+}
+
+$novoraExe = Join-Path $PWD "src\NOVORA\bin\Release\net8.0-windows10.0.26100.0\NOVORA.exe"
+$novoraDirectory = Split-Path -Parent $novoraExe
+$androidApk = Join-Path $PWD "src\NOVORA.Android\bin\Release\net10.0-android\com.novora.appcontrol-Signed.apk"
+
+if (-not (Test-Path -LiteralPath $novoraExe)) {
+    throw "No se encontró NOVORA.exe: $novoraExe"
+}
+
+if (-not (Test-Path -LiteralPath $androidApk)) {
+    throw "No se encontró el APK: $androidApk"
+}
+
+Write-Host ""
+Write-Host "Compilación completa." -ForegroundColor Green
+Write-Host "PC:      $novoraExe"
+Write-Host "Android: $androidApk"
+Write-Host ""
+
+Start-Process `
+  -FilePath $novoraExe `
+  -WorkingDirectory $novoraDirectory
+```
+
+Este bloque confirma compilación y existencia de los artefactos. No certifica por sí solo instalación, conexión USB, ejecución física de Android, seguridad ni rendimiento.
+
 ## Instalador
 
 Fuente Inno Setup:

@@ -119,6 +119,25 @@ public sealed class NLTestAppControlVideoTransport
     }
 
     [Fact]
+    public void Video_authorization_request_round_trips_and_defaults_off_for_older_snapshots()
+    {
+        var requested = new NLControlEngines(
+            VideoCanStart: true, VideoCanStop: false,
+            LinkCanStart: false, LinkCanStop: false, LinkRunning: false,
+            LinkState: "Stopped", LinkMessage: "", DeviceName: "Samsung",
+            VideoAuthorizationRequested: true);
+
+        var restored = JsonSerializer.Deserialize<NLControlEngines>(JsonSerializer.Serialize(requested));
+        var legacy = JsonSerializer.Deserialize<NLControlEngines>(
+            "{\"VideoCanStart\":true,\"VideoCanStop\":false,\"LinkCanStart\":false," +
+            "\"LinkCanStop\":false,\"LinkRunning\":false,\"LinkState\":\"Stopped\"," +
+            "\"LinkMessage\":\"\",\"DeviceName\":\"Samsung\"}");
+
+        Assert.True(restored!.VideoAuthorizationRequested);
+        Assert.False(legacy!.VideoAuthorizationRequested);
+    }
+
+    [Fact]
     public void AppControl_offer_carries_only_bounded_encoder_settings()
     {
         var offer = new NLControlVideoSourceOffer(27215, new string('A', 64), 4_000_000, 1920, 60,
