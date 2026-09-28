@@ -206,6 +206,16 @@ public sealed class NLAndroidVpnService : VpnService
                 builder.SetSession("NOVORA Internet USB")!.SetMtu(1500)!.AddAddress("10.0.0.2", 32)!
                     .AddRoute("0.0.0.0", 0)!.AddDnsServer("8.8.8.8")!.SetBlocking(false)!
                     .AddDisallowedApplication(PackageName!);
+                if (OperatingSystem.IsAndroidVersionAtLeast(29))
+                {
+                    // USB reverse tethering uses the PC connection and has no mobile data quota.
+                    builder.SetMetered(false);
+                }
+                Network? underlying = FindUnderlyingNetwork();
+                if (underlying is not null)
+                {
+                    builder.SetUnderlyingNetworks([underlying]);
+                }
                 // No IPv6 address/route or allowFamily: Android blocks this unsupported family.
                 _tun = builder.Establish() ?? throw new InvalidOperationException("Android no autorizó el túnel VPN.");
                 _wake = Os.Pipe() ?? throw new IOException("No se pudo preparar cancelación del túnel.");
@@ -273,6 +283,34 @@ public sealed class NLAndroidVpnService : VpnService
             SetStatus(terminal, false);
             _main.Post(() => { if (!_destroyed && _epoch == Interlocked.Read(ref _requestedEpoch)) { StopForeground(StopForegroundFlags.Remove); StopSelf(); } });
         }
+    }
+
+    private Network? FindUnderlyingNetwork()
+    {
+        var connectivity =
+            (ConnectivityManager?)GetSystemService(ConnectivityService);
+
+        if (connectivity is null)
+        {
+            return null;
+        }
+
+#pragma warning disable CA1422
+        foreach (Network network in connectivity.GetAllNetworks())
+#pragma warning restore CA1422
+        {
+            NetworkCapabilities? capabilities =
+                connectivity.GetNetworkCapabilities(network);
+
+            if (capabilities is not null &&
+                !capabilities.HasTransport(TransportType.Vpn) &&
+                capabilities.HasCapability(NetCapability.Validated))
+            {
+                return network;
+            }
+        }
+
+        return null;
     }
     private static void WaitTun(Java.IO.FileDescriptor descriptor, Java.IO.FileDescriptor wake, short events, CancellationToken token)
     {

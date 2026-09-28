@@ -1191,16 +1191,6 @@ public sealed class LERuntimeManager :
             {
             }
 
-            /*
-             * =============================================
-             * LE-006 DATA PLANE STOP
-             * =============================================
-             *
-             * DATA reverse must be removed while ADB is
-             * still available.
-             * =============================================
-             */
-
             try
             {
                 await engine
@@ -1261,28 +1251,27 @@ public sealed class LERuntimeManager :
             TimeSpan timeout,
             CancellationToken cancellationToken)
     {
-        DateTimeOffset deadline =
-            DateTimeOffset.UtcNow +
-            timeout;
+        var completion =
+            new TaskCompletionSource<LETransportSession?>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
 
-        while (DateTimeOffset.UtcNow < deadline)
+        void ObserveSessionLE(
+            object? sender,
+            LETransportSession session)
         {
-            cancellationToken
-                .ThrowIfCancellationRequested();
-
-            LETransportSession? session =
-                transport.GetSessionLE(
-                    serial);
-
-            if (session is null)
+            if (!string.Equals(
+                    session.Serial,
+                    serial,
+                    StringComparison.OrdinalIgnoreCase))
             {
-                return null;
+                return;
             }
 
             if (session.State ==
                 LETransportState.Failed)
             {
-                return null;
+                completion.TrySetResult(null);
+                return;
             }
 
             if (session.State ==
@@ -1296,16 +1285,43 @@ public sealed class LERuntimeManager :
                 session.HeartbeatCount >=
                     requiredHeartbeats)
             {
-                return session;
+                completion.TrySetResult(session);
+            }
+        }
+
+        transport.SessionChangedLE +=
+            ObserveSessionLE;
+
+        try
+        {
+            LETransportSession? current =
+                transport.GetSessionLE(
+                    serial);
+
+            if (current is null)
+            {
+                return null;
             }
 
-            await Task.Delay(
-                    200,
+            ObserveSessionLE(
+                transport,
+                current);
+
+            return await completion.Task
+                .WaitAsync(
+                    timeout,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
-
-        return null;
+        catch (TimeoutException)
+        {
+            return null;
+        }
+        finally
+        {
+            transport.SessionChangedLE -=
+                ObserveSessionLE;
+        }
     }
 
     // ============================================================

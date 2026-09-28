@@ -67,14 +67,18 @@ pub const IDLE_TIMEOUT_SECONDS: u64 = 2 * 60;
  * Eso favorece latencia, pero una sola ráfaga UDP puede llenar
  * demasiado rápido la cola y provocar drops.
  *
- * LowLatency-v2 usa un punto intermedio:
+ * QUIC abre ráfagas de datagramas antes de que mio entregue
+ * el siguiente evento writable. Con 2x esas ráfagas podían llenar
+ * DatagramBuffer y dejar solicitudes de YouTube/TikTok esperando.
  *
- *     2 * MAX_PACKET_LENGTH
+ * Conservamos el margen original:
  *
- * Seguimos al 50% de la capacidad original de Gnirehtet,
- * pero duplicamos el margen respecto a LowLatency-v1.
+ *     4 * MAX_PACKET_LENGTH
+ *
+ * UDP no ofrece retransmisión; evitar el drop tiene prioridad sobre
+ * ahorrar unos KiB en la única sesión activa de NOVORA.
  */
-const CLIENT_TO_NETWORK_BUFFER_PACKETS: usize = 2;
+const CLIENT_TO_NETWORK_BUFFER_PACKETS: usize = 4;
 
 pub struct UdpConnection {
     /*
@@ -839,5 +843,27 @@ impl PacketSource for UdpConnection {
         self.update_interests(
             selector,
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn buffers_quic_burst_without_dropping_datagrams() {
+        const QUIC_DATAGRAM_LENGTH: usize = 1_350;
+        const BURST_DATAGRAMS: usize = 128;
+
+        let datagram = vec![0; QUIC_DATAGRAM_LENGTH];
+        let mut buffer = DatagramBuffer::new(
+            CLIENT_TO_NETWORK_BUFFER_PACKETS * MAX_PACKET_LENGTH,
+        );
+
+        for _ in 0..BURST_DATAGRAMS {
+            buffer
+                .read_from(&datagram)
+                .expect("QUIC burst must fit without UDP loss");
+        }
     }
 }

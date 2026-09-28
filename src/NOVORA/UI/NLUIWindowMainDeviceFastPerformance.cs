@@ -116,7 +116,6 @@ public partial class NLUIWindowMain
                 status,
                 brushKey);
 
-            await RefreshPerformanceOnceAsync();
         }
         catch (OperationCanceledException)
         {

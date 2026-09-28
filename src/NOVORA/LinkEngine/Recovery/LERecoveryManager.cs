@@ -18,9 +18,6 @@ public sealed class LERecoveryManager : IAsyncDisposable
     private static readonly TimeSpan InfrastructureRecoveryTimeoutLE =
         TimeSpan.FromSeconds(25);
 
-    private static readonly TimeSpan PollIntervalLE =
-        TimeSpan.FromMilliseconds(200);
-
     private static readonly TimeSpan AndroidHandshakeTimeoutLE =
         TimeSpan.FromSeconds(15);
 
@@ -252,74 +249,48 @@ public sealed class LERecoveryManager : IAsyncDisposable
             metrics.SetState(
                 LECoreStates.Recovering);
 
-            DateTimeOffset deadline =
-                DateTimeOffset.UtcNow +
-                timeout;
+            LETransportSession? recovered =
+                await WaitForRecoveredSessionLEAsync(
+                        serial,
+                        baselineHeartbeatCount,
+                        requiredHeartbeats,
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
 
-            while (DateTimeOffset.UtcNow < deadline)
+            if (recovered is not null)
             {
-                cancellationToken
-                    .ThrowIfCancellationRequested();
-
-                LETransportSession? current =
-                    _transport.GetSessionLE(serial);
-
-                if (current is null)
-                {
-                    metrics.RegisterRecoveryAttempt(false);
-
-                    return LECoreResult.Fail(
-                        "LETransportManager perdió la sesión durante recovery.");
-                }
-
-                if (!current.ReverseConfigured ||
-                    !current.ReverseVerified)
-                {
-                    metrics.RegisterRecoveryAttempt(false);
-
-                    return LECoreResult.Fail(
-                        "adb reverse no está disponible. " +
-                        "Se requiere RecoverInfrastructureAsync.");
-                }
-
-                if (!current.ListenerStarted ||
-                    !_transport.IsListenerActiveLE(serial))
-                {
-                    metrics.RegisterRecoveryAttempt(false);
-
-                    return LECoreResult.Fail(
-                        "LETransportListener no está disponible. " +
-                        "Se requiere RecoverInfrastructureAsync.");
-                }
-
                 long newHeartbeats =
                     Math.Max(
                         0,
-                        current.HeartbeatCount -
+                        recovered.HeartbeatCount -
                         baselineHeartbeatCount);
 
-                if (IsRecoveredLE(
-                        current,
-                        newHeartbeats,
-                        requiredHeartbeats))
-                {
-                    metrics.RegisterRecoveryAttempt(true);
+                metrics.RegisterRecoveryAttempt(true);
 
-                    metrics.SetState(
-                        LECoreStates.Connected);
+                metrics.SetState(
+                    LECoreStates.Connected);
 
-                    return LECoreResult.Ok(
-                        "LE-004F-A recovery correcto. " +
-                        $"Nuevos HEARTBEAT: {newHeartbeats}.");
-                }
-
-                await Task.Delay(
-                        PollIntervalLE,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                return LECoreResult.Ok(
+                    "LE-004F-A recovery correcto. " +
+                    $"Nuevos HEARTBEAT: {newHeartbeats}.");
             }
 
             metrics.RegisterRecoveryAttempt(false);
+
+            LETransportSession? final =
+                _transport.GetSessionLE(serial);
+
+            if (final is not null &&
+                (!final.ReverseConfigured ||
+                 !final.ReverseVerified ||
+                 !final.ListenerStarted ||
+                 !_transport.IsListenerActiveLE(serial)))
+            {
+                return LECoreResult.Fail(
+                    "La infraestructura de transporte no está disponible. " +
+                    "Se requiere RecoverInfrastructureAsync.");
+            }
 
             return LECoreResult.Fail(
                 "Recovery de socket agotó el timeout.");
@@ -560,52 +531,27 @@ public sealed class LERecoveryManager : IAsyncDisposable
                     handshake.Message);
             }
 
-            DateTimeOffset deadline =
-                DateTimeOffset.UtcNow +
-                timeout;
-
-            while (DateTimeOffset.UtcNow < deadline)
-            {
-                cancellationToken
-                    .ThrowIfCancellationRequested();
-
-                LETransportSession? current =
-                    _transport.GetSessionLE(serial);
-
-                if (current is null)
-                {
-                    metrics.RegisterRecoveryAttempt(false);
-
-                    return LECoreResult.Fail(
-                        "La sesión reconstruida desapareció.");
-                }
-
-                /*
-                 * La sesión es nueva, por lo que HeartbeatCount
-                 * parte desde cero.
-                 */
-
-                if (IsRecoveredLE(
-                        current,
-                        current.HeartbeatCount,
-                        requiredHeartbeats))
-                {
-                    metrics.RegisterRecoveryAttempt(true);
-
-                    metrics.SetState(
-                        LECoreStates.Connected);
-
-                    return LECoreResult.Ok(
-                        "LE-004F-B recovery correcto. " +
-                        "LETransportManager fue reconstruido, adb reverse fue recreado, " +
-                        "Android reconectó y la sesión volvió a HEALTHY con " +
-                        $"{current.HeartbeatCount} HEARTBEAT/ACK.");
-                }
-
-                await Task.Delay(
-                        PollIntervalLE,
+            LETransportSession? recovered =
+                await WaitForRecoveredSessionLEAsync(
+                        serial,
+                        baselineHeartbeatCount: 0,
+                        requiredHeartbeats,
+                        timeout,
                         cancellationToken)
                     .ConfigureAwait(false);
+
+            if (recovered is not null)
+            {
+                metrics.RegisterRecoveryAttempt(true);
+
+                metrics.SetState(
+                    LECoreStates.Connected);
+
+                return LECoreResult.Ok(
+                    "LE-004F-B recovery correcto. " +
+                    "LETransportManager fue reconstruido, adb reverse fue recreado, " +
+                    "Android reconectó y la sesión volvió a HEALTHY con " +
+                    $"{recovered.HeartbeatCount} HEARTBEAT/ACK.");
             }
 
             metrics.RegisterRecoveryAttempt(false);
@@ -698,6 +644,87 @@ public sealed class LERecoveryManager : IAsyncDisposable
             session.SessionHealthy &&
             heartbeatCount >=
                 requiredHeartbeats;
+    }
+
+    private async Task<LETransportSession?> WaitForRecoveredSessionLEAsync(
+        string serial,
+        long baselineHeartbeatCount,
+        long requiredHeartbeats,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        var completion =
+            new TaskCompletionSource<LETransportSession?>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void ObserveSessionLE(
+            object? sender,
+            LETransportSession session)
+        {
+            if (!string.Equals(
+                    session.Serial,
+                    serial,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            long newHeartbeats =
+                Math.Max(
+                    0,
+                    session.HeartbeatCount -
+                    baselineHeartbeatCount);
+
+            if (IsRecoveredLE(
+                    session,
+                    newHeartbeats,
+                    requiredHeartbeats))
+            {
+                completion.TrySetResult(session);
+                return;
+            }
+
+            if (session.State == LETransportState.Failed ||
+                !session.ReverseConfigured ||
+                !session.ReverseVerified ||
+                !session.ListenerStarted)
+            {
+                completion.TrySetResult(null);
+            }
+        }
+
+        _transport.SessionChangedLE +=
+            ObserveSessionLE;
+
+        try
+        {
+            LETransportSession? current =
+                _transport.GetSessionLE(serial);
+
+            if (current is null)
+            {
+                return null;
+            }
+
+            ObserveSessionLE(
+                _transport,
+                current);
+
+            return await completion.Task
+                .WaitAsync(
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            return null;
+        }
+        finally
+        {
+            _transport.SessionChangedLE -=
+                ObserveSessionLE;
+        }
     }
 
     private SemaphoreSlim GetRecoveryLockLE(

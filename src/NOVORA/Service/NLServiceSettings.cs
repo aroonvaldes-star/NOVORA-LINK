@@ -76,6 +76,7 @@ public sealed class NLServiceNovoraSettings
 
     public Dictionary<string, string> MonitorNames { get; set; }
         = new(StringComparer.OrdinalIgnoreCase);
+
 }
 
 public sealed class NLServiceSettings

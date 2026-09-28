@@ -54,7 +54,6 @@ public partial class NLUIWindowMain
 
         try
         {
-            RefreshSTEngineSnapshot14();
 
             if (Dispatcher.CheckAccess())
             {
@@ -112,7 +111,7 @@ public partial class NLUIWindowMain
 
         LinkEngineDeviceStatus.Text =
             $"ADB: {(session.DeviceOnline ? "ONLINE" : "OFFLINE")} - " +
-            $"Conexion: {connection}";
+            $"Conexión: {connection}";
 
         string reverse =
             session.ReverseVerified
@@ -381,10 +380,21 @@ public partial class NLUIWindowMain
 
     private void UpdateLinkEngineButtonLE()
     {
-        LinkEngineTestButton.IsEnabled = false;
-        LinkEngineTestButton.Content = _linkEngineRuntimeLE?.IsRunningLE == true
-            ? "LINKENGINE ACTIVO" : "INICIAR DESDE ANDROID USB";
-        LinkEngineTestButton.ToolTip = "Inicia Internet USB desde NOVORA Android después de autorizar el control USB y el permiso VPN del teléfono.";
+        bool running =
+            _linkEngineRuntimeLE?.IsRunningLE == true;
+
+        LinkEngineTestButton.IsEnabled =
+            !_closing;
+
+        LinkEngineTestButton.Content =
+            running
+                ? "VER ESTADO DE LINKENGINE"
+                : "INICIAR DESDE ANDROID";
+
+        LinkEngineTestButton.ToolTip =
+            running
+                ? "LinkEngine ya está activo. Revisa aquí el estado confirmado del túnel."
+                : "Por seguridad, Internet USB se inicia desde NOVORA Android después de autorizar USB y aceptar el permiso VPN.";
     }
 
     /*
@@ -401,7 +411,7 @@ public partial class NLUIWindowMain
         }
 
         LinkEngineDeviceStatus.Text =
-            "ADB: - - Conexion: -";
+            "ADB: - - Conexión: -";
 
         LinkEngineTransportStatus.Text =
             "Puerto: - - Reverse: - - Listener: -";

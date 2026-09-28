@@ -21,13 +21,7 @@ public partial class NLUIWindowMain
 
         ShowPage14(_selectedPage14);
 
-        if (string.Equals(
-                _selectedPage14,
-                "Performance",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            await RefreshPerformanceOnceAsync();
-        }
+        await Task.CompletedTask;
     }
 
     private void ShowPage14(
@@ -36,7 +30,6 @@ public partial class NLUIWindowMain
         SetPageVisibility14(HomePage14, page, "Home");
         SetPageVisibility14(ScreenPage14, page, "Screen");
         SetPageVisibility14(NetworkPage14, page, "Network");
-        SetPageVisibility14(PerformancePage14, page, "Performance");
         SetPageVisibility14(GameInputPage14, page, "GameInput");
         SetPageVisibility14(IntegrationPage14, page, "Integration");
         SetPageVisibility14(PrivacyPage14, page, "Privacy");

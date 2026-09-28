@@ -327,11 +327,6 @@
                                     <TextBlock Text="LinkEngine" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
-                            <Button x:Name="NavPerformance14" Tag="Performance" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Width="57">
-                                    <TextBlock Text="STEngine" Width="66"/>
-                                </StackPanel>
-                            </Button>
                             <Button x:Name="NavGameInput14" Tag="GameInput" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}">
                                 <StackPanel Orientation="Horizontal" Width="70">
                                     <TextBlock Text="ExInEngine" Width="68"/>
@@ -439,7 +434,7 @@
 
                                 <Border Grid.Column="0" Style="{StaticResource NvCardStyle}">
                                     <StackPanel>
-                                        <TextBlock Text="STEngine · Rendimiento" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <TextBlock Text="Sistema Android" Style="{StaticResource NvSectionTitleStyle}"/>
                                         <TextBlock Text="Datos del teléfono y salud del sistema" Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,10"/>
                                         <TextBlock x:Name="HomeCpuValueText14" Text="{Binding Text, ElementName=CpuValueText14}" Foreground="{DynamicResource BlueBrush}" FontSize="18" FontWeight="Bold"/>
                                         <TextBlock x:Name="HomeRamValueText14" Text="{Binding Text, ElementName=RamValueText14}" Style="{StaticResource NvCaptionStyle}" Margin="0,4,0,0"/>
@@ -736,7 +731,7 @@
                                 </Border>
 
                                 <StackPanel Grid.Column="2">
-                                    <Button x:Name="LinkEngineTestButton" Content="INTERNET USB" Style="{StaticResource NvPrimaryButtonStyle}" IsEnabled="False" Margin="0,0,0,10"/>
+                                    <Button x:Name="LinkEngineTestButton" Content="INICIAR DESDE ANDROID" Style="{StaticResource NvPrimaryButtonStyle}" Click="LinkEngineTestButton_Click" Margin="0,0,0,10"/>
                                     <Button x:Name="WifiAdbButton" Content="PREPARAR FAILOVER LAN" Style="{StaticResource NvFlatButtonStyle}" Click="WifiAdb_Click" Margin="0,0,0,10"/>
                                     <Border Style="{StaticResource NvCardStyle}">
                                         <StackPanel>
@@ -750,10 +745,10 @@
                         </StackPanel>
                     </ScrollViewer>
 
-                    <!-- PERFORMANCE -->
+                    <!-- DEVICE DIAGNOSTICS (not loaded automatically) -->
                     <ScrollViewer x:Name="PerformancePage14" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                         <StackPanel>
-                            <TextBlock Text="STEngine · Diagnóstico" Style="{StaticResource NvPageTitleStyle}"/>
+                            <TextBlock Text="Sistema Android" Style="{StaticResource NvPageTitleStyle}"/>
                             <TextBlock Text="Rendimiento y salud del teléfono."
                                        Style="{StaticResource NvCaptionStyle}" Margin="0,4,0,18"/>
                             <Grid>
@@ -783,37 +778,6 @@
                                     </StackPanel>
                                 </Border>
                             </Grid>
-                            <Border Style="{StaticResource NvCardStyle}" Margin="0,14,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="STEngine" Style="{StaticResource NvSectionTitleStyle}"/>
-
-                                    <StackPanel Orientation="Horizontal" Margin="0,9,0,2">
-                                        <Ellipse x:Name="STEngineStatusDot14"
-                                                 Width="9"
-                                                 Height="9"
-                                                 Margin="0,0,8,0"
-                                                 VerticalAlignment="Center"
-                                                 Fill="{DynamicResource MutedBrush}"/>
-                                        <TextBlock x:Name="STEngineStatusTitle14"
-                                                   Text="STEngine esperando datos."
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextBrush}"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-
-                                    <TextBlock x:Name="STEngineStatusText14"
-                                               Text="El motor de medicion se activa con VisionEngine."
-                                               Style="{StaticResource NvCaptionStyle}"
-                                               Margin="17,4,0,0"
-                                               TextWrapping="Wrap"/>
-
-                                    <TextBlock x:Name="STEngineObservationsText14"
-                                               Text=""
-                                               Style="{StaticResource NvCaptionStyle}"
-                                               Margin="17,6,0,0"
-                                               TextWrapping="Wrap"/>
-                                </StackPanel>
-                            </Border>
                             <Border Style="{StaticResource NvCardStyle}" Margin="0,14,0,0">
                                 <Grid>
                                     <Grid.ColumnDefinitions>

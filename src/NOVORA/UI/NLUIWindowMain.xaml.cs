@@ -1,8 +1,6 @@
 using NOVORA.Model;
 using NOVORA.Service;
 using NOVORA.ViewModel;
-using NOVORA.STEngine.Core;
-using NOVORA.Contracts.Stability;
 using NOVORA.ExInEngine;
 using NOVORA.LinkEngine.Metrics;
 using NOVORA.VisionEngine.Metrics;
@@ -42,7 +40,6 @@ public partial class NLUIWindowMain : Window
     private readonly NLServiceADB _adb;
     private readonly NLServiceDeviceIdentity _deviceIdentity;
     private readonly NLServiceDeviceMetrics _metricsService;
-    private readonly STCoreEngine _stEngineST = new();
 
     private bool _closing;
     private bool _closeCleanupCompleted14;
@@ -83,7 +80,6 @@ public partial class NLUIWindowMain : Window
             LoadSettingsToViewModel14();
             ApplyTheme14(_viewModel.Theme);
             UpdateRuntimeButtons();
-            ApplySTEngineShell14();
             ShowPage14(_selectedPage14);
 
             _viewModel.PropertyChanged +=
@@ -94,8 +90,6 @@ public partial class NLUIWindowMain : Window
             await RefreshDevicesAsync(
                 force: true);
             await EnsureExInStandaloneAsync();
-
-            await RefreshPerformanceOnceAsync();
 
             await StartDiscoveryLifecycleNVAsync();
             await RestoreAndroidTrustAsync();
@@ -285,7 +279,6 @@ public partial class NLUIWindowMain : Window
 
         QueueSaveSelection14();
         UpdateRuntimeButtons();
-        await RefreshPerformanceOnceAsync();
     }
 
     private async void MainActionButton_Click(
@@ -302,6 +295,15 @@ public partial class NLUIWindowMain : Window
                 ex.Message,
                 NLUIMessageKind14.Error);
         }
+    }
+
+    private void LinkEngineTestButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        ShowTopMessage14(
+            "Internet USB se autoriza desde NOVORA Android: Conectar por USB, abrir Inicio o Engines y tocar Iniciar Internet.",
+            NLUIMessageKind14.Info);
     }
 
     private void Configuration_Click(
@@ -1004,105 +1006,4 @@ public partial class NLUIWindowMain : Window
         await PrepareVisionLanFallbackVEAsync();
     }
 
-    private void ApplySTEngineShell14()
-    {
-        STCoreSnapshotNovora snapshot =
-            RefreshSTEngineSnapshot14();
-
-        bool waitingForStream =
-            snapshot.Summary.StartsWith(
-                "STEngine esperando",
-                StringComparison.OrdinalIgnoreCase);
-
-        STEngineStatusTitle14.Text =
-            waitingForStream
-                ? "STEngine independiente en espera"
-                : snapshot.State switch
-            {
-                STCoreState.Healthy =>
-                    "STEngine NOVORA estable",
-
-                STCoreState.Watch =>
-                    "STEngine observando NOVORA",
-
-                STCoreState.Degraded =>
-                    "STEngine NOVORA degradado",
-
-                STCoreState.Critical =>
-                    "STEngine NOVORA critico",
-
-                _ =>
-                    "STEngine sin estado"
-            };
-
-        STEngineStatusText14.Text =
-            snapshot.Summary;
-
-        STEngineStatusDot14.Fill =
-            snapshot.State switch
-            {
-                STCoreState.Healthy =>
-                    FindResource("GreenBrush") as System.Windows.Media.Brush,
-
-                STCoreState.Watch =>
-                    FindResource("BlueBrush") as System.Windows.Media.Brush,
-
-                STCoreState.Degraded =>
-                    FindResource("OrangeBrush") as System.Windows.Media.Brush,
-
-                STCoreState.Critical =>
-                    FindResource("DangerForegroundBrush") as System.Windows.Media.Brush,
-
-                _ =>
-                    FindResource("MutedBrush") as System.Windows.Media.Brush
-            };
-
-        STEngineStatusTitle14.Foreground =
-            snapshot.State switch
-            {
-                STCoreState.Degraded =>
-                    FindResource("OrangeBrush") as System.Windows.Media.Brush,
-
-                STCoreState.Critical =>
-                    FindResource("DangerForegroundBrush") as System.Windows.Media.Brush,
-
-                _ =>
-                    FindResource("TextBrush") as System.Windows.Media.Brush
-            };
-
-        if (snapshot.Observations.Count == 0)
-        {
-            STEngineObservationsText14.Text =
-                snapshot.ShouldReduceNonCriticalWork
-                    ? "STEngine recomienda reducir trabajo no critico."
-                    : string.Empty;
-
-            return;
-        }
-
-        STEngineObservationsText14.Text =
-            string.Join(
-                Environment.NewLine,
-                snapshot.Observations);
-    }
-
-    private STCoreSnapshotNovora RefreshSTEngineSnapshot14()
-    {
-        try
-        {
-            NLStabilityVisionSnapshot? vision =
-                _visionEngineVE?.RuntimeVE is { } runtime
-                    ? VEStabilitySnapshotAdapter.CaptureVE(runtime)
-                    : null;
-
-            return _stEngineST.CaptureNovoraST(
-                vision,
-                LEStabilitySnapshotAdapter.CaptureLE(_linkEngineRuntimeLE),
-                ExInStabilitySnapshotAdapter.CaptureExIn(_exInEngine?.Status));
-        }
-        catch
-        {
-            return _stEngineST.LastNovoraSnapshotST;
-        }
-    }
 }

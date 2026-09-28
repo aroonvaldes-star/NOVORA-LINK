@@ -25,8 +25,6 @@ public sealed class LECoreEngine : IAsyncDisposable
     public LERecoveryManager Recovery { get; }
     public LEMetricsCollector Metrics { get; }
 
-    public NOVORA.LinkEngine.Traffic.LETrafficEngine Traffic { get; } =
-        new();
     public bool IsInitialized => _initialized;
 
     public LECoreEngine(
