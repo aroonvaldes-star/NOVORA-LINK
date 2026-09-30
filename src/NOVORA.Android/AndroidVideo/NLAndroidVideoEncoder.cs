@@ -19,7 +19,9 @@ internal sealed class NLAndroidVideoEncoder : MediaCodec.Callback, IAsyncDisposa
         _failed = failed;
         _packets = Channel.CreateBounded<NLAndroidVideoPacket>(new BoundedChannelOptions(8)
         {
-            FullMode = BoundedChannelFullMode.DropWrite,
+            // En video interactivo es preferible descartar lo antiguo y conservar
+            // el frame mas reciente. El control nunca espera a que video se vacie.
+            FullMode = BoundedChannelFullMode.DropOldest,
             SingleReader = true,
             SingleWriter = true
         });
@@ -27,15 +29,42 @@ internal sealed class NLAndroidVideoEncoder : MediaCodec.Callback, IAsyncDisposa
             ?? throw new InvalidOperationException("Android no ofrece un codificador H.264.");
         var format = MediaFormat.CreateVideoFormat(MediaFormat.MimetypeVideoAvc, width, height)
             ?? throw new InvalidOperationException("No se pudo crear el formato H.264.");
+        ConfigureFormat(format, width, height, bitrate, fps, lowLatency: true);
+        InputSurface = _codec.CreateInputSurface()
+            ?? throw new InvalidOperationException("MediaCodec no creó la superficie de entrada.");
+    }
+
+    private void ConfigureFormat(MediaFormat format, int width, int height, int bitrate, int fps, bool lowLatency)
+    {
         // COLOR_FormatSurface from the Android MediaCodec contract.
         format.SetInteger(MediaFormat.KeyColorFormat, unchecked((int)0x7F000789));
         format.SetInteger(MediaFormat.KeyBitRate, bitrate);
         format.SetInteger(MediaFormat.KeyFrameRate, fps);
         format.SetInteger(MediaFormat.KeyIFrameInterval, 2);
+
+        if (lowLatency)
+        {
+            // Optional MediaCodec keys. Some vendor codecs reject one or more;
+            // the caller retries with the portable base format in that case.
+            format.SetInteger("latency", 0);
+            format.SetInteger("max-bframes", 0);
+            format.SetInteger("priority", 0);
+            format.SetInteger("operating-rate", fps);
+            format.SetInteger("bitrate-mode", 2); // EncoderCapabilities.BITRATE_MODE_CBR
+        }
+
         _codec.SetCallback(this);
-        _codec.Configure(format, null, null, MediaCodecConfigFlags.Encode);
-        InputSurface = _codec.CreateInputSurface()
-            ?? throw new InvalidOperationException("MediaCodec no creó la superficie de entrada.");
+        try
+        {
+            _codec.Configure(format, null, null, MediaCodecConfigFlags.Encode);
+        }
+        catch (Java.Lang.IllegalArgumentException) when (lowLatency)
+        {
+            _codec.Reset();
+            MediaFormat fallback = MediaFormat.CreateVideoFormat(MediaFormat.MimetypeVideoAvc, width, height)
+                ?? throw new InvalidOperationException("No se pudo crear el formato H.264 de fallback.");
+            ConfigureFormat(fallback, width, height, bitrate, fps, lowLatency: false);
+        }
     }
 
     public Surface InputSurface { get; }
