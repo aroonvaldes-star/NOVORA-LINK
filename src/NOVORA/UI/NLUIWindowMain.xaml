@@ -644,12 +644,12 @@
                                                   Margin="0,8,0,0"
                                                   SelectionChanged="NvidiaProfile_SelectionChanged14">
                                             <ComboBoxItem Tag="Automatic" Content="Automático"/>
-                                            <ComboBoxItem Tag="Disabled" Content="Desactivado"/>
-                                            <ComboBoxItem Tag="Competitive" Content="Competitivo"/>
-                                            <ComboBoxItem Tag="Balanced" Content="Equilibrado"/>
-                                            <ComboBoxItem Tag="VisionPlus" Content="VisionPlus"/>
-                                            <ComboBoxItem Tag="Smooth" Content="Smooth"/>
-                                            <ComboBoxItem Tag="Stream" Content="Stream"/>
+                                            <ComboBoxItem Tag="Competitive" Content="Competitivo · NVDEC preferido"/>
+                                            <ComboBoxItem Tag="Balanced" Content="Equilibrado · NVDEC preferido"/>
+                                            <ComboBoxItem Tag="Smooth" Content="Suavidad · NVDEC preferido"/>
+                                            <ComboBoxItem Tag="VisionPlus" Content="VisionPlus · NVDEC preferido"/>
+                                            <ComboBoxItem Tag="Stream" Content="Streaming · NVDEC preferido"/>
+                                            <ComboBoxItem Tag="Disabled" Content="Desactivado · FFmpeg software"/>
                                         </ComboBox>
 
                                         <TextBlock Text="NVIDIA es opcional. NOVORA sólo marca NVDEC activo cuando VisionEngine decodifica frames reales por esa ruta; si no, usa FFmpeg."
@@ -662,7 +662,7 @@
                                         <TextBlock Text="Aplicar perfil de video VisionEngine" Style="{StaticResource NvSectionTitleStyle}" Margin="0,14,0,0"/>
                                         <ComboBox x:Name="VideoProfileCombo14" Style="{StaticResource NvComboStyle}" Margin="0,8,0,0"
                                                   SelectionChanged="VideoProfile_SelectionChanged14">
-                                            <ComboBoxItem Tag="Gaming" Content="Juego · 4M · 1280 · 45 FPS"/>
+                                            <ComboBoxItem Tag="Gaming" Content="Juego · 8M · 1280 · 45 FPS"/>
                                             <ComboBoxItem Tag="Balanced" Content="Equilibrado · 5M · 1280 · 45 FPS"/>
                                             <ComboBoxItem Tag="Video" Content="Video · 6M · 1600 · 45 FPS"/>
                                             <ComboBoxItem Tag="Battery" Content="Ahorro · 3M · 960 · 30 FPS"/>
