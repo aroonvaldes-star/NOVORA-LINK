@@ -19,9 +19,10 @@ internal sealed class NLAndroidVideoEncoder : MediaCodec.Callback, IAsyncDisposa
         _failed = failed;
         _packets = Channel.CreateBounded<NLAndroidVideoPacket>(new BoundedChannelOptions(8)
         {
-            // En video interactivo es preferible descartar lo antiguo y conservar
-            // el frame mas reciente. El control nunca espera a que video se vacie.
-            FullMode = BoundedChannelFullMode.DropOldest,
+            // Conservamos el orden de configuración y keyframes. Si el consumidor
+            // se retrasa, descartamos el frame nuevo en vez de romper la cadena
+            // de decodificación y obligar al receptor a esperar otro keyframe.
+            FullMode = BoundedChannelFullMode.DropWrite,
             SingleReader = true,
             SingleWriter = true
         });
