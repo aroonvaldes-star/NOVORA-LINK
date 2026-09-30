@@ -9,11 +9,11 @@ No se declara Release estable por el solo hecho de compilar. La publicación est
 - Línea de producto: **1.4**
 - Checkpoint: **PRERELEASE PRE FINAL**
 - Escritorio: `1.4.1-prerelease-prefinal`
-- Android fuente actual: `1.4.34` (`VersionCode` 34).
-- APK firmado e integrado para instalación desde PC: `1.4.34` (`VersionCode` 34), SHA-256 `8F2E6E81FD70B692FD0E370A75A4BC482D598B468D70A0B4A12A61236A4BE405`.
+- Android fuente actual: `1.4.49` (`VersionCode` 49).
+- APK Release firmada generada para instalación desde PC: `1.4.49` (`VersionCode` 49), SHA-256 `4E5552BD071D1797587869335FA72128AD53C561B909E5421E93E598EC971510`.
 - Cada nuevo empaquetado Android Release debe incrementar `ApplicationVersion` y `ApplicationDisplayVersion` antes de generar el APK; no se reutiliza una versión Release ya empaquetada.
 - Cada compilación que incorpore uno o más cambios en Android recibe una revisión nueva: `VersionCode` aumenta en uno y `VersionName` usa `1.4.<VersionCode>`. Repetir la compilación de la misma revisión únicamente para validarla no vuelve a incrementar el contador.
-- Próxima revisión Android: `1.4.35` (`VersionCode` 35) cuando exista el siguiente cambio de fuente Android; una recompilación de validación de `1.4.34` no consume otra revisión.
+- Próxima revisión Android: `1.4.50` (`VersionCode` 50) cuando exista el siguiente cambio de fuente Android; una recompilación de validación de `1.4.49` no consume otra revisión.
 
 ## Regla de publicación
 

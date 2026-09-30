@@ -1,8 +1,8 @@
 {
   "SchemaVersion": 1,
   "PackageId": "com.novora.appcontrol",
-  "VersionCode": 48,
-  "VersionName": "1.4.48",
+  "VersionCode": 49,
+  "VersionName": "1.4.49",
   "MinSdk": 26,
   "ControlProtocol": 1,
   "PcSeries": "1.4",
