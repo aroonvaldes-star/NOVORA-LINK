@@ -14,22 +14,12 @@ public sealed class NLTestAndroidLan
         [new("4M", "4 Mbps")], [new("Gaming", "Juegos")], [new("default", "Windows")]);
     private static NLControlLanInvitation Invitation => new(1, "192.168.1.10", 27215, new string('A', 64), new string('B', 64), DateTimeOffset.UtcNow.AddMinutes(2).ToUnixTimeSeconds());
 
-    [Fact]
-    public void InvitationRoundTripsWithoutLosingSecret()
-    { var invitation = Invitation; Assert.Equal(invitation, NLControlLanInvitation.Parse(invitation.Encode())); }
-
-    [Theory]
-    [InlineData("https://example.com")]
-    [InlineData("novora://pair?data=@@@")]
-    [InlineData("novora://pair?data=e30")]
-    public void MalformedQrIsRejected(string value) => Assert.Throws<InvalidDataException>(() => NLControlLanInvitation.Parse(value));
-
     [Theory]
     [InlineData("8.8.8.8")]
     [InlineData("127.0.0.1")]
     [InlineData("::1")]
     [InlineData("0.0.0.0")]
-    public void NonPrivateQrEndpointIsRejected(string host) => Assert.Throws<InvalidDataException>(() => (Invitation with { Host = host }).Validate());
+    public void NonPrivateInvitationEndpointIsRejected(string host) => Assert.Throws<InvalidDataException>(() => (Invitation with { Host = host }).Validate());
 
     [Fact]
     public void ExpiredAndExcessLifetimeInvitationsRejected()
@@ -99,5 +89,56 @@ public sealed class NLTestAndroidLan
         Assert.False(reply.Success);
         Assert.Null(reply.Snapshot);
         Assert.Equal(0, invoked);
+    }
+
+    [Fact]
+    public async Task LanDataGatewayPinsAuthenticatesAndBridgesRelayBytes()
+    {
+        using var store = new NLControlTrustStore(Path.Combine(Path.GetTempPath(),
+            "NOVORA-LanDataTest-" + Guid.NewGuid().ToString("N")));
+        using var relay = new TcpListener(IPAddress.Loopback, 0);
+        relay.Start();
+        int relayPort = ((IPEndPoint)relay.LocalEndpoint).Port;
+        await using var gateway = new NLControlLanDataGateway(IPAddress.Loopback, store, relayPort, true);
+        NLControlLinkOffer offer = gateway.Start();
+
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, offer.Port);
+        using var tls = new SslStream(client.GetStream(), false, (_, certificate, _, _) =>
+            certificate is not null && Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                certificate.GetRawCertData())) == offer.Fingerprint);
+        await tls.AuthenticateAsClientAsync(new SslClientAuthenticationOptions { TargetHost = "NOVORA" });
+        await NLControlProtocol.WriteAsync(tls, new NLControlLinkHello(1, offer.Token), default);
+
+        using TcpClient local = await relay.AcceptTcpClientAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        byte[] outbound = [1, 2, 3, 4];
+        await tls.WriteAsync(outbound);
+        byte[] received = new byte[4];
+        await local.GetStream().ReadExactlyAsync(received);
+        Assert.Equal(outbound, received);
+        byte[] inbound = [5, 6, 7, 8];
+        await local.GetStream().WriteAsync(inbound);
+        await tls.ReadExactlyAsync(received);
+        Assert.Equal(inbound, received);
+        Assert.True(gateway.IsConnected);
+    }
+
+    [Fact]
+    public async Task LanDataGatewayRejectsWrongTokenBeforeRelayConnection()
+    {
+        using var store = new NLControlTrustStore(Path.Combine(Path.GetTempPath(),
+            "NOVORA-LanDataTest-" + Guid.NewGuid().ToString("N")));
+        using var relay = new TcpListener(IPAddress.Loopback, 0);
+        relay.Start();
+        await using var gateway = new NLControlLanDataGateway(IPAddress.Loopback, store,
+            ((IPEndPoint)relay.LocalEndpoint).Port, true);
+        NLControlLinkOffer offer = gateway.Start();
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, offer.Port);
+        using var tls = new SslStream(client.GetStream(), false, (_, _, _, _) => true);
+        await tls.AuthenticateAsClientAsync(new SslClientAuthenticationOptions { TargetHost = "NOVORA" });
+        await NLControlProtocol.WriteAsync(tls, new NLControlLinkHello(1, new string('0', 64)), default);
+        Assert.Equal(0, await tls.ReadAsync(new byte[1]).AsTask().WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.False(gateway.IsConnected);
     }
 }

@@ -50,8 +50,16 @@ public partial class NLUIWindowMain
                 new NLControlUsbCandidate(device.Serial, device.Connected, device.IsWifiConnection)),
             _automaticUsbOnline,
             _viewModel.Device.Serial);
+        if (string.IsNullOrWhiteSpace(serial) &&
+            !string.IsNullOrWhiteSpace(_visionLanSerialVE) &&
+            (_automaticUsbOnline is null || _automaticUsbOnline.Contains(_visionLanSerialVE)))
+        {
+            serial = _visionLanSerialVE;
+        }
         var device = _viewModel.Devices.FirstOrDefault(candidate =>
             string.Equals(candidate.Serial, serial, StringComparison.OrdinalIgnoreCase));
+        bool lanFailover = device?.IsWifiConnection == true &&
+            string.Equals(serial, _visionLanSerialVE, StringComparison.OrdinalIgnoreCase);
         bool online = device is not null &&
             (_automaticUsbOnline is null || _automaticUsbOnline.Contains(serial));
         // Record every edge before coalescing work. Detach/attach invalidates an old await.
@@ -60,7 +68,8 @@ public partial class NLUIWindowMain
             device?.Connected == true,
             device?.IsWifiConnection == true,
             online,
-            NLControlUsbAutoPolicy.ParseTransportIdentity(_automaticUsbSnapshot, serial));
+            NLControlUsbAutoPolicy.ParseTransportIdentity(_automaticUsbSnapshot, serial),
+            allowWifi: lanFailover);
         _automaticUsbDirty = true;
         if (!_automaticUsbLoaded || _automaticUsbQueued || _automaticUsbBusy) return;
         _automaticUsbQueued = true;
@@ -104,8 +113,10 @@ public partial class NLUIWindowMain
     {
         var device = _viewModel.Devices.FirstOrDefault(candidate =>
             string.Equals(candidate.Serial, serial, StringComparison.OrdinalIgnoreCase));
+        bool lanFailover = device?.IsWifiConnection == true &&
+            string.Equals(serial, _visionLanSerialVE, StringComparison.OrdinalIgnoreCase);
         if (_closing || !_automaticUsb.IsCurrent(serial, epoch) || generation != _androidControlGeneration ||
-            device is null || !device.Connected || device.IsWifiConnection ||
+            device is null || !device.Connected || (device.IsWifiConnection && !lanFailover) ||
             !string.Equals(device.Serial, serial, StringComparison.OrdinalIgnoreCase))
             throw new OperationCanceledException("USB cambio durante la preparacion.");
     }
@@ -138,6 +149,9 @@ public partial class NLUIWindowMain
         NLControlTrustServer? created = null;
         try
         {
+            bool lanFailover = string.Equals(serial, _visionLanSerialVE, StringComparison.OrdinalIgnoreCase) &&
+                serial.Contains(':', StringComparison.Ordinal);
+            string visibleTransport = lanFailover ? "LAN" : "USB";
             // LAN remains listening while USB is prepared. Android keeps one active
             // session and USB receives command priority only after authorization.
             if (_androidControl is not null) await StopAutomaticUsbAsync();
@@ -172,11 +186,17 @@ public partial class NLUIWindowMain
             server.StatusChanged += (_, status) => Dispatcher.BeginInvoke(new Action(() =>
             {
                 if (!ReferenceEquals(_androidControl, server)) return;
-                AndroidControlStatus.Text = !server.IsAuthorized && _androidLanControl?.IsAuthorized == true
+                AndroidControlStatus.Text = server.IsAuthorized && lanFailover
+                    ? "LAN Failover activo; sesión sincronizada con Android."
+                    : !server.IsAuthorized && _androidLanControl?.IsAuthorized == true
                     ? "LAN activa; USB físico detectado y en preparación."
                     : status;
                 if (server.IsAuthorized)
+                {
                     _ = EnsureExInStandaloneAsync();
+                    if (!lanFailover)
+                        _ = PrepareVisionLanFallbackVEAsync(serial, epoch, automatic: true);
+                }
                 if (!server.IsAuthorized && !AndroidControlAuthorized)
                 {
                     ResetAndroidFileTransfer();
@@ -211,7 +231,8 @@ public partial class NLUIWindowMain
             if (!HasAppControlControlMapping(after)) throw new InvalidOperationException("ADB no confirmo la ruta USB 27216 para control.");
             if (!HasAppControlAudioMapping(after)) throw new InvalidOperationException("ADB no confirmo la ruta USB 27217 para audio.");
             CheckAutomaticUsb(serial, epoch, generation);
-            string bootstrap = Convert.ToBase64String(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(server.Invitation));
+            string bootstrap = Convert.ToBase64String(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(
+                new NLControlTunnelBootstrap(server.Invitation, visibleTransport)));
             // The protected entry point accepts shell/system callers; MainActivity never trusts external bootstrap extras.
             string launch = await _adb.ExecuteRawAsync(new[] { "-s", serial, "shell", "am", "start", "--user", "0", "-n",
                 "com.novora.appcontrol/.UsbBootstrapActivity", "--es", "novora.usb", bootstrap }, deadline.Token);
@@ -221,7 +242,9 @@ public partial class NLUIWindowMain
                 launch.Contains("SecurityException", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Android no acepto la entrada USB protegida. Comprueba la APK instalada.");
             CheckAutomaticUsb(serial, epoch, generation);
-            if (!server.IsAuthorized) AndroidControlStatus.Text = "USB detectado. Verificando automaticamente NOVORA Android...";
+            if (!server.IsAuthorized) AndroidControlStatus.Text = lanFailover
+                ? "Failover LAN detectado. Sincronizando automáticamente NOVORA Android..."
+                : "USB detectado. Verificando automaticamente NOVORA Android...";
             AndroidEngineStateChanged();
         }
         catch (Exception ex)

@@ -1,14 +1,17 @@
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
+using Android.Content.Res;
 using Android.Hardware.Display;
 using Android.Media.Projection;
 using Android.OS;
+using Android.Views;
 using NOVORA.Control;
 using NOVORA.AndroidService;
 using NOVORA.VisionEngine.Protocol;
 using System.Net.Sockets;
 using System.Text.Json;
+using System.Threading.Channels;
 using Resource = NOVORA.AndroidApp.Resource;
 
 namespace NOVORA.AndroidVideo;
@@ -29,11 +32,19 @@ public sealed class NLAndroidVideoService : Service
     private NLAndroidProjectionCallback? _projectionCallback;
     private VirtualDisplay? _display;
     private NLAndroidVideoEncoder? _encoder;
+    private NLAndroidVideoCompositor? _compositor;
     private TcpClient? _client;
     private TcpClient? _controlClient;
     private TcpClient? _audioClient;
     private Task _controlTask = Task.CompletedTask;
     private NLAndroidAudioCapture? _audioCapture;
+    private readonly Channel<bool> _displayChanges = Channel.CreateBounded<bool>(
+        new BoundedChannelOptions(1)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest,
+            SingleReader = true,
+            SingleWriter = false
+        });
 
     public static void Start(Context context, Result result, Intent projectionData, NLControlVideoSourceOffer offer)
     {
@@ -49,6 +60,12 @@ public sealed class NLAndroidVideoService : Service
         context.StartService(new Intent(context, typeof(NLAndroidVideoService)).SetAction(StopAction));
 
     public override IBinder? OnBind(Intent? intent) => null;
+
+    public override void OnConfigurationChanged(Configuration? newConfig)
+    {
+        base.OnConfigurationChanged(newConfig);
+        _displayChanges.Writer.TryWrite(true);
+    }
 
     public override void OnCreate()
     {
@@ -91,13 +108,6 @@ public sealed class NLAndroidVideoService : Service
         try
         {
             Validate(offer);
-            var metrics = Resources?.DisplayMetrics ?? throw new InvalidOperationException("Pantalla no disponible.");
-            int sourceWidth = Math.Max(2, metrics.WidthPixels);
-            int sourceHeight = Math.Max(2, metrics.HeightPixels);
-            double scale = Math.Min(1d, offer.MaxSize / (double)Math.Max(sourceWidth, sourceHeight));
-            int width = Math.Max(2, ((int)(sourceWidth * scale)) & ~1);
-            int height = Math.Max(2, ((int)(sourceHeight * scale)) & ~1);
-
             _client = new TcpClient { NoDelay = true };
             await _client.ConnectAsync("127.0.0.1", offer.Port, lifetime.Token);
             NetworkStream stream = _client.GetStream();
@@ -107,35 +117,24 @@ public sealed class NLAndroidVideoService : Service
             NetworkStream controlStream = _controlClient.GetStream();
             await controlStream.WriteAsync(Convert.FromHexString(offer.ControlToken), lifetime.Token);
             _controlTask = RunControlAsync(controlStream, lifetime.Token);
-            _audioClient = new TcpClient { NoDelay = true };
-            await _audioClient.ConnectAsync("127.0.0.1", offer.AudioPort, lifetime.Token);
-            NetworkStream audioStream = _audioClient.GetStream();
-            await audioStream.WriteAsync(Convert.FromHexString(offer.AudioToken), lifetime.Token);
             var writer = new VEProtocolWriter(stream);
-            await writer.WriteVideoSessionAsync(VEProtocolCodec.H264,
-                new VEProtocolSession(width, height, false), lifetime.Token);
-
-            Exception? encoderFailure = null;
-            _encoder = new NLAndroidVideoEncoder(width, height, offer.Bitrate, offer.Fps,
-                ex => { encoderFailure = ex; TryCancel(lifetime); });
             var projectionManager = (MediaProjectionManager)GetSystemService(MediaProjectionService)!;
             _projection = projectionManager.GetMediaProjection((int)result, projectionData)
                 ?? throw new InvalidOperationException("Android no entregó la captura de pantalla.");
             _projectionCallback = new NLAndroidProjectionCallback(() => TryCancel(lifetime));
             _projection.RegisterCallback(_projectionCallback, new Handler(Looper.MainLooper!));
-            if (!OperatingSystem.IsAndroidVersionAtLeast(29))
-                throw new NotSupportedException("Audio AppControl requiere Android 10 o posterior.");
-            _audioCapture = new NLAndroidAudioCapture(_projection);
-            await _audioCapture.StartAsync(audioStream, lifetime.Token);
-            // VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR is 16; the .NET binding exposes a legacy enum here.
-            _display = _projection.CreateVirtualDisplay("NOVORA VisionEngine", width, height,
-                (int)metrics.DensityDpi, (Android.Views.DisplayFlags)16, _encoder.InputSurface, null, null)
-                ?? throw new InvalidOperationException("Android no creó la pantalla virtual.");
-            _encoder.Start();
-            await foreach (NLAndroidVideoPacket packet in _encoder.Packets.ReadAllAsync(lifetime.Token))
-                await writer.WriteVideoPacketAsync(packet.Payload, packet.PresentationTimeUs,
-                    packet.Configuration, packet.KeyFrame, lifetime.Token);
-            if (encoderFailure is not null) throw encoderFailure;
+            if (offer.AudioEnabled)
+            {
+                if (!OperatingSystem.IsAndroidVersionAtLeast(29))
+                    throw new NotSupportedException("Audio AppControl requiere Android 10 o posterior.");
+                _audioClient = new TcpClient { NoDelay = true };
+                await _audioClient.ConnectAsync("127.0.0.1", offer.AudioPort, lifetime.Token);
+                NetworkStream audioStream = _audioClient.GetStream();
+                await audioStream.WriteAsync(Convert.FromHexString(offer.AudioToken), lifetime.Token);
+                _audioCapture = new NLAndroidAudioCapture(this, _projection, offer.MuteDeviceAudio);
+                await _audioCapture.StartAsync(audioStream, lifetime.Token);
+            }
+            await RunVideoAsync(writer, offer, _audioCapture?.Completion, lifetime.Token);
         }
         catch (System.OperationCanceledException) when (lifetime.IsCancellationRequested) { }
         catch (Exception ex)
@@ -145,27 +144,169 @@ public sealed class NLAndroidVideoService : Service
         finally { await StopVideoAsync(); }
     }
 
+    private async Task RunVideoAsync(
+        VEProtocolWriter writer,
+        NLControlVideoSourceOffer offer,
+        Task? audioCompletion,
+        CancellationToken cancellationToken)
+    {
+        NLControlVideoSize encodedSize = GetCaptureSize(offer.MaxSize);
+        NLControlVideoSize sourceSize = encodedSize;
+        int baseRotation = GetDisplayRotationDegrees();
+        await writer.WriteVideoSessionAsync(
+            VEProtocolCodec.H264,
+            new VEProtocolSession(encodedSize.Width, encodedSize.Height, false, 0),
+            cancellationToken);
+
+        long nextPresentationTimeUs = 0;
+        while (_displayChanges.Reader.TryRead(out _)) { }
+        var encoderFailure = new TaskCompletionSource<Exception>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        _encoder = new NLAndroidVideoEncoder(
+            encodedSize.Width,
+            encodedSize.Height,
+            offer.Bitrate,
+            offer.Fps,
+            ex => encoderFailure.TrySetResult(ex));
+        _compositor = new NLAndroidVideoCompositor(
+            _encoder.InputSurface, encodedSize.Width, encodedSize.Height);
+        Surface captureSurface = await _compositor.GetCaptureSurfaceAsync(cancellationToken);
+        await _compositor.UpdateSourceAsync(sourceSize.Width, sourceSize.Height, 0, cancellationToken);
+
+        var metrics = Resources?.DisplayMetrics
+            ?? throw new InvalidOperationException("Pantalla no disponible.");
+        _display = _projection!.CreateVirtualDisplay(
+            "NOVORA VisionEngine",
+            sourceSize.Width,
+            sourceSize.Height,
+            (int)metrics.DensityDpi,
+            (Android.Views.DisplayFlags)16,
+            captureSurface,
+            null,
+            null)
+            ?? throw new InvalidOperationException("Android no creó la pantalla virtual.");
+        _encoder.Start();
+
+        // ChannelReader.ReadAllAsync devuelve un enumerador cuya liberación
+        // asíncrona no está implementada en este runtime Android. Los recursos
+        // reales pertenecen al encoder y se liberan en StopVideoAsync.
+        IAsyncEnumerator<NLAndroidVideoPacket> packets =
+            _encoder.Packets.ReadAllAsync(cancellationToken).GetAsyncEnumerator(cancellationToken);
+        Task<bool> packetReady = packets.MoveNextAsync().AsTask();
+        Task<bool> displayChanged = _displayChanges.Reader
+            .WaitToReadAsync(cancellationToken).AsTask();
+        Task audioFailure = audioCompletion ?? Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        VEProtocolSession? pendingSession = null;
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            Task completed = await Task.WhenAny(
+                packetReady, displayChanged, encoderFailure.Task, audioFailure);
+            if (completed == encoderFailure.Task)
+                throw await encoderFailure.Task;
+            if (completed == audioFailure)
+            {
+                await audioFailure;
+                throw new EndOfStreamException("La captura de audio Android terminó inesperadamente.");
+            }
+
+            if (completed == displayChanged && await displayChanged)
+            {
+                while (_displayChanges.Reader.TryRead(out _)) { }
+                displayChanged = _displayChanges.Reader.WaitToReadAsync(cancellationToken).AsTask();
+                NLControlVideoSize next = GetCaptureSize(offer.MaxSize);
+                int rotation = (GetDisplayRotationDegrees() - baseRotation + 360) % 360;
+                sourceSize = next;
+                await _compositor.UpdateSourceAsync(next.Width, next.Height, rotation, cancellationToken);
+                metrics = Resources?.DisplayMetrics
+                    ?? throw new InvalidOperationException("Pantalla no disponible.");
+                _display.Resize(next.Width, next.Height, (int)metrics.DensityDpi);
+                pendingSession = new VEProtocolSession(
+                    encodedSize.Width,
+                    encodedSize.Height,
+                    true,
+                    rotation);
+                _encoder.RequestKeyFrame();
+                continue;
+            }
+
+            if (!await packetReady)
+                throw new EndOfStreamException("El encoder Android cerró el video inesperadamente.");
+            NLAndroidVideoPacket packet = packets.Current;
+            if (pendingSession is not null)
+            {
+                if (!packet.KeyFrame)
+                {
+                    packetReady = packets.MoveNextAsync().AsTask();
+                    continue;
+                }
+
+                await writer.WriteSessionUpdateAsync(pendingSession, cancellationToken);
+                pendingSession = null;
+            }
+            long? presentationTimeUs = packet.PresentationTimeUs;
+            if (presentationTimeUs is long sourcePts)
+            {
+                presentationTimeUs = Math.Max(nextPresentationTimeUs, sourcePts);
+                nextPresentationTimeUs = presentationTimeUs.Value + 1;
+            }
+            await writer.WriteVideoPacketAsync(
+                packet.Payload, presentationTimeUs, packet.Configuration, packet.KeyFrame,
+                cancellationToken);
+            packetReady = packets.MoveNextAsync().AsTask();
+        }
+    }
+
+    private int GetDisplayRotationDegrees()
+    {
+        var manager = (DisplayManager?)GetSystemService(DisplayService);
+        return manager?.GetDisplay(Android.Views.Display.DefaultDisplay)?.Rotation switch
+        {
+            SurfaceOrientation.Rotation90 => 90,
+            SurfaceOrientation.Rotation180 => 180,
+            SurfaceOrientation.Rotation270 => 270,
+            _ => 0
+        };
+    }
+
+    private NLControlVideoSize GetCaptureSize(int maxSize)
+    {
+        var metrics = Resources?.DisplayMetrics
+            ?? throw new InvalidOperationException("Pantalla no disponible.");
+        return NLControlVideoSize.Fit(
+            Math.Max(2, metrics.WidthPixels),
+            Math.Max(2, metrics.HeightPixels),
+            maxSize);
+    }
+
     private static void Validate(NLControlVideoSourceOffer offer)
     {
         if (offer.Port is < 1 or > 65535 || offer.Token.Length != 64 ||
             offer.ControlPort is < 1 or > 65535 || offer.ControlToken.Length != 64 ||
-            offer.AudioPort is < 1 or > 65535 || offer.AudioToken.Length != 64 ||
+            (offer.AudioEnabled &&
+                (offer.AudioPort is < 1 or > 65535 || offer.AudioToken.Length != 64)) ||
             offer.Bitrate is < 250_000 or > 100_000_000 || offer.MaxSize is < 240 or > 4320 ||
             offer.Fps is < 10 or > 120)
             throw new InvalidDataException("Oferta de video AppControl inválida.");
         _ = Convert.FromHexString(offer.Token);
         _ = Convert.FromHexString(offer.ControlToken);
-        _ = Convert.FromHexString(offer.AudioToken);
+        if (offer.AudioEnabled) _ = Convert.FromHexString(offer.AudioToken);
     }
 
     private static async Task RunControlAsync(Stream stream, CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            NLControlInputCommand command = await NLControlProtocol.ReadAsync<NLControlInputCommand>(
-                stream, cancellationToken);
-            await NLAndroidControlAccessibilityService.ExecuteAsync(command, cancellationToken);
-        }
+        await NLControlInputLoop.RunDuplexAsync(
+            stream,
+            NLAndroidControlAccessibilityService.ExecuteWithResponseAsync,
+            async (command, exception, token) =>
+            {
+                Android.Util.Log.Warn("NOVORA-VE",
+                    $"Orden de control descartada sin detener VisionEngine: {exception.Message}");
+                if (command.Type == 2)
+                    await NLAndroidControlAccessibilityService.ResetPointersAsync(token);
+            },
+            TimeSpan.FromSeconds(2),
+            cancellationToken);
     }
 
     private Notification BuildNotification()
@@ -187,6 +328,8 @@ public sealed class NLAndroidVideoService : Service
         TryCancel(lifetime);
         try { _display?.Release(); } catch { }
         _display = null;
+        if (_compositor is not null) await _compositor.DisposeAsync();
+        _compositor = null;
         if (_projection is not null && _projectionCallback is not null)
         {
             try { _projection.UnregisterCallback(_projectionCallback); } catch { }

@@ -7,8 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>NOVORA.AndroidApp</RootNamespace>
     <ApplicationId>com.novora.appcontrol</ApplicationId>
-    <ApplicationVersion>34</ApplicationVersion>
-    <ApplicationDisplayVersion>1.4.34</ApplicationDisplayVersion>
+    <ApplicationVersion>48</ApplicationVersion>
+    <ApplicationDisplayVersion>1.4.48</ApplicationDisplayVersion>
     <ApplicationTitle>NOVORA-LINK</ApplicationTitle>
     <AndroidManifest>Properties\NLPropertiesAndroidManifest.xml</AndroidManifest>
     <AndroidPackageFormats>apk</AndroidPackageFormats>
@@ -22,6 +22,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\NOVORA\Control\NLControlProtocol.cs" Link="Control\NLControlProtocol.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlInputLoop.cs" Link="Control\NLControlInputLoop.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlAndroidInput.cs" Link="Control\NLControlAndroidInput.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlVideoSize.cs" Link="Control\NLControlVideoSize.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlPointerGeometry.cs" Link="Control\NLControlPointerGeometry.cs" />
     <Compile Include="..\NOVORA\Control\NLControlClient.cs" Link="Control\NLControlClient.cs" />
     <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolCodec.cs" Link="VisionEngine\Protocol\VEProtocolCodec.cs" />
     <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolConstants.cs" Link="VisionEngine\Protocol\VEProtocolConstants.cs" />
@@ -31,13 +35,11 @@
     <AndroidResource Include="..\NOVORA\Asset\NLAssetNovoraLogo.png" Link="Resources\drawable\novora_logo.png" />
     <AndroidResource Include="..\NOVORA\Asset\NLAssetBienvenido.png" Link="Resources\drawable\novora_welcome.png" />
     <AndroidResource Include="AndroidResource\NLAndroidResourceAccessibility.xml" Link="Resources\xml\novora_accessibility.xml" />
+    <AndroidResource Include="AndroidResource\NLAndroidResourceInputMethod.xml" Link="Resources\xml\novora_input_method.xml" />
   </ItemGroup>
   <Target Name="NovoraRequireExplicitPackaging" BeforeTargets="_CreateBaseApk;_BuildApkEmbed;_BuildApkFastDev;SignAndroidPackage">
     <Error Condition="'$(NovoraPackage)' != 'true'" Text="NOVORA no empaqueta automáticamente. Valida con -t:Compile; para una prueba instalada usa -p:NovoraPackage=true explícitamente." />
   </Target>
-  <ItemGroup>
-    <PackageReference Include="ZXing.Net" Version="0.16.11" />
-  </ItemGroup>
   <ItemGroup><Compile Include="..\NOVORA\Control\NLControlLanInvitation.cs" Link="Control\NLControlLanInvitation.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\NOVORA\Control\NLControlLanDiscovery.cs" Link="Control\NLControlLanDiscovery.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\NOVORA\Control\NLControlSession.cs" Link="Control\NLControlSession.cs" /></ItemGroup>

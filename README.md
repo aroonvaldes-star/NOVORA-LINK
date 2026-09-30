@@ -7,8 +7,9 @@ NOVORA-LINK conecta una computadora Windows con un dispositivo Android y organiz
 ## Motores
 
 - **LinkEngine (LE):** conectividad/reverse tethering y transporte de red.
-- **VisionEngine (VE):** pantalla, audio, control, gamepad, intercambio e integración Android↔Windows.
-- **ExInEngine:** entrada externa y sesiones de control independientes.
+- **VisionEngine (VE):** captura, video, audio, decodificación, render y grabación.
+- **ExInEngine:** mouse, teclado, táctil y gamepad con ciclo de vida independiente.
+- **Integraciones NOVORA:** archivos, Drag & Drop, portapapeles y funciones Android↔Windows sin exigir una sesión de video activa.
 - **NL / común:** aplicación, interfaz, servicios, modelos, control y descubrimiento.
 - **NLNVIDIA:** integración/aceleración NVIDIA opcional; VisionEngine conserva su fallback cuando corresponda.
 

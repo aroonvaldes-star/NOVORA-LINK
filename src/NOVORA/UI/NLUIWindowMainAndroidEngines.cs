@@ -1,7 +1,10 @@
 using NOVORA.Control;
 using NOVORA.ExInEngine;
+using NOVORA.LinkEngine.Network;
 using NOVORA.LinkEngine.Runtime;
 using NOVORA.VisionEngine.Core;
+using System.Net;
+using System.Text.Json;
 
 namespace NOVORA;
 
@@ -15,6 +18,9 @@ public partial class NLUIWindowMain
     private bool _androidLinkStarting;
     private bool _androidLinkStopping;
     private string? _androidLinkError;
+    private LENetworkRelay? _androidLanRelay;
+    private NLControlLanDataGateway? _androidLanDataGateway;
+    private NLControlLinkOffer? _androidLanLinkOffer;
     private bool _pcVideoAuthorizationRequested;
     private CancellationTokenSource? _pcVideoAuthorizationTimeout;
 
@@ -32,11 +38,17 @@ public partial class NLUIWindowMain
         bool linkUsesSelectedDevice = linkSession is not null && string.Equals(
             linkSession.Serial, device.Serial, StringComparison.OrdinalIgnoreCase);
         bool linkUsesOtherDevice = link?.EngineLE is not null && !linkUsesSelectedDevice;
-        bool linkCanTakeOver = usbEligible && linkUsesOtherDevice && !_androidLinkStarting && !_androidLinkStopping;
-        bool linkCanStop = _androidOwnedLinkRuntime is not null && linkUsesSelectedDevice && !_androidLinkStopping;
+        bool lanEligible = _androidLanControl?.IsAuthorized == true;
+        bool lanRunning = _androidLanDataGateway?.IsConnected == true;
+        bool lanPrepared = _androidLanDataGateway is not null;
+        bool linkCanTakeOver = (usbEligible || lanEligible) && linkUsesOtherDevice && !_androidLinkStarting && !_androidLinkStopping;
+        bool linkCanStop = (lanPrepared || _androidOwnedLinkRuntime is not null && linkUsesSelectedDevice) && !_androidLinkStopping;
         string linkMessage = _androidLinkError ?? linkSession?.Message ?? "LinkEngine detenido.";
         if (linkCanTakeOver) linkMessage += " Hay otra sesión activa; este teléfono puede tomar LinkEngine sin reiniciar NOVORA.";
-        if (!usbEligible) linkMessage += " Para iniciar Internet USB, conecta este teléfono mediante el control USB autorizado.";
+        if (!usbEligible && !lanEligible) linkMessage += " Conecta este teléfono mediante USB o LAN autorizada.";
+        else if (lanPrepared) linkMessage = lanRunning
+            ? "LinkEngine transporta la VPN por LAN cifrada."
+            : "LinkEngine LAN preparado; esperando el canal DATA de Android.";
         ExInStatus? exIn = _exInEngine?.Status;
         string exInState = !_viewModel.ExInEnabled ? "NotDetected" : exIn?.State == ExInStates.Failed ? "Error" :
             exIn?.ConnectedGamepads > 0 ? "Detected" : exIn?.State == ExInStates.Running ? "Active" : "NotDetected";
@@ -47,10 +59,10 @@ public partial class NLUIWindowMain
             !_closing && !videoBusy && !videoRunning && device.Connected &&
                 !string.IsNullOrWhiteSpace(device.Serial) && _viewModel.SelectedMonitor is not null,
             !_closing && !videoBusy && videoRunning,
-            !_closing && usbEligible && !_androidLinkStarting && !_androidLinkStopping && link is not null &&
-                (link.EngineLE is null || linkCanTakeOver),
+            !_closing && (usbEligible && link is not null && (link.EngineLE is null || linkCanTakeOver) ||
+                lanEligible && !lanPrepared && link?.EngineLE is null) && !_androidLinkStarting && !_androidLinkStopping,
             !_closing && linkCanStop,
-            link?.IsRunningLE == true,
+            lanRunning || link?.IsRunningLE == true,
             _androidLinkStopping ? "Stopping" : _androidLinkStarting ? "Starting" :
                 linkSession?.State.ToString() ?? LERuntimeState.Stopped.ToString(),
             linkMessage,
@@ -82,7 +94,7 @@ public partial class NLUIWindowMain
         QueueAndroidControlSnapshot();
     }
 
-    private async Task<NLControlReply> ApplyAndroidEngineActionAsync(NLControlRequest request)
+    private async Task<NLControlReply> ApplyAndroidEngineActionAsync(NLControlRequest request, string transport)
     {
         long generation = _androidControlGeneration;
         string serial = _viewModel.Device.Serial;
@@ -113,17 +125,29 @@ public partial class NLUIWindowMain
             case "restartVideo":
                 if (_visionEngineVE?.RuntimeVE.IsAppControlVideoActiveVE == true)
                 {
-                    await StopAppControlVideoSourceAsync();
+                    await PreserveVisionFailoverDuringRestartVEAsync(StopAppControlVideoSourceAsync);
                     return Reply(false,
                         "VisionEngine AppControl se detuvo. Inícialo otra vez para renovar el permiso de captura de Android.");
                 }
-                await SetVisionEngineRunningVEAsync(false, Authorized);
-                if (!SameDevice()) return Reply(false, "Video detenido; la sesión o el dispositivo cambió.");
-                await SetVisionEngineRunningVEAsync(true, SameDevice);
+                await PreserveVisionFailoverDuringRestartVEAsync(async () =>
+                {
+                    await SetVisionEngineRunningVEAsync(false, Authorized);
+                    if (!SameDevice()) return;
+                    await SetVisionEngineRunningVEAsync(true, SameDevice);
+                });
+                if (!SameDevice() || !IsVisionEngineRunningVE())
+                    return Reply(false, "Video detenido; la sesión o el dispositivo cambió.");
                 return Reply(Authorized() && IsVisionEngineRunningVE(), "Reinicio de VisionEngine completado.");
             case "startLink":
                 if (!CaptureAndroidEngines().LinkCanStart)
-                    return Reply(false, "LinkEngine requiere una sesión USB autorizada y disponible.");
+                    return Reply(false, "LinkEngine requiere una sesión USB o LAN autorizada y disponible.");
+                if (transport == "LAN")
+                {
+                    NLControlLinkOffer offer = await StartAndroidLanLinkAsync();
+                    return new(NLControlProtocol.Version, request.Id, true,
+                        "LinkEngine LAN preparado. Android conservará la VPN mientras este canal DATA esté disponible.",
+                        CaptureAndroidControlSnapshot(), Value: JsonSerializer.Serialize(offer));
+                }
                 var startRuntime = _linkEngineRuntimeLE!;
                 bool handoff = startRuntime.EngineLE is not null && !string.Equals(
                     startRuntime.SessionLE?.Serial, serial, StringComparison.OrdinalIgnoreCase);
@@ -157,12 +181,77 @@ public partial class NLUIWindowMain
                     ? "Transferencia de LinkEngine aceptada. La sesión anterior fue liberada; esperando el túnel de este teléfono."
                     : "Inicio de LinkEngine aceptado. Esperando el cliente Android y la confirmación real del túnel.");
             case "stopLink":
+                if (_androidLanDataGateway is not null || _androidLanRelay is not null)
+                {
+                    _ = StopAndroidLanLinkAsync();
+                    return Reply(true, "Detención de LinkEngine LAN aceptada.");
+                }
                 if (_androidOwnedLinkRuntime is null)
                     return Reply(_linkEngineRuntimeLE?.EngineLE is null, "No hay una sesión LinkEngine iniciada por este control para detener.");
                 _ = StopAndroidOwnedLinkAsync();
                 return Reply(true, "Detención de LinkEngine aceptada. Consulta el estado confirmado del motor.");
             default:
                 return Reply(false, "Acción de motor desconocida.");
+        }
+    }
+
+    private async Task<NLControlLinkOffer> StartAndroidLanLinkAsync()
+    {
+        if (_androidLanLinkOffer is not null && _androidLanDataGateway is not null)
+            return _androidLanLinkOffer;
+        if (_androidLanControl?.Invitation.Host is not { } host || !IPAddress.TryParse(host, out IPAddress? address))
+            throw new InvalidOperationException("La dirección LAN autorizada ya no está disponible.");
+        _androidLinkStarting = true;
+        _androidLinkError = null;
+        AndroidEngineStateChanged();
+        try
+        {
+            var relay = new LENetworkRelay();
+            await relay.StartAsync();
+            var gateway = new NLControlLanDataGateway(address, GetAndroidTrustStore());
+            gateway.StateChanged += AndroidLanDataGateway_StateChanged;
+            NLControlLinkOffer offer = gateway.Start();
+            _androidLanRelay = relay;
+            _androidLanDataGateway = gateway;
+            _androidLanLinkOffer = offer;
+            return offer;
+        }
+        catch
+        {
+            await StopAndroidLanLinkAsync();
+            throw;
+        }
+        finally
+        {
+            _androidLinkStarting = false;
+            AndroidEngineStateChanged();
+        }
+    }
+
+    private void AndroidLanDataGateway_StateChanged(object? sender, EventArgs e) => AndroidEngineStateChanged();
+
+    private async Task StopAndroidLanLinkAsync()
+    {
+        _androidLinkStopping = true;
+        AndroidEngineStateChanged();
+        NLControlLanDataGateway? gateway = _androidLanDataGateway;
+        LENetworkRelay? relay = _androidLanRelay;
+        _androidLanDataGateway = null;
+        _androidLanRelay = null;
+        _androidLanLinkOffer = null;
+        try
+        {
+            if (gateway is not null)
+            {
+                gateway.StateChanged -= AndroidLanDataGateway_StateChanged;
+                await gateway.DisposeAsync();
+            }
+            if (relay is not null) await relay.DisposeAsync();
+        }
+        finally
+        {
+            _androidLinkStopping = false;
+            AndroidEngineStateChanged();
         }
     }
 
@@ -250,6 +339,8 @@ public partial class NLUIWindowMain
 
     private Task StopAndroidOwnedLinkAsync()
     {
+        if (_androidLanDataGateway is not null || _androidLanRelay is not null)
+            return StopAndroidLanLinkAsync();
         if (!_androidLinkStopTask.IsCompleted) return _androidLinkStopTask;
         _androidLinkStartCancellation?.Cancel();
         var runtime = _androidOwnedLinkRuntime;

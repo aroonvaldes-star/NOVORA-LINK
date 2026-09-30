@@ -57,21 +57,25 @@ public partial class NLUIWindowMain
         await DisposeAppControlVideoTransportAsync();
         var videoTransport = new VETransportAppControl();
         var controlTransport = VETransportAppControl.CreateControlVE();
-        var audioTransport = VETransportAppControl.CreateAudioVE();
+        bool audioEnabled = _viewModel.SelectedAudioOutput !=
+            VisionEngine.Audio.VEAudioOutput.DisabledValueVE;
+        VETransportAppControl? audioTransport = audioEnabled
+            ? VETransportAppControl.CreateAudioVE()
+            : null;
         VETransportAppControlOffer videoOffer;
         VETransportAppControlOffer controlOffer;
-        VETransportAppControlOffer audioOffer;
+        VETransportAppControlOffer? audioOffer;
         try
         {
             videoOffer = videoTransport.PrepareVE();
             controlOffer = controlTransport.PrepareVE();
-            audioOffer = audioTransport.PrepareVE();
+            audioOffer = audioTransport?.PrepareVE();
         }
         catch
         {
             await videoTransport.DisposeAsync();
             await controlTransport.DisposeAsync();
-            await audioTransport.DisposeAsync();
+            if (audioTransport is not null) await audioTransport.DisposeAsync();
             throw;
         }
 
@@ -87,15 +91,17 @@ public partial class NLUIWindowMain
         var sourceOffer = new NLControlVideoSourceOffer(VETransportAppControl.DevicePortVE, videoOffer.Token,
             ParseVideoBitrateVE(_viewModel.Bitrate), _viewModel.MaxSize, _viewModel.TargetFps,
             VETransportAppControl.ControlPortVE, controlOffer.Token,
-            VETransportAppControl.AudioPortVE, audioOffer.Token);
+            audioEnabled ? VETransportAppControl.AudioPortVE : 0, audioOffer?.Token ?? string.Empty,
+            MuteDeviceAudio: audioEnabled,
+            AudioEnabled: audioEnabled);
         return Reply(true, "VisionEngine está esperando el flujo de pantalla autorizado.",
             JsonSerializer.Serialize(sourceOffer));
     }
 
     private async Task AcceptAppControlVideoAsync(VETransportAppControl videoTransport,
         VETransportAppControlOffer videoOffer, VETransportAppControl controlTransport,
-        VETransportAppControlOffer controlOffer, VETransportAppControl audioTransport,
-        VETransportAppControlOffer audioOffer, CancellationTokenSource cancellation, string serial, long generation)
+        VETransportAppControlOffer controlOffer, VETransportAppControl? audioTransport,
+        VETransportAppControlOffer? audioOffer, CancellationTokenSource cancellation, string serial, long generation)
     {
         try
         {
@@ -103,11 +109,16 @@ public partial class NLUIWindowMain
             timeout.CancelAfter(TimeSpan.FromSeconds(20));
             Task<Stream> videoAccept = videoTransport.AcceptAsync(videoOffer, TimeSpan.FromSeconds(20), timeout.Token);
             Task<Stream> controlAccept = controlTransport.AcceptAsync(controlOffer, TimeSpan.FromSeconds(20), timeout.Token);
-            Task<Stream> audioAccept = audioTransport.AcceptAsync(audioOffer, TimeSpan.FromSeconds(20), timeout.Token);
-            await Task.WhenAll(videoAccept, controlAccept, audioAccept);
+            Task<Stream>? audioAccept = audioTransport is not null && audioOffer is not null
+                ? audioTransport.AcceptAsync(audioOffer, TimeSpan.FromSeconds(20), timeout.Token)
+                : null;
+            if (audioAccept is null)
+                await Task.WhenAll(videoAccept, controlAccept);
+            else
+                await Task.WhenAll(videoAccept, controlAccept, audioAccept);
             Stream videoStream = await videoAccept;
             Stream controlStream = await controlAccept;
-            Stream audioStream = await audioAccept;
+            Stream? audioStream = audioAccept is null ? null : await audioAccept;
             if (_closing || generation != _androidControlGeneration ||
                 _androidControl?.IsAuthorized != true || _androidControlSerial != serial)
                 throw new OperationCanceledException("La sesión USB cambió antes de recibir el video.");
@@ -115,9 +126,14 @@ public partial class NLUIWindowMain
             _activeVisionSerialVE = serial;
             _ = CreateVisionPresentationVE();
             VECoreResult result = await _visionEngineVE!.StartAppControlAsync(
-                serial, videoStream, controlStream, audioStream, timeout.Token);
-            if (!result.Success) throw result.Exception ?? new InvalidOperationException(result.Message);
-            AndroidEngineStateChanged();
+                serial, videoStream, controlStream, audioStream,
+                audioEnabled: audioStream is not null,
+                cancellationToken: timeout.Token);
+            CompleteAppControlVideoStartVE(
+                result,
+                AttachVisionInputVE,
+                () => _visionPresentationWindowVE?.HostVE.FocusInputVE(),
+                AndroidEngineStateChanged);
         }
         catch (OperationCanceledException)
         {
@@ -143,12 +159,30 @@ public partial class NLUIWindowMain
                     _appControlVideoCancellationVE = null;
                     await videoTransport.DisposeAsync();
                     await controlTransport.DisposeAsync();
-                    await audioTransport.DisposeAsync();
+                    if (audioTransport is not null) await audioTransport.DisposeAsync();
                     cancellation.Dispose();
                 }
             }
             AndroidEngineStateChanged();
         }
+    }
+
+    internal static void CompleteAppControlVideoStartVE(
+        VECoreResult result,
+        Action attachInput,
+        Action focusInput,
+        Action publishState)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(attachInput);
+        ArgumentNullException.ThrowIfNull(focusInput);
+        ArgumentNullException.ThrowIfNull(publishState);
+        if (!result.Success)
+            throw result.Exception ?? new InvalidOperationException(result.Message);
+
+        attachInput();
+        focusInput();
+        publishState();
     }
 
     private async Task StopAppControlVideoSourceAsync()

@@ -204,8 +204,14 @@ public sealed class VERendererDevice : IDisposable
         EnsureVE(_setRenderDrawColorVE!(_rendererVE, 0, 0, 0, 255), "SDL_SetRenderDrawColor");
         EnsureVE(_renderClearVE!(_rendererVE), "SDL_RenderClear");
 
-        VERendererSdlFRect dst = new(destination.X, destination.Y, destination.Width, destination.Height);
         int rotation = VERendererRotation.NormalizeVE(rotationDegrees);
+        VERendererRect textureDestination =
+            VERendererRotation.PrepareDestinationVE(destination, rotation);
+        VERendererSdlFRect dst = new(
+            textureDestination.X,
+            textureDestination.Y,
+            textureDestination.Width,
+            textureDestination.Height);
 
         bool rendered = rotation == 0
             ? _renderTextureVE!(_rendererVE, texture, IntPtr.Zero, ref dst)

@@ -1,4 +1,5 @@
 using NOVORA.VisionEngine.Renderer;
+using NOVORA.Control;
 using Forms = System.Windows.Forms;
 
 namespace NOVORA.VisionEngine.Control;
@@ -94,6 +95,9 @@ public sealed class VEControlRouter : IDisposable
         host.KeyUpVE +=
             Host_KeyUpVE;
 
+        host.KeyPressVE +=
+            Host_KeyPressVE;
+
         host.InputFocusLostVE +=
             Host_InputFocusLostVE;
 
@@ -127,6 +131,9 @@ public sealed class VEControlRouter : IDisposable
 
             host.KeyUpVE -=
                 Host_KeyUpVE;
+
+            host.KeyPressVE -=
+                Host_KeyPressVE;
 
             host.InputFocusLostVE -=
                 Host_InputFocusLostVE;
@@ -397,6 +404,9 @@ public sealed class VEControlRouter : IDisposable
         Forms.Keys key =
             e.KeyCode;
 
+        if (!e.Control && !e.Alt && IsTextProducingKeyVE(key))
+            return;
+
         if (!VEControlKeycode.TryMapVE(
                 key,
                 out uint keycode))
@@ -433,6 +443,18 @@ public sealed class VEControlRouter : IDisposable
 
         e.Handled =
             true;
+    }
+
+    private void Host_KeyPressVE(
+        object? sender,
+        Forms.KeyPressEventArgs e)
+    {
+        if (e.Handled || !_controlVE.IsReadyVE || char.IsControl(e.KeyChar))
+            return;
+
+        EnqueueVE(cancellationToken =>
+            _keyboardVE.TextAsync(e.KeyChar.ToString(), cancellationToken));
+        e.Handled = true;
     }
 
     private void Host_KeyUpVE(
@@ -599,157 +621,16 @@ public sealed class VEControlRouter : IDisposable
         int outputHeight =
             host.ClientHeightVE;
 
-        int rotation =
-            VERendererRotation.NormalizeVE(
-                status.RotationDegrees);
-
-        VERendererRect viewport =
-            VERendererViewport.CalculateVE(
-                frameWidth,
-                frameHeight,
-                outputWidth,
-                outputHeight,
-                rotation);
-
-        if (viewport.Width <= 0 ||
-            viewport.Height <= 0)
-        {
+        if (!NLControlPointerGeometry.TryMap(
+                clientX, clientY, outputWidth, outputHeight,
+                frameWidth, frameHeight, status.RotationDegrees,
+                clampToViewport,
+                activateVerticalEdges ? VerticalEdgeActivationPixelsVE : 0,
+                out NLControlPointerPosition mapped))
             return false;
-        }
 
-        float viewportRight =
-            viewport.X + viewport.Width - 1;
-
-        float viewportBottom =
-            viewport.Y + viewport.Height - 1;
-
-        bool insideViewport =
-            clientX >= viewport.X &&
-            clientX <= viewportRight &&
-            clientY >= viewport.Y &&
-            clientY <= viewportBottom;
-
-        bool insideVerticalEdgeActivation =
-            activateVerticalEdges &&
-            clientX >= viewport.X &&
-            clientX <= viewportRight &&
-            clientY >= viewport.Y - VerticalEdgeActivationPixelsVE &&
-            clientY <= viewportBottom + VerticalEdgeActivationPixelsVE;
-
-        if (!insideViewport &&
-            !insideVerticalEdgeActivation &&
-            !clampToViewport)
-        {
-            return false;
-        }
-
-        float mappedClientX =
-            Math.Clamp(
-                clientX,
-                viewport.X,
-                viewportRight);
-
-        float mappedClientY =
-            Math.Clamp(
-                clientY,
-                viewport.Y,
-                viewportBottom);
-
-        int rotatedWidth =
-            VERendererRotation.SwapsDimensionsVE(
-                rotation)
-                ? frameHeight
-                : frameWidth;
-
-        int rotatedHeight =
-            VERendererRotation.SwapsDimensionsVE(
-                rotation)
-                ? frameWidth
-                : frameHeight;
-
-        double normalizedX =
-            Math.Clamp(
-                (mappedClientX - viewport.X) /
-                viewport.Width,
-                0d,
-                1d);
-
-        double normalizedY =
-            Math.Clamp(
-                (mappedClientY - viewport.Y) /
-                viewport.Height,
-                0d,
-                1d);
-
-        int rotatedX =
-            Math.Clamp(
-                (int)Math.Round(
-                    normalizedX *
-                    Math.Max(
-                        0,
-                        rotatedWidth - 1),
-                    MidpointRounding.AwayFromZero),
-                0,
-                Math.Max(
-                    0,
-                    rotatedWidth - 1));
-
-        int rotatedY =
-            Math.Clamp(
-                (int)Math.Round(
-                    normalizedY *
-                    Math.Max(
-                        0,
-                        rotatedHeight - 1),
-                    MidpointRounding.AwayFromZero),
-                0,
-                Math.Max(
-                    0,
-                    rotatedHeight - 1));
-
-        (int x, int y) =
-            rotation switch
-            {
-                90 =>
-                    (
-                        rotatedY,
-                        frameHeight - 1 - rotatedX),
-
-                180 =>
-                    (
-                        frameWidth - 1 - rotatedX,
-                        frameHeight - 1 - rotatedY),
-
-                270 =>
-                    (
-                        frameWidth - 1 - rotatedY,
-                        rotatedX),
-
-                _ =>
-                    (
-                        rotatedX,
-                        rotatedY)
-            };
-
-        x =
-            Math.Clamp(
-                x,
-                0,
-                frameWidth - 1);
-
-        y =
-            Math.Clamp(
-                y,
-                0,
-                frameHeight - 1);
-
-        position =
-            new VEControlPosition(
-                x,
-                y,
-                checked((ushort)frameWidth),
-                checked((ushort)frameHeight));
-
+        position = new VEControlPosition(
+            mapped.X, mapped.Y, mapped.ScreenWidth, mapped.ScreenHeight);
         return true;
     }
 
@@ -809,6 +690,17 @@ public sealed class VEControlRouter : IDisposable
             Forms.MouseButtons.XButton2 => 16u,
             _ => 0u
         };
+
+    private static bool IsTextProducingKeyVE(Forms.Keys key)
+        => key is >= Forms.Keys.A and <= Forms.Keys.Z or
+            >= Forms.Keys.D0 and <= Forms.Keys.D9 or
+            >= Forms.Keys.NumPad0 and <= Forms.Keys.Divide or
+            Forms.Keys.Space or
+            Forms.Keys.Oem1 or Forms.Keys.Oem2 or Forms.Keys.Oem3 or
+            Forms.Keys.Oem4 or Forms.Keys.Oem5 or Forms.Keys.Oem6 or
+            Forms.Keys.Oem7 or Forms.Keys.Oem8 or
+            Forms.Keys.Oemcomma or Forms.Keys.OemMinus or
+            Forms.Keys.OemPeriod or Forms.Keys.Oemplus;
 
     private void ThrowIfDisposedVE()
         => ObjectDisposedException.ThrowIf(

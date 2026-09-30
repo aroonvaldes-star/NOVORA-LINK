@@ -3,7 +3,10 @@
 ## Motores
 
 - **LinkEngine (LE):** conectividad, VPN/reverse tethering, CONTROL/DATA, RelayCore, tráfico y recuperación.
-- **VisionEngine (VE):** video, audio, input, gamepad, exchange, privacidad e integración Android↔Windows.
+- **VisionEngine (VE):** captura, video, audio, decodificación, render, grabación y su Recovery.
+- **ExInEngine:** mouse, teclado, táctil y gamepad, con lifecycle independiente de VE.
+- **Integraciones NOVORA:** archivos, Share, Drag & Drop, portapapeles, apps, notificaciones y capacidades Android↔Windows. No requieren una sesión de video activa salvo cuando el contrato Android específico usa temporalmente el canal de control de VE.
+- **Privacidad:** política transversal compartida por VE, ExIn e Integraciones; no pertenece al lifecycle de un solo motor.
 - **RemoteNV:** canal de control Android→NOVORA. No forma parte del Data Plane de LinkEngine.
 
 ## Event-driven por defecto
@@ -25,7 +28,7 @@ RemoteNV usa protocolo v2. Cada configuración de dispositivo genera un token cr
 
 ## Capacidad
 
-NOVORA puede recordar varios teléfonos conocidos, pero mantiene **una sola sesión activa por PC**. El teléfono activo concentra VE, LE, ExIn y control; cambiarlo es una transición explícita de lifecycle. Una futura capacidad simultánea requiere ADR, aislamiento por sesión y benchmarks de recursos.
+NOVORA puede recordar varios teléfonos conocidos, pero mantiene **una sola sesión activa por PC**. El teléfono activo concentra VE, LE, ExIn, Integraciones y control; cada subsistema conserva su lifecycle y cambiar de teléfono es una transición explícita. Una futura capacidad simultánea requiere ADR, aislamiento por sesión y benchmarks de recursos.
 
 ## Nomenclatura
 

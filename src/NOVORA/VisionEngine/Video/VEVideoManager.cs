@@ -446,6 +446,8 @@ public sealed class VEVideoManager : IAsyncDisposable
         }
         catch (Exception ex)
         {
+            WriteFailureDiagnosticVE(ex, demuxer.SessionVE);
+
             PublishStatusVE(
                 _status with
                 {
@@ -460,10 +462,35 @@ public sealed class VEVideoManager : IAsyncDisposable
         }
     }
 
+    private static void WriteFailureDiagnosticVE(
+        Exception exception,
+        VEProtocolSession? session)
+    {
+        try
+        {
+            string path = Path.Combine(
+                Path.GetTempPath(),
+                "NOVORA_VE_error.log");
+
+            File.WriteAllText(
+                path,
+                $"{DateTimeOffset.Now:O}{Environment.NewLine}" +
+                $"Session: {session}{Environment.NewLine}" +
+                exception);
+        }
+        catch
+        {
+            // El diagnostico nunca debe interrumpir el pipeline ni Recovery.
+        }
+    }
+
     private void Demuxer_SessionChangedVE(
         object? sender,
         VEProtocolSession session)
     {
+        if (_rendererVE is not null)
+            _rendererVE.RotationDegreesVE = session.RotationDegrees;
+
         PublishStatusVE(
             _status with
             {

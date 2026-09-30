@@ -59,6 +59,9 @@ public sealed class VERendererHost : WindowsFormsHost
         _panelVE.KeyUp +=
             PanelVE_KeyUp;
 
+        _panelVE.KeyPress +=
+            PanelVE_KeyPress;
+
         // ========================================================
         // MOUSE
         // ========================================================
@@ -170,6 +173,9 @@ public sealed class VERendererHost : WindowsFormsHost
 
     public event EventHandler<Forms.KeyEventArgs>?
         KeyUpVE;
+
+    public event EventHandler<Forms.KeyPressEventArgs>?
+        KeyPressVE;
 
     public event EventHandler?
         InputFocusLostVE;
@@ -363,6 +369,13 @@ public sealed class VERendererHost : WindowsFormsHost
             e);
     }
 
+    private void PanelVE_KeyPress(
+        object? sender,
+        Forms.KeyPressEventArgs e)
+    {
+        KeyPressVE?.Invoke(this, e);
+    }
+
     // ============================================================
     // MOUSE
     // ============================================================
@@ -500,6 +513,9 @@ public sealed class VERendererHost : WindowsFormsHost
 
             _panelVE.KeyUp -=
                 PanelVE_KeyUp;
+
+            _panelVE.KeyPress -=
+                PanelVE_KeyPress;
 
             _panelVE.MouseDown -=
                 PanelVE_MouseDown;

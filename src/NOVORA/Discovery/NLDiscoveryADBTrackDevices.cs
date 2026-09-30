@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 
 namespace NOVORA.Discovery;
 
@@ -8,6 +10,8 @@ public sealed class NLDiscoveryADBTrackDevices :
     IAsyncDisposable
 {
     private readonly string _adbPathNV;
+    private readonly object _lifecycleGateNV = new();
+    private readonly NLDiscoveryProcessJobNV? _processJobNV;
 
     private CancellationTokenSource? _lifetimeCtsNV;
     private Task? _workerNV;
@@ -28,6 +32,9 @@ public sealed class NLDiscoveryADBTrackDevices :
         _adbPathNV =
             Path.GetFullPath(
                 adbPathNV);
+
+        _processJobNV =
+            NLDiscoveryProcessJobNV.TryCreateNV();
     }
 
     public bool IsRunningNV =>
@@ -41,28 +48,31 @@ public sealed class NLDiscoveryADBTrackDevices :
     {
         ThrowIfDisposedNV();
 
-        if (IsRunningNV)
+        lock (_lifecycleGateNV)
         {
-            return Task.CompletedTask;
+            if (IsRunningNV)
+            {
+                return Task.CompletedTask;
+            }
+
+            if (!File.Exists(
+                    _adbPathNV))
+            {
+                throw new FileNotFoundException(
+                    "ADB no existe para DiscoveryEngine.",
+                    _adbPathNV);
+            }
+
+            _lifetimeCtsNV?.Dispose();
+            _lifetimeCtsNV =
+                CancellationTokenSource
+                    .CreateLinkedTokenSource(
+                        cancellationToken);
+
+            _workerNV =
+                RunLoopNVAsync(
+                    _lifetimeCtsNV.Token);
         }
-
-        if (!File.Exists(
-                _adbPathNV))
-        {
-            throw new FileNotFoundException(
-                "ADB no existe para DiscoveryEngine.",
-                _adbPathNV);
-        }
-
-        _lifetimeCtsNV?.Dispose();
-        _lifetimeCtsNV =
-            CancellationTokenSource
-                .CreateLinkedTokenSource(
-                    cancellationToken);
-
-        _workerNV =
-            RunLoopNVAsync(
-                _lifetimeCtsNV.Token);
 
         return Task.CompletedTask;
     }
@@ -162,8 +172,14 @@ public sealed class NLDiscoveryADBTrackDevices :
                 "ADB track-devices no pudo iniciar.");
         }
 
-        _processNV =
-            process;
+        _processJobNV?.AssignNV(
+            process);
+
+        lock (_lifecycleGateNV)
+        {
+            _processNV =
+                process;
+        }
 
         Task stderrDrainNV =
             process.StandardError
@@ -232,13 +248,48 @@ public sealed class NLDiscoveryADBTrackDevices :
         }
         finally
         {
-            if (ReferenceEquals(
-                    _processNV,
-                    process))
+            await StopOwnedProcessNVAsync(
+                    process)
+                .ConfigureAwait(false);
+
+            lock (_lifecycleGateNV)
             {
-                _processNV =
-                    null;
+                if (ReferenceEquals(
+                        _processNV,
+                        process))
+                {
+                    _processNV =
+                        null;
+                }
             }
+        }
+    }
+
+    private static async Task StopOwnedProcessNVAsync(
+        Process processNV)
+    {
+        try
+        {
+            if (!processNV.HasExited)
+            {
+                processNV.Kill(
+                    entireProcessTree: true);
+            }
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            await processNV
+                .WaitForExitAsync()
+                .WaitAsync(
+                    TimeSpan.FromSeconds(2))
+                .ConfigureAwait(false);
+        }
+        catch
+        {
         }
     }
 
@@ -303,26 +354,36 @@ public sealed class NLDiscoveryADBTrackDevices :
 
     public async Task StopAsync()
     {
-        CancellationTokenSource? ctsNV =
-            _lifetimeCtsNV;
+        CancellationTokenSource? ctsNV;
+        Task? workerNV;
+        Process? processNV;
 
-        Task? workerNV =
-            _workerNV;
+        lock (_lifecycleGateNV)
+        {
+            ctsNV =
+                _lifetimeCtsNV;
 
-        _lifetimeCtsNV =
-            null;
+            workerNV =
+                _workerNV;
 
-        _workerNV =
-            null;
+            processNV =
+                _processNV;
+
+            _lifetimeCtsNV =
+                null;
+
+            _workerNV =
+                null;
+        }
 
         ctsNV?.Cancel();
 
         try
         {
-            if (_processNV is
+            if (processNV is
                 {
                     HasExited: false
-                } processNV)
+                })
             {
                 processNV.Kill(
                     entireProcessTree: true);
@@ -366,5 +427,169 @@ public sealed class NLDiscoveryADBTrackDevices :
 
         await StopAsync()
             .ConfigureAwait(false);
+
+        _processJobNV?.Dispose();
+    }
+
+    private sealed class NLDiscoveryProcessJobNV : IDisposable
+    {
+        private const uint KillOnJobCloseNV = 0x00002000;
+        private const int ExtendedLimitInformationNV = 9;
+
+        private readonly SafeFileHandle _handleNV;
+
+        private NLDiscoveryProcessJobNV(
+            SafeFileHandle handleNV)
+        {
+            _handleNV =
+                handleNV;
+        }
+
+        public static NLDiscoveryProcessJobNV? TryCreateNV()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return null;
+            }
+
+            SafeFileHandle handleNV =
+                CreateJobObjectNV(
+                    IntPtr.Zero,
+                    null);
+
+            if (handleNV.IsInvalid)
+            {
+                handleNV.Dispose();
+                return null;
+            }
+
+            var informationNV =
+                new JobObjectExtendedLimitInformationNV
+                {
+                    BasicLimitInformation =
+                        new JobObjectBasicLimitInformationNV
+                        {
+                            LimitFlags =
+                                KillOnJobCloseNV
+                        }
+                };
+
+            int lengthNV =
+                Marshal.SizeOf<JobObjectExtendedLimitInformationNV>();
+
+            IntPtr bufferNV =
+                Marshal.AllocHGlobal(
+                    lengthNV);
+
+            try
+            {
+                Marshal.StructureToPtr(
+                    informationNV,
+                    bufferNV,
+                    fDeleteOld: false);
+
+                if (!SetInformationJobObjectNV(
+                        handleNV,
+                        ExtendedLimitInformationNV,
+                        bufferNV,
+                        (uint)lengthNV))
+                {
+                    handleNV.Dispose();
+                    return null;
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(
+                    bufferNV);
+            }
+
+            return new NLDiscoveryProcessJobNV(
+                handleNV);
+        }
+
+        public void AssignNV(
+            Process processNV)
+        {
+            if (_handleNV.IsInvalid ||
+                _handleNV.IsClosed)
+            {
+                return;
+            }
+
+            _ = AssignProcessToJobObjectNV(
+                _handleNV,
+                processNV.Handle);
+        }
+
+        public void Dispose()
+        {
+            _handleNV.Dispose();
+        }
+
+        [DllImport(
+            "kernel32.dll",
+            EntryPoint = "CreateJobObjectW",
+            CharSet = CharSet.Unicode,
+            SetLastError = true)]
+        private static extern SafeFileHandle CreateJobObjectNV(
+            IntPtr jobAttributesNV,
+            string? nameNV);
+
+        [DllImport(
+            "kernel32.dll",
+            EntryPoint = "SetInformationJobObject",
+            SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetInformationJobObjectNV(
+            SafeFileHandle jobNV,
+            int informationClassNV,
+            IntPtr informationNV,
+            uint informationLengthNV);
+
+        [DllImport(
+            "kernel32.dll",
+            EntryPoint = "AssignProcessToJobObject",
+            SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool AssignProcessToJobObjectNV(
+            SafeFileHandle jobNV,
+            IntPtr processNV);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct JobObjectBasicLimitInformationNV
+        {
+            public long PerProcessUserTimeLimit;
+            public long PerJobUserTimeLimit;
+            public uint LimitFlags;
+            public UIntPtr MinimumWorkingSetSize;
+            public UIntPtr MaximumWorkingSetSize;
+            public uint ActiveProcessLimit;
+            public UIntPtr Affinity;
+            public uint PriorityClass;
+            public uint SchedulingClass;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct IoCountersNV
+        {
+            public ulong ReadOperationCount;
+            public ulong WriteOperationCount;
+            public ulong OtherOperationCount;
+            public ulong ReadTransferCount;
+            public ulong WriteTransferCount;
+            public ulong OtherTransferCount;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct JobObjectExtendedLimitInformationNV
+        {
+            public JobObjectBasicLimitInformationNV BasicLimitInformation;
+            public IoCountersNV IoInfo;
+            public UIntPtr ProcessMemoryLimit;
+            public UIntPtr JobMemoryLimit;
+            public UIntPtr PeakProcessMemoryUsed;
+            public UIntPtr PeakJobMemoryUsed;
+        }
     }
 }

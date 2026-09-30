@@ -7,6 +7,10 @@ using Android.Systems;
 using NOVORA.Control;
 using NOVORA.AndroidUI;
 using System.Net.Sockets;
+using System.Net;
+using System.Net.Security;
+using System.Security.Authentication;
+using System.Security.Cryptography;
 using System.IO;
 using Resource = NOVORA.AndroidApp.Resource;
 
@@ -25,6 +29,7 @@ public sealed class NLAndroidVpnService : VpnService
     private readonly object _gate = new();
     private CancellationTokenSource? _run;
     private TcpClient? _control, _data;
+    private Stream? _dataStream;
     private ParcelFileDescriptor? _tun;
     private Java.IO.FileDescriptor[]? _wake;
     private bool _wakeSent;
@@ -35,11 +40,17 @@ public sealed class NLAndroidVpnService : VpnService
     private bool _destroyed;
     private static volatile bool _running;
     private static string _status = "VPN USB detenida.";
+    private static NLControlLinkOffer? _lanOffer;
     public static bool IsRunning => _running;
     public static string Status => Volatile.Read(ref _status);
     public static event EventHandler? StatusChanged;
 
     public static void Start(Context context)
+    {
+        _lanOffer = null;
+        StartCore(context);
+    }
+    private static void StartCore(Context context)
     {
         long epoch;
         lock (RequestGate)
@@ -168,55 +179,108 @@ public sealed class NLAndroidVpnService : VpnService
         }
         throw new IOException("Canal USB no disponible.");
     }
+
+    private async Task<(TcpClient Client, Stream Stream)> ConnectLanAsync(
+        NLControlLinkOffer offer, CancellationToken token)
+    {
+        if (offer.Transport != "LAN" || !IPAddress.TryParse(offer.Host, out IPAddress? address))
+            throw new InvalidDataException("Oferta DATA LAN inválida.");
+        NLControlLanInvitation.ValidateAddress(address);
+        if (offer.Port is < 1 or > 65535 || offer.Fingerprint is not { Length: 64 } ||
+            !offer.Fingerprint.All(System.Uri.IsHexDigit) || offer.Token is not { Length: 64 } ||
+            !offer.Token.All(System.Uri.IsHexDigit))
+            throw new InvalidDataException("Oferta DATA LAN incompleta.");
+
+        var client = new TcpClient(AddressFamily.InterNetwork) { NoDelay = true };
+        try
+        {
+            if (!Protect(checked((int)client.Client.Handle)))
+                throw new InvalidOperationException("No se pudo proteger el socket LAN de la VPN.");
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+            deadline.CancelAfter(TimeSpan.FromSeconds(8));
+            await client.ConnectAsync(address, offer.Port, deadline.Token);
+            var tls = new SslStream(client.GetStream(), false, (_, certificate, _, _) =>
+                certificate is not null && CryptographicOperations.FixedTimeEquals(
+                    SHA256.HashData(certificate.GetRawCertData()), Convert.FromHexString(offer.Fingerprint)));
+            await tls.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
+            {
+                TargetHost = "NOVORA",
+                EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
+            }, deadline.Token);
+            await NLControlProtocol.WriteAsync(tls,
+                new NLControlLinkHello(NLControlProtocol.Version, offer.Token), deadline.Token);
+            return (client, tls);
+        }
+        catch
+        {
+            client.Dispose();
+            throw;
+        }
+    }
     private async Task RunAsync(CancellationTokenSource run)
     {
         Task? heartbeat = null, outbound = null, inbound = null;
-        string terminal = "VPN USB detenida.";
+        NLControlLinkOffer? lanOffer = _lanOffer;
+        string terminal = lanOffer is null ? "VPN USB detenida." : "VPN LAN detenida.";
         try
         {
-            using var control = await ConnectAsync(27183, run.Token);
-            lock (_gate) { run.Token.ThrowIfCancellationRequested(); _control = control; }
-            using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(run.Token))
+            if (lanOffer is null)
             {
+                TcpClient control = await ConnectAsync(27183, run.Token);
+                lock (_gate) { run.Token.ThrowIfCancellationRequested(); _control = control; }
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(run.Token);
                 deadline.CancelAfter(TimeSpan.FromSeconds(5));
-                await NLControlVpnProtocol.WriteControlAsync(control.GetStream(), $"NOVORA-LINK|1|HELLO|android-{Guid.NewGuid():N}", deadline.Token);
+                await NLControlVpnProtocol.WriteControlAsync(control.GetStream(),
+                    $"NOVORA-LINK|1|HELLO|android-{Guid.NewGuid():N}", deadline.Token);
                 if (await NLControlVpnProtocol.ReadControlAsync(control.GetStream(), deadline.Token) != "NOVORA-LINK|1|ACK")
                     throw new InvalidDataException("PC no confirmó el protocolo de LinkEngine.");
+                heartbeat = NLControlVpnProtocol.HeartbeatAsync(control.GetStream(), run.Token);
             }
-            heartbeat = NLControlVpnProtocol.HeartbeatAsync(control.GetStream(), run.Token);
-            Task<TcpClient> connectData = ConnectAsync(27184, run.Token);
-            if (await Task.WhenAny(connectData, heartbeat) == heartbeat)
+            else
             {
-                run.Cancel();
-                try { (await connectData).Dispose(); } catch { }
-                await heartbeat;
+                heartbeat = Task.Delay(Timeout.InfiniteTimeSpan, run.Token);
             }
-            using var data = await connectData;
-            lock (_gate) { run.Token.ThrowIfCancellationRequested(); _data = data; }
+
+            TcpClient data;
+            Stream dataStream;
+            if (lanOffer is null)
+            {
+                Task<TcpClient> connectData = ConnectAsync(27184, run.Token);
+                if (await Task.WhenAny(connectData, heartbeat) == heartbeat)
+                {
+                    run.Cancel();
+                    try { (await connectData).Dispose(); } catch { }
+                    await heartbeat;
+                }
+                data = await connectData;
+                dataStream = data.GetStream();
+            }
+            else
+            {
+                (data, dataStream) = await ConnectLanAsync(lanOffer, run.Token);
+            }
+
+            lock (_gate)
+            {
+                run.Token.ThrowIfCancellationRequested();
+                _data = data;
+                _dataStream = dataStream;
+            }
             using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(run.Token))
             {
                 deadline.CancelAfter(TimeSpan.FromSeconds(5));
-                // RelayCore sends one 32-bit ID before its raw IPv4 packet stream.
-                await NLControlVpnProtocol.ReadRelayIdAsync(data.GetStream(), deadline.Token);
+                await NLControlVpnProtocol.ReadRelayIdAsync(dataStream, deadline.Token);
             }
             lock (_gate)
             {
                 run.Token.ThrowIfCancellationRequested();
                 using var builder = new Builder(this);
-                builder.SetSession("NOVORA Internet USB")!.SetMtu(1500)!.AddAddress("10.0.0.2", 32)!
-                    .AddRoute("0.0.0.0", 0)!.AddDnsServer("8.8.8.8")!.SetBlocking(false)!
-                    .AddDisallowedApplication(PackageName!);
-                if (OperatingSystem.IsAndroidVersionAtLeast(29))
-                {
-                    // USB reverse tethering uses the PC connection and has no mobile data quota.
-                    builder.SetMetered(false);
-                }
+                builder.SetSession(lanOffer is null ? "NOVORA Internet USB" : "NOVORA Internet LAN")!
+                    .SetMtu(1500)!.AddAddress("10.0.0.2", 32)!.AddRoute("0.0.0.0", 0)!
+                    .AddDnsServer("8.8.8.8")!.SetBlocking(false)!.AddDisallowedApplication(PackageName!);
+                if (OperatingSystem.IsAndroidVersionAtLeast(29)) builder.SetMetered(false);
                 Network? underlying = FindUnderlyingNetwork();
-                if (underlying is not null)
-                {
-                    builder.SetUnderlyingNetworks([underlying]);
-                }
-                // No IPv6 address/route or allowFamily: Android blocks this unsupported family.
+                if (underlying is not null) builder.SetUnderlyingNetworks([underlying]);
                 _tun = builder.Establish() ?? throw new InvalidOperationException("Android no autorizó el túnel VPN.");
                 _wake = Os.Pipe() ?? throw new IOException("No se pudo preparar cancelación del túnel.");
                 var descriptor = _tun.FileDescriptor!;
@@ -231,14 +295,12 @@ public sealed class NLAndroidVpnService : VpnService
                         try { count = Os.Read(descriptor, packet, 0, packet.Length); }
                         catch (ErrnoException ex) when (ex.Errno == OsConstants.Eagain) { continue; }
                         if (count <= 0) throw new EndOfStreamException("Túnel cerrado.");
-                        // Android may deliver local IPv6 packets even when this VPN only routes IPv4.
-                        // Keep unsupported IPv6 inside the tunnel instead of aborting the IPv4 session.
                         if (count >= 40 && packet[0] >> 4 == 6) continue;
                         if (count < 20 || packet[0] >> 4 != 4)
                             throw new InvalidDataException($"Lectura TUN no IPv4: longitud={count}, version={packet[0] >> 4}, primerByte={packet[0]:X2}");
                         if (NLControlVpnProtocol.ValidateIpv4(packet.AsSpan(0, count)) != count)
                             throw new InvalidDataException("Paquete TUN inconsistente.");
-                        await data.GetStream().WriteAsync(packet.AsMemory(0, count), run.Token);
+                        await dataStream.WriteAsync(packet.AsMemory(0, count), run.Token);
                     }
                 });
                 inbound = Task.Run(async () =>
@@ -246,13 +308,14 @@ public sealed class NLAndroidVpnService : VpnService
                     byte[] packet = new byte[65535];
                     while (!run.IsCancellationRequested)
                     {
-                        int count = await NLControlVpnProtocol.ReadPacketAsync(data.GetStream(), packet, run.Token);
+                        int count = await NLControlVpnProtocol.ReadPacketAsync(dataStream, packet, run.Token);
                         while (true)
                         {
                             WaitTun(descriptor, wake, (short)OsConstants.Pollout, run.Token);
                             try
                             {
-                                if (Os.Write(descriptor, packet, 0, count) != count) throw new IOException("Escritura TUN incompleta.");
+                                if (Os.Write(descriptor, packet, 0, count) != count)
+                                    throw new IOException("Escritura TUN incompleta.");
                                 break;
                             }
                             catch (ErrnoException ex) when (ex.Errno == OsConstants.Eagain) { }
@@ -260,14 +323,17 @@ public sealed class NLAndroidVpnService : VpnService
                     }
                 });
             }
-            SetStatus("Conectado a Internet con LinkEngine", true);
+            SetStatus(lanOffer is null ? "Conectado a Internet con LinkEngine USB" :
+                "Conectado a Internet con LinkEngine LAN", true);
             await await Task.WhenAny(heartbeat, outbound, inbound);
         }
         catch (System.OperationCanceledException) when (run.IsCancellationRequested) { }
         catch (Exception ex)
         {
             Android.Util.Log.Error("NOVORA-VPN", ex.GetType().Name + ": " + ex.Message);
-            terminal = "Internet USB se interrumpió. Revisa el cable y LinkEngine en PC; vuelve a iniciar desde NOVORA.";
+            terminal = lanOffer is null
+                ? "Internet USB se interrumpió. Revisa el cable y LinkEngine en PC; vuelve a iniciar desde NOVORA."
+                : "Internet LAN se interrumpió. NOVORA conserva la PC vinculada para reconectar.";
         }
         finally
         {
@@ -276,13 +342,26 @@ public sealed class NLAndroidVpnService : VpnService
             lock (_gate)
             {
                 try { _tun?.Close(); } catch { }
-                if (_wake is not null) foreach (var descriptor in _wake) { try { Os.Close(descriptor); } catch { } descriptor.Dispose(); }
-                _wake = null; _tun = null;
+                if (_wake is not null)
+                    foreach (var descriptor in _wake) { try { Os.Close(descriptor); } catch { } descriptor.Dispose(); }
+                _wake = null;
+                _tun = null;
+                _dataStream = null;
             }
             run.Dispose();
             SetStatus(terminal, false);
-            _main.Post(() => { if (!_destroyed && _epoch == Interlocked.Read(ref _requestedEpoch)) { StopForeground(StopForegroundFlags.Remove); StopSelf(); } });
+            _main.Post(() =>
+            {
+                if (!_destroyed && _epoch == Interlocked.Read(ref _requestedEpoch))
+                { StopForeground(StopForegroundFlags.Remove); StopSelf(); }
+            });
         }
+    }
+    public static void Start(Context context, NLControlLinkOffer offer)
+    {
+        ArgumentNullException.ThrowIfNull(offer);
+        _lanOffer = offer;
+        StartCore(context);
     }
 
     private Network? FindUnderlyingNetwork()
@@ -334,12 +413,14 @@ public sealed class NLAndroidVpnService : VpnService
             try { _run?.Cancel(); } catch (ObjectDisposedException) { }
             try { _control?.Dispose(); } catch { }
             try { _data?.Dispose(); } catch { }
+            try { _dataStream?.Dispose(); } catch { }
             if (!_wakeSent && _wake is not null)
             {
                 _wakeSent = true;
                 try { Os.Write(_wake[1], new byte[] { 1 }, 0, 1); } catch { }
             }
             _control = _data = null;
+            _dataStream = null;
         }
     }
     public override void OnRevoke() { CloseRun(); SetStatus("Android revocó la VPN de NOVORA.", false); StopSelf(); base.OnRevoke(); }

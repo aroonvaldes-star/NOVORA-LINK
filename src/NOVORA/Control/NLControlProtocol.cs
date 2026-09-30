@@ -40,7 +40,12 @@ public sealed record NLControlRequest(int Version, long Id, string Action, strin
 public sealed record NLControlReply(int Version, long Id, bool Success, string Message,
     NLControlSnapshot? Snapshot = null, NLControlTrustedPc? TrustedPc = null, string? Value = null);
 public sealed record NLControlVideoSourceOffer(int Port, string Token, int Bitrate, int MaxSize, int Fps,
-    int ControlPort = 0, string ControlToken = "", int AudioPort = 0, string AudioToken = "");
+    int ControlPort = 0, string ControlToken = "", int AudioPort = 0, string AudioToken = "",
+    bool MuteDeviceAudio = false, bool AudioEnabled = true);
+public sealed record NLControlTunnelBootstrap(NLControlLanInvitation Invitation, string Transport);
+public sealed record NLControlLinkOffer(string Host, int Port, string Fingerprint, string Token,
+    string Transport = "LAN");
+public sealed record NLControlLinkHello(int Version, string Token, string Channel = "DATA");
 public sealed record NLControlInputCommand(
     int Type, int KeyAction = 0, uint Keycode = 0, uint Repeat = 0, uint MetaState = 0,
     string? Text = null, int MotionAction = 0, ulong PointerId = 0,
@@ -50,6 +55,11 @@ public sealed record NLControlInputCommand(
     ulong Sequence = 0, bool Paste = false, bool BooleanValue = false,
     ushort UhidId = 0, ushort VendorId = 0, ushort ProductId = 0,
     string? Name = null, byte[]? Data = null, ushort Width = 0, ushort Height = 0);
+public sealed record NLControlInputResponse(int Type, string? Text = null, ulong Sequence = 0)
+{
+    public const int ClipboardType = 1;
+    public const int ClipboardAckType = 2;
+}
 
 /// <summary>Framed JSON: USB uses loopback ADB; LAN requires the pinned TLS transport. Never expose raw frames on a LAN socket.</summary>
 public static class NLControlProtocol

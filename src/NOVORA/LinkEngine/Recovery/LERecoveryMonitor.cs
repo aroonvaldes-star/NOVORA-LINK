@@ -57,9 +57,6 @@ public sealed class LERecoveryMonitor : IAsyncDisposable
     private static readonly TimeSpan InfrastructureRecoveryTimeoutLE =
         TimeSpan.FromSeconds(30);
 
-    private static readonly TimeSpan DeviceReturnTimeoutLE =
-        TimeSpan.FromSeconds(60);
-
     private const long RequiredRecoveryHeartbeatsLE = 3;
 
     private readonly LEDeviceManager _device;
@@ -335,7 +332,6 @@ public sealed class LERecoveryMonitor : IAsyncDisposable
 
                 bool returned = await WaitForDeviceReturnLEAsync(
                         serial,
-                        DeviceReturnTimeoutLE,
                         cancellationToken)
                     .ConfigureAwait(false);
 
@@ -343,8 +339,8 @@ public sealed class LERecoveryMonitor : IAsyncDisposable
                 {
                     PublishStatusLE(
                         LERecoveryMonitorState.Failed,
-                        "El dispositivo no regresó dentro del timeout.",
-                        "ADB device return timeout.");
+                        "ADB wait-for-device terminó sin recuperar el dispositivo.",
+                        "ADB wait-for-device ended unexpectedly.");
                     return;
                 }
 
@@ -618,17 +614,13 @@ public sealed class LERecoveryMonitor : IAsyncDisposable
 
     private async Task<bool> WaitForDeviceReturnLEAsync(
         string serial,
-        TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        using var waitCts =
-            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        waitCts.CancelAfter(timeout);
-
         try
         {
             // adb wait-for-device bloquea hasta el evento del servidor ADB.
-            // No consulta periódicamente el estado.
+            // Se mantiene durante toda la sesión: una desconexión física larga
+            // no desarma Recovery ni introduce consultas periódicas.
             await _adb.ExecuteRawAsync(
                     new[]
                     {
@@ -636,7 +628,7 @@ public sealed class LERecoveryMonitor : IAsyncDisposable
                         serial,
                         "wait-for-device"
                     },
-                    waitCts.Token)
+                    cancellationToken)
                 .ConfigureAwait(false);
 
             // Una sola validación al despertar.
@@ -644,9 +636,9 @@ public sealed class LERecoveryMonitor : IAsyncDisposable
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
-            when (!cancellationToken.IsCancellationRequested)
+            when (cancellationToken.IsCancellationRequested)
         {
-            return false;
+            throw;
         }
     }
 

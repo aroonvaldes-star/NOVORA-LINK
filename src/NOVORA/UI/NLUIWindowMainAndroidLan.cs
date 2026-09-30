@@ -4,12 +4,22 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using NOVORA.Control;
-using NOVORA.UI;
 
 namespace NOVORA;
 
 public partial class NLUIWindowMain
 {
+    private void HomeLanConnectionButton_Click(object sender, RoutedEventArgs e)
+        => PrepareAndroidLan_Click(sender, e);
+
+    private void UpdateHomeLanConnectionButton()
+    {
+        if (_closing || HomeLanConnectionButton is null) return;
+        bool connected = _androidLanControl?.IsAuthorized == true;
+        HomeLanConnectionButton.Content = connected ? "CONECTADO POR LAN" : "CÓDIGO LAN";
+        HomeLanConnectionButton.IsEnabled = !_androidControlPreparing && !_androidInstalling;
+    }
+
     private static bool IsPrivateLanAddress(IPAddress address)
     {
         byte[] bytes = address.GetAddressBytes();
@@ -37,7 +47,7 @@ public partial class NLUIWindowMain
         var choice = new System.Windows.Controls.ComboBox { ItemsSource = addresses, DisplayMemberPath = "Label", SelectedIndex = 0, Margin = new Thickness(0, 16, 0, 16) };
         body.Children.Add(choice);
         var dialog = CreateNovoraDialog("Preparar conexión LAN", 520, body);
-        var button = new System.Windows.Controls.Button { Content = createInvitation ? "CREAR INVITACIÓN QR" : "ACTIVAR RECONEXIÓN LAN", Padding = new Thickness(12) };
+        var button = new System.Windows.Controls.Button { Content = createInvitation ? "GENERAR CÓDIGO LAN" : "ACTIVAR RECONEXIÓN LAN", Padding = new Thickness(12) };
         ApplyNovoraActionButton(button);
         button.Click += (_, _) => dialog.DialogResult = true;
         body.Children.Add(button);
@@ -48,6 +58,7 @@ public partial class NLUIWindowMain
     {
         if (_androidControlPreparing || _androidInstalling) return;
         _androidControlPreparing = true;
+        UpdateHomeLanConnectionButton();
         NLControlTrustServer? created = null;
         try
         {
@@ -69,6 +80,7 @@ public partial class NLUIWindowMain
                 AndroidControlStatus.Text = _androidControl?.IsAuthorized == true
                     ? "USB activo; LAN permanece disponible como respaldo."
                     : status;
+                UpdateHomeLanConnectionButton();
                 if (server.IsAuthorized || server.IsClosed || !server.IsInvitationOpen)
                 {
                     var discovery = _androidLanDiscovery;
@@ -79,7 +91,9 @@ public partial class NLUIWindowMain
             }));
             server.Start();
             store.SetListening(address.ToString(), true);
-            var discovery = new NLControlLanDiscovery(new(Environment.MachineName, address.ToString(), server.Invitation.Port));
+            var discovery = new NLControlLanDiscovery(
+                new(Environment.MachineName, address.ToString(), server.Invitation.Port),
+                server.ResolvePairingCode);
             _androidLanDiscovery = discovery;
             string discoveryStatus;
             try { discovery.Start(); discoveryStatus = "Android puede buscar esta PC en la red."; }
@@ -87,33 +101,23 @@ public partial class NLUIWindowMain
             {
                 await discovery.DisposeAsync();
                 _androidLanDiscovery = null;
-                discoveryStatus = "La búsqueda no está disponible. Puedes enlazar directamente escaneando el QR.";
+                discoveryStatus = "La búsqueda no está disponible en esta red. Revisa el firewall privado de Windows.";
             }
 
             var body = new StackPanel();
-            var title = new TextBlock { Text = $"{Environment.MachineName} · {address}\nEscanea desde NOVORA Android en la misma red.", FontSize = 17, TextWrapping = TextWrapping.Wrap };
+            var title = new TextBlock { Text = $"{Environment.MachineName} · {address}\nEscribe este código en NOVORA Android:", FontSize = 17, TextWrapping = TextWrapping.Wrap };
             ApplyNovoraText(title);
             body.Children.Add(title);
-            var qr = new System.Windows.Controls.Image { Source = NLUIAndroidQr.Create(server.Invitation.Encode()), Width = 360, Height = 360, Margin = new Thickness(0, 12, 0, 12) };
-            RenderOptions.SetBitmapScalingMode(qr, BitmapScalingMode.NearestNeighbor);
-            body.Children.Add(qr);
-            var copy = new System.Windows.Controls.Button { Content = "COPIAR INVITACIÓN", Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 12) };
-            ApplyNovoraActionButton(copy);
-            copy.Click += (_, _) =>
-            {
-                try
-                {
-                    System.Windows.Clipboard.SetText(server.Invitation.Encode());
-                    copy.Content = "COPIADA · CONTIENE AUTORIZACIÓN TEMPORAL";
-                }
-                catch (Exception) { copy.Content = "NO SE PUDO COPIAR · USA EL QR"; }
-            };
-            body.Children.Add(copy);
-            var details = new TextBlock { Text = $"{discoveryStatus}\n\nEl QR caduca en 2 minutos y solo se usa una vez. Cerrar esta ventana cancela el QR pendiente; los teléfonos recordados conservan su autorización.\n\nSi Windows pide acceso de red, permite NOVORA solo en tu red privada. El QR autoriza el control: no lo compartas.", TextWrapping = TextWrapping.Wrap };
+            var code = new TextBlock { Text = server.PairingCode, FontSize = 42, FontWeight = FontWeights.Bold,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                Margin = new Thickness(0, 18, 0, 18) };
+            ApplyNovoraText(code);
+            body.Children.Add(code);
+            var details = new TextBlock { Text = $"{discoveryStatus}\n\nEl código caduca en 2 minutos, admite hasta 5 intentos incorrectos y sólo autoriza una vinculación. Después PC y Android se recordarán mediante credenciales protegidas.\n\nSi Windows pide acceso de red, permite NOVORA sólo en tu red privada. No compartas el código.", TextWrapping = TextWrapping.Wrap };
             ApplyNovoraText(details, "MutedBrush");
             body.Children.Add(details);
-            invitationDialog = CreateNovoraDialog("NOVORA Android · Enlace LAN seguro", 510, body);
-            AndroidControlStatus.Text = "Invitación LAN abierta. Escanea el QR; todavía no hay un Android autorizado.";
+            invitationDialog = CreateNovoraDialog("NOVORA Android · Código LAN", 510, body);
+            AndroidControlStatus.Text = "Código LAN abierto; todavía no hay un Android autorizado.";
             invitationDialog.ShowDialog();
             invitationDialog = null;
             server.CancelInvitation();
@@ -124,6 +128,10 @@ public partial class NLUIWindowMain
             if (created is not null && ReferenceEquals(_androidLanControl, created)) await StopAndroidControlAsync();
             if (!_closing) AndroidControlStatus.Text = "No se pudo preparar LAN: " + ex.Message;
         }
-        finally { _androidControlPreparing = false; }
+        finally
+        {
+            _androidControlPreparing = false;
+            UpdateHomeLanConnectionButton();
+        }
     }
 }

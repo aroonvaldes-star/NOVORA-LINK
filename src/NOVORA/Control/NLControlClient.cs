@@ -60,7 +60,7 @@ public sealed class NLControlClient : IAsyncDisposable
             { TargetHost = "NOVORA", EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13 }, deadline.Token);
             _reader = ReadLoopAsync();
             var reply = await SendAsync("resume", value: pc.DeviceId, code: pc.Token);
-            if (!reply.Success) throw new AuthenticationException("La PC rechazó la confianza guardada. Vincula de nuevo con QR.");
+            if (!reply.Success) throw new AuthenticationException("La PC rechazó la confianza guardada. Vincula de nuevo mediante código LAN.");
             return reply;
         }
         catch { _stop.Cancel(); _socket.Dispose(); _stream?.Dispose(); throw; }

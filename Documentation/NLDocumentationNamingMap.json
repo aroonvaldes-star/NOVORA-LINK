@@ -1,6 +1,14 @@
 {
   "files": {
+    "src/NOVORA/Control/NLControlLanDataGateway.cs": "src/NOVORA/Control/NLControlLanDataGateway.cs",
+    "src/NOVORA/Integration/NLIntegrationRuntime.cs": "src/NOVORA/Integration/NLIntegrationRuntime.cs",
+    "src/NOVORA/Control/NLControlInputLoop.cs": "src/NOVORA/Control/NLControlInputLoop.cs",
+    "src/NOVORA/Control/NLControlAndroidInput.cs": "src/NOVORA/Control/NLControlAndroidInput.cs",
+    "src/NOVORA/Control/NLControlPointerGeometry.cs": "src/NOVORA/Control/NLControlPointerGeometry.cs",
     "src/NOVORA.Android/AndroidVideo/NLAndroidControlAccessibilityService.cs": "src/NOVORA.Android/AndroidVideo/NLAndroidControlAccessibilityService.cs",
+    "src/NOVORA.Android/AndroidVideo/NLAndroidInputMethodService.cs": "src/NOVORA.Android/AndroidVideo/NLAndroidInputMethodService.cs",
+    "src/NOVORA.Android/AndroidVideo/NLAndroidVideoCompositor.cs": "src/NOVORA.Android/AndroidVideo/NLAndroidVideoCompositor.cs",
+    "src/NOVORA.Android/AndroidResource/NLAndroidResourceInputMethod.xml": "src/NOVORA.Android/AndroidResource/NLAndroidResourceInputMethod.xml",
     "src/NOVORA.Android/AndroidVideo/NLAndroidAudioCapture.cs": "src/NOVORA.Android/AndroidVideo/NLAndroidAudioCapture.cs",
     "src/NOVORA.Android/AndroidResource/NLAndroidResourceAccessibility.xml": "src/NOVORA.Android/AndroidResource/NLAndroidResourceAccessibility.xml",
     "src/NOVORA/App.xaml": "src/NOVORA/Application/NLApplicationApp.xaml",

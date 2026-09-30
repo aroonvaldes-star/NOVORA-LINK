@@ -55,13 +55,15 @@ public partial class NLUIWindowMain
                     ? "USB activo; LAN permanece disponible como respaldo."
                     : status;
                 if (!server.IsAuthorized && !AndroidControlAuthorized) { ResetAndroidFileTransfer(); _ = FinishAndroidRecordingAsync(); }
+                UpdateHomeLanConnectionButton();
             }
         }));
         try
         {
             server.Start();
             store.SetListening(address.ToString(), true);
-            AndroidControlStatus.Text = "Reconexión LAN activa para teléfonos autorizados. No hay invitación QR abierta.";
+            AndroidControlStatus.Text = "Reconexión LAN activa para teléfonos autorizados. No hay código temporal abierto.";
+            UpdateHomeLanConnectionButton();
         }
         catch { await StopAndroidControlAsync(); throw; }
     }
@@ -75,7 +77,7 @@ public partial class NLUIWindowMain
             var store = GetAndroidTrustStore();
             if (store.Devices.Count == 0)
             {
-                AndroidControlStatus.Text = "Primero enlaza con QR y elige Recordar esta PC en Android.";
+                AndroidControlStatus.Text = "Primero enlaza mediante el código LAN de seis dígitos.";
                 return;
             }
             IPAddress? address = ChooseAndroidLanAddress(createInvitation: false);
@@ -96,7 +98,7 @@ public partial class NLUIWindowMain
             var devices = store.Devices.Concat(usbStore.Devices.Select(d => d with { Name = d.Name + " · USB" })).ToArray();
             if (devices.Length == 0) { AndroidControlStatus.Text = "No hay teléfonos con confianza guardada."; return; }
             var body = new StackPanel();
-            var intro = new TextBlock { Text = "Revocar elimina la autorización guardada en PC y cierra la sesión LAN actual. El teléfono necesitará un QR nuevo.", TextWrapping = TextWrapping.Wrap };
+            var intro = new TextBlock { Text = "Revocar elimina la autorización guardada en PC y cierra la sesión LAN actual. El teléfono necesitará un código LAN nuevo.", TextWrapping = TextWrapping.Wrap };
             ApplyNovoraText(intro);
             body.Children.Add(intro);
             var list = new System.Windows.Controls.ListBox { ItemsSource = devices, DisplayMemberPath = "Name", SelectedIndex = 0, Height = 180, Margin = new Thickness(0, 12, 0, 12) };

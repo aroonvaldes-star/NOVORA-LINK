@@ -95,12 +95,14 @@ public sealed class VEProtocolReader
                 header.AsSpan(8, 4)));
 
             bool clientResized = (header[3] & 0x01) != 0;
+            int rotationDegrees = header[1] * 90;
 
             VEProtocolSession session =
                 new(
-                    Width: width,
-                    Height: height,
-                    ClientResized: clientResized);
+                     Width: width,
+                     Height: height,
+                     ClientResized: clientResized,
+                     RotationDegrees: rotationDegrees);
 
             session.ValidateVE();
 

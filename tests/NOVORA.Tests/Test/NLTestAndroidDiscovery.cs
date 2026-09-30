@@ -47,4 +47,46 @@ public sealed class NLTestAndroidDiscovery
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             NLControlLanDiscovery.SearchCoreAsync(canceled.Token, new(IPAddress.Loopback, 27216), true));
     }
+
+    [Fact]
+    public async Task SixDigitCodeResolvesSingleUsePinnedInvitation()
+    {
+        string folder = Path.Combine(Path.GetTempPath(), "NOVORA-CodeTest-" + Guid.NewGuid().ToString("N"));
+        using var store = new NLControlTrustStore(folder);
+        await using var server = new NLControlTrustServer(IPAddress.Loopback,
+            request => Task.FromResult(new NLControlReply(1, request.Id, true, "OK")), store, 0);
+        server.Start();
+        var peer = new NLControlLanPeer("NOVORA de prueba", "127.0.0.1", server.Port);
+        await using var responder = new NLControlLanDiscovery(peer,
+            new(IPAddress.Loopback, 0), true, server.ResolvePairingCode);
+        responder.Start();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var found = await NLControlLanDiscovery.PairCoreAsync(server.PairingCode,
+            timeout.Token, responder.LocalEndpoint, true);
+
+        var pairing = Assert.Single(found);
+        Assert.Equal(peer.Name, pairing.Name);
+        Assert.Equal(server.Invitation, pairing.Invitation);
+    }
+
+    [Fact]
+    public async Task PairingCodeHasSixDigitsAndClosesAfterFiveFailures()
+    {
+        string folder = Path.Combine(Path.GetTempPath(), "NOVORA-CodeLimit-" + Guid.NewGuid().ToString("N"));
+        using var store = new NLControlTrustStore(folder);
+        var server = new NLControlTrustServer(IPAddress.Loopback,
+            request => Task.FromResult(new NLControlReply(1, request.Id, true, "OK")), store, 0);
+        server.Start();
+        try
+        {
+            Assert.Matches("^[0-9]{6}$", server.PairingCode);
+            string wrong = server.PairingCode == "000000" ? "000001" : "000000";
+            for (int attempt = 0; attempt < 5; attempt++)
+                Assert.Null(server.ResolvePairingCode(wrong));
+            Assert.False(server.IsInvitationOpen);
+            Assert.Null(server.ResolvePairingCode(server.PairingCode));
+        }
+        finally { await server.DisposeAsync(); }
+    }
 }

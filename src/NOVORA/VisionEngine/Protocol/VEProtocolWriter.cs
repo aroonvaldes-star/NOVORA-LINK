@@ -119,6 +119,7 @@ public sealed class VEProtocolWriter
     {
         byte[] header = new byte[VEProtocolConstants.PacketHeaderSizeVE];
         header[0] = 0x80;
+        header[1] = checked((byte)(session.RotationDegrees / 90));
         if (session.ClientResized) header[3] = 0x01;
         BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(4, 4), checked((uint)session.Width));
         BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(8, 4), checked((uint)session.Height));

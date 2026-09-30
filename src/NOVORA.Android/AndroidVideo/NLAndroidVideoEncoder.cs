@@ -1,4 +1,5 @@
 using Android.Media;
+using Android.OS;
 using Android.Views;
 using System.Threading.Channels;
 
@@ -40,6 +41,13 @@ internal sealed class NLAndroidVideoEncoder : MediaCodec.Callback, IAsyncDisposa
     public Surface InputSurface { get; }
     public ChannelReader<NLAndroidVideoPacket> Packets => _packets.Reader;
     public void Start() => _codec.Start();
+
+    public void RequestKeyFrame()
+    {
+        using var parameters = new Bundle();
+        parameters.PutInt("request-sync", 0);
+        _codec.SetParameters(parameters);
+    }
 
     public override void OnInputBufferAvailable(MediaCodec codec, int index) { }
 

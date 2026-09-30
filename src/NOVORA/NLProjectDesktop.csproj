@@ -53,9 +53,6 @@
   <ItemGroup>
     <ApplicationDefinition Include="Application\NLApplicationApp.xaml" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="ZXing.Net" Version="0.16.11" />
-  </ItemGroup>
   <ItemGroup><PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" /></ItemGroup>
   <ItemGroup>
     <Content Include="Android\NLAndroidApp.apk" Condition="Exists('Android\NLAndroidApp.apk')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
@@ -74,4 +71,3 @@
   </ItemGroup>
 
 </Project>
-

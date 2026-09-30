@@ -29,9 +29,10 @@ namespace NOVORA.Control
             bool connected,
             bool wifi,
             bool adbOnline,
-            string transportIdentity)
+            string transportIdentity,
+            bool allowWifi = false)
         {
-            string next = connected && !wifi && adbOnline && !String.IsNullOrWhiteSpace(serial)
+            string next = connected && (!wifi || allowWifi) && adbOnline && !String.IsNullOrWhiteSpace(serial)
                 ? serial.Trim() : String.Empty;
             string nextTransportIdentity = next.Length == 0
                 ? String.Empty

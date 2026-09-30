@@ -368,7 +368,7 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="250"/>
+                                        <ColumnDefinition Width="430"/>
                                     </Grid.ColumnDefinitions>
 
                                     <StackPanel Margin="0,0,18,0">
@@ -381,12 +381,24 @@
                                         <TextBlock Text="{Binding DeviceDisplayName}" Foreground="{DynamicResource BlueBrush}" FontWeight="SemiBold" Margin="0,8,0,0"/>
                                     </StackPanel>
 
-                                    <Button x:Name="MainActionButton"
-                                            Grid.Column="1"
-                                            Content="▶ INICIAR"
-                                            Style="{StaticResource NvPrimaryButtonStyle}"
-                                            Click="MainActionButton_Click"
-                                            VerticalAlignment="Center"/>
+                                    <Grid Grid.Column="1" VerticalAlignment="Center">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="12"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="MainActionButton"
+                                                Grid.Column="0"
+                                                Content="▶ INICIAR"
+                                                Style="{StaticResource NvPrimaryButtonStyle}"
+                                                Click="MainActionButton_Click"/>
+                                        <Button x:Name="HomeLanConnectionButton"
+                                                Grid.Column="2"
+                                                Content="CÓDIGO LAN"
+                                                Style="{StaticResource NvFlatButtonStyle}"
+                                                Click="HomeLanConnectionButton_Click"
+                                                ToolTip="Vincular NOVORA Android por LAN"/>
+                                    </Grid>
                                 </Grid>
                             </Border>
 
@@ -938,10 +950,17 @@
                                         <TextBlock Text="Android ↔ Windows por eventos, sin historial sensible." Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <Border Style="{StaticResource NvCardStyle}" Margin="7,0,0,7">
+                                <Border Style="{StaticResource NvCardStyle}" Margin="7,0,0,7"
+                                        AllowDrop="True"
+                                        DragOver="IntegrationFiles_DragOver"
+                                        Drop="IntegrationFiles_Drop">
                                     <StackPanel>
                                         <TextBlock Text="Archivos / Share" Style="{StaticResource NvSectionTitleStyle}"/>
-                                        <TextBlock Text="Envío y recepción explícitos; Drag &amp; Drop disponible en la ventana de VisionEngine." Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,0"/>
+                                        <TextBlock Text="Suelta aquí archivos o carpetas para enviarlos al teléfono." Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,10"/>
+                                        <Button Content="RECIBIR CARPETA NOVORA"
+                                                Style="{StaticResource NvFlatButtonStyle}"
+                                                Click="ReceiveNovoraFolder_Click"
+                                                HorizontalAlignment="Left"/>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource NvCardStyle}" Margin="0,7,7,7">

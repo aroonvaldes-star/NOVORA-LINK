@@ -192,6 +192,15 @@ public sealed class NLTestVisionEngineBlockBTests
     }
 
     [Fact]
+    public void Raw_audio_contract_uses_twenty_millisecond_pcm_packets()
+    {
+        Assert.Equal(48_000, NOVORA.VisionEngine.Protocol.VEProtocolConstants.RawAudioSampleRateVE);
+        Assert.Equal(2, NOVORA.VisionEngine.Protocol.VEProtocolConstants.RawAudioChannelsVE);
+        Assert.Equal(20, NOVORA.VisionEngine.Protocol.VEProtocolConstants.RawAudioPacketMillisecondsVE);
+        Assert.Equal(3_840, NOVORA.VisionEngine.Protocol.VEProtocolConstants.RawAudioPacketBytesVE);
+    }
+
+    [Fact]
     public void ExIn_control_only_server_disables_video_and_audio()
     {
         var options = NOVORA.VisionEngine.Server.VEServerOptions.CreateControlOnlyVE();

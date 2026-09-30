@@ -17,10 +17,35 @@ public partial class NLUIWindowMain
         NLControlReply Reply(bool ok, string message) => new(NLControlProtocol.Version, request.Id, ok, message, CaptureAndroidControlSnapshot());
         var before = CaptureAndroidControlSnapshot();
         bool wasAppControlVideo = _visionEngineVE?.RuntimeVE.IsAppControlVideoActiveVE == true;
+        var requestedMonitor = _monitorService.GetMonitors().SingleOrDefault(m => m.DeviceName == changes.Monitor);
+        if (requestedMonitor is null) return Reply(false, "El monitor ya no está disponible.");
+        bool presentationOnly = before.VideoRunning &&
+            before.Profile == changes.Profile &&
+            before.Bitrate == changes.Bitrate &&
+            before.AudioOutput == changes.Audio &&
+            before.VideoSettings?.Resolution == changes.Resolution &&
+            before.VideoSettings?.Fps == changes.Fps &&
+            before.VideoSettings?.Monitor != changes.Monitor;
+        if (presentationOnly)
+        {
+            _viewModel.SelectedMonitor = requestedMonitor;
+            RecalculateOutputProfile14();
+            SaveSettingsFromViewModel14();
+            CreateVisionPresentationVE();
+            _androidControlRevision++;
+            AndroidEngineStateChanged();
+            return Reply(Authorized() && IsVisionEngineRunningVE(),
+                IsVisionEngineRunningVE()
+                    ? "Presentación movida al monitor seleccionado. LAN, LinkEngine, VisionEngine y ExIn permanecen activos."
+                    : "El monitor cambió, pero VisionEngine dejó de estar activo durante la operación.");
+        }
         if (before.VideoRunning)
         {
-            if (wasAppControlVideo) await StopAppControlVideoSourceAsync();
-            else await SetVisionEngineRunningVEAsync(false, Authorized);
+            await PreserveVisionFailoverDuringRestartVEAsync(async () =>
+            {
+                if (wasAppControlVideo) await StopAppControlVideoSourceAsync();
+                else await SetVisionEngineRunningVEAsync(false, Authorized);
+            });
         }
         if (!Authorized() || IsVisionEngineRunningVE()) return Reply(false, "No se aplicaron los ajustes: no se confirmó la detención o cambió la sesión.");
         _viewModel.RefreshAudioOutputOptions(_paths);
@@ -32,8 +57,6 @@ public partial class NLUIWindowMain
         // Revalidate every value after the asynchronous stop, before changing any setting.
         string? error = NLControlCommands.Validate(request with { Revision = current.Revision }, current);
         if (error is not null) return Reply(false, error);
-        var monitor = _monitorService.GetMonitors().SingleOrDefault(m => m.DeviceName == changes.Monitor);
-        if (monitor is null) return Reply(false, "El monitor ya no está disponible.");
         var profile = Enum.Parse<VEPerformanceProfile>(changes.Profile);
         _visionEngineVE!.RuntimeVE.PerformanceVE.SetProfileVE(profile);
         NLServiceVideoProfile.ApplyVE(_viewModel, profile);
@@ -41,7 +64,7 @@ public partial class NLUIWindowMain
         _viewModel.Bitrate = changes.Bitrate;
         _viewModel.MaxSize = int.Parse(changes.Resolution, System.Globalization.CultureInfo.InvariantCulture);
         _viewModel.TargetFps = int.Parse(changes.Fps, System.Globalization.CultureInfo.InvariantCulture);
-        _viewModel.SelectedMonitor = monitor;
+        _viewModel.SelectedMonitor = requestedMonitor;
         _visionEngineVE.RuntimeVE.AudioVE.SelectedOutputVE = changes.Audio;
         _viewModel.SelectedAudioOutput = changes.Audio;
         RecalculateOutputProfile14();

@@ -10,16 +10,16 @@ namespace NOVORA.VisionEngine.Exchange;
 public sealed class VEExchangeFile
 {
     private readonly NLServiceADB _adbVE;
-    private readonly VEControlManager _controlVE;
+    private readonly VEControlManager? _controlVE;
     private readonly Func<bool>? _canExchangeFilesVE;
 
     public VEExchangeFile(
         NLServiceADB adb,
-        VEControlManager control,
+        VEControlManager? control,
         Func<bool>? canExchangeFiles = null)
     {
         _adbVE = adb ?? throw new ArgumentNullException(nameof(adb));
-        _controlVE = control ?? throw new ArgumentNullException(nameof(control));
+        _controlVE = control;
         _canExchangeFilesVE = canExchangeFiles;
     }
 
@@ -45,7 +45,7 @@ public sealed class VEExchangeFile
                 .ConfigureAwait(false);
 
             remote = await VEExchangePush.SendAsync(serial.Trim(), fullLocal, remote, false, cancellationToken).ConfigureAwait(false);
-            if (scanMedia && _controlVE.IsReadyVE)
+            if (scanMedia && _controlVE?.IsReadyVE == true)
                 await _controlVE.SendAsync(VEControlMessage.ScanFileVE(remote), cancellationToken).ConfigureAwait(false);
             if (scanMedia)
                 await RequestMediaScanAsync(serial.Trim(), remote, cancellationToken).ConfigureAwait(false);

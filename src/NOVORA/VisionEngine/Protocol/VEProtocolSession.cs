@@ -7,7 +7,8 @@ namespace NOVORA.VisionEngine.Protocol;
 public sealed record VEProtocolSession(
     int Width,
     int Height,
-    bool ClientResized)
+    bool ClientResized,
+    int RotationDegrees = 0)
 {
     public void ValidateVE()
     {
@@ -16,5 +17,8 @@ public sealed record VEProtocolSession(
             throw new InvalidDataException(
                 $"Tamaño de sesión VisionEngine inválido: {Width}x{Height}.");
         }
+        if (RotationDegrees is not (0 or 90 or 180 or 270))
+            throw new InvalidDataException(
+                $"Rotación VisionEngine inválida: {RotationDegrees}.");
     }
 }

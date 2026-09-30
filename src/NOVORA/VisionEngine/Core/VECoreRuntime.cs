@@ -2,9 +2,7 @@ using NOVORA.Service;
 using NOVORA.VisionEngine.Audio;
 using NOVORA.VisionEngine.Control;
 using NOVORA.VisionEngine.Device;
-using NOVORA.VisionEngine.Exchange;
 using NOVORA.VisionEngine.Events;
-using NOVORA.VisionEngine.Integration;
 using NOVORA.NVIDIA;
 using NOVORA.VisionEngine.Performance;
 using NOVORA.VisionEngine.Privacy;
@@ -17,7 +15,8 @@ namespace NOVORA.VisionEngine.Core;
 
 /// <summary>
 /// Runtime Block D: Device -> Server -> transport -> decode -> renderer Direct3D11,
-/// además de audio, control y exchange. ExInEngine tiene ciclo de vida independiente.
+/// además de audio y el adaptador de control. ExInEngine y las integraciones
+/// generales tienen ciclos de vida independientes.
 /// </summary>
 public sealed class VECoreRuntime : IAsyncDisposable
 {
@@ -39,7 +38,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
 
         EventsVE = new VEEventsEventCore();
         PrivacyVE = new VEPrivacyManager();
-        IntegrationVE = new VEIntegrationManager();
         PerformanceVE = new VEPerformanceManager();
         NvidiaVE = new NLNVIDIAManager(paths);
 
@@ -60,32 +58,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
             message => PrivacyVE.CanSendControlVE(message.Type),
             () => PrivacyVE.CanUseClipboardVE);
 
-        ClipboardVE = new VEExchangeClipboard(
-            ControlVE,
-            () =>
-                PrivacyVE.CanUseClipboardVE &&
-                IntegrationVE.StatusVE.Capabilities.Clipboard);
-
-        FilesVE = new VEExchangeFile(
-            adb,
-            ControlVE,
-            () =>
-                PrivacyVE.CanExchangeFilesVE &&
-                IntegrationVE.StatusVE.Capabilities.FileTransfer);
-
-        ImagesVE = new VEExchangeImage(FilesVE);
-        MediaVE = new VEExchangeMedia(FilesVE);
-
-        VEIntegrationClipboard = new VEIntegrationClipboard(ClipboardVE, PrivacyVE, IntegrationVE);
-        VEIntegrationDragDrop = new VEIntegrationDragDrop(FilesVE, PrivacyVE, IntegrationVE);
-        VEIntegrationShare = new VEIntegrationShare(FilesVE, PrivacyVE, IntegrationVE);
-        VEIntegrationApp = new VEIntegrationApp(ControlVE, PrivacyVE, IntegrationVE);
-        VEIntegrationNotification = new VEIntegrationNotification(ControlVE, PrivacyVE, IntegrationVE);
-        VEIntegrationVirtualDisplay = new VEIntegrationVirtualDisplay(ControlVE, PrivacyVE, IntegrationVE);
-        VEIntegrationCamera = new VEIntegrationCamera();
-        VEIntegrationMicrophone = new VEIntegrationMicrophone();
-        VEIntegrationWindow = new VEIntegrationWindow();
-
         DeviceVE.StatusChangedVE += Device_StatusChangedVE;
         ServerVE.StatusChangedVE += Server_StatusChangedVE;
         TransportVE.StateChangedVE += Transport_StateChangedVE;
@@ -94,14 +66,12 @@ public sealed class VECoreRuntime : IAsyncDisposable
         AudioVE.StatusChangedVE += Audio_StatusChangedVE;
         ControlVE.StatusChangedVE += Control_StatusChangedVE;
         PrivacyVE.StatusChangedVE += Privacy_StatusChangedVE;
-        IntegrationVE.StatusChangedVE += Integration_StatusChangedVE;
         NvidiaVE.StatusChangedVE += Nvidia_StatusChangedVE;
     }
 
     public event EventHandler? StatusChangedVE;
     public VEEventsEventCore EventsVE { get; }
     public VEPrivacyManager PrivacyVE { get; }
-    public VEIntegrationManager IntegrationVE { get; }
     public VEPerformanceManager PerformanceVE { get; }
     public NLNVIDIAManager NvidiaVE { get; }
     public VEDeviceManager DeviceVE { get; }
@@ -112,19 +82,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
     public VERendererManager RendererVE { get; }
     public VEAudioManager AudioVE { get; }
     public VEControlManager ControlVE { get; }
-    public VEExchangeClipboard ClipboardVE { get; }
-    public VEExchangeFile FilesVE { get; }
-    public VEExchangeImage ImagesVE { get; }
-    public VEExchangeMedia MediaVE { get; }
-    public VEIntegrationClipboard VEIntegrationClipboard { get; }
-    public VEIntegrationDragDrop VEIntegrationDragDrop { get; }
-    public VEIntegrationShare VEIntegrationShare { get; }
-    public VEIntegrationApp VEIntegrationApp { get; }
-    public VEIntegrationNotification VEIntegrationNotification { get; }
-    public VEIntegrationVirtualDisplay VEIntegrationVirtualDisplay { get; }
-    public VEIntegrationCamera VEIntegrationCamera { get; }
-    public VEIntegrationMicrophone VEIntegrationMicrophone { get; }
-    public VEIntegrationWindow VEIntegrationWindow { get; }
     public VEDeviceSession? DeviceSessionVE => _deviceSessionVE;
     public VETransportSession? TransportSessionVE => _transportSessionVE;
     public bool IsInitializedVE => _initialized;
@@ -197,13 +154,14 @@ public sealed class VECoreRuntime : IAsyncDisposable
     public async Task StartAppControlAsync(
         Stream videoStream,
         Stream controlStream,
-        Stream audioStream,
+        Stream? audioStream,
+        bool audioEnabled = true,
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposedVE();
         ArgumentNullException.ThrowIfNull(videoStream);
         ArgumentNullException.ThrowIfNull(controlStream);
-        ArgumentNullException.ThrowIfNull(audioStream);
+        if (audioEnabled) ArgumentNullException.ThrowIfNull(audioStream);
         if (!_initialized) throw new InvalidOperationException("VECoreRuntime debe inicializarse antes de iniciar.");
 
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -212,9 +170,10 @@ public sealed class VECoreRuntime : IAsyncDisposable
             if (IsRunningVE) throw new InvalidOperationException("VisionEngine ya tiene una sesión activa.");
             try
             {
-                RecordingVE.PhoneAudioAllowed = true;
+                RecordingVE.PhoneAudioAllowed = audioEnabled;
                 await ControlVE.StartNativeAsync(controlStream, cancellationToken).ConfigureAwait(false);
-                await AudioVE.StartAsync(audioStream, playbackEnabled: true, cancellationToken).ConfigureAwait(false);
+                if (audioEnabled)
+                    await AudioVE.StartAsync(audioStream!, playbackEnabled: true, cancellationToken).ConfigureAwait(false);
                 VideoVE.PreferNvidiaVE = NvidiaVE.BeginSessionVE() != NLNVIDIAProfile.Disabled;
                 await VideoVE.StartAsync(videoStream, cancellationToken).ConfigureAwait(false);
                 _appControlVideoActiveVE = true;
@@ -305,7 +264,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
     private void Renderer_StatusChangedVE(object? sender, VERendererStatus e) => PublishStatusEventVE(VEEventsTypeEvent.RendererStatus);
     private void Audio_StatusChangedVE(object? sender, VEAudioStatus e) => PublishStatusEventVE(VEEventsTypeEvent.AudioStatus);
     private void Control_StatusChangedVE(object? sender, VEControlStatus e) => PublishStatusEventVE(VEEventsTypeEvent.ControlStatus);
-    private void Integration_StatusChangedVE(object? sender, VEIntegrationStatus e) => PublishStatusEventVE(VEEventsTypeEvent.IntegrationStatus);
     private void Nvidia_StatusChangedVE(object? sender, NLNVIDIAStatus e) => PublishStatusEventVE(VEEventsTypeEvent.NvidiaStatus);
 
     private void Privacy_StatusChangedVE(object? sender, VEPrivacyStatus e)
@@ -339,7 +297,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
             await _gate.WaitAsync().ConfigureAwait(false);
             try { await StopInternalAsync().ConfigureAwait(false); }
             finally { _gate.Release(); }
-            ClipboardVE.Dispose();
             await AudioVE.DisposeAsync().ConfigureAwait(false);
             await RecordingVE.DisposeAsync().ConfigureAwait(false);
             await VideoVE.DisposeAsync().ConfigureAwait(false);
@@ -356,7 +313,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
             AudioVE.StatusChangedVE -= Audio_StatusChangedVE;
             ControlVE.StatusChangedVE -= Control_StatusChangedVE;
             PrivacyVE.StatusChangedVE -= Privacy_StatusChangedVE;
-            IntegrationVE.StatusChangedVE -= Integration_StatusChangedVE;
             NvidiaVE.StatusChangedVE -= Nvidia_StatusChangedVE;
             _disposed = true;
             _gate.Dispose();

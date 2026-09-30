@@ -142,7 +142,7 @@ public partial class NLUIWindowMain
     private Task<NLControlReply> HandleAndroidControlAsync(NLControlRequest request, long generation, string transport) =>
         Dispatcher.InvokeAsync(() => generation == _androidControlGeneration && AndroidControlSessionOpen &&
             (transport == "USB" || _androidControl?.IsAuthorized != true)
-            ? ApplyAndroidControlAsync(request)
+            ? ApplyAndroidControlAsync(request, transport)
             : Task.FromResult(new NLControlReply(NLControlProtocol.Version, request.Id, false,
                 transport == "LAN" && _androidControl?.IsAuthorized == true
                     ? "La sesión cambió a USB; LAN permanece disponible como respaldo."
@@ -194,7 +194,7 @@ public partial class NLUIWindowMain
         }
     }
 
-    private async Task<NLControlReply> ApplyAndroidControlAsync(NLControlRequest request)
+    private async Task<NLControlReply> ApplyAndroidControlAsync(NLControlRequest request, string transport)
     {
         NLControlReply Reply(bool success, string message) => new(NLControlProtocol.Version, request.Id,
             success, message, CaptureAndroidControlSnapshot());
@@ -260,7 +260,7 @@ public partial class NLUIWindowMain
                 case "restartVideo":
                 case "startLink":
                 case "stopLink":
-                    return await ApplyAndroidEngineActionAsync(request);
+                    return await ApplyAndroidEngineActionAsync(request, transport);
                 case "exin.mode":
                     if (_exInEngine is null) return Reply(false, "ExInEngine no está iniciado.");
                     var mode = Enum.Parse<NOVORA.ExInEngine.ExInInputMode>(request.Value!, ignoreCase: false);

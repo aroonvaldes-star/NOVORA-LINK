@@ -33,8 +33,7 @@ public sealed partial class NLAndroidServiceControl : Service
     public void AcceptUsbBootstrap(string text)
     {
         if (text.Length > 4096) throw new InvalidOperationException("Enlace USB no válido.");
-        var invitation = System.Text.Json.JsonSerializer.Deserialize<NLControlLanInvitation>(Convert.FromBase64String(text))
-            ?? throw new InvalidOperationException("Enlace USB vacío.");
+        var invitation = NLAndroidServiceUsbBootstrap.Parse(text).Invitation;
         invitation.Validate(true);
         if (invitation.Host != "127.0.0.1" || invitation.Port != NLControlProtocol.Port) throw new InvalidOperationException("Destino USB no válido.");
         _usbInvitation = invitation;
@@ -70,6 +69,7 @@ public sealed partial class NLAndroidServiceControl : Service
     private ConnectivityManager? _connectivity;
     private NLAndroidServiceNetworkWatch? _networkWatch;
     private Network? _network;
+    private int _internetControlHandoff;
     public sealed class NLAndroidServiceBinder(NLAndroidServiceControl owner) : Binder
     { public NLAndroidServiceControl Owner { get; } = owner; }
 
@@ -108,15 +108,29 @@ public sealed partial class NLAndroidServiceControl : Service
     public async Task<NLControlReply> StartInternetAsync(long generation)
     {
         var state = Session.Current;
-        if (_internetOwned || state.Generation != generation || state.Transport != "USB" || state.Phase != NLControlSessionPhase.Connected || state.Busy || state.Snapshot?.Engines?.LinkCanStart != true)
-            throw new InvalidOperationException("Se requiere una sesión USB autorizada y disponible.");
+        if (_internetOwned || state.Generation != generation || state.Transport is not ("USB" or "LAN") ||
+            state.Phase != NLControlSessionPhase.Connected || state.Busy || state.Snapshot?.Engines?.LinkCanStart != true)
+            throw new InvalidOperationException("Se requiere una sesión USB o LAN autorizada y disponible.");
         if (VpnService.Prepare(this) is not null) throw new InvalidOperationException("Falta el permiso VPN de Android.");
         _internetStopGeneration = -1;
         _internetOwned = _internetStarting = true;
         try
         {
-            NLAndroidVpnService.Start(this);
-            var reply = await Session.SendAsync("startLink");
+            NLControlReply reply;
+            if (state.Transport == "LAN")
+            {
+                reply = await Session.SendAsync("startLink");
+                if (!reply.Success || string.IsNullOrWhiteSpace(reply.Value))
+                    throw new InvalidOperationException(reply.Message);
+                var offer = System.Text.Json.JsonSerializer.Deserialize<NLControlLinkOffer>(reply.Value)
+                    ?? throw new InvalidDataException("PC no entregó el transporte DATA LAN.");
+                NLAndroidVpnService.Start(this, offer);
+            }
+            else
+            {
+                NLAndroidVpnService.Start(this);
+                reply = await Session.SendAsync("startLink");
+            }
             if (!reply.Success || Session.Current.Generation != generation) StopLocalInternet();
             return reply;
         }
@@ -148,7 +162,8 @@ public sealed partial class NLAndroidServiceControl : Service
     {
         var state = Session.Current;
         if (_internetStopGeneration < 0 || _internetStopSending) return;
-        if (state.Generation != _internetStopGeneration || state.Phase != NLControlSessionPhase.Connected || state.Transport != "USB")
+        if (state.Generation != _internetStopGeneration || state.Phase != NLControlSessionPhase.Connected ||
+            state.Transport is not ("USB" or "LAN"))
         { _internetStopGeneration = -1; return; }
         if (state.Busy) return; // Resume on the next session event, without polling.
         if (state.Snapshot?.Engines?.LinkCanStop != true) return;
@@ -194,7 +209,11 @@ public sealed partial class NLAndroidServiceControl : Service
         try
         {
             await Session.ConnectLanAsync(invitation);
-            if (operation == _operation) _freshInvitation = invitation;
+            if (operation == _operation)
+            {
+                _freshInvitation = invitation;
+                await RememberCurrentPcAsync();
+            }
         }
         finally { RenderNotification(); }
     }
@@ -224,7 +243,7 @@ public sealed partial class NLAndroidServiceControl : Service
         var invitation = _freshInvitation;
         var state = Session.Current;
         if (invitation is null || state.Phase != NLControlSessionPhase.Connected)
-            throw new InvalidOperationException("Prepara un enlace USB o un QR LAN nuevo para recordar esta PC.");
+            throw new InvalidOperationException("Prepara un enlace USB o un código LAN nuevo para recordar esta PC.");
         // Check corruption/capacity before creating any credential in PC.
         var existing = GetSavedPcs();
         if (existing.Count >= 16 && !existing.Any(p => p.Fingerprint == invitation.Fingerprint))
@@ -235,7 +254,7 @@ public sealed partial class NLAndroidServiceControl : Service
         if (operation != _operation || Session.Current.Generation != state.Generation) throw new System.OperationCanceledException();
         peer.Validate();
         if (peer.Fingerprint != invitation.Fingerprint || peer.Host != invitation.Host || peer.Port != invitation.Port || peer.Transport != state.Transport)
-            throw new AuthenticationException("La identidad recibida no coincide con el QR autorizado.");
+            throw new AuthenticationException("La identidad recibida no coincide con el código LAN autorizado.");
         _trustedStore.Save(peer);
         _recoveryPeer = peer.Transport == "LAN" ? peer : null;
         _freshInvitation = null;
@@ -306,7 +325,7 @@ public sealed partial class NLAndroidServiceControl : Service
                 }
                 catch (AuthenticationException)
                 {
-                    RecoveryMessage = "PC rechazó la autorización o cambió su identidad. Vuelve a enlazar mediante QR.";
+                    RecoveryMessage = "PC rechazó la autorización o cambió su identidad. Vuelve a enlazar mediante código LAN.";
                     return;
                 }
                 catch (Exception ex) when (ex is IOException or System.Net.Sockets.SocketException or System.OperationCanceledException or ObjectDisposedException)
@@ -316,7 +335,7 @@ public sealed partial class NLAndroidServiceControl : Service
         }
         catch (System.OperationCanceledException) { }
         catch (Exception)
-        { if (operation == _operation) RecoveryMessage = "No se pudo recuperar la sesión. Revisa la PC y vuelve a enlazar por QR."; }
+        { if (operation == _operation) RecoveryMessage = "No se pudo recuperar la sesión. Revisa la PC y vuelve a enlazar mediante código LAN."; }
         finally
         {
             if (operation == _operation)
@@ -367,7 +386,8 @@ public sealed partial class NLAndroidServiceControl : Service
         PublishAutomaticUsbDiagnostics();
         _controllerNotifications?.Update(current.Generation, current.Snapshot?.ExIn);
         if (_internetStopGeneration >= 0) _ = StopRemoteInternetAfterFailureAsync();
-        if (_internetOwned && (current.Transport != "USB" || current.Phase != NLControlSessionPhase.Connected ||
+        if (_internetOwned && Volatile.Read(ref _internetControlHandoff) == 0 &&
+            (current.Transport != "USB" || current.Phase != NLControlSessionPhase.Connected ||
             (!_internetStarting && current.Snapshot?.Engines is { LinkCanStart: true, LinkCanStop: false }))) StopLocalInternet();
         if (Session.Current.Phase == NLControlSessionPhase.Lost && !_retrying && _foreground && _recoveryPeer is { } peer)
         {
@@ -490,6 +510,11 @@ public sealed partial class NLAndroidServiceControl : Service
             if (owner._destroyed || !network.Equals(owner._network)) return;
             owner._network = null;
             owner.LoseLan();
+        });
+        public override void OnCapabilitiesChanged(Network network, NetworkCapabilities capabilities) => owner.Post(() =>
+        {
+            if (owner._destroyed || !network.Equals(owner._network)) return;
+            if (!capabilities.HasCapability(NetCapability.Validated)) owner.LoseLan();
         });
     }
     private void LoseLan()

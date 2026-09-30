@@ -15,7 +15,9 @@ using Resource = NOVORA.AndroidApp.Resource;
 namespace NOVORA.AndroidUI;
 
 [Activity(Name = "com.novora.appcontrol.MainActivity", Label = "NOVORA-LINK", MainLauncher = true,
-    Exported = true, LaunchMode = LaunchMode.SingleTop, Theme = "@android:style/Theme.Material.NoActionBar")]
+    Exported = true, LaunchMode = LaunchMode.SingleTop, Theme = "@android:style/Theme.Material.NoActionBar",
+    ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize |
+        ConfigChanges.SmallestScreenSize | ConfigChanges.ScreenLayout | ConfigChanges.KeyboardHidden)]
 public sealed class NLAndroidUIActivity : Activity
 {
     private LinearLayout _body = null!;
@@ -54,9 +56,6 @@ public sealed class NLAndroidUIActivity : Activity
     private bool _connecting;
     private Button _connect = null!, _search = null!, _scan = null!;
     private CancellationTokenSource? _discovery;
-    private string? _pendingInvitation;
-    private string? _selectedDiscoveredHost;
-    private const int ScanRequest = 214;
     private const int VpnRequest = 216;
     private const int VideoProjectionRequest = 217;
     private const int AudioPermissionRequest = 218;
@@ -119,7 +118,7 @@ public sealed class NLAndroidUIActivity : Activity
         _body.AddView(modeRow);
         Card(() => {
             Label("LISTA PREVIA", 13);
-            _flightConnectionState = EngineStatusRow("1  Conexión", "USB físico, LAN o QR");
+            _flightConnectionState = EngineStatusRow("1  Conexión", "USB físico o LAN");
             _flightEngineState = EngineStatusRow("2  Motor", "Depende del modo seleccionado");
             _flightControlState = EngineStatusRow("3  Control", "Mando físico para jugar");
             _flightSummary = Muted("Esperando estado real de NOVORA PC.");
@@ -145,16 +144,14 @@ public sealed class NLAndroidUIActivity : Activity
         });
         _body.AddView(NLAndroidUIConnectPage.AuxiliaryLabel(this));
         Card(() => {
-            Label("LAN / QR", 15);
-            StatusLine("Método de emparejamiento", "QR");
+            Label("LAN", 15);
+            StatusLine("Método de emparejamiento", "Código temporal de 6 dígitos");
             _current = StatusLine("NOVORA PC", "No emparejada");
             AddButtonRow(
-                _scan = DetachedButton("Emparejar", ScanAsync, true),
+                _scan = DetachedButton("Introducir código", PairWithCodeAsync, true),
                 _search = DetachedButton("Buscar LAN", SearchAsync));
             RowLink("PC guardadas y otras opciones", Android.Resource.Drawable.IcMenuMore, () => {
-                new AlertDialog.Builder(this)!.SetTitle("Conexión")!.SetItems(new[] { "PC guardadas", "Pegar invitación" }, async (_, e) => {
-                    if (e.Which == 0) await SavedPcsAsync(); else await PasteInvitationAsync();
-                })!.SetNegativeButton("Cerrar", (_, _) => {})!.Show(); return Task.CompletedTask;
+                return SavedPcsAsync();
             });
         });
         Card(() => {
@@ -367,13 +364,6 @@ public sealed class NLAndroidUIActivity : Activity
         if (_flightMode == "Internet")
         {
             if (_snapshot?.Engines?.LinkRunning == true) { ShowPage(_enginesPage); return Task.CompletedTask; }
-            if (_service?.Session.Current.Transport != "USB")
-            {
-                _status.Text = "Internet USB requiere conexión USB autorizada.";
-                ShowPage(_connectionPage);
-                return Task.CompletedTask;
-            }
-
             if (_snapshot?.Engines?.LinkCanStart != true)
             {
                 _status.Text = _snapshot?.Engines?.LinkMessage ?? "LinkEngine todavía no está listo para iniciar.";
@@ -390,13 +380,6 @@ public sealed class NLAndroidUIActivity : Activity
             return Task.CompletedTask;
         }
 
-        if (_service?.Session.Current.Transport != "USB")
-        {
-            _status.Text = "Iniciar VisionEngine desde Android requiere USB autorizado.";
-            ShowPage(_connectionPage);
-            return Task.CompletedTask;
-        }
-
         if (_snapshot?.Engines?.VideoCanStart != true)
         {
             _status.Text = _snapshot?.Engines?.VideoMessage ?? "VisionEngine todavía no está listo para iniciar.";
@@ -404,7 +387,9 @@ public sealed class NLAndroidUIActivity : Activity
             return Task.CompletedTask;
         }
 
-        return RequestVideoProjectionAsync();
+        return _service?.Session.Current.Transport == "LAN"
+            ? SendEngineAsync("startVideo")
+            : RequestVideoProjectionAsync();
     }
     private void AddHomeTileRow(LinearLayout host,
         (string Title, string Subtitle, Action Action) left,
@@ -702,11 +687,6 @@ public sealed class NLAndroidUIActivity : Activity
             owner.RenderSession();
             owner.DeliverUsbBootstrap();
             _ = owner.CompleteVpnConsentAsync();
-            if (owner._pendingInvitation is { } pending)
-            {
-                owner._pendingInvitation = null;
-                owner.ConfirmInvitation(pending);
-            }
         }
         public void OnServiceDisconnected(ComponentName? name)
         {
@@ -792,11 +772,6 @@ public sealed class NLAndroidUIActivity : Activity
             }
             return;
         }
-        if (requestCode != ScanRequest || resultCode != Result.Ok) return;
-        string? text = data?.GetStringExtra("invitation");
-        if (string.IsNullOrEmpty(text)) return;
-        if (_active && _service is not null) ConfirmInvitation(text);
-        else _pendingInvitation = text;
     }
     protected override void OnStop()
     {
@@ -971,7 +946,9 @@ public sealed class NLAndroidUIActivity : Activity
         _sendFiles.Enabled = enabled && _snapshot?.FileSharing == true;
         var engines = _snapshot?.Engines;
         UpdateEngineButton(_videoEngine, "VisionEngine", enabled, engines?.VideoCanStart == true, engines?.VideoCanStop == true, _snapshot?.VideoRunning == true, true);
-        UpdateEngineButton(_linkEngine, "LinkEngine", enabled, engines?.LinkCanStart == true && _service?.Session.Current.Transport == "USB", engines?.LinkCanStop == true, engines?.LinkRunning == true, false, engines?.LinkCanTakeOver == true);
+        UpdateEngineButton(_linkEngine, "LinkEngine", enabled, engines?.LinkCanStart == true &&
+            _service?.Session.Current.Transport is "USB" or "LAN", engines?.LinkCanStop == true,
+            engines?.LinkRunning == true, false, engines?.LinkCanTakeOver == true);
         if (!enabled && _snapshot is null)
             _engineState.Text = "Sin estado confirmado de los motores. Conecta para consultar NOVORA PC.";
     }
@@ -1079,7 +1056,6 @@ public sealed class NLAndroidUIActivity : Activity
         using var cancellation = new CancellationTokenSource();
         _discovery = cancellation;
         _search.Enabled = false;
-        _selectedDiscoveredHost = null;
         _status.Text = "Buscando NOVORA PC durante 3 segundos…";
         try
         {
@@ -1087,20 +1063,20 @@ public sealed class NLAndroidUIActivity : Activity
             if (!_active || cancellation.IsCancellationRequested) return;
             if (peers.Count == 0)
             {
-                _status.Text = "No se encontraron equipos. Revisa la misma red y el enlace LAN en HOME. Puedes escanear el QR aunque la red bloquee la detección.";
+                _status.Text = "No se encontraron equipos. Revisa la misma red y prepara un código LAN en NOVORA PC.";
                 return;
             }
             // Discovery replies are untrusted hints. No code, identity or certificate is trusted here.
             new AlertDialog.Builder(this)!.SetTitle("Equipos anunciados en la red")!
                 .SetItems(peers.Select(p => $"{SafePeerName(p.Name)} · {System.Net.IPAddress.Parse(p.Host)}").ToArray(), (_, args) =>
                 {
-                    _selectedDiscoveredHost = System.Net.IPAddress.Parse(peers[args.Which].Host).ToString();
-                    _status.Text = $"Equipo seleccionado: {_selectedDiscoveredHost}. Escanea el QR que muestra esa PC para verificar el enlace.";
+                    string host = System.Net.IPAddress.Parse(peers[args.Which].Host).ToString();
+                    _status.Text = $"Equipo detectado: {host}. Introduce el código que muestra esa PC para verificar el enlace.";
                 })!
                 .SetNegativeButton("Cerrar", (_, _) => { })!.Show();
         }
         catch (System.OperationCanceledException) { }
-        catch (Exception) { if (_active) _status.Text = "No se pudo buscar en esta red. Puedes usar el QR de PC o USB."; }
+        catch (Exception) { if (_active) _status.Text = "No se pudo buscar en esta red. Puedes usar el código LAN de PC o USB."; }
         finally
         {
             if (ReferenceEquals(_discovery, cancellation)) _discovery = null;
@@ -1108,62 +1084,76 @@ public sealed class NLAndroidUIActivity : Activity
         }
     }
 
-    private Task ScanAsync()
+    private Task PairWithCodeAsync()
     {
-        if (!_connecting && _active) StartActivityForResult(new Intent(this, typeof(NLAndroidUIQrActivity)), ScanRequest);
-        return Task.CompletedTask;
-    }
-
-    private Task PasteInvitationAsync()
-    {
-        var entry = new EditText(this) { Hint = "Contenido NOVORA del QR", InputType = Android.Text.InputTypes.ClassText | Android.Text.InputTypes.TextVariationVisiblePassword };
-        entry.SetFilters([new Android.Text.InputFilterLengthFilter(4096)]);
-        new AlertDialog.Builder(this)!.SetTitle("Pegar invitación LAN")!
-            .SetMessage("Copia el contenido del QR desde tu NOVORA PC. Es una clave temporal; no lo compartas.")!
-            .SetView(entry)!
-            .SetNegativeButton("Cancelar", (_, _) => { entry.Text = ""; })!
-            .SetPositiveButton("Continuar", (_, _) =>
-            {
-                string text = entry.Text?.Trim() ?? "";
-                entry.Text = "";
-                ConfirmInvitation(text);
-            })!.Show();
-        return Task.CompletedTask;
-    }
-
-    private void ConfirmInvitation(string text)
-    {
-        if (!_active || _connecting || _service is null) return;
-        long generation = _service.Session.Current.Generation;
-        NLControlLanInvitation invitation;
-        try { invitation = NLControlLanInvitation.Parse(text); }
-        catch (Exception) { _status.Text = "QR inválido o vencido. Prepara una nueva invitación en NOVORA PC."; return; }
-        if (_selectedDiscoveredHost is { } host && !System.Net.IPAddress.Parse(host).Equals(System.Net.IPAddress.Parse(invitation.Host)))
+        if (!_active || _connecting || _service is null) return Task.CompletedTask;
+        var entry = new EditText(this)
         {
-            _status.Text = "El QR no corresponde a la dirección seleccionada. Vuelve a buscar o selecciona la PC correcta.";
-            return;
-        }
-        new AlertDialog.Builder(this)!.SetTitle("Conectar con NOVORA PC")!
-            .SetMessage($"PC: {System.Net.IPAddress.Parse(invitation.Host)}:{invitation.Port}\n\nEscanea únicamente el QR mostrado en tu NOVORA PC. Al conectar autorizas esta sesión de control. La conexión verifica la identidad incluida en el QR.")!
-            .SetNegativeButton("Cancelar", (_, _) => { })!
+            Hint = "000000",
+            InputType = Android.Text.InputTypes.ClassNumber
+        };
+        entry.SetFilters([new Android.Text.InputFilterLengthFilter(6)]);
+        new AlertDialog.Builder(this)!.SetTitle("Código LAN de NOVORA PC")!
+            .SetMessage("Escribe el código temporal mostrado por NOVORA PC. Al confirmarlo, ambos equipos se guardarán automáticamente.")!
+            .SetView(entry)!
+            .SetNegativeButton("Cancelar", (_, _) => entry.Text = "")!
             .SetPositiveButton("Conectar", async (_, _) =>
             {
-                if (_active && _service is not null && _service.Session.Current.Generation == generation)
-                    await ConnectLanAsync(invitation);
+                string code = entry.Text?.Trim() ?? "";
+                entry.Text = "";
+                if (code.Length != 6 || !code.All(char.IsAsciiDigit))
+                {
+                    _status.Text = "El código LAN debe contener exactamente 6 dígitos.";
+                    return;
+                }
+                await PairWithCodeAsync(code);
             })!.Show();
+        return Task.CompletedTask;
     }
 
-    private Task ConnectLanAsync(NLControlLanInvitation invitation) =>
-        RequestConnectAsync(() => _service!.ConnectLanAsync(invitation));
+    private async Task PairWithCodeAsync(string code)
+    {
+        if (!_active || _connecting || _service is null) return;
+        using var cancellation = new CancellationTokenSource();
+        _connecting = true;
+        _status.Text = "Buscando la PC que muestra este código…";
+        try
+        {
+            IReadOnlyList<NLControlLanPairing> pairings =
+                await NLControlLanDiscovery.PairAsync(code, cancellation.Token);
+            if (!_active) return;
+            if (pairings.Count == 0)
+            {
+                _status.Text = "Código no encontrado o vencido. Confirma que ambos equipos estén en la misma LAN.";
+                return;
+            }
+            if (pairings.Count != 1)
+            {
+                _status.Text = "Más de una PC respondió con el mismo código. Genera un código nuevo en NOVORA PC.";
+                return;
+            }
+            await _service.ConnectLanAsync(pairings[0].Invitation);
+            if (_active) _status.Text = $"{SafePeerName(pairings[0].Name)} quedó guardada y conectada por LAN.";
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or
+                                   System.Net.Sockets.SocketException or System.Security.Authentication.AuthenticationException)
+        {
+            if (_active) _status.Text = "No se completó el enlace LAN. Genera un código nuevo en NOVORA PC.";
+        }
+        finally
+        {
+            _connecting = false;
+            _scan.Enabled = true;
+            _search.Enabled = true;
+        }
+    }
 
     private async Task DisconnectAsync()
     {
-        _selectedDiscoveredHost = null;
         _drafts.Clear();
         _pendingConnect = null;
         _vpnGeneration = -1;
         _vpnApproved = false;
-        _pendingInvitation = null;
         if (_service is not null) await _service.DisconnectAsync();
     }
 
@@ -1201,7 +1191,7 @@ public sealed class NLAndroidUIActivity : Activity
     {
         if (!_active || _service is null) return;
         new AlertDialog.Builder(this)!.SetTitle(SafePeerName(peer.PcName))!
-            .SetMessage((peer.Transport == "USB" ? "Conecta el cable al teléfono seleccionado y prepara el control USB en PC. No necesitas código." : $"Dirección guardada: {peer.Host}. Activa el control LAN en PC; si cambió la dirección, prepara otro QR.") + "\n\nOlvidar elimina la autorización del teléfono. Puedes revocarla también desde HOME de PC.")!
+            .SetMessage((peer.Transport == "USB" ? "Conecta el cable al teléfono seleccionado y prepara el control USB en PC. No necesitas código." : $"Dirección guardada: {peer.Host}. Activa el control LAN en PC; si cambió la dirección, prepara otro código LAN.") + "\n\nOlvidar elimina la autorización del teléfono. Puedes revocarla también desde HOME de PC.")!
             .SetPositiveButton("Conectar", async (_, _) =>
             { if (_active && _service is not null) await RequestConnectAsync(() => _service!.ConnectTrustedAsync(peer)); })!
             .SetNeutralButton("Olvidar", async (_, _) =>
@@ -1250,8 +1240,10 @@ public sealed class NLAndroidUIActivity : Activity
     private void UpdateVisualSummary(NLControlSnapshot? snapshot)
     {
         var engines = snapshot?.Engines;
-        bool usb = _service?.Session.Current.Transport == "USB" && _service.Session.Current.Phase == NLControlSessionPhase.Connected;
-        string link = FriendlyState(engines?.LinkState, engines?.LinkRunning == true, usb ? "No detectado" : "Bloqueado");
+        bool connected = _service?.Session.Current.Phase == NLControlSessionPhase.Connected;
+        bool usb = connected && _service?.Session.Current.Transport == "USB";
+        bool lan = connected && _service?.Session.Current.Transport == "LAN";
+        string link = FriendlyState(engines?.LinkState, engines?.LinkRunning == true, usb || lan ? "No detectado" : "Bloqueado");
         string video = FriendlyState(engines?.VideoState, snapshot?.VideoRunning == true, "No detectado");
         string exin = FriendlyState(engines?.ExInState, false, "No detectado");
         SetState(_homeLinkState, link); SetState(_engineLinkState, link);
@@ -1296,12 +1288,13 @@ public sealed class NLAndroidUIActivity : Activity
         if (internet)
         {
             bool running = snapshot?.Engines?.LinkRunning == true;
-            bool usbReady = usb && snapshot?.Engines?.LinkCanStart == true;
+            bool transportReady = connected && snapshot?.Engines?.LinkCanStart == true;
+            string transport = usb ? "USB" : "LAN cifrada";
             _flightSummary.Text = running
                 ? "Internet por PC está activo en este teléfono."
-                : usbReady
-                    ? "LinkEngine usará el enlace USB y solicitará permiso VPN."
-                    : snapshot?.Engines?.LinkMessage ?? "Conecta USB y autoriza el control antes de iniciar Internet.";
+                : transportReady
+                    ? $"LinkEngine usará {transport} y solicitará permiso VPN."
+                    : snapshot?.Engines?.LinkMessage ?? "Conecta USB o LAN y autoriza el control antes de iniciar Internet.";
             _flightLaunch.Text = running ? "VER INTERNET ACTIVO" : "INICIAR INTERNET";
             _flightLaunch.Enabled = true;
             return;
@@ -1425,6 +1418,8 @@ public sealed class NLAndroidUIActivity : Activity
     {
         if (_snapshot?.Engines?.VideoCanStop == true)
             return ConfirmStopEngineAsync("stopVideo", "VisionEngine", "La captura de video del teléfono seleccionado se detendrá.");
+        if (_service?.Session.Current.Transport == "LAN")
+            return SendEngineAsync("startVideo");
         return RequestVideoProjectionAsync();
     }
     private Task ToggleLinkEngineAsync()
@@ -1440,7 +1435,8 @@ public sealed class NLAndroidUIActivity : Activity
     }
     private Task RequestVideoProjectionAsync()
     {
-        if (_service is null || _service.Session.Current.Transport != "USB" ||
+        if (_service is null || (_service.Session.Current.Transport != "USB" &&
+            !_service.Session.Current.Tunnel) ||
             !CanSendEngine("startAppVideo") || _videoProjectionGeneration >= 0)
         {
             if (_active) _status.Text = "VisionEngine desde AppControl requiere la conexión USB autorizada.";
@@ -1451,6 +1447,21 @@ public sealed class NLAndroidUIActivity : Activity
             _pcVideoAuthorizationObserved = false;
             _status.Text = "Activa Control de NOVORA en Accesibilidad y vuelve a iniciar VisionEngine.";
             StartActivity(new Intent(Android.Provider.Settings.ActionAccessibilitySettings));
+            return Task.CompletedTask;
+        }
+        if (!NLAndroidInputMethodService.IsEnabled(this))
+        {
+            _pcVideoAuthorizationObserved = false;
+            _status.Text = "Activa Teclado NOVORA para escribir desde la PC y vuelve a iniciar VisionEngine.";
+            StartActivity(new Intent(Android.Provider.Settings.ActionInputMethodSettings));
+            return Task.CompletedTask;
+        }
+        if (!NLAndroidInputMethodService.IsSelected(this))
+        {
+            _pcVideoAuthorizationObserved = false;
+            _status.Text = "Selecciona Teclado NOVORA como teclado actual y vuelve a iniciar VisionEngine.";
+            ((Android.Views.InputMethods.InputMethodManager?)GetSystemService(InputMethodService))
+                ?.ShowInputMethodPicker();
             return Task.CompletedTask;
         }
         if (CheckSelfPermission(Android.Manifest.Permission.RecordAudio) != Permission.Granted)
@@ -1501,11 +1512,13 @@ public sealed class NLAndroidUIActivity : Activity
     }
     private Task RequestVpnAsync()
     {
-        if (_service is null || _service.Session.Current.Transport != "USB" || _vpnGeneration >= 0) return Task.CompletedTask;
+        if (_service is null || _service.Session.Current.Transport is not ("USB" or "LAN") || _vpnGeneration >= 0)
+            return Task.CompletedTask;
         _vpnGeneration = _service.Session.Current.Generation;
         _vpnRevision = _snapshot!.Revision;
-        new AlertDialog.Builder(this)!.SetTitle("Internet de PC por USB")!
-            .SetMessage("NOVORA enviará el tráfico IPv4 del teléfono por USB hacia la conexión de esta PC. Mantén el cable conectado. Android pedirá permiso para crear una VPN; otra VPN activa puede ser sustituida. Detener LinkEngine cerrará este túnel.")!
+        string transport = _service.Session.Current.Transport;
+        new AlertDialog.Builder(this)!.SetTitle($"Internet de PC por {transport}")!
+            .SetMessage($"NOVORA enviará el tráfico IPv4 del teléfono por {transport} hacia la conexión de esta PC. Android pedirá permiso para crear una VPN; otra VPN activa puede ser sustituida. Detener LinkEngine cerrará este túnel.")!
             .SetNegativeButton("Cancelar", (_, _) => { _vpnGeneration = -1; })!
             .SetOnCancelListener(new NLAndroidUICancelVpn(this))!
             .SetPositiveButton("Continuar", async (_, _) =>
@@ -1538,7 +1551,7 @@ public sealed class NLAndroidUIActivity : Activity
             var reply = await service.StartInternetAsync(generation);
             if (_active && ReferenceEquals(service, _service)) _status.Text = reply.Message;
         }
-        catch (Exception) { if (_active && ReferenceEquals(service, _service)) _status.Text = "No se pudo iniciar Internet por USB. Revisa LinkEngine en PC."; }
+        catch (Exception) { if (_active && ReferenceEquals(service, _service)) _status.Text = "No se pudo iniciar Internet por USB o LAN. Revisa LinkEngine en PC."; }
     }
     private Task ConfirmStopEngineAsync(string action, string name, string explanation)
     {

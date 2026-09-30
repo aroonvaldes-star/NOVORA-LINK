@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Channels;
 namespace NOVORA.Control;
-/// <summary>Persistent pinned TLS listener. New trust is granted only by a fresh, single-use QR session.</summary>
+/// <summary>Persistent pinned TLS listener. New trust is granted only by a fresh, single-use pairing session.</summary>
 public sealed class NLControlTrustServer : IAsyncDisposable
 {
     private readonly TcpListener _listener;
@@ -17,6 +17,7 @@ public sealed class NLControlTrustServer : IAsyncDisposable
     private readonly CancellationTokenSource _stop = new();
     private System.Threading.Timer? _expiry;
     private readonly string _secret = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+    private readonly string _pairingCode = RandomNumberGenerator.GetInt32(1_000_000).ToString("D6");
     private readonly bool _allowPairing;
     private readonly Func<bool>? _allowRemember;
     private readonly string Transport;
@@ -25,12 +26,14 @@ public sealed class NLControlTrustServer : IAsyncDisposable
     private Task _run = Task.CompletedTask;
     private bool _started;
     private int _consumed, _disposed;
+    private int _pairingCodeFailures;
     private volatile bool _authorized;
     public NLControlLanInvitation Invitation { get; private set; } = null!;
     public int Port => ((IPEndPoint)_listener.LocalEndpoint).Port;
     public bool IsAuthorized => _authorized;
     public bool IsClosed { get; private set; }
     public bool IsInvitationOpen => _started && !IsClosed && _allowPairing && Volatile.Read(ref _consumed) == 0 && DateTimeOffset.UtcNow.ToUnixTimeSeconds() < Invitation.ExpiresUnix;
+    public string PairingCode => _allowPairing ? _pairingCode : string.Empty;
     public event EventHandler<string>? StatusChanged;
     public NLControlTrustServer(IPAddress address, Func<NLControlRequest, Task<NLControlReply>> handler, NLControlTrustStore store, int port = 27215, bool allowPairing = true, Func<bool>? allowRemember = null, string transport = "LAN")
     {
@@ -50,6 +53,15 @@ public sealed class NLControlTrustServer : IAsyncDisposable
         _run = RunAsync();
     }
     public void CancelInvitation() { Interlocked.Exchange(ref _consumed, 1); _expiry?.Change(Timeout.Infinite, Timeout.Infinite); }
+    public NLControlLanInvitation? ResolvePairingCode(string code)
+    {
+        if (!IsInvitationOpen || code is not { Length: 6 } || !code.All(char.IsAsciiDigit)) return null;
+        bool matches = CryptographicOperations.FixedTimeEquals(
+            Encoding.ASCII.GetBytes(code), Encoding.ASCII.GetBytes(_pairingCode));
+        if (matches) return Invitation;
+        if (Interlocked.Increment(ref _pairingCodeFailures) >= 5) CancelInvitation();
+        return null;
+    }
     public void Publish(NLControlSnapshot snapshot)
     {
         if (_authorized && _outgoing is { } channel && !channel.Writer.TryWrite(new(1, 0, true, "Estado actualizado.", snapshot))) _client?.Dispose();

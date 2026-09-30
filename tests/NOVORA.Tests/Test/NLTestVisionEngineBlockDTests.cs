@@ -47,6 +47,19 @@ public sealed class NLTestVisionEngineBlockDTests
     }
 
     [Fact]
+    public void RotationRendererVE_prepares_pre_rotation_destination_around_same_center()
+    {
+        VERendererRect result = VERendererRotation.PrepareDestinationVE(
+            new VERendererRect(0f, 76f, 1232f, 568f),
+            90);
+
+        Assert.Equal(332f, result.X, 1);
+        Assert.Equal(-256f, result.Y, 1);
+        Assert.Equal(568f, result.Width, 1);
+        Assert.Equal(1232f, result.Height, 1);
+    }
+
+    [Fact]
     public void QueueRendererVE_drops_oldest_when_capacity_is_two()
     {
         using VERendererQueue<NLTestTestFrame> queue = new(capacity: 2);

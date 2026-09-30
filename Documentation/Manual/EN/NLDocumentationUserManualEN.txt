@@ -15,7 +15,7 @@ The following evidence belongs to the earlier 1.4 validation and is retained for
 - Desktop Release: 0 warnings and 0 errors.
 - .NET suite: 405/405 tests passed.
 - RelayCore: 34/34 tests passed; one benchmark remains ignored by design.
-- Android Release: com.novora.appcontrol version 1.4.34, code 34, minSdk 26, targetSdk 36.
+- Android Release: com.novora.appcontrol version 1.4.36, code 36, minSdk 26, targetSdk 36.
 - Canonical and installed APK: SHA-256 8F2E6E81FD70B692FD0E370A75A4BC482D598B468D70A0B4A12A61236A4BE405.
 - Samsung SM-A566E R5CY3118MEW: incremental install and MainActivity launch passed.
 - Windows installer: build, install, launch and uninstall passed.
@@ -38,7 +38,9 @@ NOVORA avoids constant polling whenever it can. Repeated Android queries should 
 
 5. Engines
 - LinkEngine: provides PC Internet access to Android through the NOVORA tunnel.
-- VisionEngine: handles screen, audio, control, gamepad, exchange and Android-Windows integration.
+- VisionEngine: handles capture, video, audio, decoding, rendering, and recording.
+- ExInEngine: handles mouse, keyboard, touch, and gamepad input.
+- NOVORA Integrations: handles files, Drag and Drop, clipboard, and Android-Windows features without requiring active video.
 - ExInEngine: translates external input, controllers and control sessions when the backend is available.
 
 Each engine keeps its own recovery scope. A failure in one engine should not bring down all of NOVORA or unnecessarily stop independent engines.
@@ -52,6 +54,8 @@ Congestion, WouldBlock, high queues or backpressure are not by themselves Recove
 The Display panel configures resolution, FPS, bitrate, monitor, audio and video profile. Start VisionEngine only when you want to view/control Android from the PC.
 
 VisionEngine uses the transmission component integrated with NOVORA-LINK to display and control Android from the PC.
+
+To control Android, enable NOVORA Control in Accessibility and NOVORA Keyboard in keyboard settings. Text follows the active Windows input language (for example ES or EN); Android receives the resolved Unicode characters. Physical UHID keyboard mode remains under investigation and is not advertised as available.
 
 8. ExInEngine and Game Input
 Supported controllers use the SDL/UHID route when the required backend is available. Recent physical validation detected an Xbox One Elite 2 Controller (045E:028E) and received live neutral telemetry.

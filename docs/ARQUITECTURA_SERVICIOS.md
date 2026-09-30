@@ -11,6 +11,12 @@ Android VpnService
       └─ DATA tcp:27184 ─────► RelayCore / TrafficEngine ──► Internet Windows
 ```
 
+USB mantiene `27183/27184` sobre ADB reverse. En una sesión LAN autorizada,
+Android recibe una oferta DATA efímera, fija el certificado TLS de la PC y
+protege ese socket con `VpnService.Protect()`. La PC autentica el token de una
+sola sesión y puentea únicamente DATA hacia `27184` en loopback; RelayCore no se
+expone directamente a la red local y no se crea otra instancia de ADB.
+
 `ManagerNetworkLE` administra lifecycle por acciones/eventos; ya no ejecuta mantenimiento periódico. `RelayNetworkLE` publica `ExitedLE` cuando el proceso termina. `MonitorRecoveryLE` confirma fallos mediante deadlines y sólo entra a Recovery después de persistencia real.
 
 ## VisionEngine
@@ -22,13 +28,26 @@ scrcpy-server / Android
 TransportVE
       ├─ Video ─► Decoder ─► Renderer D3D11
       ├─ Audio ─► Output Windows
-      └─ Control ─► mouse / teclado / gamepad / clipboard
-                         │
-                         ├─ PrivacyVE
-                         └─ IntegrationVE
+      └─ Control adapter ─► comandos necesarios para la sesión visual
 ```
 
-Gamepad usa eventos SDL3. PrivacyVE gobierna exposición/control/intercambio sensible. IntegrationVE gobierna las capacidades activadas desde Settings.
+VE no posee archivos, portapapeles, Drag & Drop, apps, notificaciones ni gamepad. La grabación consume las salidas de video/audio de VE, pero no convierte esas funciones generales en parte de VE.
+
+## ExInEngine e Integraciones
+
+```text
+ExInEngine ─► mouse / teclado / tactil / gamepad
+
+NLIntegrationRuntime
+      ├─ archivos / Share / Drag & Drop
+      ├─ portapapeles por eventos
+      ├─ apps / notificaciones / display
+      └─ capacidades de camara y microfono cuando exista backend real
+                         │
+                         └─ politica de privacidad compartida
+```
+
+`NLIntegrationRuntime` vive a nivel de NOVORA y no dentro de `VECoreRuntime`. Archivos y Drag & Drop pueden operar con un teléfono conectado aunque VE esté detenido. El portapapeles y algunos comandos reutilizan por ahora el adaptador de control disponible, sin adquirir el lifecycle de video. Gamepad usa eventos SDL3 desde ExInEngine.
 
 ## RemoteNV
 

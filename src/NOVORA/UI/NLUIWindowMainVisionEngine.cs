@@ -1,4 +1,5 @@
 using NOVORA.VisionEngine.Control;
+using NOVORA.Control;
 using NOVORA.ExInEngine;
 using NOVORA.Integration;
 using NOVORA.VisionEngine.Core;
@@ -17,6 +18,7 @@ namespace NOVORA;
 public partial class NLUIWindowMain
 {
     private VECoreEngine? _visionEngineVE;
+    private NLIntegrationRuntime? _integrationRuntime;
     private ExInCoreEngine? _exInEngine;
     private ExInControlSession? _exInControlSession;
     private Task _exInInitialization = Task.CompletedTask;
@@ -32,6 +34,9 @@ public partial class NLUIWindowMain
     private string? _activeVisionSerialVE;
     private string? _visionUsbSerialVE;
     private string? _visionLanSerialVE;
+    private bool _visionLanPreparingVE;
+    private string? _visionLanAttemptUsbSerialVE;
+    private long _visionLanAttemptEpochVE = -1;
 
     private bool _lastRendererEnabledVE;
     private bool _closingPresentationVE;
@@ -42,25 +47,90 @@ public partial class NLUIWindowMain
     private const int MaxVisionRecoveryAttemptsVE =
         2;
 
-    private async Task PrepareVisionLanFallbackVEAsync()
+    internal static string? ResolvePreparedVisionLanSerialVE(
+        IEnumerable<NLControlUsbCandidate> candidates,
+        IReadOnlySet<string>? online)
     {
-        if (_closing || IsVisionEngineRunningVE())
+        string[] lanSerials = candidates
+            .Where(candidate => candidate.Connected && candidate.Wifi &&
+                !string.IsNullOrWhiteSpace(candidate.Serial) &&
+                (online is null || online.Contains(candidate.Serial)))
+            .Select(candidate => candidate.Serial.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .ToArray();
+
+        return lanSerials.Length == 1 ? lanSerials[0] : null;
+    }
+
+    private async Task PrepareVisionLanFallbackVEAsync(
+        string? usbSerial = null,
+        long automaticUsbEpoch = -1,
+        bool automatic = false)
+    {
+        if (_closing || _visionLanPreparingVE)
         {
             return;
         }
 
-        string? usbSerial =
-            _viewModel.Device?.Serial?.Trim();
+        usbSerial =
+            string.IsNullOrWhiteSpace(usbSerial)
+                ? _viewModel.Device?.Serial?.Trim()
+                : usbSerial.Trim();
 
         if (string.IsNullOrWhiteSpace(usbSerial) ||
             usbSerial.Contains(':', StringComparison.Ordinal))
         {
-            ShowTopMessage14(
-                "Conecta el teléfono por USB para preparar el failover LAN.",
-                NLUIMessageKind14.Warning);
+            if (!automatic)
+            {
+                ShowTopMessage14(
+                    "Conecta el teléfono por USB para preparar el failover LAN.",
+                    NLUIMessageKind14.Warning);
+            }
+
             return;
         }
 
+        string? announcedLanSerial = ResolvePreparedVisionLanSerialVE(
+            _viewModel.Devices.Select(device => new NLControlUsbCandidate(
+                device.Serial,
+                device.Connected,
+                device.IsWifiConnection)),
+            _automaticUsbOnline);
+
+        if (!string.IsNullOrWhiteSpace(announcedLanSerial))
+        {
+            _visionUsbSerialVE = usbSerial;
+            _visionLanSerialVE = announcedLanSerial;
+            QueueAutomaticUsb();
+            ShowTopMessage14(
+                $"Failover LAN listo para {announcedLanSerial}.",
+                NLUIMessageKind14.Success);
+            return;
+        }
+
+        if (automatic &&
+            automaticUsbEpoch >= 0 &&
+            _visionLanAttemptEpochVE == automaticUsbEpoch &&
+            string.Equals(_visionLanAttemptUsbSerialVE, usbSerial, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_visionLanSerialVE) &&
+            await _adb.IsDeviceOnlineAsync(_visionLanSerialVE).ConfigureAwait(true))
+        {
+            QueueAutomaticUsb();
+            return;
+        }
+
+        if (automatic && automaticUsbEpoch >= 0)
+        {
+            _visionLanAttemptUsbSerialVE = usbSerial;
+            _visionLanAttemptEpochVE = automaticUsbEpoch;
+        }
+
+        _visionLanPreparingVE = true;
         WifiAdbButton.IsEnabled = false;
         ShowTopMessage14(
             "Preparando la ruta LAN del mismo teléfono…",
@@ -90,6 +160,7 @@ public partial class NLUIWindowMain
 
             _visionUsbSerialVE = usbSerial;
             _visionLanSerialVE = lanSerial;
+            QueueAutomaticUsb();
 
             ShowTopMessage14(
                 $"Failover LAN listo para {lanSerial}.",
@@ -110,6 +181,7 @@ public partial class NLUIWindowMain
         }
         finally
         {
+            _visionLanPreparingVE = false;
             UpdateRuntimeButtons();
         }
     }
@@ -136,6 +208,10 @@ public partial class NLUIWindowMain
             new VECoreEngine(
                 _paths,
                 _adb);
+        _integrationRuntime = new NLIntegrationRuntime(
+            _adb,
+            _visionEngineVE.RuntimeVE.ControlVE,
+            _visionEngineVE.RuntimeVE.PrivacyVE);
 
         _visionEngineVE.StatusChangedVE +=
             VisionEngine_StatusChangedVE;
@@ -157,40 +233,19 @@ public partial class NLUIWindowMain
          * Sin polling.
          * Sin historial.
          */
-        _visionEngineVE.RuntimeVE.ClipboardVE.ClipboardChangedVE +=
+        _integrationRuntime.Clipboard.ClipboardChangedVE +=
             VisionClipboard_ChangedVE;
+        _integrationRuntime.Capabilities.StatusChangedVE +=
+            ShellIntegration_StatusChangedVE;
 
         _visionEngineVE.RuntimeVE.AudioVE.SelectedOutputVE =
             _viewModel.SelectedAudioOutput;
 
         ApplyAdvancedVisionSettingsVE();
 
-        /*
-         * ExchangeVE se crea una sola vez junto con
-         * VisionEngine.
-         *
-         * No genera polling.
-         * Su worker permanece esperando trabajo en la cola.
-         */
-        _visionTransferExchangeVE =
-            new VEExchangeTransfer(
-                () =>
-                    (_visionEngineVE?
-                        .RuntimeVE
-                        .PrivacyVE
-                        .CanExchangeFilesVE ?? false) &&
-                    (_visionEngineVE?
-                        .RuntimeVE
-                        .IntegrationVE
-                        .StatusVE
-                        .Capabilities
-                        .FileTransfer ?? false) &&
-                    (_visionEngineVE?
-                        .RuntimeVE
-                        .IntegrationVE
-                        .StatusVE
-                        .Capabilities
-                        .DragDrop ?? false));
+        // La cola pertenece al runtime de integraciones y sigue disponible
+        // aunque VisionEngine no tenga una sesión de video activa.
+        _visionTransferExchangeVE = _integrationRuntime.Transfer;
 
         _visionTransferExchangeVE.TransferStartedVE +=
             VisionTransfer_StartedVE;
@@ -213,7 +268,7 @@ public partial class NLUIWindowMain
 
     private void ApplyAdvancedVisionSettingsVE()
     {
-        if (_visionEngineVE is null)
+        if (_visionEngineVE is null || _integrationRuntime is null)
         {
             return;
         }
@@ -225,7 +280,7 @@ public partial class NLUIWindowMain
         runtime.PrivacyVE.SetManualShieldVE(
             _viewModel.PrivacyShieldEnabled);
 
-        runtime.IntegrationVE.SetCapabilitiesVE(
+        _integrationRuntime.Capabilities.SetCapabilitiesVE(
             new VEIntegrationCapabilities(
                 Clipboard: _viewModel.IntegrationClipboardEnabled,
                 FileTransfer: _viewModel.IntegrationFileTransferEnabled,
@@ -311,10 +366,10 @@ public partial class NLUIWindowMain
             $"NVIDIA {_viewModel.NvidiaProfile}";
 
         EngineFeatureStatus14.Text =
-            $"VE · {privacy} · {integration} · {gamepad} · {nvidia}";
+            $"NOVORA · {privacy} · {integration} · {gamepad} · {nvidia}";
 
         EngineFeatureStatus14.ToolTip =
-            "Estado de funciones avanzadas de VisionEngine. " +
+            "Estado de funciones independientes y aceleración de VisionEngine. " +
             "Los cambios se administran en Configuración.";
     }
 
@@ -349,9 +404,9 @@ public partial class NLUIWindowMain
                 .RuntimeVE
                 .PrivacyVE
                 .CanUseClipboardVE ||
-            !_visionEngineVE
-                .RuntimeVE
-                .IntegrationVE
+            _integrationRuntime is null ||
+            !_integrationRuntime
+                .Capabilities
                 .StatusVE
                 .Capabilities
                 .Clipboard)
@@ -522,6 +577,9 @@ public partial class NLUIWindowMain
             _visionRendererHostVE.InputFocusGainedVE -=
                 VisionRendererHost_InputFocusGainedVE;
 
+            _visionRendererHostVE.KeyDownVE -=
+                VisionExchange_KeyDownVE;
+
             try
             {
                 _visionEngineVE!
@@ -537,6 +595,9 @@ public partial class NLUIWindowMain
 
         _visionRendererHostVE.InputFocusGainedVE +=
             VisionRendererHost_InputFocusGainedVE;
+
+        _visionRendererHostVE.KeyDownVE +=
+            VisionExchange_KeyDownVE;
 
         _visionEngineVE!
             .AttachRendererHostVE(
@@ -733,6 +794,64 @@ public partial class NLUIWindowMain
     // DRAG & DROP
     // ============================================================
 
+    private void IntegrationFiles_DragOver(
+        object sender,
+        System.Windows.DragEventArgs e)
+    {
+        e.Effects =
+            !_closing &&
+            _integrationRuntime is not null &&
+            _viewModel.IntegrationFileTransferEnabled &&
+            _viewModel.IntegrationDragDropEnabled &&
+            e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop)
+                ? System.Windows.DragDropEffects.Copy
+                : System.Windows.DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void IntegrationFiles_Drop(
+        object sender,
+        System.Windows.DragEventArgs e)
+    {
+        e.Handled = true;
+        if (_closing || _integrationRuntime is null || _visionTransferExchangeVE is null)
+            return;
+
+        if (!_viewModel.IntegrationFileTransferEnabled || !_viewModel.IntegrationDragDropEnabled)
+        {
+            _viewModel.ConnectionStatus = "Activa Archivos y Drag & Drop en Configuración.";
+            return;
+        }
+
+        if (_integrationRuntime.Privacy.IsProtectedVE)
+        {
+            _viewModel.ConnectionStatus = "Privacidad bloqueó la transferencia de archivos.";
+            return;
+        }
+
+        string? serial = _activeVisionSerialVE ?? _viewModel.Device?.Serial?.Trim();
+        if (string.IsNullOrWhiteSpace(serial))
+        {
+            _viewModel.ConnectionStatus = "Conecta un teléfono antes de enviar archivos.";
+            return;
+        }
+
+        if (e.Data.GetData(System.Windows.DataFormats.FileDrop) is not string[] paths || paths.Length == 0)
+            return;
+
+        try
+        {
+            await _visionTransferExchangeVE.QueueAsync(serial, paths);
+            _viewModel.ConnectionStatus = paths.Length == 1
+                ? "Archivo agregado a la transferencia."
+                : $"{paths.Length} elementos agregados a la transferencia.";
+        }
+        catch (Exception ex)
+        {
+            _viewModel.ConnectionStatus = $"Archivos NOVORA: {ex.Message}";
+        }
+    }
+
     private async void VisionPresentation_FilesDroppedVE(
         object? sender,
         VEExchangeFilesDroppedEventArgs e)
@@ -744,7 +863,8 @@ public partial class NLUIWindowMain
 
         if (
             e.CountVE == 0 ||
-            _visionTransferExchangeVE is null)
+            _visionTransferExchangeVE is null ||
+            _integrationRuntime is null)
         {
             return;
         }
@@ -774,6 +894,7 @@ public partial class NLUIWindowMain
 
         if (
             _visionEngineVE is null ||
+            _integrationRuntime is null ||
             !_visionEngineVE.IsRunningVE)
         {
             _viewModel.ConnectionStatus =
@@ -782,7 +903,7 @@ public partial class NLUIWindowMain
             return;
         }
 
-        if (_visionEngineVE.RuntimeVE.PrivacyVE.IsProtectedVE)
+        if (_integrationRuntime.Privacy.IsProtectedVE)
         {
             _viewModel.ConnectionStatus =
                 "PrivacyVE: transferencia bloqueada mientras el contenido está protegido.";
@@ -947,10 +1068,8 @@ public partial class NLUIWindowMain
         object? sender,
         System.Windows.Forms.KeyEventArgs e)
     {
-        if (
-            !e.Control ||
-            e.KeyCode !=
-                System.Windows.Forms.Keys.V)
+        if (!e.Control || e.KeyCode is not (
+                System.Windows.Forms.Keys.C or System.Windows.Forms.Keys.V))
         {
             return;
         }
@@ -967,6 +1086,23 @@ public partial class NLUIWindowMain
 
         e.SuppressKeyPress =
             true;
+
+        if (e.KeyCode == System.Windows.Forms.Keys.C)
+        {
+            if (_visionEngineVE is null || !_visionEngineVE.IsRunningVE)
+                return;
+            try
+            {
+                await _integrationRuntime!.Clipboard.GetTextAsync(
+                    NOVORA.VisionEngine.Control.VEControlCopy.Copy,
+                    cancellationToken: CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _viewModel.ConnectionStatus = $"Clipboard Android → Windows: {ex.Message}";
+            }
+            return;
+        }
 
         if (
             _closing ||
@@ -988,6 +1124,7 @@ public partial class NLUIWindowMain
 
         if (
             _visionEngineVE is null ||
+            _integrationRuntime is null ||
             !_visionEngineVE.IsRunningVE)
         {
             _viewModel.ConnectionStatus =
@@ -996,7 +1133,7 @@ public partial class NLUIWindowMain
             return;
         }
 
-        if (_visionEngineVE.RuntimeVE.PrivacyVE.IsProtectedVE)
+        if (_integrationRuntime.Privacy.IsProtectedVE)
         {
             _viewModel.ConnectionStatus =
                 "PrivacyVE: portapapeles bloqueado mientras el contenido está protegido.";
@@ -1037,17 +1174,16 @@ public partial class NLUIWindowMain
     {
         if (
             _closing ||
-            _visionEngineVE is null ||
-            !_visionEngineVE.IsRunningVE)
+            _integrationRuntime is null)
         {
             _viewModel.ConnectionStatus =
-                "ExchangeVE requiere VisionEngine activo para recibir desde Android.";
+                "Archivos NOVORA no está disponible.";
 
             return;
         }
 
         string? serial =
-            _activeVisionSerialVE;
+            _activeVisionSerialVE ?? _viewModel.Device?.Serial?.Trim();
 
         if (string.IsNullOrWhiteSpace(serial))
         {
@@ -1057,7 +1193,7 @@ public partial class NLUIWindowMain
             return;
         }
 
-        if (_visionEngineVE.RuntimeVE.PrivacyVE.IsProtectedVE)
+        if (_integrationRuntime.Privacy.IsProtectedVE)
         {
             _viewModel.ConnectionStatus =
                 "PrivacyVE bloqueó la recepción de archivos mientras el contenido está protegido.";
@@ -1073,9 +1209,8 @@ public partial class NLUIWindowMain
         try
         {
             VEExchangeResult result =
-                await _visionEngineVE
-                    .RuntimeVE
-                    .FilesVE
+                await _integrationRuntime
+                    .Files
                     .PullNovoraFolderAsync(
                         serial,
                         destination);
@@ -1163,6 +1298,9 @@ public partial class NLUIWindowMain
         {
             presentation.HostVE.InputFocusGainedVE -=
                 VisionRendererHost_InputFocusGainedVE;
+
+            presentation.HostVE.KeyDownVE -=
+                VisionExchange_KeyDownVE;
 
             presentation.CloseRequestedVE -=
                 VisionPresentation_CloseRequestedVE;
@@ -1319,6 +1457,79 @@ public partial class NLUIWindowMain
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?
             .Trim();
 
+    internal static string ResolveVisionStartSerialVE(
+        string selectedSerial,
+        string? preparedUsbSerial,
+        string? preparedLanSerial,
+        bool linkUsesSelectedUsb,
+        bool preparedLanOnline)
+    {
+        string selected = selectedSerial.Trim();
+        if (!linkUsesSelectedUsb || selected.Contains(':') || !preparedLanOnline ||
+            string.IsNullOrWhiteSpace(preparedLanSerial) || !preparedLanSerial.Contains(':') ||
+            !string.Equals(selected, preparedUsbSerial?.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return selected;
+        }
+
+        return preparedLanSerial.Trim();
+    }
+
+    internal static string? PreserveVisionFailoverRouteVE(
+        string? currentRoute,
+        string? capturedRoute)
+        => string.IsNullOrWhiteSpace(currentRoute)
+            ? capturedRoute?.Trim()
+            : currentRoute.Trim();
+
+    private async Task PreserveVisionFailoverDuringRestartVEAsync(Func<Task> restartStream)
+    {
+        ArgumentNullException.ThrowIfNull(restartStream);
+        string? capturedUsb = _visionUsbSerialVE;
+        string? capturedLan = _visionLanSerialVE;
+
+        try
+        {
+            await restartStream().ConfigureAwait(true);
+        }
+        finally
+        {
+            _visionUsbSerialVE = PreserveVisionFailoverRouteVE(_visionUsbSerialVE, capturedUsb);
+            _visionLanSerialVE = PreserveVisionFailoverRouteVE(_visionLanSerialVE, capturedLan);
+        }
+    }
+
+    private async Task<string> ResolveVisionStartSerialVEAsync(string selectedSerial)
+    {
+        string selected = selectedSerial.Trim();
+        bool linkUsesSelectedUsb = _linkEngineRuntimeLE?.IsRunningLE == true &&
+            string.Equals(_linkEngineRuntimeLE.SessionLE?.Serial, selected, StringComparison.OrdinalIgnoreCase);
+        bool preparedLanOnline = false;
+
+        if (linkUsesSelectedUsb &&
+            string.Equals(_visionUsbSerialVE, selected, StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(_visionLanSerialVE))
+        {
+            try
+            {
+                preparedLanOnline = await _adb
+                    .IsDeviceOnlineAsync(_visionLanSerialVE)
+                    .ConfigureAwait(true);
+            }
+            catch
+            {
+                // LAN es una optimización; USB sigue siendo el fallback de VE.
+            }
+        }
+
+        return ResolveVisionStartSerialVE(
+            selected,
+            _visionUsbSerialVE,
+            _visionLanSerialVE,
+            linkUsesSelectedUsb,
+            preparedLanOnline);
+    }
+
     private async Task SetVisionEngineRunningCoreVEAsync(bool running, Func<bool>? authorization)
     {
         if (_closing || authorization?.Invoke() == false)
@@ -1404,12 +1615,17 @@ public partial class NLUIWindowMain
          * Cero polling adicional.
          */
         _activeVisionSerialVE =
-            device.Serial.Trim();
+            await ResolveVisionStartSerialVEAsync(device.Serial);
 
         if (!_activeVisionSerialVE.Contains(':'))
         {
             _visionUsbSerialVE =
                 _activeVisionSerialVE;
+        }
+        else
+        {
+            _viewModel.ConnectionStatus =
+                "VisionEngine iniciando por LAN; LinkEngine conserva la ruta USB.";
         }
 
         UpdateOutputProfile();
@@ -2008,19 +2224,20 @@ public partial class NLUIWindowMain
                 restoreMainWindow: false,
                 refreshInformation: false);
 
-            if (transfer is not null)
+            if (_integrationRuntime is not null)
             {
-                transfer.TransferStartedVE -=
-                    VisionTransfer_StartedVE;
-
-                transfer.TransferCompletedVE -=
-                    VisionTransfer_CompletedVE;
-
-                transfer.TransferFailedVE -=
-                    VisionTransfer_FailedVE;
-
-                await transfer
-                    .DisposeAsync();
+                _integrationRuntime.Clipboard.ClipboardChangedVE -=
+                    VisionClipboard_ChangedVE;
+                _integrationRuntime.Capabilities.StatusChangedVE -=
+                    ShellIntegration_StatusChangedVE;
+                if (transfer is not null)
+                {
+                    transfer.TransferStartedVE -= VisionTransfer_StartedVE;
+                    transfer.TransferCompletedVE -= VisionTransfer_CompletedVE;
+                    transfer.TransferFailedVE -= VisionTransfer_FailedVE;
+                }
+                await _integrationRuntime.DisposeAsync();
+                _integrationRuntime = null;
             }
 
             return;
@@ -2040,8 +2257,15 @@ public partial class NLUIWindowMain
                 restoreMainWindow: false,
                 refreshInformation: false);
 
-            _visionEngineVE.RuntimeVE.ClipboardVE.ClipboardChangedVE -=
-                VisionClipboard_ChangedVE;
+            if (_integrationRuntime is not null)
+            {
+                _integrationRuntime.Clipboard.ClipboardChangedVE -=
+                    VisionClipboard_ChangedVE;
+                _integrationRuntime.Capabilities.StatusChangedVE -=
+                    ShellIntegration_StatusChangedVE;
+                await _integrationRuntime.DisposeAsync();
+                _integrationRuntime = null;
+            }
 
             _visionEngineVE.StatusChangedVE -=
                 VisionEngine_StatusChangedVE;
@@ -2062,17 +2286,9 @@ public partial class NLUIWindowMain
 
             if (transfer is not null)
             {
-                transfer.TransferStartedVE -=
-                    VisionTransfer_StartedVE;
-
-                transfer.TransferCompletedVE -=
-                    VisionTransfer_CompletedVE;
-
-                transfer.TransferFailedVE -=
-                    VisionTransfer_FailedVE;
-
-                await transfer
-                    .DisposeAsync();
+                transfer.TransferStartedVE -= VisionTransfer_StartedVE;
+                transfer.TransferCompletedVE -= VisionTransfer_CompletedVE;
+                transfer.TransferFailedVE -= VisionTransfer_FailedVE;
             }
         }
     }

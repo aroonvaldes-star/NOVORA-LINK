@@ -112,6 +112,8 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
 
         _streamVE = stream;
         _nativeProtocolVE = true;
+        _readCtsVE = new CancellationTokenSource();
+        _readTaskVE = RunNativeReaderVE(stream, _readCtsVE.Token);
         PublishVE(VEControlStates.Ready, "Control VisionEngine listo por AppControl.", null);
         return Task.CompletedTask;
     }
@@ -235,6 +237,43 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
         {
             Interlocked.Increment(ref _errorsVE);
             PublishVE(VEControlStates.Failed, "Falló el canal de control VisionEngine.", ex.Message);
+        }
+    }
+
+    private async Task RunNativeReaderVE(Stream stream, CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                NLControlInputResponse response = await NLControlProtocol
+                    .ReadAsync<NLControlInputResponse>(stream, cancellationToken)
+                    .ConfigureAwait(false);
+                Interlocked.Increment(ref _receivedVE);
+                if (response.Type == NLControlInputResponse.ClipboardType)
+                {
+                    string text = response.Text ?? string.Empty;
+                    Interlocked.Increment(ref _clipboardVE);
+                    Interlocked.Add(ref _receivedBytesVE, System.Text.Encoding.UTF8.GetByteCount(text) + 4);
+                    if (_canReceiveClipboardVE is null || _canReceiveClipboardVE())
+                        ClipboardChangedVE?.Invoke(this, text);
+                }
+                else if (response.Type == NLControlInputResponse.ClipboardAckType)
+                {
+                    ClipboardAcknowledgedVE?.Invoke(this, response.Sequence);
+                }
+                PublishSnapshotVE();
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (EndOfStreamException)
+        {
+            PublishVE(VEControlStates.EndOfStream, "Android cerró el canal de control VisionEngine.", null);
+        }
+        catch (Exception ex)
+        {
+            Interlocked.Increment(ref _errorsVE);
+            PublishVE(VEControlStates.Failed, "Falló la respuesta del canal AppControl.", ex.Message);
         }
     }
 

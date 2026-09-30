@@ -5,7 +5,7 @@ namespace NOVORA.Control;
 public enum NLControlSessionPhase { Disconnected, Connecting, Connected, Lost }
 
 public sealed record NLControlSessionState(long Generation, NLControlSessionPhase Phase,
-    string Transport, string Message, NLControlSnapshot? Snapshot, bool Busy = false);
+    string Transport, string Message, NLControlSnapshot? Snapshot, bool Busy = false, bool Tunnel = false);
 
 /// <summary>Owns a connection independently of UI subscriptions. Never retries a mutation or stores a credential.</summary>
 public sealed class NLControlSession : IAsyncDisposable
@@ -14,7 +14,7 @@ public sealed class NLControlSession : IAsyncDisposable
     private NLControlClient? _client;
     private bool _disposed;
     private NLControlSessionState _current = new(0, NLControlSessionPhase.Disconnected, "",
-        "Sin conexión. Prepara el enlace USB o QR LAN en PC.", null);
+        "Sin conexión. Prepara el enlace USB o código LAN en PC.", null);
     public NLControlSessionState Current { get { lock (_gate) return _current; } }
     public event EventHandler<NLControlSessionState>? Changed;
 
@@ -25,13 +25,23 @@ public sealed class NLControlSession : IAsyncDisposable
         return ConnectAsync("USB", client => client.ConnectLanAsync(invitation, true));
     }
 
+    public Task ConnectTunnelAsync(NLControlLanInvitation invitation, string transport)
+    {
+        invitation.Validate(true);
+        if (invitation.Host != "127.0.0.1" || invitation.Port != NLControlProtocol.Port ||
+            transport is not ("USB" or "LAN"))
+            throw new InvalidDataException("Túnel de NOVORA no válido.");
+        return ConnectAsync(transport, client => client.ConnectLanAsync(invitation, true), tunnel: true);
+    }
+
     public Task ConnectLanAsync(NLControlLanInvitation invitation) =>
         ConnectAsync("LAN", client => client.ConnectLanAsync(invitation));
 
     public Task ConnectTrustedAsync(NLControlTrustedPc pc, bool allowLoopback = false) =>
         ConnectAsync(pc.Transport, client => client.ConnectTrustedAsync(pc, allowLoopback || pc.Transport == "USB"));
 
-    private async Task ConnectAsync(string transport, Func<NLControlClient, Task<NLControlReply>> connect)
+    private async Task ConnectAsync(string transport, Func<NLControlClient, Task<NLControlReply>> connect,
+        bool tunnel = false)
     {
         NLControlClient? previous;
         NLControlClient client;
@@ -42,7 +52,7 @@ public sealed class NLControlSession : IAsyncDisposable
             previous = _client;
             _client = client;
             _current = new(_current.Generation + 1, NLControlSessionPhase.Connecting, transport,
-                "Verificando conexión con NOVORA PC…", null);
+                "Verificando conexión con NOVORA PC…", null, Tunnel: tunnel);
         }
         client.StateChanged += (_, snapshot) =>
         {
@@ -61,7 +71,7 @@ public sealed class NLControlSession : IAsyncDisposable
                 if (!ReferenceEquals(_client, client)) return;
                 _client = null;
                 _current = new(_current.Generation + 1, NLControlSessionPhase.Lost, transport,
-                    message, null);
+                    message, null, Tunnel: tunnel);
             }
             Notify();
             // A receiver callback must not await disposal of its own receive loop.
@@ -90,7 +100,8 @@ public sealed class NLControlSession : IAsyncDisposable
                 {
                     _client = null;
                     _current = new(_current.Generation + 1, NLControlSessionPhase.Lost, transport,
-                        "No se confirmó el enlace. Prepara de nuevo el enlace USB o QR LAN en PC.", null);
+                        "No se confirmó el enlace. Prepara de nuevo el enlace USB o código LAN en PC.", null,
+                        Tunnel: tunnel);
                 }
             }
             Notify();

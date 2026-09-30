@@ -20,4 +20,21 @@ public static class VERendererRotation
         int normalized = NormalizeVE(degrees);
         return normalized is 90 or 270;
     }
+
+    public static VERendererRect PrepareDestinationVE(
+        VERendererRect logicalDestination,
+        int degrees)
+    {
+        if (!SwapsDimensionsVE(degrees))
+            return logicalDestination;
+
+        float centerX = logicalDestination.X + logicalDestination.Width / 2f;
+        float centerY = logicalDestination.Y + logicalDestination.Height / 2f;
+
+        return new VERendererRect(
+            centerX - logicalDestination.Height / 2f,
+            centerY - logicalDestination.Width / 2f,
+            logicalDestination.Height,
+            logicalDestination.Width);
+    }
 }

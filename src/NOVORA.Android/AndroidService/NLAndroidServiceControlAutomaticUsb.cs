@@ -16,16 +16,18 @@ public sealed partial class NLAndroidServiceControl
     public async Task ConnectAutomaticUsbAsync(string text)
     {
         // Delivered only through the protected bootstrap Activity and in-process handoff.
-        _ = NLAndroidServiceUsbBootstrap.Parse(text);
+        NLControlTunnelBootstrap bootstrap = NLAndroidServiceUsbBootstrap.Parse(text);
         string identity = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
         long request = ++_automaticUsbRequest;
         long operation = _operation;
         await _automaticUsbGate.WaitAsync();
+        bool preserveInternet = _internetOwned && NLAndroidVpnService.IsRunning;
+        if (preserveInternet) Interlocked.Increment(ref _internetControlHandoff);
         try
         {
             if (_destroyed || request != _automaticUsbRequest || operation != _operation) return;
             var state = Session.Current;
-            if (state.Transport == "USB" && state.Phase == NLControlSessionPhase.Connected &&
+            if (state.Transport == bootstrap.Transport && state.Phase == NLControlSessionPhase.Connected &&
                 _automaticUsbIdentity == identity) return; // Same invitation, no duplicate socket.
             NLControlTrustedPc? lanFallback = state.Transport == "LAN"
                 ? _recoveryPeer ?? _connectingPeer
@@ -39,7 +41,17 @@ public sealed partial class NLAndroidServiceControl
             {
                 AcceptUsbBootstrap(text);
                 _automaticUsbIdentity = identity;
-                await ConnectUsbCoreAsync(automatic: true);
+                _automaticUsbOrigin = bootstrap.Transport == "LAN" ? "AutomaticLanFailover" : "AutomaticUsb";
+                CancelRecovery();
+                _freshInvitation = null;
+                BeginForeground();
+                long tunnelOperation = _operation;
+                try
+                {
+                    await Session.ConnectTunnelAsync(bootstrap.Invitation, bootstrap.Transport);
+                    if (tunnelOperation == _operation) _usbInvitation = null;
+                }
+                finally { RenderNotification(); }
             }
             catch (Exception ex) when (lanFallback is not null && !_destroyed && request == _automaticUsbRequest)
             {
@@ -55,13 +67,14 @@ public sealed partial class NLAndroidServiceControl
         }
         finally
         {
+            if (preserveInternet) Interlocked.Decrement(ref _internetControlHandoff);
             PublishAutomaticUsbDiagnostics();
             _automaticUsbGate.Release();
         }
     }
 
     // Minimal event-only technical evidence. Never logs a name, serial, secret, QR,
-    // certificate, clipboard or file contents. Ordinary app operation writes no report file.
+    // certificate, pairing code, clipboard or file contents. Ordinary app operation writes no report file.
     private void PublishAutomaticUsbDiagnostics()
     {
         if (_destroyed) return;

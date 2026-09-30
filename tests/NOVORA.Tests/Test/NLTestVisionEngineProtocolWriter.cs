@@ -88,6 +88,26 @@ public sealed class NLTestVisionEngineProtocolWriter
     }
 
     [Fact]
+    public async Task Writer_updates_rotation_without_changing_encoded_dimensions()
+    {
+        await using MemoryStream stream = new();
+        var writer = new VEProtocolWriter(stream);
+        await writer.WriteVideoSessionAsync(
+            VEProtocolCodec.H264,
+            new VEProtocolSession(864, 1920, false, 0));
+        await writer.WriteSessionUpdateAsync(
+            new VEProtocolSession(864, 1920, true, 90));
+        await writer.WriteVideoPacketAsync(new byte[] { 0x65 }, 1, false, true);
+
+        stream.Position = 0;
+        var demuxer = new VEVideoDemuxer(stream);
+        await demuxer.OpenAsync();
+        await demuxer.ReadPacketAsync();
+
+        Assert.Equal(new VEProtocolSession(864, 1920, true, 90), demuxer.SessionVE);
+    }
+
+    [Fact]
     public async Task Writer_rejects_invalid_video_contract_values()
     {
         await using MemoryStream stream = new();
