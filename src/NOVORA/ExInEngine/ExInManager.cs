@@ -817,14 +817,20 @@ public sealed class ExInManager : IAsyncDisposable
 
         ExInSlot? slot;
         ExInState next;
+        bool toggleMode;
 
         lock (_gateVE)
         {
             if (!_slotsVE.TryGetValue(message.InstanceId, out slot) || slot is null)
                 return;
 
+            ExInButtons previousButtons = slot.LastState.Buttons;
             next = _sdlVE.ReadStateVE(slot.Handle);
             if (next == slot.LastState) return;
+            toggleMode = next.Buttons.HasFlag(ExInButtons.Back) &&
+                next.Buttons.HasFlag(ExInButtons.Start) &&
+                !(previousButtons.HasFlag(ExInButtons.Back) &&
+                  previousButtons.HasFlag(ExInButtons.Start));
             _slotsVE[message.InstanceId] = slot with
             {
                 LastState = next,
@@ -834,6 +840,13 @@ public sealed class ExInManager : IAsyncDisposable
         }
 
         await SendStateVE(slot, next, cancellationToken).ConfigureAwait(false);
+        if (toggleMode)
+        {
+            ExInInputMode target = ModeVE == ExInInputMode.Game
+                ? ExInInputMode.Ui
+                : ExInInputMode.Game;
+            await SetModeAsync(target, cancellationToken).ConfigureAwait(false);
+        }
         if (flag == ExInButtons.Touchpad && slot.OutputGeneration.ModeVE == ExInInputMode.Game &&
             slot.PointerCompanion is not null && !IsPrivacyProtectedVE)
         {
