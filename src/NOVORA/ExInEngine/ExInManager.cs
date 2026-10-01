@@ -893,6 +893,25 @@ public sealed class ExInManager : IAsyncDisposable
         else
         {
             sent = await slot.OutputGeneration.SendStateAsync(effective, cancellationToken).ConfigureAwait(false);
+
+            // El puntero companion permanece activo durante Juego para que el
+            // touchpad, el stick izquierdo y el scroll sigan interactuando con
+            // cualquier app sin retirar el gamepad virtual del juego.
+            if (slot.PointerCompanion is not null && !IsPrivacyProtectedVE)
+            {
+                ExInPointerReport pointer = slot.Pointer.FromAxesVE(effective, inputAlreadyCalibrated: true);
+                if (effective.Buttons.HasFlag(ExInButtons.Touchpad))
+                    pointer = pointer with { Buttons = (byte)(pointer.Buttons | 1) };
+                try
+                {
+                    if (await slot.PointerCompanion.SendPointerAsync(pointer, cancellationToken).ConfigureAwait(false))
+                        Interlocked.Increment(ref _reportsVE);
+                }
+                catch when (!cancellationToken.IsCancellationRequested)
+                {
+                    try { await slot.PointerCompanion.DetachAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
+                }
+            }
         }
 
         if (!sent) return;
