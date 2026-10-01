@@ -10,10 +10,18 @@ public sealed class NLTestNvidiaApiTests
     [Fact]
     public async Task CompleteAsync_sends_bearer_request_and_returns_content()
     {
-        HttpRequestMessage? captured = null;
+        string? authScheme = null;
+        string? authParameter = null;
+        HttpMethod? method = null;
+        Uri? requestUri = null;
+        string? requestPayload = null;
         var handler = new StubHandler(async request =>
         {
-            captured = request;
+            authScheme = request.Headers.Authorization?.Scheme;
+            authParameter = request.Headers.Authorization?.Parameter;
+            method = request.Method;
+            requestUri = request.RequestUri;
+            requestPayload = await request.Content!.ReadAsStringAsync();
             string json = """
             {
               "choices": [
