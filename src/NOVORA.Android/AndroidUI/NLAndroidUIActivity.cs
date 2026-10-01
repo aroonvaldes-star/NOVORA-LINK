@@ -37,6 +37,9 @@ public sealed class NLAndroidUIActivity : Activity
     private TextView _exInDevice = null!, _exInFamily = null!, _exInVidPid = null!, _exInConnection = null!;
     private TextView _exInIdentity = null!, _exInCapabilities = null!, _exInDiagnostic = null!, _exInBattery = null!, _exInLive = null!;
     private Button _exInGameMode = null!, _exInUiMode = null!, _exInReactivate = null!;
+    private bool _shareHeld;
+    private bool _optionsHeld;
+    private bool _modeShortcutLatched;
     private TextView _phoneAudioState = null!, _internalAudioState = null!;
     private string? _pendingUsbBootstrap;
     private bool _automaticUsbResumed; // NOVORA_AUTOUSB_V1
@@ -413,8 +416,25 @@ public sealed class NLAndroidUIActivity : Activity
 
     public override bool DispatchKeyEvent(KeyEvent? e)
     {
-        if (e is not null && IsControllerEvent(e.Source) && e.Action == KeyEventActions.Down)
+        if (e is not null && IsControllerEvent(e.Source))
         {
+            if (e.KeyCode == Keycode.ButtonSelect)
+                _shareHeld = e.Action != KeyEventActions.Up;
+            else if (e.KeyCode == Keycode.ButtonStart)
+                _optionsHeld = e.Action != KeyEventActions.Up;
+
+            bool shortcut = _shareHeld && _optionsHeld;
+            if (shortcut && !_modeShortcutLatched)
+            {
+                _modeShortcutLatched = true;
+                _ = ToggleExInModeFromControllerAsync();
+                return true;
+            }
+
+            if (!shortcut && e.Action == KeyEventActions.Up)
+                _modeShortcutLatched = false;
+
+            if (e.Action != KeyEventActions.Down) return base.DispatchKeyEvent(e);
             bool handled = e.KeyCode switch
             {
                 Keycode.ButtonA or Keycode.ButtonX or Keycode.Enter or Keycode.DpadCenter => ActivateFocusedControl(),
@@ -432,6 +452,13 @@ public sealed class NLAndroidUIActivity : Activity
         }
 
         return base.DispatchKeyEvent(e);
+    }
+
+    private async Task ToggleExInModeFromControllerAsync()
+    {
+        NLControlExIn? exIn = _snapshot?.ExIn;
+        if (exIn is not { Detected: true, CanSetMode: true }) return;
+        await SendAsync("exin.mode", exIn.Mode == "Game" ? "Ui" : "Game");
     }
 
     public override bool DispatchGenericMotionEvent(MotionEvent? e)
