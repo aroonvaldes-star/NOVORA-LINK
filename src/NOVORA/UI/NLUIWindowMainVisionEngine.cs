@@ -8,6 +8,7 @@ using NOVORA.VisionEngine.Integration;
 using NOVORA.NVIDIA;
 using NOVORA.VisionEngine.Renderer;
 using NOVORA.VisionEngine.Server;
+using NOVORA.Service;
 using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
@@ -198,6 +199,8 @@ public partial class NLUIWindowMain
         }
 
         _exInEngine ??= new ExInCoreEngine(_paths);
+        int pointerSensitivity = Math.Clamp(new NLServiceSettings().Load().ExInPointerSensitivity, 25, 300);
+        _exInEngine.Manager.SetPointerSensitivityVE(pointerSensitivity / 100d);
         _exInEngine.Manager.StatusChangedVE -= ShellGamepad_StatusChangedVE;
         _exInEngine.Manager.StatusChangedVE += ShellGamepad_StatusChangedVE;
         _exInEngine.Manager.BatteryAlertVE -= ShellGamepad_BatteryAlertVE;

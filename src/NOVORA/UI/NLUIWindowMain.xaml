@@ -841,6 +841,9 @@
                                             <Button x:Name="ExInUiModeButton14" Content="UI" Style="{StaticResource NvFlatButtonStyle}" Click="ExInUiMode_Click" Margin="4,0,0,0"/>
                                         </UniformGrid>
                                         <TextBlock x:Name="ExInIdentityText14" Text="Sin control físico" Style="{StaticResource NvCaptionStyle}" Margin="0,10,0,0"/>
+                                        <TextBlock Text="Sensibilidad mouse · touchpad y joysticks" Style="{StaticResource NvCaptionStyle}" Margin="0,12,0,0"/>
+                                        <Slider x:Name="ExInPointerSensitivitySlider14" Minimum="25" Maximum="300" Value="100" TickFrequency="25" IsSnapToTickEnabled="True" ValueChanged="ExInPointerSensitivity_ValueChanged" Margin="0,4,0,0"/>
+                                        <TextBlock x:Name="ExInPointerSensitivityText14" Text="100%" Style="{StaticResource NvCaptionStyle}" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </Border>
                                 <Border Grid.Column="2" Style="{StaticResource NvCardStyle}">

@@ -22,6 +22,7 @@ public readonly record struct ExInPointerReport(
 public sealed class ExInPointerTranslator
 {
     private readonly double _deadzoneVE;
+    private double _sensitivityVE = 1d;
     private readonly Dictionary<TouchKeyVE, TouchPointVE> _touchesVE = [];
     private ExInButtons _previousButtonsVE;
     private TouchPointVE? _lastCentroidVE;
@@ -61,6 +62,15 @@ public sealed class ExInPointerTranslator
     }
 
     public void PrimeButtonsVE(ExInButtons buttons) => _previousButtonsVE = buttons;
+
+    public double SensitivityVE => _sensitivityVE;
+
+    public void SetSensitivityVE(double value)
+    {
+        if (!double.IsFinite(value) || value is < 0.25 or > 3d)
+            throw new ArgumentOutOfRangeException(nameof(value));
+        _sensitivityVE = value;
+    }
 
     public ExInPointerReport TouchDownVE(int touchpadId, long fingerId, float x, float y, bool physicalClick)
     {
@@ -121,20 +131,20 @@ public sealed class ExInPointerTranslator
         _lastCentroidVE = null;
     }
 
-    private static sbyte ScalePointerVE(short value, double deadzone)
+    private sbyte ScalePointerVE(short value, double deadzone)
     {
         double normalized = value / 32767d;
         double magnitude = Math.Abs(normalized);
         if (magnitude <= deadzone) return 0;
         double active = (magnitude - deadzone) / (1 - deadzone);
         double accelerated = 1 + active * active * 63;
-        return (sbyte)Math.Clamp((int)Math.Round(Math.CopySign(accelerated, normalized)), -24, 24);
+        return (sbyte)Math.Clamp((int)Math.Round(Math.CopySign(accelerated * _sensitivityVE, normalized)), -24, 24);
     }
 
-    private static sbyte ScaleWheelVE(short value, bool invert)
+    private sbyte ScaleWheelVE(short value, bool invert)
     {
         if (Math.Abs((int)value) < 7000) return 0;
-        int scaled = Math.Clamp((int)Math.Round(value / 12000d), -3, 3);
+        int scaled = Math.Clamp((int)Math.Round(value / 12000d * _sensitivityVE), -3, 3);
         return (sbyte)(invert ? -scaled : scaled);
     }
 

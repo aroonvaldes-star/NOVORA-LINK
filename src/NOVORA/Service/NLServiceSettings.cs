@@ -15,6 +15,7 @@ public sealed class NLServiceNovoraSettings
     public bool IntegrationNotificationsEnabled { get; set; } = true;
     public bool IntegrationDynamicResizeEnabled { get; set; } = true;
     public bool ExInEnabled { get; set; } = true;
+    public int ExInPointerSensitivity { get; set; } = 100;
     [System.Obsolete("Compatibilidad de configuración; usa ExInEnabled.")]
     public bool GamepadEnabled { get => ExInEnabled; set => ExInEnabled = value; }
     public string NvidiaProfile { get; set; } = "Automatic";

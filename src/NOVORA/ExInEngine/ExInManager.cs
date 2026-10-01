@@ -40,6 +40,7 @@ public sealed class ExInManager : IAsyncDisposable
     private bool _disposedVE;
     private bool _calibratingVE;
     private ExInInputMode _modeVE = ExInInputMode.Game;
+    private double _pointerSensitivityVE = 1d;
     private bool _calibratedVE;
     private ExInState _calibrationMinVE;
     private ExInState _calibrationMaxVE;
@@ -85,11 +86,27 @@ public sealed class ExInManager : IAsyncDisposable
 
     public bool IsPrivacyProtectedVE => Volatile.Read(ref _privacyProtectedVE) != 0;
     public ExInInputMode ModeVE { get { lock (_gateVE) return _modeVE; } }
+    public double PointerSensitivityVE
+    {
+        get { lock (_gateVE) return _pointerSensitivityVE; }
+    }
+
+    public void SetPointerSensitivityVE(double value)
+    {
+        lock (_gateVE)
+        {
+            _pointerSensitivityVE = value;
+            foreach (ExInSlot slot in _slotsVE.Values)
+                slot.Pointer.SetSensitivityVE(value);
+        }
+    }
 
     public ExInLiveSnapshot LiveSnapshotVE
     {
         get
         {
+            ExInPointerTranslator pointer = new();
+            pointer.SetSensitivityVE(_pointerSensitivityVE);
             lock (_gateVE)
             {
                 ExInSlot? slot = _slotsVE.Values.FirstOrDefault();
@@ -698,6 +715,8 @@ public sealed class ExInManager : IAsyncDisposable
 
             ExInState state = _sdlVE.ReadStateVE(handle);
             ExInBatteryAlert? batteryAlert;
+            ExInPointerTranslator pointer = new();
+            pointer.SetSensitivityVE(_pointerSensitivityVE);
 
             lock (_gateVE)
             {
@@ -706,7 +725,7 @@ public sealed class ExInManager : IAsyncDisposable
                 batteryAlert = _batteryAlertsVE.UpdateVE(battery);
                 _slotsVE[id] = new ExInSlot(
                     handle, device, state, physicalName, sdlMapping, BuildTranslationTraceVE(state), null,
-                    generation, pointerCompanion, new ExInPointerTranslator());
+                    generation, pointerCompanion, pointer);
             }
 
             PublishBatteryAlertVE(batteryAlert);

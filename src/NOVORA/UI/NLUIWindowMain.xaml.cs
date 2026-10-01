@@ -795,6 +795,18 @@ public partial class NLUIWindowMain : Window
     private async void ExInUiMode_Click(object sender, RoutedEventArgs e)
         => await SetExInModeFromUiVEAsync(ExInInputMode.Ui);
 
+    private void ExInPointerSensitivity_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_exInEngine is null) return;
+        double value = e.NewValue / 100d;
+        _exInEngine.Manager.SetPointerSensitivityVE(value);
+        NLServiceSettings settings = new();
+        NLServiceNovoraSettings snapshot = settings.Load();
+        snapshot.ExInPointerSensitivity = (int)Math.Round(e.NewValue);
+        settings.Save(snapshot);
+        ExInPointerSensitivityText14.Text = $"{e.NewValue:0}%";
+    }
+
     private void ExInWindowsCalibration_Click(object sender, RoutedEventArgs e)
     {
         try
