@@ -1476,21 +1476,6 @@ public sealed class NLAndroidUIActivity : Activity
             StartActivity(new Intent(Android.Provider.Settings.ActionAccessibilitySettings));
             return Task.CompletedTask;
         }
-        if (!NLAndroidInputMethodService.IsEnabled(this))
-        {
-            _pcVideoAuthorizationObserved = false;
-            _status.Text = "Activa Teclado NOVORA para escribir desde la PC y vuelve a iniciar VisionEngine.";
-            StartActivity(new Intent(Android.Provider.Settings.ActionInputMethodSettings));
-            return Task.CompletedTask;
-        }
-        if (!NLAndroidInputMethodService.IsSelected(this))
-        {
-            _pcVideoAuthorizationObserved = false;
-            _status.Text = "Selecciona Teclado NOVORA como teclado actual y vuelve a iniciar VisionEngine.";
-            ((Android.Views.InputMethods.InputMethodManager?)GetSystemService(InputMethodService))
-                ?.ShowInputMethodPicker();
-            return Task.CompletedTask;
-        }
         if (CheckSelfPermission(Android.Manifest.Permission.RecordAudio) != Permission.Granted)
         {
             _status.Text = "Autoriza audio para compartir el sonido del teléfono con VisionEngine.";

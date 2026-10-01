@@ -52,10 +52,6 @@ public sealed class NLAndroidControlAccessibilityService : AccessibilityService
     public static async Task<NLControlInputResponse?> ExecuteWithResponseAsync(
         NLControlInputCommand command, CancellationToken cancellationToken)
     {
-        if (command.Type is 0 or 1 or 4 &&
-            NLAndroidInputMethodService.TryExecute(command))
-            return null;
-
         NLAndroidControlAccessibilityService service;
         lock (Gate)
         {

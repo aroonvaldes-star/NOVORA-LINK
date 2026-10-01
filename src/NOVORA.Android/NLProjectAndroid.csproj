@@ -7,8 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>NOVORA.AndroidApp</RootNamespace>
     <ApplicationId>com.novora.appcontrol</ApplicationId>
-    <ApplicationVersion>51</ApplicationVersion>
-    <ApplicationDisplayVersion>1.4.51</ApplicationDisplayVersion>
+    <ApplicationVersion>52</ApplicationVersion>
+    <ApplicationDisplayVersion>1.4.52</ApplicationDisplayVersion>
     <ApplicationTitle>NOVORA-LINK</ApplicationTitle>
     <AndroidManifest>Properties\NLPropertiesAndroidManifest.xml</AndroidManifest>
     <AndroidPackageFormats>apk</AndroidPackageFormats>
@@ -35,7 +35,6 @@
     <AndroidResource Include="..\NOVORA\Asset\NLAssetNovoraLogo.png" Link="Resources\drawable\novora_logo.png" />
     <AndroidResource Include="..\NOVORA\Asset\NLAssetBienvenido.png" Link="Resources\drawable\novora_welcome.png" />
     <AndroidResource Include="AndroidResource\NLAndroidResourceAccessibility.xml" Link="Resources\xml\novora_accessibility.xml" />
-    <AndroidResource Include="AndroidResource\NLAndroidResourceInputMethod.xml" Link="Resources\xml\novora_input_method.xml" />
   </ItemGroup>
   <Target Name="NovoraRequireExplicitPackaging" BeforeTargets="_CreateBaseApk;_BuildApkEmbed;_BuildApkFastDev;SignAndroidPackage">
     <Error Condition="'$(NovoraPackage)' != 'true'" Text="NOVORA no empaqueta automáticamente. Valida con -t:Compile; para una prueba instalada usa -p:NovoraPackage=true explícitamente." />
