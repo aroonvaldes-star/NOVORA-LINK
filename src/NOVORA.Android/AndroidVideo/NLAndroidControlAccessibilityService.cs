@@ -337,14 +337,12 @@ public sealed class NLAndroidControlAccessibilityService : AccessibilityService
         var metrics = Resources?.DisplayMetrics ?? throw new InvalidOperationException("Pantalla no disponible.");
         if (command.ScreenWidth == 0 || command.ScreenHeight == 0)
             throw new InvalidDataException("La orden no incluye el tamaño de la pantalla.");
-        if (!NLControlPointerGeometry.MatchesCurrentOrientation(
-                command.ScreenWidth, command.ScreenHeight,
-                metrics.WidthPixels, metrics.HeightPixels))
-            throw new InvalidOperationException(
-                "La geometría del puntero pertenece a una orientación anterior.");
+        (float x, float y) = NLControlPointerGeometry.MapToCurrentOrientation(
+            command.X, command.Y, command.ScreenWidth, command.ScreenHeight,
+            metrics.WidthPixels, metrics.HeightPixels);
         return new PointF(
-            Math.Clamp(command.X * metrics.WidthPixels / (float)command.ScreenWidth, 0, metrics.WidthPixels - 1),
-            Math.Clamp(command.Y * metrics.HeightPixels / (float)command.ScreenHeight, 0, metrics.HeightPixels - 1));
+            Math.Clamp(x, 0, metrics.WidthPixels - 1),
+            Math.Clamp(y, 0, metrics.HeightPixels - 1));
     }
 
     private void SetFocusedText(string text) => EditFocusedText(text);

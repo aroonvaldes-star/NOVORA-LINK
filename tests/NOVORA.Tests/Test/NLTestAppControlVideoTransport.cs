@@ -57,6 +57,18 @@ public sealed class NLTestAppControlVideoTransport
     }
 
     [Theory]
+    [InlineData(0, 0, 2399, 0)]
+    [InlineData(1079, 2399, 0, 1079)]
+    public void Native_pointer_reprojects_previous_orientation_to_current_screen(
+        float x, float y, float expectedX, float expectedY)
+    {
+        (float mappedX, float mappedY) = NLControlPointerGeometry.MapToCurrentOrientation(
+            x, y, 1080, 2400, 2400, 1080);
+        Assert.Equal(expectedX, mappedX);
+        Assert.Equal(expectedY, mappedY);
+    }
+
+    [Theory]
     [InlineData(1080, 2400, 1920, 864, 1920)]
     [InlineData(2400, 1080, 1920, 1920, 864)]
     [InlineData(1080, 2400, 4320, 1080, 2400)]

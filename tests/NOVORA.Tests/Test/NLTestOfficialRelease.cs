@@ -15,12 +15,12 @@ public sealed class NLTestOfficialRelease
     {
         string root = RepositoryRoot();
         var project = XDocument.Load(Path.Combine(root, "src", "NOVORA.Android", "NLProjectAndroid.csproj"));
-        Assert.Equal("48", project.Descendants("ApplicationVersion").Single().Value);
-        Assert.Equal("1.4.48", project.Descendants("ApplicationDisplayVersion").Single().Value);
+        Assert.Equal("53", project.Descendants("ApplicationVersion").Single().Value);
+        Assert.Equal("1.4.53", project.Descendants("ApplicationDisplayVersion").Single().Value);
 
         var package = NLServiceAndroidPackage.Load(Path.Combine(root, "src", "NOVORA", "Android"));
-        Assert.Equal(48, package.VersionCode);
-        Assert.Equal("1.4.48", package.VersionName);
+        Assert.Equal(53, package.VersionCode);
+        Assert.Equal("1.4.53", package.VersionName);
         Assert.Equal(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(package.ApkPath))), package.Sha256);
     }
 

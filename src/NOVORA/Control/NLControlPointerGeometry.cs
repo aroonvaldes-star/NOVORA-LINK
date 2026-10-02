@@ -81,6 +81,25 @@ public static class NLControlPointerGeometry
         return (commandWidth >= commandHeight) == (currentWidth >= currentHeight);
     }
 
+    public static (float X, float Y) MapToCurrentOrientation(
+        float x,
+        float y,
+        ushort commandWidth,
+        ushort commandHeight,
+        int currentWidth,
+        int currentHeight)
+    {
+        if (commandWidth == 0 || commandHeight == 0 || currentWidth <= 0 || currentHeight <= 0)
+            throw new ArgumentOutOfRangeException(nameof(commandWidth));
+
+        float nx = Math.Clamp(x / Math.Max(1f, commandWidth - 1), 0f, 1f);
+        float ny = Math.Clamp(y / Math.Max(1f, commandHeight - 1), 0f, 1f);
+        bool sameOrientation = MatchesCurrentOrientation(commandWidth, commandHeight, currentWidth, currentHeight);
+        float currentX = sameOrientation ? nx : 1f - ny;
+        float currentY = sameOrientation ? ny : nx;
+        return (currentX * Math.Max(0, currentWidth - 1), currentY * Math.Max(0, currentHeight - 1));
+    }
+
     private static int ScaleCoordinate(double normalized, int length) =>
         Math.Clamp(
             (int)Math.Round(normalized * Math.Max(0, length - 1),
