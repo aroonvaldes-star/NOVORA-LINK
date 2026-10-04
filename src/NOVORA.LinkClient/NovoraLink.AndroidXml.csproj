@@ -22,5 +22,6 @@
     <Compile Include="..\NOVORA\Control\NLControlLanDiscovery.cs" Link="Control\NLControlLanDiscovery.cs" />
     <Compile Include="..\NOVORA\Control\NLControlTrustedPc.cs" Link="Control\NLControlTrustedPc.cs" />
     <Compile Include="..\NOVORA\Control\NLControlVpnProtocol.cs" Link="Control\NLControlVpnProtocol.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlVeLanProtocol.cs" Link="Control\NLControlVeLanProtocol.cs" />
   </ItemGroup>
 </Project>

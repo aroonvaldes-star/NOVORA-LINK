@@ -23,5 +23,6 @@
     <Compile Include="..\..\src\NOVORA.LinkClient\NovoraViewState.cs" Link="LinkClient\NovoraViewState.cs" />
     <Compile Include="..\..\src\NOVORA.LinkClient\NovoraUsbBootstrap.cs" Link="LinkClient\NovoraUsbBootstrap.cs" />
     <Compile Include="..\..\src\NOVORA.LinkClient\NovoraVeTransportSelection.cs" Link="LinkClient\NovoraVeTransportSelection.cs" />
+    <Compile Include="..\..\src\NOVORA.LinkClient\NovoraVeLanClient.cs" Link="LinkClient\NovoraVeLanClient.cs" />
   </ItemGroup>
 </Project>
