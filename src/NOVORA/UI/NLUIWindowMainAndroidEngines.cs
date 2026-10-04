@@ -10,6 +10,8 @@ namespace NOVORA;
 
 public partial class NLUIWindowMain
 {
+    internal static bool CanStartVeLanVideo(string transport, bool authorized, bool engineCanStart) =>
+        transport == "LAN" && authorized && engineCanStart;
     private NLControlEngines? _lastAndroidEngineState;
     private CancellationTokenSource? _androidLinkStartCancellation;
     private Task _androidLinkStartTask = Task.CompletedTask;
@@ -55,9 +57,10 @@ public partial class NLUIWindowMain
         string exInMessage = !_viewModel.ExInEnabled
             ? "ExInEngine desactivado en PC."
             : exIn?.Message ?? "ExInEngine todavía no está inicializado.";
+        bool videoSourceAvailable = device.Connected && !string.IsNullOrWhiteSpace(device.Serial) || lanEligible;
         return new NLControlEngines(
-            !_closing && !videoBusy && !videoRunning && device.Connected &&
-                !string.IsNullOrWhiteSpace(device.Serial) && _viewModel.SelectedMonitor is not null,
+            !_closing && !videoBusy && !videoRunning && videoSourceAvailable &&
+                _viewModel.SelectedMonitor is not null,
             !_closing && !videoBusy && videoRunning,
             !_closing && (usbEligible && link is not null && (link.EngineLE is null || linkCanTakeOver) ||
                 lanEligible && !lanPrepared && link?.EngineLE is null) && !_androidLinkStarting && !_androidLinkStopping,
@@ -66,9 +69,9 @@ public partial class NLUIWindowMain
             _androidLinkStopping ? "Stopping" : _androidLinkStarting ? "Starting" :
                 linkSession?.State.ToString() ?? LERuntimeState.Stopped.ToString(),
             linkMessage,
-            device.Connected ? device.FriendlyName : "Sin dispositivo Android seleccionado en PC",
+            device.Connected ? device.FriendlyName : lanEligible ? "Android autorizado por LAN" : "Sin dispositivo Android seleccionado en PC",
             videoBusy ? "Ocupado" : videoRunning ? "Activo" : "Detenido",
-            !device.Connected ? "Conecta y selecciona el teléfono en PC." :
+            !videoSourceAvailable ? "Conecta y selecciona el teléfono en PC o vincúlalo por LAN." :
                 _viewModel.SelectedMonitor is null ? "Selecciona un monitor en PC." :
                 videoBusy ? "VisionEngine está cambiando de estado." : "",
             exInState,
@@ -108,6 +111,8 @@ public partial class NLUIWindowMain
             case "startAppVideo":
                 ClearPcVideoAuthorizationRequest();
                 return await PrepareAppControlVideoAsync(request);
+            case "startVideoLan":
+                return await PrepareVeLanVideoAsync(request, transport);
             case "startVideo":
                 if (IsVisionEngineRunningVE()) return Reply(true, "VisionEngine ya está iniciado.");
                 await SetVisionEngineRunningVEAsync(true, SameDevice);
@@ -115,6 +120,11 @@ public partial class NLUIWindowMain
                     IsVisionEngineRunningVE() ? "VisionEngine iniciado." : "VisionEngine no se inició.");
             case "stopVideo":
                 if (!IsVisionEngineRunningVE()) return Reply(true, "VisionEngine ya está detenido.");
+                if (_visionEngineVE?.RuntimeVE.ExternalSourceKindVE == VEExternalSourceKind.NativeLan)
+                {
+                    await StopVeLanVideoAsync();
+                    return Reply(Authorized() && !IsVisionEngineRunningVE(), "VisionEngine LAN detenido.");
+                }
                 if (_visionEngineVE?.RuntimeVE.IsAppControlVideoActiveVE == true)
                 {
                     await StopAppControlVideoSourceAsync();
@@ -123,6 +133,12 @@ public partial class NLUIWindowMain
                 await SetVisionEngineRunningVEAsync(false, Authorized);
                 return Reply(Authorized() && !IsVisionEngineRunningVE(), "VisionEngine detenido.");
             case "restartVideo":
+                if (_visionEngineVE?.RuntimeVE.ExternalSourceKindVE == VEExternalSourceKind.NativeLan)
+                {
+                    await PreserveVisionFailoverDuringRestartVEAsync(() => StopVeLanVideoAsync(
+                        "VisionEngine LAN detenido; vuelve a iniciarlo para renovar el permiso de captura."));
+                    return Reply(false, "VisionEngine LAN se detuvo. Inícialo otra vez para renovar la captura.");
+                }
                 if (_visionEngineVE?.RuntimeVE.IsAppControlVideoActiveVE == true)
                 {
                     await PreserveVisionFailoverDuringRestartVEAsync(StopAppControlVideoSourceAsync);

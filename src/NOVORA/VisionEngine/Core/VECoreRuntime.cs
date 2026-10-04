@@ -13,6 +13,8 @@ using NOVORA.VisionEngine.Video;
 
 namespace NOVORA.VisionEngine.Core;
 
+public enum VEExternalSourceKind { None, UsbAppControl, NativeLan }
+
 /// <summary>
 /// Runtime Block D: Device -> Server -> transport -> decode -> renderer Direct3D11,
 /// además de audio y el adaptador de control. ExInEngine y las integraciones
@@ -26,7 +28,7 @@ public sealed class VECoreRuntime : IAsyncDisposable
     private VETransportTunnel? _tunnelVE;
     private VEServerSession? _serverSessionVE;
     private VETransportSession? _transportSessionVE;
-    private bool _appControlVideoActiveVE;
+    private VEExternalSourceKind _externalSourceKindVE;
     private int _appControlCleanupQueuedVE;
     private bool _initialized;
     private bool _disposed;
@@ -85,9 +87,10 @@ public sealed class VECoreRuntime : IAsyncDisposable
     public VEDeviceSession? DeviceSessionVE => _deviceSessionVE;
     public VETransportSession? TransportSessionVE => _transportSessionVE;
     public bool IsInitializedVE => _initialized;
-    public bool IsRunningVE => _appControlVideoActiveVE ||
+    public bool IsRunningVE => _externalSourceKindVE != VEExternalSourceKind.None ||
         _deviceSessionVE is not null && _serverSessionVE is not null && _transportSessionVE is not null;
-    public bool IsAppControlVideoActiveVE => _appControlVideoActiveVE;
+    public bool IsAppControlVideoActiveVE => _externalSourceKindVE != VEExternalSourceKind.None;
+    public VEExternalSourceKind ExternalSourceKindVE => _externalSourceKindVE;
 
     public Task InitializeAsync(CancellationToken cancellationToken = default)
     {
@@ -157,8 +160,20 @@ public sealed class VECoreRuntime : IAsyncDisposable
         Stream? audioStream,
         bool audioEnabled = true,
         CancellationToken cancellationToken = default)
+        => await StartExternalSourceAsync(VEExternalSourceKind.UsbAppControl,
+            videoStream, controlStream, audioStream, audioEnabled, cancellationToken).ConfigureAwait(false);
+
+    public async Task StartExternalSourceAsync(
+        VEExternalSourceKind sourceKind,
+        Stream videoStream,
+        Stream controlStream,
+        Stream? audioStream,
+        bool audioEnabled = true,
+        CancellationToken cancellationToken = default)
     {
         ThrowIfDisposedVE();
+        if (sourceKind == VEExternalSourceKind.None)
+            throw new ArgumentOutOfRangeException(nameof(sourceKind));
         ArgumentNullException.ThrowIfNull(videoStream);
         ArgumentNullException.ThrowIfNull(controlStream);
         if (audioEnabled) ArgumentNullException.ThrowIfNull(audioStream);
@@ -176,7 +191,7 @@ public sealed class VECoreRuntime : IAsyncDisposable
                     await AudioVE.StartAsync(audioStream!, playbackEnabled: true, cancellationToken).ConfigureAwait(false);
                 VideoVE.PreferNvidiaVE = NvidiaVE.BeginSessionVE() != NLNVIDIAProfile.Disabled;
                 await VideoVE.StartAsync(videoStream, cancellationToken).ConfigureAwait(false);
-                _appControlVideoActiveVE = true;
+                _externalSourceKindVE = sourceKind;
                 RaiseStatusChangedVE();
             }
             catch
@@ -222,7 +237,7 @@ public sealed class VECoreRuntime : IAsyncDisposable
             _tunnelVE = null;
         }
         _deviceSessionVE = null;
-        _appControlVideoActiveVE = false;
+        _externalSourceKindVE = VEExternalSourceKind.None;
         DeviceVE.CloseVE();
         ServerVE.MarkStoppedVE();
         RaiseStatusChangedVE();
@@ -250,7 +265,8 @@ public sealed class VECoreRuntime : IAsyncDisposable
     {
         NvidiaVE.UpdateDecoderVE(e);
         PublishStatusEventVE(VEEventsTypeEvent.VideoStatus);
-        if (_appControlVideoActiveVE && e.State is VEVideoStates.EndOfStream or VEVideoStates.Failed &&
+        if (_externalSourceKindVE != VEExternalSourceKind.None &&
+            e.State is (VEVideoStates.EndOfStream or VEVideoStates.Failed) &&
             Interlocked.Exchange(ref _appControlCleanupQueuedVE, 1) == 0)
             _ = StopAppControlAfterVideoEndAsync();
     }

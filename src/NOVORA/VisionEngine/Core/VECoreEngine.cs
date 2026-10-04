@@ -296,6 +296,17 @@ public sealed class VECoreEngine : IAsyncDisposable
         Stream? audioStream,
         bool audioEnabled = true,
         CancellationToken cancellationToken = default)
+        => await StartExternalSourceAsync(deviceSerial, VEExternalSourceKind.UsbAppControl,
+            videoStream, controlStream, audioStream, audioEnabled, cancellationToken).ConfigureAwait(false);
+
+    public async Task<VECoreResult> StartExternalSourceAsync(
+        string deviceSerial,
+        VEExternalSourceKind sourceKind,
+        Stream videoStream,
+        Stream controlStream,
+        Stream? audioStream,
+        bool audioEnabled = true,
+        CancellationToken cancellationToken = default)
     {
         ThrowIfDisposedVE();
         if (string.IsNullOrWhiteSpace(deviceSerial))
@@ -327,14 +338,16 @@ public sealed class VECoreEngine : IAsyncDisposable
                 LastError = null
             });
 
-            await _runtime.StartAppControlAsync(
-                videoStream, controlStream, audioStream, audioEnabled, cancellationToken).ConfigureAwait(false);
+            await _runtime.StartExternalSourceAsync(
+                sourceKind, videoStream, controlStream, audioStream, audioEnabled, cancellationToken).ConfigureAwait(false);
             UpdateSessionVE(session with
             {
                 State = VECoreStates.Running,
                 StartedAtUtc = DateTimeOffset.UtcNow,
                 UpdatedAtUtc = DateTimeOffset.UtcNow,
-                Message = "Video AppControl activo.",
+                Message = sourceKind == VEExternalSourceKind.NativeLan
+                    ? "Video VE LAN nativo activo."
+                    : "Video AppControl activo.",
                 LastError = null
             });
             PublishStatusVE(BuildRuntimeStatusVE(_status with
@@ -342,10 +355,14 @@ public sealed class VECoreEngine : IAsyncDisposable
                 State = VECoreStates.Running,
                 IsRunning = true,
                 UpdatedAtUtc = DateTimeOffset.UtcNow,
-                Message = "VisionEngine recibe video desde AppControl.",
+                Message = sourceKind == VEExternalSourceKind.NativeLan
+                    ? "VisionEngine recibe video por LAN nativa."
+                    : "VisionEngine recibe video desde AppControl.",
                 LastError = null
             }));
-            return VECoreResult.Ok("VisionEngine inició video desde AppControl.");
+            return VECoreResult.Ok(sourceKind == VEExternalSourceKind.NativeLan
+                ? "VisionEngine inició video por LAN nativa."
+                : "VisionEngine inició video desde AppControl.");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)

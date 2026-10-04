@@ -85,12 +85,11 @@ public partial class NLUIWindowMain
 
     private NLControlSnapshot CaptureAndroidControlSnapshot() => new(
         _androidControlRevision, Environment.MachineName, "1.4.0", _viewModel.Bitrate,
-        (_visionEngineVE?.RuntimeVE.PerformanceVE.ProfileVE ?? VEPerformanceProfile.Gaming).ToString(),
+        _viewModel.VisionProfile,
         _viewModel.SelectedAudioOutput, GetAndroidControlAudioStatus(),
         IsVisionEngineRunningVE(),
         _viewModel.BitrateOptions.Select(o => new NLControlOption(o.Value, o.Label)).ToArray(),
-        new[] { new NLControlOption("Gaming", "Juegos"), new NLControlOption("Balanced", "Equilibrado"),
-            new NLControlOption("Video", "Video"), new NLControlOption("Battery", "Ahorro") },
+        _viewModel.VisionProfileOptions.Select(o => new NLControlOption(o.Value, o.Label)).ToArray(),
         _viewModel.AudioOutputOptions.Select(o => new NLControlOption(o.Value, o.Label)).ToArray(),
         CaptureAndroidEngines(),
         new NLControlVideoSettings(_viewModel.MaxSize.ToString(), _viewModel.TargetFps.ToString(),
@@ -141,12 +140,10 @@ public partial class NLUIWindowMain
 
     private Task<NLControlReply> HandleAndroidControlAsync(NLControlRequest request, long generation, string transport) =>
         Dispatcher.InvokeAsync(() => generation == _androidControlGeneration && AndroidControlSessionOpen &&
-            (transport == "USB" || _androidControl?.IsAuthorized != true)
+            (transport == "USB" ? _androidControl?.IsAuthorized == true : _androidLanControl?.IsAuthorized == true)
             ? ApplyAndroidControlAsync(request, transport)
             : Task.FromResult(new NLControlReply(NLControlProtocol.Version, request.Id, false,
-                transport == "LAN" && _androidControl?.IsAuthorized == true
-                    ? "La sesión cambió a USB; LAN permanece disponible como respaldo."
-                    : "Sesión revocada."))).Task.Unwrap();
+                "Sesión revocada."))).Task.Unwrap();
 
     private async Task StopAutomaticUsbAsync()
     {
@@ -236,9 +233,11 @@ public partial class NLUIWindowMain
                 case "stopRecording":
                     return await ApplyAndroidMediaAsync(request);
                 case "profile":
-                    var profile = Enum.Parse<VEPerformanceProfile>(request.Value!);
+                    var profile = Enum.Parse<VEProfile>(request.Value!);
+                    var unified = VEProfileOptions.CreateVE(profile);
                     NLServiceVideoProfile.ApplyVE(_viewModel, profile);
-                    _visionEngineVE!.RuntimeVE.PerformanceVE.SetProfileVE(profile);
+                    _visionEngineVE!.RuntimeVE.PerformanceVE.SetProfileVE(unified.PerformanceProfile);
+                    _visionEngineVE.RuntimeVE.NvidiaVE.SetProfileVE(unified.NvidiaProfile);
                     _androidControlRevision++;
                     break;
                 case "audio":
@@ -256,6 +255,7 @@ public partial class NLUIWindowMain
                         : "Salida aceptada por AudioVE; consulta la salida activa mostrada abajo.");
                 case "startVideo":
                 case "startAppVideo":
+                case "startVideoLan":
                 case "stopVideo":
                 case "restartVideo":
                 case "startLink":
@@ -309,6 +309,7 @@ public partial class NLUIWindowMain
     {
         _androidControlGeneration++;
         await StopAppControlVideoSourceAsync();
+        await StopVeLanVideoAsync();
         ResetAndroidFileTransfer();
         Task finishRecording = FinishAndroidRecordingAsync();
         Task stopOwnedLink = StopAndroidOwnedLinkAsync();
