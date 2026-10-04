@@ -1,8 +1,11 @@
 # Verificación de transporte nativo VE LAN
 
-Fecha: 2026-10-04  
-Dispositivo: Samsung SM-A566E, Android 16  
-Paquete: `com.novora.linkclient`  
+Fecha: 2026-10-04
+
+Dispositivo: Samsung SM-A566E, Android 16
+
+Paquete: `com.novora.linkclient`
+
 Rama: `NOVORA-LINK`
 
 ## Evidencia automatizada
