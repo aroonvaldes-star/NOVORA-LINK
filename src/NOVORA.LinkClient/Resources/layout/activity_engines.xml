@@ -31,6 +31,11 @@
       <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_card" android:layout_marginTop="10dp">
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="▣  VisionEngine (Mirroring HW)" style="@style/CardTitle" />
         <TextView android:id="@+id/video_details" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Esperando estado real" style="@style/BodySmall" android:lineSpacingExtra="5dp" android:layout_marginTop="8dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Transporte de pantalla" style="@style/BodySmall" android:layout_marginTop="10dp" />
+        <RadioGroup android:id="@+id/video_transport_group" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+          <RadioButton android:id="@+id/video_transport_usb" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="USB" />
+          <RadioButton android:id="@+id/video_transport_lan" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="LAN nativo" />
+        </RadioGroup>
         <Button android:id="@+id/button_toggle_video" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Iniciar VisionEngine" style="@style/PrimaryButton" android:layout_marginTop="10dp" />
         <TextView android:id="@+id/resolution_badge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Resolución: 1440p QHD" style="@style/StatusBadge" android:layout_marginTop="10dp" />
         <RadioGroup android:id="@+id/resolution_group" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">

@@ -23,5 +23,15 @@
     <Compile Include="..\NOVORA\Control\NLControlTrustedPc.cs" Link="Control\NLControlTrustedPc.cs" />
     <Compile Include="..\NOVORA\Control\NLControlVpnProtocol.cs" Link="Control\NLControlVpnProtocol.cs" />
     <Compile Include="..\NOVORA\Control\NLControlVeLanProtocol.cs" Link="Control\NLControlVeLanProtocol.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlVideoSize.cs" Link="Control\NLControlVideoSize.cs" />
+    <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolBinary.cs" Link="VisionEngine\Protocol\VEProtocolBinary.cs" />
+    <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolCodec.cs" Link="VisionEngine\Protocol\VEProtocolCodec.cs" />
+    <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolConstants.cs" Link="VisionEngine\Protocol\VEProtocolConstants.cs" />
+    <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolExtensions.cs" Link="VisionEngine\Protocol\VEProtocolExtensions.cs" />
+    <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolSession.cs" Link="VisionEngine\Protocol\VEProtocolSession.cs" />
+    <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolWriter.cs" Link="VisionEngine\Protocol\VEProtocolWriter.cs" />
+    <Compile Include="..\NOVORA.Android\AndroidVideo\NLAndroidVideoEncoder.cs" Link="AndroidVideo\NLAndroidVideoEncoder.cs" />
+    <Compile Include="..\NOVORA.Android\AndroidVideo\NLAndroidVideoCompositor.cs" Link="AndroidVideo\NLAndroidVideoCompositor.cs" />
+    <Compile Include="..\NOVORA.Android\AndroidVideo\NLAndroidAudioCapture.cs" Link="AndroidVideo\NLAndroidAudioCapture.cs" />
   </ItemGroup>
 </Project>

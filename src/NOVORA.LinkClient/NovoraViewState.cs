@@ -22,7 +22,8 @@ public sealed record NovoraViewState(
     string LeftStick,
     string RightStick,
     string LeftTrigger,
-    string RightTrigger)
+    string RightTrigger,
+    bool VideoTransportSelectable)
 {
     public static NovoraViewState From(NLControlSessionState session)
     {
@@ -67,6 +68,7 @@ public sealed record NovoraViewState(
             exIn is null ? "Stick L (L3)\nSin datos" : $"Stick L (L3)\nX:{exIn.LeftX} Y:{exIn.LeftY}",
             exIn is null ? "Stick R (R3)\nSin datos" : $"Stick R (R3)\nX:{exIn.RightX} Y:{exIn.RightY}",
             exIn is null ? "LT / L2    —" : $"LT / L2    {exIn.LeftTrigger}",
-            exIn is null ? "RT / R2    —" : $"RT / R2    {exIn.RightTrigger}");
+            exIn is null ? "RT / R2    —" : $"RT / R2    {exIn.RightTrigger}",
+            available && snapshot?.VideoRunning != true && engines?.VideoCanStop != true);
     }
 }

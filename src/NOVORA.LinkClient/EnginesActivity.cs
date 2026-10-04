@@ -2,7 +2,9 @@ using Android.App;
 using Android.OS;
 using Android.Widget;
 using Android.Content;
+using Android.Content.PM;
 using Android.Net;
+using Android.Media.Projection;
 using NOVORA.Control;
 
 namespace NOVORA.LinkClient;
@@ -11,7 +13,13 @@ namespace NOVORA.LinkClient;
 public sealed class EnginesActivity : BaseActivity
 {
     private const int VpnPermissionRequest = 401;
+    private const int VeProjectionRequest = 402;
+    private const int AudioPermissionRequest = 403;
     private bool _rendering;
+    private bool _waitingForAudioPermission;
+    private NovoraVeTransportSelection _veTransport;
+    private NLControlVeLanOffer? _pendingVeOffer;
+    private readonly NovoraVeCaptureCoordinator _veCoordinator = new(NovoraConnection.SendAsync);
     private NovoraViewState _view = NovoraViewState.From(new(0, NLControlSessionPhase.Disconnected, "", "", null));
 
     protected override void OnCreate(Bundle? savedInstanceState)
@@ -19,6 +27,24 @@ public sealed class EnginesActivity : BaseActivity
         base.OnCreate(savedInstanceState);
         SetContentView(Resource.Layout.activity_engines);
         ConfigureNavigation();
+        _veTransport = NovoraVeTransportPreference.Load(this);
+        RenderVeTransportSelection();
+
+        FindViewById<RadioGroup>(Resource.Id.video_transport_group)!.CheckedChange += (_, e) =>
+        {
+            if (_rendering) return;
+            if (!_view.VideoTransportSelectable)
+            {
+                ShowMessage("Detén VisionEngine antes de cambiar USB/LAN.");
+                RenderVeTransportSelection();
+                return;
+            }
+            _veTransport = e.CheckedId == Resource.Id.video_transport_lan
+                ? NovoraVeTransportSelection.Lan
+                : NovoraVeTransportSelection.Usb;
+            NovoraVeTransportPreference.Save(this, _veTransport);
+            RenderConnection(Connection);
+        };
 
         var resolutionBadge = FindViewById<TextView>(Resource.Id.resolution_badge)!;
         FindViewById<RadioGroup>(Resource.Id.resolution_group)!.CheckedChange += async (_, e) =>
@@ -40,11 +66,68 @@ public sealed class EnginesActivity : BaseActivity
 
         FindViewById<Button>(Resource.Id.button_detect)!.Click += async (_, _) => await RunCommandAsync("get");
         FindViewById<Button>(Resource.Id.button_restart)!.Click += async (_, _) => await RunCommandAsync("restartVideo");
-        FindViewById<Button>(Resource.Id.button_toggle_video)!.Click += async (_, _) => await RunCommandAsync(_view.VideoButton.Action);
+        FindViewById<Button>(Resource.Id.button_toggle_video)!.Click += async (_, _) => await ToggleVideoAsync();
         FindViewById<Button>(Resource.Id.button_toggle_link)!.Click += async (_, _) => await ToggleLinkAsync();
         FindViewById<RadioGroup>(Resource.Id.controller_group)!.Enabled = false;
         FindViewById<Button>(Resource.Id.button_calibration_next)!.Enabled = false;
         FindViewById<Button>(Resource.Id.button_calibration_reset)!.Enabled = false;
+    }
+
+    private async Task ToggleVideoAsync()
+    {
+        if (_view.VideoButton.Action == "stopVideo")
+        {
+            NovoraVeLanCaptureService.Stop(this);
+            await RunCommandAsync("stopVideo");
+            return;
+        }
+        if (_view.VideoButton.Action != "startVideo") return;
+        await StartSelectedVideoAsync();
+    }
+
+    private async Task StartSelectedVideoAsync()
+    {
+        try
+        {
+            NovoraVeStartDecision decision = await _veCoordinator
+                .BeginAsync(_veTransport, Connection);
+            ShowMessage(decision.Message);
+            if (!decision.Success || !decision.RequestProjection) return;
+            _pendingVeOffer = decision.Offer
+                ?? throw new InvalidDataException("NOVORA PC no entregó la sesión VE LAN.");
+            if (_pendingVeOffer.Audio is not null &&
+                CheckSelfPermission(Android.Manifest.Permission.RecordAudio) != Permission.Granted)
+            {
+                _waitingForAudioPermission = true;
+                RequestPermissions([Android.Manifest.Permission.RecordAudio], AudioPermissionRequest);
+                return;
+            }
+            RequestVeProjection();
+        }
+        catch (Exception ex)
+        {
+            _pendingVeOffer = null;
+            ShowMessage(ex.Message);
+        }
+    }
+
+    private void RequestVeProjection()
+    {
+        var projectionManager = (MediaProjectionManager?)GetSystemService(MediaProjectionService)
+            ?? throw new InvalidOperationException("Android no ofrece captura de pantalla.");
+#pragma warning disable CA1422
+        StartActivityForResult(projectionManager.CreateScreenCaptureIntent(), VeProjectionRequest);
+#pragma warning restore CA1422
+    }
+
+    private void RenderVeTransportSelection()
+    {
+        _rendering = true;
+        FindViewById<RadioButton>(Resource.Id.video_transport_usb)!.Checked =
+            _veTransport == NovoraVeTransportSelection.Usb;
+        FindViewById<RadioButton>(Resource.Id.video_transport_lan)!.Checked =
+            _veTransport == NovoraVeTransportSelection.Lan;
+        _rendering = false;
     }
 
     private async Task SendVideoOptionAsync(string action, string text)
@@ -100,11 +183,47 @@ public sealed class EnginesActivity : BaseActivity
     protected override async void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
-        if (requestCode != VpnPermissionRequest) return;
-        if (resultCode == Result.Ok) await StartLinkAsync();
-        else ShowMessage("Android no autorizó la VPN local de LinkEngine.");
+        if (requestCode == VpnPermissionRequest)
+        {
+            if (resultCode == Result.Ok) await StartLinkAsync();
+            else ShowMessage("Android no autorizó la VPN local de LinkEngine.");
+            return;
+        }
+        if (requestCode != VeProjectionRequest) return;
+        NLControlVeLanOffer? offer = _pendingVeOffer;
+        _pendingVeOffer = null;
+        if (resultCode == Result.Ok && data is not null && offer is not null)
+        {
+            NovoraVeLanCaptureService.Start(this, resultCode, data, offer);
+            _veCoordinator.ProjectionStarted();
+            ShowMessage("Captura LAN autorizada; conectando VisionEngine.");
+        }
+        else
+        {
+            await _veCoordinator.ProjectionDeniedAsync();
+            ShowMessage("Captura cancelada. VisionEngine LAN fue detenido.");
+        }
     }
 #pragma warning restore CS0672, CA1422
+
+    public override async void OnRequestPermissionsResult(
+        int requestCode,
+        string[] permissions,
+        Permission[] grantResults)
+    {
+        base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != AudioPermissionRequest || !_waitingForAudioPermission) return;
+        _waitingForAudioPermission = false;
+        if (grantResults.Length == 0 || grantResults[0] != Permission.Granted)
+            ShowMessage("VisionEngine LAN continuará sin audio del dispositivo.");
+        try { RequestVeProjection(); }
+        catch (Exception ex)
+        {
+            _pendingVeOffer = null;
+            await _veCoordinator.ProjectionDeniedAsync();
+            ShowMessage(ex.Message);
+        }
+    }
 
     protected override void RenderConnection(NLControlSessionState state)
     {
@@ -116,11 +235,14 @@ public sealed class EnginesActivity : BaseActivity
         FindViewById<TextView>(Resource.Id.engines_bus_status)!.Text = _view.Connection;
         FindViewById<TextView>(Resource.Id.link_state)!.Text = state.Snapshot?.Engines?.LinkState ?? "No disponible";
         FindViewById<TextView>(Resource.Id.link_details)!.Text = _view.LinkStatus;
-        FindViewById<TextView>(Resource.Id.video_details)!.Text = _view.VideoDetails;
+        FindViewById<TextView>(Resource.Id.video_details)!.Text =
+            $"{_view.VideoDetails}\nTransporte seleccionado: {(_veTransport == NovoraVeTransportSelection.Lan ? "LAN nativo" : "USB")}";
         FindViewById<TextView>(Resource.Id.exin_state)!.Text = _view.ExInStatus;
         var videoButton = FindViewById<Button>(Resource.Id.button_toggle_video)!;
         videoButton.Text = _view.VideoButton.Label;
         videoButton.Enabled = _view.VideoButton.Enabled;
+        FindViewById<RadioGroup>(Resource.Id.video_transport_group)!.Enabled =
+            _view.VideoTransportSelectable;
         var linkButton = FindViewById<Button>(Resource.Id.button_toggle_link)!;
         linkButton.Text = _view.LinkButton.Label;
         linkButton.Enabled = _view.LinkButton.Enabled;
