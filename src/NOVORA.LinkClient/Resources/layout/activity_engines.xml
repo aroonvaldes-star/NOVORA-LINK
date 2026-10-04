@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@color/background">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="64dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingHorizontal="16dp" android:background="@color/surface_container_low">
+    <ImageView android:layout_width="0dp" android:layout_height="35dp" android:layout_weight="1"
+        android:src="@drawable/novora_wordmark" android:contentDescription="@string/brand_logo"
+        android:scaleType="fitStart" android:adjustViewBounds="true" />
+    <TextView android:id="@+id/connection_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/connection_type" style="@style/StatusBadge" />
+  </LinearLayout>
+  <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:clipToPadding="false">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/engines_title" style="@style/SectionTitle" />
+      <TextView android:id="@+id/engines_bus_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Esperando estado de NOVORA PC" style="@style/StatusBadge" android:layout_marginTop="8dp" />
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+        <Button android:id="@+id/button_detect" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="↻ Detectar" style="@style/SecondaryButton" />
+        <Button android:id="@+id/button_restart" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Reiniciar" style="@style/SecondaryButton" android:layout_marginStart="8dp" />
+      </LinearLayout>
+
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_card" android:layout_marginTop="14dp">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="↔  LinkEngine (PC ↔ Android)" style="@style/CardTitle" />
+        <TextView android:id="@+id/link_state" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="No disponible" style="@style/StatusBadge" android:layout_marginTop="6dp" />
+        <TextView android:id="@+id/link_details" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Esperando estado real" style="@style/BodySmall" android:lineSpacingExtra="5dp" android:layout_marginTop="8dp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="12dp">
+          <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Latencia I/O\nNo reportada" android:textColor="@color/on_surface" android:gravity="center" />
+          <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Pérdida\nNo reportada" android:textColor="@color/on_surface" android:gravity="center" />
+          <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Rendimiento\nNo reportado" android:textColor="@color/on_surface" android:gravity="center" />
+        </LinearLayout>
+      </LinearLayout>
+        <Button android:id="@+id/button_toggle_link" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Iniciar LinkEngine" style="@style/PrimaryButton" android:layout_marginTop="10dp" />
+
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_card" android:layout_marginTop="10dp">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="▣  VisionEngine (Mirroring HW)" style="@style/CardTitle" />
+        <TextView android:id="@+id/video_details" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Esperando estado real" style="@style/BodySmall" android:lineSpacingExtra="5dp" android:layout_marginTop="8dp" />
+        <Button android:id="@+id/button_toggle_video" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Iniciar VisionEngine" style="@style/PrimaryButton" android:layout_marginTop="10dp" />
+        <TextView android:id="@+id/resolution_badge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Resolución: 1440p QHD" style="@style/StatusBadge" android:layout_marginTop="10dp" />
+        <RadioGroup android:id="@+id/resolution_group" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+          <RadioButton android:id="@+id/resolution_1080" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="1080p" />
+          <RadioButton android:id="@+id/resolution_1440" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="1440p" android:checked="true" />
+        </RadioGroup>
+        <TextView android:id="@+id/fps_badge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tasa de refresco: 120 FPS" style="@style/StatusBadge" android:layout_marginTop="4dp" />
+        <RadioGroup android:id="@+id/fps_group" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+          <RadioButton android:id="@+id/fps_60" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="60 FPS" />
+          <RadioButton android:id="@+id/fps_120" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="120 FPS" android:checked="true" />
+        </RadioGroup>
+      </LinearLayout>
+
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_card" android:layout_marginTop="10dp">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="✚  ExInEngine (Mando &amp; Entradas)" style="@style/CardTitle" />
+        <TextView android:id="@+id/exin_state" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="No detectado" style="@style/StatusBadge" android:layout_marginTop="6dp" />
+        <RadioGroup android:id="@+id/controller_group" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+          <RadioButton android:id="@+id/controller_xbox" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Xbox Wireless" android:checked="true" />
+          <RadioButton android:id="@+id/controller_ps" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="DualSense / PS" />
+        </RadioGroup>
+        <TextView android:id="@+id/controller_details" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Xbox Wireless Controller\nVID: 045E • PID: 02FD • Batería: 92% (BT)\nXInput" style="@style/BodySmall" android:lineSpacingExtra="5dp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="10dp">
+          <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Polling Rate\nNo reportado" android:gravity="center" />
+          <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Latencia Input\nNo reportada" android:gravity="center" />
+          <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Jitter\nNo reportado" android:gravity="center" />
+        </LinearLayout>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Live Input Test • Respuesta en tiempo real" style="@style/SectionTitle" android:layout_marginTop="14dp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+          <TextView android:id="@+id/stick_left" android:layout_width="0dp" android:layout_height="80dp" android:layout_weight="1" android:gravity="center" android:background="@drawable/bg_subtle_card" android:text="Stick L (L3)\n●\nX:0 Y:0" />
+          <TextView android:id="@+id/stick_right" android:layout_width="0dp" android:layout_height="80dp" android:layout_weight="1" android:gravity="center" android:background="@drawable/bg_subtle_card" android:text="Stick R (R3)\n●\nX:0 Y:0" android:layout_marginStart="8dp" />
+        </LinearLayout>
+        <TextView android:id="@+id/left_trigger" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="LT / L2    —" style="@style/BodySmall" android:layout_marginTop="10dp" />
+        <ProgressBar style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="8dp" android:max="255" android:progress="0" android:progressDrawable="@drawable/bg_progress" />
+        <TextView android:id="@+id/right_trigger" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="RT / R2    —" style="@style/BodySmall" android:layout_marginTop="8dp" />
+        <ProgressBar style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="8dp" android:max="255" android:progress="0" android:progressDrawable="@drawable/bg_progress" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center" android:layout_marginTop="10dp">
+          <Button android:layout_width="56dp" android:layout_height="48dp" android:text="▲" style="@style/SecondaryButton" />
+          <Button android:layout_width="56dp" android:layout_height="48dp" android:text="◀" style="@style/SecondaryButton" />
+          <Button android:layout_width="56dp" android:layout_height="48dp" android:text="▼" style="@style/SecondaryButton" />
+          <Button android:layout_width="56dp" android:layout_height="48dp" android:text="▶" style="@style/SecondaryButton" />
+        </LinearLayout>
+      </LinearLayout>
+
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_subtle_card" android:layout_marginTop="10dp">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Calibración dinámica de mando" style="@style/SectionTitle" />
+        <TextView android:id="@+id/calibration_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="✓ Paso 1: Centrar sticks — Listo\n2  Paso 2: Rotación 360° — En curso\n3  Paso 3: Rango de gatillos — Pendiente\n4  Paso 4: Guardar perfil — Pendiente" android:lineSpacingExtra="8dp" android:textColor="@color/on_surface" android:layout_marginTop="10dp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="10dp">
+          <Button android:id="@+id/button_calibration_next" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Siguiente paso" style="@style/PrimaryButton" />
+          <Button android:id="@+id/button_calibration_reset" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Reiniciar" style="@style/SecondaryButton" android:layout_marginStart="8dp" />
+        </LinearLayout>
+      </LinearLayout>
+    </LinearLayout>
+  </ScrollView>
+  <LinearLayout android:layout_width="match_parent" android:layout_height="72dp" android:orientation="horizontal" android:background="@color/surface_container_lowest" android:gravity="center">
+    <Button android:id="@+id/nav_home" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/nav_home" android:textColor="@color/on_surface_variant" android:background="@color/transparent" />
+    <Button android:id="@+id/nav_engines" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/nav_engines" android:textColor="@color/primary" android:background="@color/secondary_container" />
+    <Button android:id="@+id/nav_files" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/nav_files" android:textColor="@color/on_surface_variant" android:background="@color/transparent" />
+  </LinearLayout>
+</LinearLayout>

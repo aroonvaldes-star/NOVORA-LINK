@@ -9,7 +9,7 @@ public static class NLControlCommands
         if (request.Action is "pair" or "get") return null;
         if (request.Action is "file.begin" or "file.chunk" or "file.end" or "file.cancel")
             return state.FileSharing ? null : "Esta PC no admite transferencia de archivos.";
-        if (request.Action is not ("applyVideoSettings" or "bitrate" or "profile" or "audio" or "resolution" or "fps" or "capture" or "startRecording" or "stopRecording" or "restartVideo" or "startVideo" or "startAppVideo" or "stopVideo" or "startLink" or "stopLink" or "exin.mode" or "exin.reactivate" or "exin.synchronize"))
+        if (request.Action is not ("applyVideoSettings" or "bitrate" or "profile" or "audio" or "resolution" or "fps" or "capture" or "startRecording" or "stopRecording" or "restartVideo" or "startVideo" or "startAppVideo" or "startVideoLan" or "stopVideo" or "startLink" or "stopLink" or "exin.mode" or "exin.reactivate" or "exin.synchronize"))
             return "Acción no disponible en este bloque.";
         if (request.Revision != state.Revision)
             return "Los ajustes cambiaron en PC. Revisa el estado actualizado y vuelve a aplicar.";
@@ -60,7 +60,7 @@ public static class NLControlCommands
             if (state.ExIn.Transitioning) return "ExInEngine está cambiando de estado.";
             return null;
         }
-        if (request.Action is "startVideo" or "startAppVideo" or "stopVideo" or "startLink" or "stopLink")
+        if (request.Action is "startVideo" or "startAppVideo" or "startVideoLan" or "stopVideo" or "startLink" or "stopLink")
         {
             if (request.Value is not null) return "La acción de motor no acepta valores adicionales.";
             var engines = state.Engines;
@@ -69,6 +69,7 @@ public static class NLControlCommands
             {
                 "startVideo" => engines.VideoCanStart,
                 "startAppVideo" => engines.VideoCanStart,
+                "startVideoLan" => engines.VideoCanStart,
                 "stopVideo" => engines.VideoCanStop,
                 "startLink" => engines.LinkCanStart,
                 "stopLink" => engines.LinkCanStop,
