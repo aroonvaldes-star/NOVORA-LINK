@@ -69,4 +69,23 @@ public sealed class NLTestVeLanState
         Assert.Contains("Transmitiendo sin audio", view.VideoStatus, StringComparison.Ordinal);
         Assert.Contains("LAN", view.VideoDetails, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void AwaitingPermissionDisablesTransportSelection()
+    {
+        var engines = new NLControlEngines(
+            VideoCanStart: false, VideoCanStop: false,
+            LinkCanStart: false, LinkCanStop: false, LinkRunning: false,
+            LinkState: "Stopped", LinkMessage: "", DeviceName: "Android LAN",
+            VideoTransport: "LAN", VideoPhase: "AwaitingPermission");
+        var snapshot = new NLControlSnapshot(
+            10, "NOVORA", "1", "8 Mbps", "Equilibrado", "Desactivado", "Desactivado",
+            false, [], [], [], engines);
+
+        NovoraViewState view = NovoraViewState.From(new(
+            10, NLControlSessionPhase.Connected, "LAN", "Conectado", snapshot));
+
+        Assert.False(view.VideoTransportSelectable);
+        Assert.Contains("Esperando permiso", view.VideoStatus, StringComparison.Ordinal);
+    }
 }

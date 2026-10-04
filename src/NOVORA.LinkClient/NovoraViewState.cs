@@ -33,6 +33,7 @@ public sealed record NovoraViewState(
         NLControlMedia? media = snapshot?.Media;
         NLControlExIn? exIn = snapshot?.ExIn;
         bool available = connected && !session.Busy;
+        bool transportStable = engines?.VideoPhase is null or "" or "Disconnected" or "Ready" or "Error";
 
         string connection = session.Phase switch
         {
@@ -72,7 +73,8 @@ public sealed record NovoraViewState(
             exIn is null ? "Stick R (R3)\nSin datos" : $"Stick R (R3)\nX:{exIn.RightX} Y:{exIn.RightY}",
             exIn is null ? "LT / L2    —" : $"LT / L2    {exIn.LeftTrigger}",
             exIn is null ? "RT / R2    —" : $"RT / R2    {exIn.RightTrigger}",
-            available && snapshot?.VideoRunning != true && engines?.VideoCanStop != true);
+            available && transportStable && snapshot?.VideoRunning != true &&
+                engines?.VideoCanStop != true);
     }
 
     public static string DescribeVePhase(string? phase, bool degraded = false) =>

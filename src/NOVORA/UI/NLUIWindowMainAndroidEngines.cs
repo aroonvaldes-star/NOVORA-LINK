@@ -46,10 +46,11 @@ public partial class NLUIWindowMain
         bool lanLifecycle = _veLanSessionVE is not null ||
             externalSource == VEExternalSourceKind.NativeLan ||
             _veLanPhaseVE is "Preparing" or "AwaitingPermission" or "Connecting" or
-                "Degraded" or "Error" or "Stopping";
-        string videoTransport = lanLifecycle ? "LAN" :
+                "Degraded" or "Stopping";
+        bool lanStateVisible = lanLifecycle || _veLanPhaseVE == "Error";
+        string videoTransport = lanStateVisible ? "LAN" :
             externalSource == VEExternalSourceKind.UsbAppControl || videoRunning ? "USB" : "";
-        string videoPhase = lanLifecycle ? _veLanPhaseVE :
+        string videoPhase = lanStateVisible ? _veLanPhaseVE :
             !AndroidControlAuthorized ? "Disconnected" : videoBusy ? "Preparing" :
             videoRunning ? "Streaming" : "Ready";
         bool lanRunning = _androidLanDataGateway?.IsConnected == true;
@@ -70,7 +71,7 @@ public partial class NLUIWindowMain
             : exIn?.Message ?? "ExInEngine todavía no está inicializado.";
         bool videoSourceAvailable = device.Connected && !string.IsNullOrWhiteSpace(device.Serial) || lanEligible;
         return new NLControlEngines(
-            !_closing && !videoBusy && !videoRunning && videoSourceAvailable &&
+            !_closing && !videoBusy && !videoRunning && !lanLifecycle && videoSourceAvailable &&
                 _viewModel.SelectedMonitor is not null,
             !_closing && !videoBusy && videoRunning,
             !_closing && (usbEligible && link is not null && (link.EngineLE is null || linkCanTakeOver) ||
@@ -82,7 +83,7 @@ public partial class NLUIWindowMain
             linkMessage,
             device.Connected ? device.FriendlyName : lanEligible ? "Android autorizado por LAN" : "Sin dispositivo Android seleccionado en PC",
             videoBusy ? "Ocupado" : videoRunning ? "Activo" : "Detenido",
-            lanLifecycle ? _veLanMessageVE : !videoSourceAvailable ? "Conecta y selecciona el teléfono en PC o vincúlalo por LAN." :
+            lanStateVisible ? _veLanMessageVE : !videoSourceAvailable ? "Conecta y selecciona el teléfono en PC o vincúlalo por LAN." :
                 _viewModel.SelectedMonitor is null ? "Selecciona un monitor en PC." :
                 videoBusy ? "VisionEngine está cambiando de estado." : "",
             exInState,
@@ -91,7 +92,7 @@ public partial class NLUIWindowMain
             _pcVideoAuthorizationRequested,
             videoTransport,
             videoPhase,
-            lanLifecycle && _veLanDegradedVE);
+            lanStateVisible && _veLanDegradedVE);
     }
 
     // Existing engine/device events publish only changes relevant to the control UI.
