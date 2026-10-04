@@ -41,6 +41,17 @@ public partial class NLUIWindowMain
             linkSession.Serial, device.Serial, StringComparison.OrdinalIgnoreCase);
         bool linkUsesOtherDevice = link?.EngineLE is not null && !linkUsesSelectedDevice;
         bool lanEligible = _androidLanControl?.IsAuthorized == true;
+        VEExternalSourceKind externalSource = _visionEngineVE?.RuntimeVE.ExternalSourceKindVE ??
+            VEExternalSourceKind.None;
+        bool lanLifecycle = _veLanSessionVE is not null ||
+            externalSource == VEExternalSourceKind.NativeLan ||
+            _veLanPhaseVE is "Preparing" or "AwaitingPermission" or "Connecting" or
+                "Degraded" or "Error" or "Stopping";
+        string videoTransport = lanLifecycle ? "LAN" :
+            externalSource == VEExternalSourceKind.UsbAppControl || videoRunning ? "USB" : "";
+        string videoPhase = lanLifecycle ? _veLanPhaseVE :
+            !AndroidControlAuthorized ? "Disconnected" : videoBusy ? "Preparing" :
+            videoRunning ? "Streaming" : "Ready";
         bool lanRunning = _androidLanDataGateway?.IsConnected == true;
         bool lanPrepared = _androidLanDataGateway is not null;
         bool linkCanTakeOver = (usbEligible || lanEligible) && linkUsesOtherDevice && !_androidLinkStarting && !_androidLinkStopping;
@@ -71,13 +82,16 @@ public partial class NLUIWindowMain
             linkMessage,
             device.Connected ? device.FriendlyName : lanEligible ? "Android autorizado por LAN" : "Sin dispositivo Android seleccionado en PC",
             videoBusy ? "Ocupado" : videoRunning ? "Activo" : "Detenido",
-            !videoSourceAvailable ? "Conecta y selecciona el teléfono en PC o vincúlalo por LAN." :
+            lanLifecycle ? _veLanMessageVE : !videoSourceAvailable ? "Conecta y selecciona el teléfono en PC o vincúlalo por LAN." :
                 _viewModel.SelectedMonitor is null ? "Selecciona un monitor en PC." :
                 videoBusy ? "VisionEngine está cambiando de estado." : "",
             exInState,
             exInMessage,
             linkCanTakeOver,
-            _pcVideoAuthorizationRequested);
+            _pcVideoAuthorizationRequested,
+            videoTransport,
+            videoPhase,
+            lanLifecycle && _veLanDegradedVE);
     }
 
     // Existing engine/device events publish only changes relevant to the control UI.

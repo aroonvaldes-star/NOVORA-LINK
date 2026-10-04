@@ -8,6 +8,7 @@ namespace NOVORA.LinkClient;
 
 public abstract class BaseActivity : Activity
 {
+    private NLControlSessionPhase _lastConnectionPhase = NLControlSessionPhase.Disconnected;
     protected NLControlSessionState Connection => NovoraConnection.Current;
 
     protected override void OnResume()
@@ -28,6 +29,10 @@ public abstract class BaseActivity : Activity
 
     protected virtual void RenderConnection(NLControlSessionState state)
     {
+        if (_lastConnectionPhase == NLControlSessionPhase.Connected &&
+            state.Phase != NLControlSessionPhase.Connected)
+            NovoraVeLanCaptureService.Stop(this);
+        _lastConnectionPhase = state.Phase;
         var status = FindViewById<TextView>(Resource.Id.connection_status);
         if (status is not null) status.Text = NovoraViewState.From(state).Connection;
     }

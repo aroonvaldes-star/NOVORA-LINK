@@ -17,6 +17,7 @@ public sealed class EnginesActivity : BaseActivity
     private const int AudioPermissionRequest = 403;
     private bool _rendering;
     private bool _waitingForAudioPermission;
+    private bool _wasVideoRunning;
     private NovoraVeTransportSelection _veTransport;
     private NLControlVeLanOffer? _pendingVeOffer;
     private readonly NovoraVeCaptureCoordinator _veCoordinator = new(NovoraConnection.SendAsync);
@@ -228,6 +229,11 @@ public sealed class EnginesActivity : BaseActivity
     protected override void RenderConnection(NLControlSessionState state)
     {
         base.RenderConnection(state);
+        bool videoRunning = state.Snapshot?.VideoRunning == true;
+        if (_wasVideoRunning && !videoRunning &&
+            _veTransport == NovoraVeTransportSelection.Lan)
+            NovoraVeLanCaptureService.Stop(this);
+        _wasVideoRunning = videoRunning;
         _view = NovoraViewState.From(state);
         bool connected = state.Phase == NLControlSessionPhase.Connected;
         FindViewById<Button>(Resource.Id.button_detect)!.Enabled = connected && !state.Busy;

@@ -50,9 +50,12 @@ public sealed record NovoraViewState(
             snapshot?.PcName ?? "Sin PC enlazada",
             connected ? session.Transport == "LAN" ? "LAN segura" : session.Transport : "Sin transporte",
             engines is null ? "No disponible" : $"{engines.LinkState} · {engines.LinkMessage}",
-            engines is null ? "No disponible" : $"{engines.VideoState} · {engines.VideoMessage}",
+            engines is null ? "No disponible" : string.IsNullOrWhiteSpace(engines.VideoPhase)
+                ? $"{engines.VideoState} · {engines.VideoMessage}"
+                : $"{DescribeVePhase(engines.VideoPhase, engines.VideoDegraded)} · {engines.VideoMessage}",
             exIn?.Message ?? engines?.ExInMessage ?? "No detectado",
             snapshot is null ? "Sin datos de VisionEngine" :
+                $"{(string.IsNullOrWhiteSpace(engines?.VideoTransport) ? "Sin transporte VE" : engines.VideoTransport)} · " +
                 $"{snapshot.Profile} · {snapshot.Bitrate} · {snapshot.VideoSettings?.Resolution ?? "Resolución desconocida"} · {snapshot.VideoSettings?.Fps ?? "?"} FPS",
             new(videoAction == "stopVideo" ? "Detener VisionEngine" : "Iniciar VisionEngine", videoAction,
                 available && (videoAction == "stopVideo" ? engines?.VideoCanStop == true : engines?.VideoCanStart == true)),
@@ -71,4 +74,20 @@ public sealed record NovoraViewState(
             exIn is null ? "RT / R2    —" : $"RT / R2    {exIn.RightTrigger}",
             available && snapshot?.VideoRunning != true && engines?.VideoCanStop != true);
     }
+
+    public static string DescribeVePhase(string? phase, bool degraded = false) =>
+        degraded || string.Equals(phase, "Degraded", StringComparison.OrdinalIgnoreCase)
+            ? "Transmitiendo sin audio"
+            : phase switch
+            {
+                "Disconnected" => "Sin conexión",
+                "Ready" => "Listo",
+                "AwaitingPermission" => "Esperando permiso",
+                "Preparing" => "Preparando",
+                "Connecting" => "Conectando",
+                "Streaming" => "Transmitiendo",
+                "Error" => "Error",
+                "Stopping" => "Deteniendo",
+                _ => "Estado no disponible"
+            };
 }
