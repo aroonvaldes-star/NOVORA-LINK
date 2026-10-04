@@ -253,14 +253,30 @@ internal sealed class NovoraVeLanCaptureService : Service
         }
     }
 
-    private static async Task MonitorControlAsync(Stream stream, CancellationToken cancellationToken)
+    private async Task MonitorControlAsync(Stream stream, CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            NLControlInputCommand command = await NLControlProtocol
-                .ReadAsync<NLControlInputCommand>(stream, cancellationToken).ConfigureAwait(false);
-            Android.Util.Log.Debug("NOVORA-VE-LAN", $"Orden de control recibida: {command.Type}");
-        }
+        await NLControlInputLoop.RunDuplexAsync(
+            stream,
+            async (command, token) =>
+            {
+                if (command.Type == 17)
+                {
+                    _encoder?.RequestKeyFrame();
+                    return null;
+                }
+                return await NovoraVeLanAccessibilityService
+                    .ExecuteWithResponseAsync(command, token).ConfigureAwait(false);
+            },
+            async (command, exception, token) =>
+            {
+                Android.Util.Log.Warn("NOVORA-VE-LAN",
+                    $"Orden {command.Type} descartada: {exception.Message}");
+                if (command.Type == 2)
+                    await NovoraVeLanAccessibilityService.ResetPointersAsync(token)
+                        .ConfigureAwait(false);
+            },
+            TimeSpan.FromSeconds(2),
+            cancellationToken).ConfigureAwait(false);
     }
 
     private NLControlVideoSize GetCaptureSize(int maxSize)

@@ -24,6 +24,9 @@
     <Compile Include="..\NOVORA\Control\NLControlVpnProtocol.cs" Link="Control\NLControlVpnProtocol.cs" />
     <Compile Include="..\NOVORA\Control\NLControlVeLanProtocol.cs" Link="Control\NLControlVeLanProtocol.cs" />
     <Compile Include="..\NOVORA\Control\NLControlVideoSize.cs" Link="Control\NLControlVideoSize.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlInputLoop.cs" Link="Control\NLControlInputLoop.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlPointerGeometry.cs" Link="Control\NLControlPointerGeometry.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlAndroidInput.cs" Link="Control\NLControlAndroidInput.cs" />
     <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolBinary.cs" Link="VisionEngine\Protocol\VEProtocolBinary.cs" />
     <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolCodec.cs" Link="VisionEngine\Protocol\VEProtocolCodec.cs" />
     <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolConstants.cs" Link="VisionEngine\Protocol\VEProtocolConstants.cs" />
