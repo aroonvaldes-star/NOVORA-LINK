@@ -187,6 +187,7 @@ public partial class NLUIWindowMain
 
     private async Task StopAppControlVideoSourceAsync()
     {
+        Task pendingVideo = _appControlVideoTaskVE;
         bool ownsVideo = _appControlVideoTransportVE is not null ||
             _visionEngineVE?.RuntimeVE.IsAppControlVideoActiveVE == true;
         if (!ownsVideo) return;
@@ -194,6 +195,8 @@ public partial class NLUIWindowMain
         if (_visionEngineVE?.RuntimeVE.IsAppControlVideoActiveVE == true)
             await _visionEngineVE.StopAsync();
         await DisposeAppControlVideoTransportAsync();
+        try { await pendingVideo.ConfigureAwait(true); }
+        catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException) { }
         _activeVisionSerialVE = null;
         CloseVisionPresentationVE(restoreMainWindow: true, refreshInformation: true);
         AndroidEngineStateChanged();

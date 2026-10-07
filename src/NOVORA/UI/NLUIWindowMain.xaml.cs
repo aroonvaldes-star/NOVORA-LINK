@@ -15,6 +15,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -257,6 +258,42 @@ public partial class NLUIWindowMain : Window
         RoutedEventArgs e)
         => WindowState = WindowState.Minimized;
 
+    private void MaximizeRestore_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        WindowState =
+            WindowState == WindowState.Maximized
+                ? WindowState.Normal
+                : WindowState.Maximized;
+    }
+
+    private void Window_StateChanged(
+        object? sender,
+        EventArgs e)
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        MaximizeRestoreButton14.Content =
+            WindowState == WindowState.Maximized
+                ? "❐"
+                : "□";
+
+        AutomationProperties.SetName(
+            MaximizeRestoreButton14,
+            WindowState == WindowState.Maximized
+                ? "Restaurar NOVORA"
+                : "Maximizar NOVORA");
+
+        MaximizeRestoreButton14.ToolTip =
+            WindowState == WindowState.Maximized
+                ? "Restaurar"
+                : "Maximizar";
+    }
+
     private void Close_Click(
         object sender,
         RoutedEventArgs e)
@@ -421,26 +458,27 @@ public partial class NLUIWindowMain : Window
         }
     }
 
-    private void VideoProfile_SelectionChanged14(object sender, SelectionChangedEventArgs e)
+    private void VisionProfile_SelectionChanged14(object sender, SelectionChangedEventArgs e)
     {
-        if (!_shellInitialized14 || VideoProfileCombo14.SelectedItem is not ComboBoxItem item ||
-            item.Tag is not string selected ||
-            !Enum.TryParse<VisionEngine.Performance.VEPerformanceProfile>(selected, out var profile)) return;
+        if (VisionProfileCombo14.SelectedValue is not string selected ||
+            !Enum.TryParse<VisionEngine.Performance.VEProfile>(selected, out var profile)) return;
+        var unified = VisionEngine.Performance.VEProfileOptions.CreateVE(profile);
         NLServiceVideoProfile.ApplyVE(_viewModel, profile);
-        _visionEngineVE?.RuntimeVE.PerformanceVE.SetProfileVE(profile);
+        _visionEngineVE?.RuntimeVE.PerformanceVE.SetProfileVE(unified.PerformanceProfile);
+        _visionEngineVE?.RuntimeVE.NvidiaVE.SetProfileVE(unified.ToLegacyNvidiaVE());
         RecalculateOutputProfile14();
-        QueueSaveSelection14();
+        if (_shellInitialized14) QueueSaveSelection14();
         _androidControlRevision++;
         QueueAndroidControlSnapshot();
-        VideoProfileCombo14.SelectedIndex = -1;
-        ShowTopMessage14("Perfil de video preparado. Se aplica al iniciar o reconectar la transmisión.", NLUIMessageKind14.Info);
+        if (_shellInitialized14)
+            ShowTopMessage14("Perfil de VisionEngine preparado. Se aplica al iniciar o reconectar la transmisión.", NLUIMessageKind14.Info);
     }
 
-    private void InstallUpdateBanner_Click(
+    private async void InstallUpdateBanner_Click(
         object sender,
         RoutedEventArgs e)
     {
-        OpenOfficialRelease14();
+        await InstallOfficialRelease14Async();
     }
 
     private void ShellViewModel_PropertyChanged14(
@@ -590,8 +628,8 @@ public partial class NLUIWindowMain : Window
         _viewModel.IntegrationDynamicResizeEnabled =
             settings.IntegrationDynamicResizeEnabled;
         _viewModel.ExInEnabled = settings.ExInEnabled;
-        _viewModel.NvidiaProfile =
-            settings.NvidiaProfile;
+        _viewModel.VisionProfile =
+            settings.VisionProfile;
         ApplyAdvancedVisionSettingsVE();
 
         _viewModel.Monitors =
@@ -635,7 +673,7 @@ public partial class NLUIWindowMain : Window
                 IntegrationNotificationsEnabled = _viewModel.IntegrationNotificationsEnabled,
                 IntegrationDynamicResizeEnabled = _viewModel.IntegrationDynamicResizeEnabled,
                 ExInEnabled = _viewModel.ExInEnabled,
-                NvidiaProfile = _viewModel.NvidiaProfile
+                VisionProfile = _viewModel.VisionProfile
             });
     }
 
@@ -738,6 +776,7 @@ public partial class NLUIWindowMain : Window
                   $"LX {profile.Minimum.LeftX}:{profile.Maximum.LeftX} · LY {profile.Minimum.LeftY}:{profile.Maximum.LeftY} · RX {profile.Minimum.RightX}:{profile.Maximum.RightX} · RY {profile.Minimum.RightY}:{profile.Maximum.RightY}\n" +
                   $"LT {profile.Minimum.LeftTrigger}:{profile.Maximum.LeftTrigger} · RT {profile.Minimum.RightTrigger}:{profile.Maximum.RightTrigger}"
                 : "Sin perfil activo";
+        ExInDynamicCalibrationView14.UpdateVE(live);
         ApplyExInCalibrationProgressVE(live);
         static int AxisVE(short value) => (int)Math.Round(value / 32767d * 100);
         static int TriggerVE(short value) => (int)Math.Round(Math.Max(0, (int)value) / 32767d * 100);
@@ -868,10 +907,18 @@ public partial class NLUIWindowMain : Window
     private void ExInCalibrationReset_Click(object sender, RoutedEventArgs e)
     {
         if (!CanApplyExInCalibrationVE()) return;
+        if (MessageBox.Show(this,
+                "Se eliminará la calibración actual del control. ¿Quieres restablecerla?",
+                "Restablecer calibración",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
         _exInEngine?.Manager.ResetCalibrationVE();
         _androidControlRevision++;
         if (_exInEngine is not null) ApplyGamepadShell14(_exInEngine.Status);
         QueueAndroidControlSnapshot();
+        ShowTopMessage14("Calibración restablecida.", NLUIMessageKind14.Success);
     }
 
     private bool CanApplyExInCalibrationVE()
@@ -994,22 +1041,6 @@ public partial class NLUIWindowMain : Window
         => Dispatcher.Invoke(
             () =>
                 ApplyNvidiaShell14(status));
-
-    private void NvidiaProfile_SelectionChanged14(
-        object sender,
-        SelectionChangedEventArgs e)
-    {
-        if (NvidiaProfileCombo14.SelectedItem is ComboBoxItem item && item.Tag is string selected)
-            _viewModel.NvidiaProfile = selected;
-
-        ApplyAdvancedVisionSettingsVE();
-        if (!_shellInitialized14)
-        {
-            return;
-        }
-
-        QueueSaveSelection14();
-    }
 
     private async void WifiAdb_Click(
         object sender,

@@ -5,12 +5,28 @@ using System.Text.Json;
 namespace NOVORA.Control;
 
 public sealed record NLControlOption(string Value, string Label);
+public sealed record NLControlMetric<T>(T Value, DateTimeOffset SampledAtUtc, TimeSpan Window)
+{
+    public bool IsFreshVE(DateTimeOffset nowUtc, TimeSpan maxAge) =>
+        nowUtc >= SampledAtUtc && nowUtc - SampledAtUtc <= maxAge;
+}
+public sealed record NLControlLinkTelemetry(double RoundTripMs, double PacketLossPercent,
+    double TxMbps, double RxMbps, DateTimeOffset SampledAtUtc);
+public sealed record NLControlVisionTelemetry(int Width, int Height, double FramesPerSecond,
+    double MegabitsPerSecond, DateTimeOffset SampledAtUtc);
+public sealed record NLControlAcceleration(string Requested, string Selected, string Active,
+    bool Confirmed, string Evidence, string? FallbackReason = null);
+public sealed record NLControlExInTelemetry(long Sequence, DateTimeOffset SampledAtUtc,
+    double PollingHz, double PcProcessingMs, double JitterMs);
+public sealed record NLControlExInCalibration(int LeftStick, int RightStick,
+    int LeftTrigger, int RightTrigger, int Overall, bool Complete, string Phase);
 public sealed record NLControlEngines(bool VideoCanStart, bool VideoCanStop, bool LinkCanStart,
     bool LinkCanStop, bool LinkRunning, string LinkState, string LinkMessage, string DeviceName,
     string VideoState = "", string VideoMessage = "",
     string ExInState = "NotDetected", string ExInMessage = "ExInEngine no reportado por esta PC.",
     bool LinkCanTakeOver = false, bool VideoAuthorizationRequested = false,
-    string VideoTransport = "", string VideoPhase = "", bool VideoDegraded = false);
+    string VideoTransport = "", string VideoPhase = "", bool VideoDegraded = false,
+    NLControlLinkTelemetry? LinkTelemetry = null, NLControlVisionTelemetry? VisionTelemetry = null);
 public sealed record NLControlVideoSettings(string Resolution, string Fps,
     NLControlOption[] Resolutions, NLControlOption[] FrameRates,
     string Monitor = "", NLControlOption[]? Monitors = null, bool CanApplyTogether = false);
@@ -29,13 +45,14 @@ public sealed record NLControlExIn(bool Detected, string DeviceName, string VidP
     string Identity = "", string ConnectionType = "Unknown",
     bool SupportsGamepad = true, bool SupportsPointer = false, bool SupportsTouchpad = false,
     bool SupportsNavigation = false, bool CanCalibrate = false, string CalibrationDetails = "",
-    string BatteryAlert = "", long BatteryAlertSequence = 0);
+    string BatteryAlert = "", long BatteryAlertSequence = 0,
+    NLControlExInTelemetry? Telemetry = null, NLControlExInCalibration? CalibrationProgress = null);
 public sealed record NLControlSnapshot(
     long Revision, string PcName, string PcVersion, string Bitrate, string Profile,
     string AudioOutput, string ActiveAudioOutput, bool VideoRunning,
     NLControlOption[] Bitrates, NLControlOption[] Profiles, NLControlOption[] AudioOutputs, NLControlEngines? Engines = null,
     NLControlVideoSettings? VideoSettings = null, NLControlMedia? Media = null, bool FileSharing = false,
-    NLControlExIn? ExIn = null);
+    NLControlExIn? ExIn = null, NLControlAcceleration? Acceleration = null);
 public sealed record NLControlRequest(int Version, long Id, string Action, string? Value = null,
     long Revision = -1, string? Code = null);
 public sealed record NLControlReply(int Version, long Id, bool Success, string Message,

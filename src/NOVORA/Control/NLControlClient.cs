@@ -43,6 +43,34 @@ public sealed class NLControlClient : IAsyncDisposable
         catch { _stop.Cancel(); _socket.Dispose(); _stream?.Dispose(); throw; }
     }
 
+    public async Task<NLControlReply> ConnectLanAsync(
+        NLControlLanPeer peer, string pairingCode, bool allowLoopback = false)
+    {
+        peer.Validate(allowLoopback);
+        if (pairingCode is not { Length: 6 } || !pairingCode.All(char.IsAsciiDigit))
+            throw new InvalidDataException("El código LAN debe contener seis dígitos.");
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
+        deadline.CancelAfter(TimeSpan.FromSeconds(10));
+        try
+        {
+            await _socket.ConnectAsync(IPAddress.Parse(peer.Host), peer.Port, deadline.Token);
+            _socket.NoDelay = true;
+            ConfigureLiveness();
+            byte[] fingerprint = Convert.FromHexString(peer.Fingerprint);
+            var tls = new SslStream(_socket.GetStream(), false, (_, certificate, _, _) =>
+                certificate is not null && CryptographicOperations.FixedTimeEquals(
+                    SHA256.HashData(certificate.GetRawCertData()), fingerprint));
+            _stream = tls;
+            await tls.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
+            { TargetHost = "NOVORA", EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13 }, deadline.Token);
+            // Discovery is not trusted; the UI requires explicit comparison with the PC fingerprint
+            // before this pinned TLS channel is allowed to carry the one-time code.
+            _reader = ReadLoopAsync();
+            return await SendAsync("pair.lan", code: pairingCode);
+        }
+        catch { _stop.Cancel(); _socket.Dispose(); _stream?.Dispose(); throw; }
+    }
+
     public async Task<NLControlReply> ConnectTrustedAsync(NLControlTrustedPc pc, bool allowLoopback = false)
     {
         pc.Validate(allowLoopback);

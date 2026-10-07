@@ -2,40 +2,48 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace NOVORA.Control;
 
-public sealed record NLControlLanPeer(string Name, string Host, int Port);
+public sealed record NLControlLanPeer(string Name, string Host, int Port, string Fingerprint = "")
+{
+    public void Validate(bool allowLoopback = false)
+    {
+        if (Name is not { Length: > 0 and <= 128 } || Port is < 1 or > 65535 ||
+            Fingerprint is not { Length: 64 } || !Fingerprint.All(Uri.IsHexDigit) ||
+            !IPAddress.TryParse(Host, out IPAddress? address))
+            throw new InvalidDataException("Equipo LAN no válido.");
+        NLControlLanInvitation.ValidateAddress(address, allowLoopback);
+    }
+}
 public sealed record NLControlLanPairing(string Name, NLControlLanInvitation Invitation);
 
-/// <summary>Discovery is only a hint; TLS pin and secret must arrive through the PC invitation.</summary>
+/// <summary>Discovery broadcasts public hints only. Pairing credentials are never sent over UDP.</summary>
 public sealed class NLControlLanDiscovery : IAsyncDisposable
 {
     public const int Port = 27216;
-    private sealed record NLControlDiscoveryPacket(string Protocol, string Nonce, string? Code = null,
-        NLControlLanPeer? Peer = null, NLControlLanPairing? Pairing = null);
-    private const string Protocol = "NOVORA-CONTROL-DISCOVER/1";
+    private sealed record NLControlDiscoveryPacket(string Protocol, string Nonce,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Code = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] NLControlLanPeer? Peer = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] NLControlLanPairing? Pairing = null);
+    private const string Protocol = "NOVORA-CONTROL-DISCOVER/2";
     private readonly NLControlLanPeer _peer;
     private readonly IPEndPoint _bind;
     private readonly bool _allowLoopback;
-    private readonly Func<string, NLControlLanInvitation?>? _resolvePairingCode;
     internal IPEndPoint LocalEndpoint => (IPEndPoint)_udp!.Client.LocalEndPoint!;
     private readonly CancellationTokenSource _stop = new();
     private int _disposed;
     private UdpClient? _udp;
     private Task _run = Task.CompletedTask;
-    public NLControlLanDiscovery(NLControlLanPeer peer,
-        Func<string, NLControlLanInvitation?>? resolvePairingCode = null)
-        : this(peer, new IPEndPoint(IPAddress.Any, Port), false, resolvePairingCode) { }
-    internal NLControlLanDiscovery(NLControlLanPeer peer, IPEndPoint bind, bool allowLoopback,
-        Func<string, NLControlLanInvitation?>? resolvePairingCode = null)
-    { _peer = peer; _bind = bind; _allowLoopback = allowLoopback; _resolvePairingCode = resolvePairingCode; }
+    public NLControlLanDiscovery(NLControlLanPeer peer)
+        : this(peer, new IPEndPoint(IPAddress.Any, Port), false) { }
+    internal NLControlLanDiscovery(NLControlLanPeer peer, IPEndPoint bind, bool allowLoopback)
+    { _peer = peer; _bind = bind; _allowLoopback = allowLoopback; }
     public void Start()
     {
         if (_udp is not null || Volatile.Read(ref _disposed) != 0) throw new InvalidOperationException("La búsqueda ya fue iniciada o cerrada.");
-        NLControlLanInvitation.ValidateAddress(IPAddress.Parse(_peer.Host), _allowLoopback);
-        if (_peer.Name is not { Length: > 0 and <= 128 } || _peer.Port is < 1 or > 65535)
-            throw new ArgumentException("Equipo LAN no válido.");
+        _peer.Validate(_allowLoopback);
         _stop.CancelAfter(TimeSpan.FromMinutes(2));
         _udp = new UdpClient(_bind);
         _run = RespondAsync();
@@ -54,15 +62,9 @@ public sealed class NLControlLanDiscovery : IAsyncDisposable
                     var NLControlDiscoveryPacket = JsonSerializer.Deserialize<NLControlDiscoveryPacket>(received.Buffer);
                     if (NLControlDiscoveryPacket?.Protocol != Protocol || NLControlDiscoveryPacket.Peer is not null ||
                         NLControlDiscoveryPacket.Pairing is not null || NLControlDiscoveryPacket.Nonce is not { Length: 32 } ||
-                        !NLControlDiscoveryPacket.Nonce.All(Uri.IsHexDigit)) continue;
-                    NLControlLanPairing? pairing = null;
-                    if (NLControlDiscoveryPacket.Code is { } code && _resolvePairingCode is not null)
-                    {
-                        NLControlLanInvitation? invitation = _resolvePairingCode(code);
-                        if (invitation is not null) pairing = new(_peer.Name, invitation);
-                    }
+                        NLControlDiscoveryPacket.Code is not null || !NLControlDiscoveryPacket.Nonce.All(Uri.IsHexDigit)) continue;
                     byte[] reply = JsonSerializer.SerializeToUtf8Bytes(new NLControlDiscoveryPacket(
-                        Protocol, NLControlDiscoveryPacket.Nonce, Peer: pairing is null ? _peer : null, Pairing: pairing));
+                        Protocol, NLControlDiscoveryPacket.Nonce, Peer: _peer));
                     await _udp.SendAsync(reply, received.RemoteEndPoint, _stop.Token);
                 }
                 catch (Exception ex) when (ex is System.IO.InvalidDataException or JsonException) { }
@@ -73,44 +75,6 @@ public sealed class NLControlLanDiscovery : IAsyncDisposable
     }
     public static Task<IReadOnlyList<NLControlLanPeer>> SearchAsync(CancellationToken cancellationToken) =>
         SearchCoreAsync(cancellationToken, new IPEndPoint(IPAddress.Broadcast, Port), false);
-
-    public static Task<IReadOnlyList<NLControlLanPairing>> PairAsync(string code,
-        CancellationToken cancellationToken) => PairCoreAsync(code, cancellationToken,
-            new IPEndPoint(IPAddress.Broadcast, Port), false);
-
-    internal static async Task<IReadOnlyList<NLControlLanPairing>> PairCoreAsync(string code,
-        CancellationToken cancellationToken, IPEndPoint destination, bool allowLoopback)
-    {
-        if (code is not { Length: 6 } || !code.All(char.IsAsciiDigit))
-            throw new InvalidDataException("El código LAN debe contener seis dígitos.");
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(3));
-        using var udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0)) { EnableBroadcast = true };
-        string nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
-        byte[] query = JsonSerializer.SerializeToUtf8Bytes(new NLControlDiscoveryPacket(Protocol, nonce, code));
-        var pairings = new Dictionary<string, NLControlLanPairing>();
-        await udp.SendAsync(query, destination, timeout.Token);
-        try
-        {
-            while (pairings.Count < 32)
-            {
-                var response = await udp.ReceiveAsync(timeout.Token);
-                if (response.Buffer.Length > 4096) continue;
-                try
-                {
-                    var packet = JsonSerializer.Deserialize<NLControlDiscoveryPacket>(response.Buffer);
-                    if (packet?.Protocol != Protocol || packet.Nonce != nonce || packet.Pairing is not { } pairing ||
-                        !IPAddress.TryParse(pairing.Invitation.Host, out var address) ||
-                        !address.Equals(response.RemoteEndPoint.Address)) continue;
-                    pairing.Invitation.Validate(allowLoopback);
-                    pairings[pairing.Invitation.Fingerprint] = pairing;
-                }
-                catch (Exception ex) when (ex is InvalidDataException or JsonException) { }
-            }
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { }
-        return pairings.Values.ToArray();
-    }
 
     internal static async Task<IReadOnlyList<NLControlLanPeer>> SearchCoreAsync(
         CancellationToken cancellationToken, IPEndPoint destination, bool allowLoopback)
@@ -131,10 +95,11 @@ public sealed class NLControlLanDiscovery : IAsyncDisposable
                 try
                 {
                     var NLControlDiscoveryPacket = JsonSerializer.Deserialize<NLControlDiscoveryPacket>(response.Buffer);
-                    if (NLControlDiscoveryPacket?.Protocol != Protocol || NLControlDiscoveryPacket.Nonce != nonce || NLControlDiscoveryPacket.Peer is not { } peer ||
-                        peer.Name is not { Length: > 0 and <= 128 } || peer.Port is < 1 or > 65535 ||
+                    if (NLControlDiscoveryPacket?.Protocol != Protocol || NLControlDiscoveryPacket.Nonce != nonce ||
+                        NLControlDiscoveryPacket.Code is not null || NLControlDiscoveryPacket.Pairing is not null ||
+                        NLControlDiscoveryPacket.Peer is not { } peer ||
                         !IPAddress.TryParse(peer.Host, out var address) || !address.Equals(response.RemoteEndPoint.Address)) continue;
-                    NLControlLanInvitation.ValidateAddress(address, allowLoopback);
+                    peer.Validate(allowLoopback);
                     peers[peer.Host] = peer;
                 }
                 catch (Exception ex) when (ex is System.IO.InvalidDataException or JsonException) { }

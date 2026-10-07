@@ -44,7 +44,7 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
     private bool _integrationNotificationsEnabled = true;
     private bool _integrationDynamicResizeEnabled = true;
     private bool _exInEnabled = true;
-    private string _nvidiaProfile = "Automatic";
+    private string _visionProfile = "Automatic";
 
     public bool AudioEnabled
     {
@@ -317,27 +317,33 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
         set => Set(ref _exInEnabled, value);
     }
 
-    public string NvidiaProfile
+    public string VisionProfile
     {
-        get => _nvidiaProfile;
+        get => _visionProfile;
         set => Set(
-            ref _nvidiaProfile,
+            ref _visionProfile,
             string.IsNullOrWhiteSpace(value)
                 ? "Automatic"
                 : value.Trim());
     }
 
+    [Obsolete("Usa VisionProfile.")]
+    public string NvidiaProfile
+    {
+        get => VisionProfile;
+        set => VisionProfile = value;
+    }
 
-    public IReadOnlyList<NLViewModelSettingOption<string>> NvidiaProfileOptions { get; } =
+    public IReadOnlyList<NLViewModelSettingOption<string>> VisionProfileOptions { get; } =
         new[]
         {
             new NLViewModelSettingOption<string>("Automatic", "Automático"),
-            new NLViewModelSettingOption<string>("Disabled", "Desactivado"),
             new NLViewModelSettingOption<string>("Competitive", "Competitivo"),
             new NLViewModelSettingOption<string>("Balanced", "Balanceado"),
-            new NLViewModelSettingOption<string>("VisionPlus", "Vision+"),
-            new NLViewModelSettingOption<string>("Smooth", "Suavidad"),
-            new NLViewModelSettingOption<string>("Stream", "Streaming")
+            new NLViewModelSettingOption<string>("Quality", "Calidad"),
+            new NLViewModelSettingOption<string>("Smooth", "Fluidez"),
+            new NLViewModelSettingOption<string>("Streaming", "Streaming"),
+            new NLViewModelSettingOption<string>("Software", "Software")
         };
 
     public IReadOnlyList<NLViewModelSettingOption<string>> BitrateOptions { get; } =

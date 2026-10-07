@@ -5,6 +5,13 @@ namespace NOVORA.Service;
 
 public static class NLServiceVideoProfile
 {
+    public static VEPerformanceOptions ApplyVE(NLViewModelMain view, VEProfile profile)
+    {
+        VEProfileOptions unified = VEProfileOptions.CreateVE(profile);
+        view.VisionProfile = profile.ToString();
+        return ApplyVE(view, unified.PerformanceProfile);
+    }
+
     public static VEPerformanceOptions ApplyVE(NLViewModelMain view, VEPerformanceProfile profile)
     {
         ArgumentNullException.ThrowIfNull(view);

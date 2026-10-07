@@ -17,5 +17,6 @@
   </queries>
   <uses-feature android:name="android.hardware.camera" android:required="false" />
   <application android:allowBackup="false" android:label="NOVORA-LINK" android:supportsRtl="true"
+    android:enableOnBackInvokedCallback="false"
     android:icon="@drawable/novora_logo" android:roundIcon="@drawable/novora_logo" />
 </manifest>

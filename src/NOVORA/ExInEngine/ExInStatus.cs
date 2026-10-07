@@ -26,7 +26,12 @@ public sealed record ExInLiveSnapshot(
     ExInCalibrationDetails? Calibration,
     string? SdlMapping,
     string TranslationTrace,
-    ExInCalibrationProgress? CalibrationProgress);
+    ExInCalibrationProgress? CalibrationProgress,
+    long Sequence = 0,
+    DateTimeOffset? SampledAtUtc = null,
+    double PollingHz = 0,
+    double PcProcessingMs = 0,
+    double JitterMs = 0);
 
 public sealed record ExInCalibrationProgress(
     int LeftStick,

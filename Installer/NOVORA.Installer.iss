@@ -1,11 +1,14 @@
 ; ============================================================
 ; NOVORA Installer - Inno Setup 6/7
-; Base: NOVORA-LINK 1.3
+; Base: NOVORA-LINK 1.4
 ; ============================================================
 
 #define AppName "NOVORA"
 #ifndef AppVersion
-  #define AppVersion "1.3"
+  #define AppVersion "1.4"
+#endif
+#ifndef VersionInfoVersion
+  #define VersionInfoVersion "1.4.0.0"
 #endif
 #define Publisher "Aaron Yair Galarza Valdes"
 #define ExeName "NOVORA.exe"
@@ -33,7 +36,7 @@ CloseApplications=yes
 RestartApplications=no
 Uninstallable=yes
 UninstallDisplayName=NOVORA
-VersionInfoVersion={#AppVersion}.0.0
+VersionInfoVersion={#VersionInfoVersion}
 VersionInfoCompany={#Publisher}
 VersionInfoDescription=NOVORA Installer
 VersionInfoCopyright=Copyright (C) 2026 Aaron Yair Galarza Valdes

@@ -10,6 +10,6 @@ internal static class NLAndroidUIVisionSettingsPage
 
     internal static TextView ApplyHint(Context context) =>
         NLAndroidUIComponents.StatusChip(context,
-            "Monitor, perfil, bitrate, resolución y FPS se aplican juntos.",
+            "El modo unificado, monitor, bitrate, resolución y FPS se aplican juntos.",
             NLAndroidUIStatusTone.Neutral);
 }

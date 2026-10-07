@@ -2,6 +2,7 @@ using NOVORA.Control;
 using NOVORA.Service;
 using NOVORA.ViewModel;
 using NOVORA.VisionEngine.Performance;
+using NOVORA.VisionEngine.Video;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -97,7 +98,20 @@ public partial class NLUIWindowMain
             new[] { 15, 24, 30, 45, 60, _viewModel.TargetFps }.Distinct().Order().Select(v => new NLControlOption(v.ToString(), v + " FPS")).ToArray(),
             _viewModel.SelectedMonitor?.DeviceName ?? "",
             _viewModel.Monitors.Select(m => new NLControlOption(m.DeviceName, m.DisplayLabel)).ToArray(), true),
-        CaptureAndroidMedia(), true, CaptureAndroidExIn());
+        CaptureAndroidMedia(), true, CaptureAndroidExIn(), CaptureAndroidAcceleration());
+
+    private NLControlAcceleration CaptureAndroidAcceleration()
+    {
+        var state = _visionEngineVE?.RuntimeVE.VideoVE.StatusVE.Acceleration;
+        var fallback = _visionEngineVE?.RuntimeVE.VideoVE.StatusVE.DecoderFallbackReason;
+        string requested = Enum.TryParse(_viewModel.VisionProfile, true, out VEProfile profile)
+            ? VEProfileOptions.CreateVE(profile).AccelerationRequest.Backend.ToString()
+            : VEAccelerationBackend.Automatic.ToString();
+        if (state is null)
+            return new(requested, "None", "None", false, "Sin decoder abierto.");
+        return new(requested, state.Backend.ToString(), state.Active ? state.Backend.ToString() : "None",
+            state.Active, state.Evidence, fallback);
+    }
 
     private NLControlExIn CaptureAndroidExIn()
     {
@@ -110,6 +124,7 @@ public partial class NLUIWindowMain
         var status = _exInEngine?.Status;
         var diagnostic = profileKey is null ? null : status?.Diagnostics.FirstOrDefault(value => value.ProfileKey == profileKey);
         var battery = profileKey is null ? null : status?.Batteries.FirstOrDefault(value => value.ProfileKey == profileKey);
+        var progress = live?.CalibrationProgress;
         static int Axis(short value) => (int)Math.Round(value / 32767d * 100);
         static int Trigger(short value) => (int)Math.Round(Math.Max(0, (int)value) / 32767d * 100);
         string[] buttons = Enum.GetValues<NOVORA.ExInEngine.ExInButtons>()
@@ -127,8 +142,16 @@ public partial class NLUIWindowMain
             device?.Identity?.ProfileKey ?? "", calibration?.ConnectionType ?? "Unknown",
             device is not null, device is not null,
             device?.Identity?.Family == NOVORA.ExInEngine.ExInControllerFamily.DualShock4,
-            device is not null, false, "",
-            _androidExInBatteryAlert?.Kind.ToString() ?? "", _androidExInBatteryAlertSequence);
+            device is not null, device is not null,
+            calibration is null ? "" : $"Perfil {calibration.ProfileId} · {calibration.ConnectionType}",
+            _androidExInBatteryAlert?.Kind.ToString() ?? "", _androidExInBatteryAlertSequence,
+            live?.SampledAtUtc is { } sampledAt ? new NLControlExInTelemetry(
+                live.Sequence, sampledAt, live.PollingHz, live.PcProcessingMs, live.JitterMs) : null,
+            progress is null ? null : new NLControlExInCalibration(
+                progress.LeftStick, progress.RightStick, progress.LeftTrigger, progress.RightTrigger,
+                progress.Overall, progress.Complete,
+                progress.LeftStick < 90 ? "LeftStick" : progress.RightStick < 90 ? "RightStick" :
+                progress.LeftTrigger < 90 ? "LeftTrigger" : progress.RightTrigger < 90 ? "RightTrigger" : "Complete"));
     }
 
     private string GetAndroidControlAudioStatus()
@@ -237,7 +260,7 @@ public partial class NLUIWindowMain
                     var unified = VEProfileOptions.CreateVE(profile);
                     NLServiceVideoProfile.ApplyVE(_viewModel, profile);
                     _visionEngineVE!.RuntimeVE.PerformanceVE.SetProfileVE(unified.PerformanceProfile);
-                    _visionEngineVE.RuntimeVE.NvidiaVE.SetProfileVE(unified.NvidiaProfile);
+                    _visionEngineVE.RuntimeVE.NvidiaVE.SetProfileVE(unified.ToLegacyNvidiaVE());
                     _androidControlRevision++;
                     break;
                 case "audio":

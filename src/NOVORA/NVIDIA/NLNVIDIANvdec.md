@@ -128,3 +128,19 @@ Verificación final de nombres: PASS, 349 archivos propios. Enlaces locales y ha
 FFmpeg de Tools y salida de escritorio: coinciden. Las pruebas físicas aprobadas de
 esta etapa son 16 en la matriz y 2 en la comprobación final; los intentos fallidos o
 interrumpidos se mantienen separados.
+
+## Revalidación física — 2026-10-05
+
+Se corrigió el harness de perfiles después de separar ExInEngine del ciclo de vida de
+`VECoreRuntime`; la medición de video ya no intenta acceder a la propiedad eliminada
+`ExInEngine`. En Windows, con una GeForce RTX 3050 Laptop GPU, controlador 616.92 y
+el teléfono SM-A566E / R5CY3118MEW, dos sesiones Gaming a 45 FPS solicitados abrieron
+`h264_cuvid`, produjeron frames con `NvdecActive=true` y terminaron sin fallback.
+
+Con movimiento controlado mediante ADB dentro de Ajustes, las muestras entregaron
+42.83 y 44.71 FPS decodificados, y aproximadamente 42.75 y 43.54 FPS presentados.
+Ambas terminaron con `Passed=true`, cero errores de decode/render y cero frames
+descartados en la primera muestra y cuatro en la segunda. La evidencia está en
+`artifacts/nvdec-final-motion-2026-10-05.json`. Se mantiene el aviso de FFmpeg
+`Invalid pkt_timebase, passing timestamps as-is`; esta ronda no mide latencia
+glass-to-glass ni demuestra zero-copy.

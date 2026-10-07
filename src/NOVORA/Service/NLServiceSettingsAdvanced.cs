@@ -14,7 +14,7 @@ internal static class NLServiceSettingsAdvanced
         settings.IntegrationNotificationsEnabled = view.IntegrationNotificationsEnabled;
         settings.IntegrationDynamicResizeEnabled = view.IntegrationDynamicResizeEnabled;
         settings.ExInEnabled = view.ExInEnabled;
-        settings.NvidiaProfile = view.NvidiaProfile;
+        settings.VisionProfile = view.VisionProfile;
     }
 
     internal static void ApplyNV(NLServiceNovoraSettings settings, NLViewModelMain view)
@@ -27,6 +27,6 @@ internal static class NLServiceSettingsAdvanced
         view.IntegrationNotificationsEnabled = settings.IntegrationNotificationsEnabled;
         view.IntegrationDynamicResizeEnabled = settings.IntegrationDynamicResizeEnabled;
         view.ExInEnabled = settings.ExInEnabled;
-        view.NvidiaProfile = settings.NvidiaProfile;
+        view.VisionProfile = settings.VisionProfile;
     }
 }

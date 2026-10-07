@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/home_page" android:layout_width="match_parent" android:layout_height="match_parent"
+  android:fillViewport="true" android:background="@color/novora_background">
+  <LinearLayout style="@style/NovoraPage">
+    <include layout="@layout/nl_android_header"/>
+    <Button android:id="@+id/home_connection_chip" android:layout_width="match_parent" android:layout_height="48dp"
+      android:background="@drawable/novora_chip" android:contentDescription="Ir a las opciones de conexión USB y LAN"
+      android:text="USB / LAN" android:textAllCaps="false"
+      android:textColor="@color/novora_accent" android:textSize="12sp" android:textStyle="bold" />
+    <TextView style="@style/NovoraSection" android:text="DISPOSITIVOS ENLAZADOS" />
+    <LinearLayout style="@style/NovoraCard">
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView style="@style/NovoraLabel" android:text="PC vinculada"/><TextView android:id="@+id/home_pc_state" style="@style/NovoraValue" android:text="Sin conexión"/>
+      </LinearLayout>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView style="@style/NovoraLabel" android:text="Este teléfono"/><TextView android:id="@+id/home_phone_state" style="@style/NovoraValue" android:text="Detectando dispositivo"/>
+      </LinearLayout>
+    </LinearLayout>
+    <TextView style="@style/NovoraSection" android:text="CENTRO DE CONEXIÓN Y ENLACE" />
+    <LinearLayout style="@style/NovoraCard">
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView style="@style/NovoraLabel" android:text="Conexión Física USB&#10;(Kernel Pipe)"/><TextView android:id="@+id/home_transport_state" style="@style/NovoraValue" android:text="● Detectado / Activo"/>
+      </LinearLayout>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:orientation="horizontal">
+        <Button android:id="@+id/connect_usb" style="@style/NovoraButton" android:layout_width="0dp" android:layout_weight="1" android:text="Detectar USB"/>
+        <Button android:id="@+id/connect_disconnect" style="@style/NovoraButton" android:layout_width="0dp" android:layout_weight="1" android:text="Desconectar"/>
+      </LinearLayout>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"><TextView style="@style/NovoraLabel" android:text="Conexión LAN cifrada"/><TextView android:id="@+id/connect_pc_state" style="@style/NovoraValue" android:text="Sin conexión"/></LinearLayout>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:orientation="horizontal">
+        <Button android:id="@+id/connect_pair" style="@style/NovoraButton" android:layout_width="0dp" android:layout_weight="1" android:text="Introducir código"/>
+        <Button android:id="@+id/connect_search" style="@style/NovoraButton" android:layout_width="0dp" android:layout_weight="1" android:text="Buscar LAN"/>
+      </LinearLayout>
+      <Button android:id="@+id/connect_saved" style="@style/NovoraButton" android:text="PC guardadas"/>
+      <Button android:id="@+id/home_remember_pc" style="@style/NovoraButton" android:text="Recordar esta PC"/>
+      <Button android:id="@+id/connect_detect_engines" style="@style/NovoraButton" android:text="Detectar Engines"/>
+    </LinearLayout>
+    <TextView style="@style/NovoraSection" android:text="RESUMEN DE MOTORES" />
+    <LinearLayout style="@style/NovoraCard">
+      <TextView android:id="@+id/home_engine_count" style="@style/NovoraBody" android:text="0/3 activos" android:textStyle="bold"/>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"><TextView style="@style/NovoraLabel" android:text="LinkEngine"/><TextView android:id="@+id/home_link_state" style="@style/NovoraValue" android:text="Bloqueado"/></LinearLayout>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"><TextView style="@style/NovoraLabel" android:text="VisionEngine"/><TextView android:id="@+id/home_video_state" style="@style/NovoraValue" android:text="No detectado"/></LinearLayout>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"><TextView style="@style/NovoraLabel" android:text="ExInEngine"/><TextView android:id="@+id/home_exin_state" style="@style/NovoraValue" android:text="No detectado"/></LinearLayout>
+      <Button android:id="@+id/home_open_engines" style="@style/NovoraButton" android:text="Ver y controlar Engines"/>
+    </LinearLayout>
+    <TextView style="@style/NovoraSection" android:text="PREPARAR SESIÓN" />
+    <TextView style="@style/NovoraTitle" android:text="Prepara tu sesión" android:textSize="27sp"/>
+    <TextView style="@style/NovoraBody" android:text="Elige qué vas a hacer. NOVORA muestra sólo lo necesario para iniciar."/>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:orientation="horizontal">
+      <Button android:id="@+id/home_mode_game" style="@style/NovoraButton" android:layout_width="0dp" android:layout_weight="1" android:text="Jugar"/>
+      <Button android:id="@+id/home_mode_video" style="@style/NovoraButton" android:layout_width="0dp" android:layout_weight="1" android:text="Video"/>
+      <Button android:id="@+id/home_mode_internet" style="@style/NovoraButton" android:layout_width="0dp" android:layout_weight="1" android:text="Internet"/>
+    </LinearLayout>
+    <LinearLayout style="@style/NovoraCard" android:layout_marginTop="8dp">
+      <TextView style="@style/NovoraBody" android:text="LISTA PREVIA" android:textStyle="bold"/>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"><TextView style="@style/NovoraLabel" android:text="1  Conexión"/><TextView android:id="@+id/home_flight_connection" style="@style/NovoraValue" android:text="Pendiente"/></LinearLayout>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"><TextView style="@style/NovoraLabel" android:text="2  Motor"/><TextView android:id="@+id/home_flight_engine" style="@style/NovoraValue" android:text="No detectado"/></LinearLayout>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"><TextView style="@style/NovoraLabel" android:text="3  Control"/><TextView android:id="@+id/home_flight_control" style="@style/NovoraValue" android:text="No detectado"/></LinearLayout>
+      <TextView android:id="@+id/home_flight_summary" style="@style/NovoraBody" android:text="Esperando estado real de NOVORA PC."/>
+    </LinearLayout>
+    <Button android:id="@+id/home_flight_launch" style="@style/NovoraButton" android:minHeight="58dp" android:text="Preparar conexión"/>
+    <Button android:id="@+id/home_engine_diagnostics" style="@style/NovoraButton" android:text="Diagnóstico de motores"/>
+  </LinearLayout>
+</ScrollView>

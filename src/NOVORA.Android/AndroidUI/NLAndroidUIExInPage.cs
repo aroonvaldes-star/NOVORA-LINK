@@ -17,17 +17,21 @@ internal static class NLAndroidUIExInPage
         return (control, (Button)control.GetChildAt(0)!, (Button)control.GetChildAt(1)!);
     }
 
-    internal static TextView LivePanel(Context context)
+    internal static LinearLayout LivePanel(Context context, out NLAndroidUIControllerLiveView controller, out TextView live)
     {
         NLAndroidUIPalette palette = NLAndroidUITheme.Current(context);
-        var live = new TextView(context) { TextSize = 13, Typeface = Android.Graphics.Typeface.Monospace };
+        var panel = new LinearLayout(context) { Orientation = Orientation.Vertical };
+        controller = new NLAndroidUIControllerLiveView(context);
+        panel.AddView(controller, new LinearLayout.LayoutParams(-1, Dp(context, 230)));
+        live = new TextView(context) { TextSize = 13, Typeface = Android.Graphics.Typeface.Monospace };
         live.SetTextColor(Android.Graphics.Color.ParseColor(palette.Text));
         live.SetPadding(Dp(context, 12), Dp(context, 12), Dp(context, 12), Dp(context, 12));
         live.SetMinHeight(Dp(context, 180));
         live.Gravity = GravityFlags.Top | GravityFlags.Left;
         live.Background = NLAndroidUIVisual.Surface(context, palette.Navigation, palette.Border);
         live.ContentDescription = "Valores físicos y corregidos del control";
-        return live;
+        panel.AddView(live, new LinearLayout.LayoutParams(-1, -2));
+        return panel;
     }
 
     private static int Dp(Context context, int value) => NLAndroidUIVisual.Dp(context, value);

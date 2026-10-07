@@ -1,6 +1,7 @@
 using NOVORA.Service;
 using NOVORA.VisionEngine.Protocol;
 using NOVORA.VisionEngine.Transport;
+using System.IO;
 using System.Net.Sockets;
 
 namespace NOVORA.VisionEngine.Audio;

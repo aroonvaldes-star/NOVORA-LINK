@@ -4,7 +4,6 @@ using Android.Graphics;
 using Android.Graphics.Drawables;
 using Android.Views;
 using Android.Widget;
-using Resource = NOVORA.AndroidApp.Resource;
 
 namespace NOVORA.AndroidUI;
 
@@ -34,28 +33,5 @@ internal static class NLAndroidUIVisual
         b.Background = states; b.BackgroundTintList = null;
         b.SetTextColor(new ColorStateList([new[] { -Android.Resource.Attribute.StateEnabled }, Array.Empty<int>()],
             [Color.ParseColor(palette.Disabled).ToArgb(), Color.ParseColor(primary ? palette.AccentText : palette.Text).ToArgb()]));
-    }
-    internal static ImageView Icon(Context c, int resource, int size = 26)
-    {
-        var v = new ImageView(c); v.SetImageResource(resource); v.SetColorFilter(Color.ParseColor(NLAndroidUITheme.Current(c).Accent));
-        v.SetScaleType(ImageView.ScaleType.FitCenter); v.ImportantForAccessibility = ImportantForAccessibility.No;
-        v.LayoutParameters = new LinearLayout.LayoutParams(Dp(c, size), Dp(c, size)); return v;
-    }
-    internal static ImageView Logo(Context c, int size)
-    {
-        var v = new ImageView(c) { ContentDescription = "NOVORA" };
-        v.SetImageResource(Resource.Drawable.novora_logo);
-        v.SetScaleType(ImageView.ScaleType.Matrix);
-        // The supplied brand image has transparent margins. Frame the emblem itself.
-        v.LayoutChange += (_, _) => {
-            if (v.Drawable is not { } d || v.Width <= 0 || v.Height <= 0) return;
-            using var matrix = new Matrix();
-            using var source = new RectF(d.IntrinsicWidth * .23f, d.IntrinsicHeight * .18f, d.IntrinsicWidth * .77f, d.IntrinsicHeight * .74f);
-            using var target = new RectF(0, 0, Math.Max(1, v.Width - v.PaddingLeft - v.PaddingRight),
-                Math.Max(1, v.Height - v.PaddingTop - v.PaddingBottom));
-            matrix.SetRectToRect(source, target, Matrix.ScaleToFit.Center!); v.ImageMatrix = matrix;
-        };
-        v.LayoutParameters = new LinearLayout.LayoutParams(Dp(c, size), Dp(c, size)) { Gravity = GravityFlags.CenterHorizontal };
-        return v;
     }
 }

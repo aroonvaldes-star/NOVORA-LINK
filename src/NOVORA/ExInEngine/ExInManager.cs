@@ -1,5 +1,6 @@
-using NOVORA.Service;
 using NOVORA.Contracts.Input;
+using NOVORA.Service;
+using System.Diagnostics;
 
 namespace NOVORA.ExInEngine;
 
@@ -48,6 +49,12 @@ public sealed class ExInManager : IAsyncDisposable
     private string? _calibrationProfileKeyVE;
     private uint? _calibrationInstanceIdVE;
     private const double CalibrationDeadzoneVE = 0.05;
+    private readonly Queue<long> _sampleTicksVE = new();
+    private long _sampleSequenceVE;
+    private DateTimeOffset? _sampledAtUtcVE;
+    private double _pollingHzVE;
+    private double _processingMsVE;
+    private double _jitterMsVE;
 
     private sealed record ExInSlot(
         IntPtr Handle,
@@ -129,7 +136,7 @@ public sealed class ExInManager : IAsyncDisposable
                     calibrated ? "Calibración persistente activa para este control." : "Control detectado; calibración opcional.", calibration,
                     protectedVE ? null : slot?.SdlMapping,
                     protectedVE ? "Traducción oculta por Privacy Shield." : slot?.TranslationTrace ?? "Sin eventos traducidos.",
-                    progress);
+                    progress, _sampleSequenceVE, _sampledAtUtcVE, _pollingHzVE, _processingMsVE, _jitterMsVE);
             }
         }
     }
@@ -143,6 +150,28 @@ public sealed class ExInManager : IAsyncDisposable
             Math.Min(Axis(minimum.RightX, maximum.RightX), Axis(minimum.RightY, maximum.RightY)),
             Trigger(minimum.LeftTrigger, maximum.LeftTrigger),
             Trigger(minimum.RightTrigger, maximum.RightTrigger));
+    }
+
+    private void RecordSampleVE(long receivedTicks)
+    {
+        long nowTicks = Stopwatch.GetTimestamp();
+        _sampleTicksVE.Enqueue(nowTicks);
+        long cutoff = nowTicks - (long)(Stopwatch.Frequency * 2d);
+        while (_sampleTicksVE.Count > 1 && _sampleTicksVE.Peek() < cutoff)
+            _sampleTicksVE.Dequeue();
+        long[] ticks = _sampleTicksVE.ToArray();
+        if (ticks.Length > 1)
+        {
+            double duration = (ticks[^1] - ticks[0]) / (double)Stopwatch.Frequency;
+            _pollingHzVE = duration > 0 ? (ticks.Length - 1) / duration : 0;
+            double meanMs = duration * 1000d / (ticks.Length - 1);
+            _jitterMsVE = ticks.Zip(ticks.Skip(1), (a, b) =>
+                    Math.Abs((b - a) * 1000d / Stopwatch.Frequency - meanMs))
+                .DefaultIfEmpty(0).Average();
+        }
+        _processingMsVE = Math.Max(0, (nowTicks - receivedTicks) * 1000d / Stopwatch.Frequency);
+        _sampledAtUtcVE = DateTimeOffset.UtcNow;
+        _sampleSequenceVE++;
     }
 
     public bool BeginCalibrationVE()
@@ -805,6 +834,7 @@ public sealed class ExInManager : IAsyncDisposable
 
     private async Task ApplyAxisVE(ExInEvent message, CancellationToken cancellationToken)
     {
+        long receivedTicks = Stopwatch.GetTimestamp();
         ExInSlot? slot;
         ExInState next;
 
@@ -822,6 +852,7 @@ public sealed class ExInManager : IAsyncDisposable
             };
             CaptureCalibrationVE(message.InstanceId, next);
             ObserveDiagnosticVE(slot, next);
+            RecordSampleVE(receivedTicks);
         }
 
         await SendStateVE(slot, next, cancellationToken).ConfigureAwait(false);
@@ -831,6 +862,7 @@ public sealed class ExInManager : IAsyncDisposable
 
     private async Task ApplyButtonVE(ExInEvent message, CancellationToken cancellationToken)
     {
+        long receivedTicks = Stopwatch.GetTimestamp();
         ExInButtons flag = ButtonFlagVE(message.Button);
         if (flag == ExInButtons.None) return;
 
@@ -856,6 +888,7 @@ public sealed class ExInManager : IAsyncDisposable
                 TranslationTrace = BuildTranslationTraceVE(next)
             };
             ObserveDiagnosticVE(slot, next);
+            RecordSampleVE(receivedTicks);
         }
 
         await SendStateVE(slot, next, cancellationToken).ConfigureAwait(false);

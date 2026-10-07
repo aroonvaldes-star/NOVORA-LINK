@@ -57,8 +57,10 @@ public partial class NLUIWindowMain
         // Revalidate every value after the asynchronous stop, before changing any setting.
         string? error = NLControlCommands.Validate(request with { Revision = current.Revision }, current);
         if (error is not null) return Reply(false, error);
-        var profile = Enum.Parse<VEPerformanceProfile>(changes.Profile);
-        _visionEngineVE!.RuntimeVE.PerformanceVE.SetProfileVE(profile);
+        var profile = Enum.Parse<VEProfile>(changes.Profile);
+        VEProfileOptions unified = VEProfileOptions.CreateVE(profile);
+        _visionEngineVE!.RuntimeVE.PerformanceVE.SetProfileVE(unified.PerformanceProfile);
+        _visionEngineVE.RuntimeVE.NvidiaVE.SetProfileVE(unified.ToLegacyNvidiaVE());
         NLServiceVideoProfile.ApplyVE(_viewModel, profile);
         // Explicit selections override the profile defaults, so one setting cannot silently overwrite another.
         _viewModel.Bitrate = changes.Bitrate;
@@ -71,8 +73,15 @@ public partial class NLUIWindowMain
         SaveSettingsFromViewModel14();
         _androidControlRevision++;
         if (wasAppControlVideo)
-            return Reply(false,
-                "Ajustes guardados. Inicia VisionEngine otra vez para renovar el permiso de captura de Android.");
+        {
+            NLControlReply prepared = await PrepareAppControlVideoAsync(request);
+            return prepared with
+            {
+                Message = prepared.Success
+                    ? "Ajustes guardados. Reanudando VisionEngine con la configuración nueva."
+                    : "Ajustes guardados, pero no se pudo reanudar AppControl: " + prepared.Message
+            };
+        }
         try { await SetVisionEngineRunningVEAsync(true, Authorized); }
         catch (Exception ex) { return Reply(false, "Ajustes guardados; VE no pudo iniciar: " + ex.Message); }
         return Reply(Authorized() && IsVisionEngineRunningVE(), IsVisionEngineRunningVE()

@@ -1,4 +1,5 @@
 using NOVORA.VisionEngine.Protocol;
+using System.IO;
 
 namespace NOVORA.VisionEngine.Audio;
 

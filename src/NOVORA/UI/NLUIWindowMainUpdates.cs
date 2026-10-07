@@ -8,6 +8,10 @@ public partial class NLUIWindowMain
 {
     private readonly CancellationTokenSource _officialReleaseCts14 = new();
     private NLServiceNovoraUpdateInfo? _officialRelease14;
+    private bool _officialReleaseInstalling14;
+
+    internal static string UpdateActionText14(string version, bool downloading) =>
+        downloading ? $"DESCARGANDO {version}…" : $"DESCARGAR E INSTALAR {version}";
 
     private async Task CheckOfficialReleaseOnce14Async()
     {
@@ -22,8 +26,8 @@ public partial class NLUIWindowMain
             }
             _officialRelease14 = release;
             var message = $"NOVORA-LINK {release.LatestVersion} oficial disponible";
-            OfficialReleaseStatusText14.Text = message + ". Pulsa el aviso superior para ver la publicación y sus instrucciones.";
-            UpdateBannerActionButton14.Content = $"VER {release.LatestVersion} OFICIAL";
+            OfficialReleaseStatusText14.Text = message + ". Pulsa el aviso superior para descargar, verificar e instalar la actualización.";
+            UpdateBannerActionButton14.Content = UpdateActionText14(release.LatestVersion, downloading: false);
             UpdateBannerActionButton14.ToolTip = message;
             UpdateBannerActionButton14.Visibility = Visibility.Visible;
             ShowTopMessage14(message, NLUIMessageKind14.Success);
@@ -37,17 +41,33 @@ public partial class NLUIWindowMain
         }
     }
 
-    private void OpenOfficialRelease14()
+    private async Task InstallOfficialRelease14Async()
     {
-        if (_officialRelease14 is null) return;
+        if (_officialRelease14 is not { } release || _officialReleaseInstalling14 || _closing) return;
+        _officialReleaseInstalling14 = true;
+        UpdateBannerActionButton14.IsEnabled = false;
+        UpdateBannerActionButton14.Content = UpdateActionText14(release.LatestVersion, downloading: true);
+        OfficialReleaseStatusText14.Text = $"Descargando NOVORA-LINK {release.LatestVersion} y comprobando su integridad…";
+
+        var progress = new Progress<int>(percent =>
+        {
+            UpdateBannerActionButton14.Content = $"DESCARGANDO {release.LatestVersion} · {percent}%";
+            OfficialReleaseStatusText14.Text = $"Descargando y verificando la actualización oficial: {percent}%";
+        });
+
         try
         {
-            // This URL is validated against the exact official repository by the service.
-            Process.Start(new ProcessStartInfo(_officialRelease14.ReleaseUrl) { UseShellExecute = true });
+            await _updateService.InstallAndRestartAsync(release, progress, _officialReleaseCts14.Token);
         }
+        catch (OperationCanceledException) when (_officialReleaseCts14.IsCancellationRequested) { }
         catch (Exception)
         {
-            ShowTopMessage14("No se pudo abrir el navegador. Visita github.com/aroonvaldes-star/NOVORA-LINK/releases.", NLUIMessageKind14.Warning);
+            if (_closing) return;
+            _officialReleaseInstalling14 = false;
+            UpdateBannerActionButton14.IsEnabled = true;
+            UpdateBannerActionButton14.Content = UpdateActionText14(release.LatestVersion, downloading: false);
+            OfficialReleaseStatusText14.Text = "No se pudo descargar o verificar el instalador oficial. Comprueba Internet y vuelve a intentarlo.";
+            ShowTopMessage14("La actualización no se instaló. NOVORA continúa abierto sin cambios.", NLUIMessageKind14.Warning);
         }
     }
 }

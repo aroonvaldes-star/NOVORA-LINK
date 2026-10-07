@@ -92,8 +92,8 @@ public partial class NLUIWindowMain
             server.Start();
             store.SetListening(address.ToString(), true);
             var discovery = new NLControlLanDiscovery(
-                new(Environment.MachineName, address.ToString(), server.Invitation.Port),
-                server.ResolvePairingCode);
+                new(Environment.MachineName, address.ToString(), server.Invitation.Port,
+                    server.Invitation.Fingerprint));
             _androidLanDiscovery = discovery;
             string discoveryStatus;
             try { discovery.Start(); discoveryStatus = "Android puede buscar esta PC en la red."; }
@@ -113,7 +113,10 @@ public partial class NLUIWindowMain
                 Margin = new Thickness(0, 18, 0, 18) };
             ApplyNovoraText(code);
             body.Children.Add(code);
-            var details = new TextBlock { Text = $"{discoveryStatus}\n\nEl código caduca en 2 minutos, admite hasta 5 intentos incorrectos y sólo autoriza una vinculación. Después PC y Android se recordarán mediante credenciales protegidas.\n\nSi Windows pide acceso de red, permite NOVORA sólo en tu red privada. No compartas el código.", TextWrapping = TextWrapping.Wrap };
+            var fingerprint = new TextBlock { Text = $"Huella del certificado (compárala completa en Android):\n{server.Invitation.Fingerprint}", TextWrapping = TextWrapping.Wrap, FontFamily = new System.Windows.Media.FontFamily("Consolas"), Margin = new Thickness(0, 12, 0, 0) };
+            ApplyNovoraText(fingerprint);
+            body.Children.Add(fingerprint);
+            var details = new TextBlock { Text = $"{discoveryStatus}\n\nEl código caduca en 2 minutos, admite hasta 5 intentos incorrectos y sólo autoriza una vinculación. El código y los datos de confianza viajan únicamente por TLS. Guardar esta PC en Android es opcional.\n\nSi Windows pide acceso de red, permite NOVORA sólo en tu red privada. No compartas el código.", TextWrapping = TextWrapping.Wrap };
             ApplyNovoraText(details, "MutedBrush");
             body.Children.Add(details);
             invitationDialog = CreateNovoraDialog("NOVORA Android · Código LAN", 510, body);

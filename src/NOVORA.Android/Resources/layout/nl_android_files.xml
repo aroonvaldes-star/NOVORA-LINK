@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="@color/novora_background">
+  <LinearLayout style="@style/NovoraPage">
+    <include layout="@layout/nl_android_header"/>
+    <TextView style="@style/NovoraSection" android:text="GESTOR P2P DE ARCHIVOS"/>
+    <LinearLayout style="@style/NovoraCard">
+      <TextView style="@style/NovoraTitle" android:text="Documentos y transferencias" android:textSize="16sp"/>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:orientation="horizontal"><Button android:id="@+id/files_received" style="@style/NovoraButton" android:layout_width="0dp" android:layout_weight="1" android:text="Archivos recibidos"/><Button android:id="@+id/files_sent" style="@style/NovoraButton" android:layout_width="0dp" android:layout_weight="1" android:text="Enviar a PC"/></LinearLayout>
+      <TextView android:id="@+id/files_status" style="@style/NovoraBody" android:text="Sin transferencias activas"/>
+    </LinearLayout>
+    <LinearLayout style="@style/NovoraCard">
+      <TextView style="@style/NovoraSection" android:paddingTop="0dp" android:text="COMPLETADOS RECIENTES"/>
+      <TextView android:id="@+id/files_recent" style="@style/NovoraBody" android:text="Sin archivos recientes"/>
+    </LinearLayout>
+    <TextView style="@style/NovoraSection" android:text="PIPELINE MULTIMEDIA Y AUDIO"/>
+    <LinearLayout style="@style/NovoraCard">
+      <TextView style="@style/NovoraTitle" android:text="Captura y grabación" android:textSize="16sp"/>
+      <TextView style="@style/NovoraBody" android:text="Acciones de la sesión VisionEngine activa en NOVORA PC."/>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:orientation="horizontal"><Button android:id="@+id/files_record" style="@style/NovoraButton" android:layout_width="0dp" android:layout_weight="1" android:text="Grabar en PC"/><Button android:id="@+id/files_capture" style="@style/NovoraButton" android:layout_width="0dp" android:layout_weight="1" android:text="Captura de pantalla"/></LinearLayout>
+    </LinearLayout>
+    <LinearLayout style="@style/NovoraCard">
+      <TextView style="@style/NovoraTitle" android:text="Enrutamiento de sonido" android:textSize="16sp"/>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"><TextView style="@style/NovoraLabel" android:text="Audio del teléfono"/><TextView android:id="@+id/files_phone_audio" style="@style/NovoraValue" android:text="Sin confirmar"/></LinearLayout>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"><TextView style="@style/NovoraLabel" android:text="Ruta interna"/><TextView android:id="@+id/files_internal_audio" style="@style/NovoraValue" android:text="No disponible"/></LinearLayout>
+      <TextView style="@style/NovoraBody" android:text="VisionEngine confirma estos estados; no son interruptores locales de Android."/>
+    </LinearLayout>
+  </LinearLayout>
+</ScrollView>

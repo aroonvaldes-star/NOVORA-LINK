@@ -10,6 +10,7 @@ using NOVORA.VisionEngine.Renderer;
 using NOVORA.VisionEngine.Server;
 using NOVORA.VisionEngine.Transport;
 using NOVORA.VisionEngine.Video;
+using System.IO;
 
 namespace NOVORA.VisionEngine.Core;
 

@@ -22,10 +22,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET 8
+      - name: Setup .NET 8 and 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Validate PowerShell scripts
         shell: pwsh
@@ -56,11 +58,24 @@ jobs:
         shell: pwsh
         run: .\scripts\Setup-Tools.ps1
 
+      - name: Restore Android workload
+        shell: pwsh
+        run: dotnet workload restore .\src\NOVORA.Android\NLProjectAndroid.csproj
+
       - name: Restore
         run: dotnet restore .\NOVORA.sln
 
       - name: Build
-        run: dotnet build .\NOVORA.sln -c Release --no-restore
+        shell: pwsh
+        run: |
+          dotnet build .\src\NOVORA\NLProjectDesktop.csproj -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "Falló la compilación Release de NOVORA PC." }
+
+          dotnet build .\src\NOVORA.Android\NLProjectAndroid.csproj -c Release -t:Compile --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "Falló la compilación de código Android." }
+
+          dotnet build .\tests\NOVORA.Tests\NLProjectTests.csproj -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "Falló la compilación de pruebas." }
 
       - name: Test
         run: dotnet test .\tests\NOVORA.Tests\NLProjectTests.csproj -c Release --no-build

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="@color/novora_background">
+  <LinearLayout style="@style/NovoraPage">
+    <include layout="@layout/nl_android_header"/>
+    <TextView style="@style/NovoraSection" android:text="ARQUITECTURA DE ENGINES"/>
+    <LinearLayout style="@style/NovoraCard" android:orientation="horizontal" android:gravity="center_vertical">
+      <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Bus de control" android:textColor="@color/novora_text" android:textSize="13sp" android:textStyle="bold"/>
+        <TextView android:id="@+id/engines_summary" style="@style/NovoraBody" android:paddingBottom="0dp" android:text="Conecta para consultar los motores."/>
+      </LinearLayout>
+      <Button android:id="@+id/engines_detect" android:layout_width="104dp" android:layout_height="48dp" android:text="Detectar" android:textAllCaps="false"/>
+    </LinearLayout>
+    <TextView style="@style/NovoraSection" android:text="LINKENGINE · PC ↔ ANDROID"/>
+    <LinearLayout style="@style/NovoraCard">
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Transporte USB / LAN" android:textColor="@color/novora_text" android:textSize="15sp" android:textStyle="bold"/>
+        <TextView android:id="@+id/engines_link_state" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Bloqueado" android:textColor="@color/novora_error" android:textSize="12sp" android:textStyle="bold"/>
+      </LinearLayout>
+      <TextView style="@style/NovoraBody" android:text="Internet USB, VPN Android y túnel DATA. El transporte y su disponibilidad provienen de la sesión real."/>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="64dp" android:orientation="horizontal">
+        <TextView android:id="@+id/engines_link_latency" style="@style/NovoraValue" android:gravity="center" android:text="LinkEngine detenido"/><TextView android:id="@+id/engines_link_loss" style="@style/NovoraValue" android:gravity="center" android:visibility="gone"/><TextView android:id="@+id/engines_link_throughput" style="@style/NovoraValue" android:gravity="center" android:visibility="gone"/>
+      </LinearLayout>
+      <Button android:id="@+id/engines_toggle_link" style="@style/NovoraButton" android:text="Iniciar LinkEngine"/>
+    </LinearLayout>
+    <TextView style="@style/NovoraSection" android:text="VISIONENGINE · MIRRORING"/>
+    <LinearLayout style="@style/NovoraCard">
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Video y audio por hardware" android:textColor="@color/novora_text" android:textSize="15sp" android:textStyle="bold"/>
+        <TextView android:id="@+id/engines_video_state" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="No detectado" android:textColor="@color/novora_error" android:textSize="12sp" android:textStyle="bold"/>
+      </LinearLayout>
+      <TextView style="@style/NovoraBody" android:text="Pantalla, audio, monitor, modo de VisionEngine, bitrate, resolución y límite de FPS."/>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="64dp" android:orientation="horizontal">
+        <TextView android:id="@+id/engines_video_resolution" style="@style/NovoraValue" android:gravity="center" android:text="VisionEngine detenido"/><TextView android:id="@+id/engines_video_fps" style="@style/NovoraValue" android:gravity="center" android:visibility="gone"/><TextView android:id="@+id/engines_video_bitrate" style="@style/NovoraValue" android:gravity="center" android:visibility="gone"/>
+      </LinearLayout>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:orientation="horizontal">
+        <Button android:id="@+id/engines_toggle_video" style="@style/NovoraButton" android:layout_width="0dp" android:layout_weight="1" android:text="Iniciar VisionEngine"/>
+        <Button android:id="@+id/engines_settings" style="@style/NovoraButton" android:layout_width="0dp" android:layout_weight="1" android:text="Ajustes VE"/>
+      </LinearLayout>
+    </LinearLayout>
+    <TextView style="@style/NovoraSection" android:text="EXINENGINE · MANDO Y ENTRADAS"/>
+    <LinearLayout style="@style/NovoraCard">
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Control físico" android:textColor="@color/novora_text" android:textSize="15sp" android:textStyle="bold"/>
+        <TextView android:id="@+id/engines_exin_state" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="No detectado" android:textColor="@color/novora_error" android:textSize="12sp" android:textStyle="bold"/>
+      </LinearLayout>
+      <TextView style="@style/NovoraBody" android:text="Identidad del mando, modo Juego/UI, prueba en vivo, diagnóstico y guía de calibración desde PC."/>
+      <ImageView android:layout_width="match_parent" android:layout_height="156dp" android:contentDescription="Xbox Wireless Controller" android:scaleType="centerInside" android:src="@drawable/novora_controller_mock"/>
+      <TextView android:id="@+id/engines_exin_identity" style="@style/NovoraBody" android:text="Control desconectado"/>
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="64dp" android:orientation="horizontal"><TextView android:id="@+id/engines_exin_polling" style="@style/NovoraValue" android:gravity="center" android:text="Control desconectado"/><TextView android:id="@+id/engines_exin_processing" style="@style/NovoraValue" android:gravity="center" android:visibility="gone"/><TextView android:id="@+id/engines_exin_jitter" style="@style/NovoraValue" android:gravity="center" android:visibility="gone"/></LinearLayout>
+      <Button android:id="@+id/engines_exin" style="@style/NovoraButton" android:text="Abrir estado y ajustes ExIn"/>
+    </LinearLayout>
+  </LinearLayout>
+</ScrollView>

@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.IO;
 
 namespace NOVORA.VisionEngine.Protocol;
 

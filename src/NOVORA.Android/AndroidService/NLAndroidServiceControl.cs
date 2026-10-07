@@ -29,6 +29,7 @@ public sealed partial class NLAndroidServiceControl : Service
     private NLControlTrustedPc? _recoveryPeer;
     private NLControlTrustedPc? _connectingPeer;
     private NLControlLanInvitation? _freshInvitation;
+    private NLControlLanPeer? _freshLanPeer;
     private NLControlLanInvitation? _usbInvitation;
     public void AcceptUsbBootstrap(string text)
     {
@@ -60,7 +61,8 @@ public sealed partial class NLAndroidServiceControl : Service
         TransferInProgress = false;
         StatusChanged?.Invoke(this, EventArgs.Empty);
     }
-    public bool CanRememberCurrentPc => _freshInvitation is not null && Session.Current.Phase == NLControlSessionPhase.Connected;
+    public bool CanRememberCurrentPc => (_freshInvitation is not null || _freshLanPeer is not null) &&
+        Session.Current.Phase == NLControlSessionPhase.Connected;
     public IReadOnlyList<NLControlTrustedPc> GetSavedPcs() => _trustedStore.Read();
     private Handler _main = null!;
     private bool _foreground;
@@ -192,28 +194,27 @@ public sealed partial class NLAndroidServiceControl : Service
         StopLocalInternet();
         CancelRecovery();
         _freshInvitation = null;
+        _freshLanPeer = null;
         BeginForeground();
         long operation = _operation;
         try { await Session.ConnectUsbAsync(invitation); if (operation == _operation) { _freshInvitation = invitation; _usbInvitation = null; } }
         finally { RenderNotification(); }
     }
-    public async Task ConnectLanAsync(NLControlLanInvitation invitation)
+    public async Task ConnectLanAsync(NLControlLanPeer peer, string pairingCode)
     {
         _automaticUsbOrigin = "ManualLan";
         StopLocalInternet();
         CancelRecovery();
         _freshInvitation = null;
+        _freshLanPeer = null;
         long operation = _operation;
         BeginForeground();
         _network = _connectivity?.ActiveNetwork;
         try
         {
-            await Session.ConnectLanAsync(invitation);
+            await Session.ConnectLanAsync(peer, pairingCode);
             if (operation == _operation)
-            {
-                _freshInvitation = invitation;
-                await RememberCurrentPcAsync();
-            }
+                _freshLanPeer = peer;
         }
         finally { RenderNotification(); }
     }
@@ -227,6 +228,7 @@ public sealed partial class NLAndroidServiceControl : Service
         StopLocalInternet();
         CancelRecovery();
         _freshInvitation = null;
+        _freshLanPeer = null;
         long operation = _operation;
         _connectingPeer = peer;
         BeginForeground();
@@ -241,29 +243,35 @@ public sealed partial class NLAndroidServiceControl : Service
     public async Task RememberCurrentPcAsync()
     {
         var invitation = _freshInvitation;
+        var lanPeer = _freshLanPeer;
         var state = Session.Current;
-        if (invitation is null || state.Phase != NLControlSessionPhase.Connected)
-            throw new InvalidOperationException("Prepara un enlace USB o un código LAN nuevo para recordar esta PC.");
+        if ((invitation is null && lanPeer is null) || state.Phase != NLControlSessionPhase.Connected)
+            throw new InvalidOperationException("Prepara un enlace USB o LAN nuevo para recordar esta PC.");
+        string expectedFingerprint = invitation?.Fingerprint ?? lanPeer!.Fingerprint;
         // Check corruption/capacity before creating any credential in PC.
         var existing = GetSavedPcs();
-        if (existing.Count >= 16 && !existing.Any(p => p.Fingerprint == invitation.Fingerprint))
+        if (existing.Count >= 16 && !existing.Any(p => p.Fingerprint == expectedFingerprint))
             throw new InvalidOperationException("Olvida una PC antes de agregar otra; el máximo es 16.");
         long operation = _operation;
         var reply = await Session.SendAsync("trust.enroll", SafeName(Build.Model ?? "Android"));
         if (!reply.Success || reply.TrustedPc is not { } peer) throw new InvalidOperationException(reply.Message);
         if (operation != _operation || Session.Current.Generation != state.Generation) throw new System.OperationCanceledException();
         peer.Validate();
-        if (peer.Fingerprint != invitation.Fingerprint || peer.Host != invitation.Host || peer.Port != invitation.Port || peer.Transport != state.Transport)
+        string expectedHost = invitation?.Host ?? lanPeer!.Host;
+        int expectedPort = invitation?.Port ?? lanPeer!.Port;
+        if (peer.Fingerprint != expectedFingerprint || peer.Host != expectedHost || peer.Port != expectedPort || peer.Transport != state.Transport)
             throw new AuthenticationException("La identidad recibida no coincide con el código LAN autorizado.");
         _trustedStore.Save(peer);
         _recoveryPeer = peer.Transport == "LAN" ? peer : null;
         _freshInvitation = null;
+        _freshLanPeer = null;
         StatusChanged?.Invoke(this, EventArgs.Empty);
     }
     public async Task ForgetPcAsync(string fingerprint)
     {
         if (Session.Current.Transport == "USB" && GetSavedPcs().Any(p => p.Fingerprint == fingerprint && p.Transport == "USB")) await DisconnectAsync();
-        if (_connectingPeer?.Fingerprint == fingerprint || _recoveryPeer?.Fingerprint == fingerprint || _freshInvitation?.Fingerprint == fingerprint)
+        if (_connectingPeer?.Fingerprint == fingerprint || _recoveryPeer?.Fingerprint == fingerprint ||
+            _freshInvitation?.Fingerprint == fingerprint || _freshLanPeer?.Fingerprint == fingerprint)
             await DisconnectAsync();
         _trustedStore.Forget(fingerprint);
         StatusChanged?.Invoke(this, EventArgs.Empty);
@@ -283,6 +291,7 @@ public sealed partial class NLAndroidServiceControl : Service
         StopLocalInternet();
         CancelRecovery();
         _freshInvitation = null;
+        _freshLanPeer = null;
         await Session.DisconnectAsync();
         RenderNotification();
         StatusChanged?.Invoke(this, EventArgs.Empty);
@@ -510,11 +519,6 @@ public sealed partial class NLAndroidServiceControl : Service
             if (owner._destroyed || !network.Equals(owner._network)) return;
             owner._network = null;
             owner.LoseLan();
-        });
-        public override void OnCapabilitiesChanged(Network network, NetworkCapabilities capabilities) => owner.Post(() =>
-        {
-            if (owner._destroyed || !network.Equals(owner._network)) return;
-            if (!capabilities.HasCapability(NetCapability.Validated)) owner.LoseLan();
         });
     }
     private void LoseLan()

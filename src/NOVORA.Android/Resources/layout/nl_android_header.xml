@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingBottom="8dp">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:gravity="center_vertical"
+    android:orientation="horizontal" android:background="@color/novora_brand_bar" android:paddingStart="10dp" android:paddingEnd="4dp">
+    <ImageView android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1"
+      android:adjustViewBounds="true" android:contentDescription="NOVORA-LINK"
+      android:scaleType="fitStart" android:src="@drawable/novora_brand" />
+    <Button android:id="@+id/header_theme" android:layout_width="56dp" android:layout_height="48dp"
+      android:text="Tema" android:textAllCaps="false" android:textColor="@color/novora_accent" android:textSize="12sp"/>
+  </LinearLayout>
+  <TextView android:id="@+id/header_product" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ANDROID · AppControl" android:textColor="@color/novora_muted" android:textSize="12sp"/>
+  <TextView android:id="@+id/header_state" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="● USB OFF · 0/3 Engines activos" android:textColor="@color/novora_error" android:textSize="12sp"/>
+</LinearLayout>

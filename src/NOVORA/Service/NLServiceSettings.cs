@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using NOVORA.VisionEngine.Performance;
 
 namespace NOVORA.Service;
 
@@ -18,7 +20,27 @@ public sealed class NLServiceNovoraSettings
     public int ExInPointerSensitivity { get; set; } = 100;
     [System.Obsolete("Compatibilidad de configuración; usa ExInEnabled.")]
     public bool GamepadEnabled { get => ExInEnabled; set => ExInEnabled = value; }
-    public string NvidiaProfile { get; set; } = "Automatic";
+    public string VisionProfile { get; set; } = "Automatic";
+
+    [JsonPropertyName("NvidiaProfile")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LegacyNvidiaProfile
+    {
+        get => null;
+        set
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                VisionProfile = VEProfileOptions.FromLegacyNvidiaVE(value).ToString();
+        }
+    }
+
+    [JsonIgnore]
+    [Obsolete("Usa VisionProfile.")]
+    public string NvidiaProfile
+    {
+        get => VisionProfile;
+        set => VisionProfile = VEProfileOptions.FromLegacyNvidiaVE(value).ToString();
+    }
 
     // ============================================================
     // AUDIO

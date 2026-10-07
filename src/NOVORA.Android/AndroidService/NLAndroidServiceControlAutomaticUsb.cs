@@ -44,6 +44,7 @@ public sealed partial class NLAndroidServiceControl
                 _automaticUsbOrigin = bootstrap.Transport == "LAN" ? "AutomaticLanFailover" : "AutomaticUsb";
                 CancelRecovery();
                 _freshInvitation = null;
+                _freshLanPeer = null;
                 BeginForeground();
                 long tunnelOperation = _operation;
                 try

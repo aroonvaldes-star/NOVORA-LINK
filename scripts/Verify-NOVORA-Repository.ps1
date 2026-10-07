@@ -110,7 +110,7 @@ Run-Step 'DOTNET RESTORE ANDROID' {
 }
 
 Run-Step 'DOTNET BUILD ANDROID RELEASE' {
-    dotnet build $AndroidProject -c Release --no-restore
+    dotnet build $AndroidProject -c Release -t:Compile --no-restore
 }
 
 Section 'RESULTADO'

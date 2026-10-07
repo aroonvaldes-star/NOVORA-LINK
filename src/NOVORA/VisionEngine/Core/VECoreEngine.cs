@@ -7,6 +7,7 @@ using NOVORA.VisionEngine.Server;
 using NOVORA.VisionEngine.Transport;
 using NOVORA.VisionEngine.Video;
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 

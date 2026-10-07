@@ -3,6 +3,7 @@ using NOVORA.ExInEngine;
 using NOVORA.LinkEngine.Network;
 using NOVORA.LinkEngine.Runtime;
 using NOVORA.VisionEngine.Core;
+using NOVORA.VisionEngine.Metrics;
 using System.Net;
 using System.Text.Json;
 
@@ -25,6 +26,7 @@ public partial class NLUIWindowMain
     private NLControlLinkOffer? _androidLanLinkOffer;
     private bool _pcVideoAuthorizationRequested;
     private CancellationTokenSource? _pcVideoAuthorizationTimeout;
+    private readonly VEMetricsCollector _androidVisionMetrics = new();
 
     private NLControlEngines CaptureAndroidEngines()
     {
@@ -70,6 +72,19 @@ public partial class NLUIWindowMain
             ? "ExInEngine desactivado en PC."
             : exIn?.Message ?? "ExInEngine todavía no está inicializado.";
         bool videoSourceAvailable = device.Connected && !string.IsNullOrWhiteSpace(device.Serial) || lanEligible;
+        NLControlVisionTelemetry? visionTelemetry = null;
+        var visionRuntime = _visionEngineVE?.RuntimeVE;
+        if (videoRunning && visionRuntime is not null)
+        {
+            VEMetricsSnapshot metrics = _androidVisionMetrics.CaptureVE(
+                visionRuntime.VideoVE.StatusVE, visionRuntime.AudioVE.StatusVE,
+                visionRuntime.ControlVE.StatusVE, visionRuntime.TransportVE.StateVE,
+                visionRuntime.TransportSessionVE);
+            var renderer = visionRuntime.RendererVE.StatusVE;
+            if (renderer.TextureWidth > 0 && renderer.TextureHeight > 0)
+                visionTelemetry = new(renderer.TextureWidth, renderer.TextureHeight,
+                    metrics.Video.FramesPerSecond, metrics.Video.MegabitsPerSecond, metrics.CapturedAtUtc);
+        }
         return new NLControlEngines(
             !_closing && !videoBusy && !videoRunning && !lanLifecycle && videoSourceAvailable &&
                 _viewModel.SelectedMonitor is not null,
@@ -92,7 +107,9 @@ public partial class NLUIWindowMain
             _pcVideoAuthorizationRequested,
             videoTransport,
             videoPhase,
-            lanStateVisible && _veLanDegradedVE);
+            lanStateVisible && _veLanDegradedVE,
+            null,
+            visionTelemetry);
     }
 
     // Existing engine/device events publish only changes relevant to the control UI.
@@ -106,6 +123,14 @@ public partial class NLUIWindowMain
             return;
         }
         NLControlEngines current = CaptureAndroidEngines();
+        VisionLiveTelemetryText14.Text = current.VisionTelemetry is { } telemetry
+            ? $"Última medición del flujo: {telemetry.Width} × {telemetry.Height} · " +
+              $"{telemetry.FramesPerSecond:0.#} FPS · {telemetry.MegabitsPerSecond:0.##} Mb/s · " +
+              $"{telemetry.SampledAtUtc.ToLocalTime():HH:mm:ss}"
+            : current.VideoState == "Activo"
+                ? "Transmisión activa; esperando la primera medición real."
+                : "Sin datos reales: VisionEngine no está transmitiendo.";
+
         if (current == _lastAndroidEngineState) return;
         _lastAndroidEngineState = current;
         _androidControlRevision++;
@@ -286,14 +311,18 @@ public partial class NLUIWindowMain
         }
     }
 
-    private Task RequestAppControlVideoFromPcAsync()
+    internal static bool CanRequestAndroidVideoFromPc(bool usbAuthorized, bool lanAuthorized) =>
+        usbAuthorized || lanAuthorized;
+
+    private Task RequestAndroidVideoFromPcAsync()
     {
         var device = _viewModel.Device;
         bool authorizedUsb = AndroidControlSessionOpen && _androidControl?.IsAuthorized == true &&
             _androidControlSerial == device.Serial && device.Connected && !device.IsWifiConnection;
-        if (!authorizedUsb)
+        bool authorizedLan = _androidLanControl?.IsAuthorized == true;
+        if (!CanRequestAndroidVideoFromPc(authorizedUsb, authorizedLan))
             throw new InvalidOperationException(
-                "VisionEngine nativo requiere AppControl conectado y autorizado por USB.");
+                "VisionEngine requiere AppControl conectado y autorizado por USB o LAN.");
         if (_viewModel.SelectedMonitor is null)
             throw new InvalidOperationException("Selecciona el monitor que compartirá VisionEngine.");
 

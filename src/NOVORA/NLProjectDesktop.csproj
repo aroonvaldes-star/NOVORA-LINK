@@ -59,15 +59,4 @@
     <Content Include="Android\NLAndroidRelease.json" Condition="Exists('Android\NLAndroidRelease.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="..\..\Documentation\Manual\ES\NLDocumentationManualUsuarioES.txt"
-             Link="Manual\NLManualUsuarioES.txt"
-             CopyToOutputDirectory="PreserveNewest"
-             CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="..\..\Documentation\Manual\EN\NLDocumentationUserManualEN.txt"
-             Link="Manual\NLUserManualEN.txt"
-             CopyToOutputDirectory="PreserveNewest"
-             CopyToPublishDirectory="PreserveNewest" />
-  </ItemGroup>
-
 </Project>

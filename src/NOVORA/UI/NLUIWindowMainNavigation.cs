@@ -1,6 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
+using WpfBrush = System.Windows.Media.Brush;
+using WpfBrushes = System.Windows.Media.Brushes;
+using WpfButton = System.Windows.Controls.Button;
 
 namespace NOVORA;
 
@@ -34,6 +39,42 @@ public partial class NLUIWindowMain
         SetPageVisibility14(IntegrationPage14, page, "Integration");
         SetPageVisibility14(PrivacyPage14, page, "Privacy");
         SetPageVisibility14(SettingsPage14, page, "Settings");
+        UpdateNavigationState14(page);
+    }
+
+    private void UpdateNavigationState14(
+        string page)
+    {
+        IEnumerable<WpfButton> navigationButtons =
+        [
+            NavHome14,
+            NavScreen14,
+            NavNetwork14,
+            NavGameInput14,
+            NavIntegration14,
+            NavPrivacy14,
+            NavSettings14
+        ];
+
+        foreach (WpfButton button in navigationButtons)
+        {
+            bool isSelected =
+                string.Equals(
+                    button.Tag as string,
+                    page,
+                    StringComparison.OrdinalIgnoreCase);
+
+            button.Background = isSelected
+                ? (WpfBrush)FindResource("InputSelectedBackgroundBrush")
+                : WpfBrushes.Transparent;
+            button.Foreground = isSelected
+                ? (WpfBrush)FindResource("AccentTextBrush")
+                : (WpfBrush)FindResource("TextBrush");
+            button.Opacity = isSelected ? 1 : 0.72;
+            AutomationProperties.SetHelpText(
+                button,
+                isSelected ? "Sección actual" : string.Empty);
+        }
     }
 
     private static void SetPageVisibility14(

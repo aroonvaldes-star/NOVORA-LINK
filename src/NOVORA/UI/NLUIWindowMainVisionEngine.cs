@@ -5,6 +5,7 @@ using NOVORA.Integration;
 using NOVORA.VisionEngine.Core;
 using NOVORA.VisionEngine.Exchange;
 using NOVORA.VisionEngine.Integration;
+using NOVORA.VisionEngine.Performance;
 using NOVORA.NVIDIA;
 using NOVORA.VisionEngine.Renderer;
 using NOVORA.VisionEngine.Server;
@@ -298,19 +299,22 @@ public partial class NLUIWindowMain
         _ = ApplyExInRuntimeStateAsync(_viewModel.ExInEnabled);
 
         if (!Enum.TryParse(
-                _viewModel.NvidiaProfile,
+                _viewModel.VisionProfile,
                 ignoreCase: true,
-                out NLNVIDIAProfile profile) || !Enum.IsDefined(profile))
+                out VEProfile profile) || !Enum.IsDefined(profile))
         {
             profile =
-                NLNVIDIAProfile.Automatic;
+                VEProfile.Automatic;
 
-            _viewModel.NvidiaProfile =
-                NLNVIDIAProfile.Automatic.ToString();
+            _viewModel.VisionProfile =
+                VEProfile.Automatic.ToString();
         }
 
+        VEProfileOptions unified = VEProfileOptions.CreateVE(profile);
+        runtime.PerformanceVE.SetProfileVE(
+            unified.PerformanceProfile);
         runtime.NvidiaVE.SetProfileVE(
-            profile);
+            unified.ToLegacyNvidiaVE());
 
         if (runtime.IsRunningVE)
         {
@@ -365,11 +369,11 @@ public partial class NLUIWindowMain
 
         string gamepad = _viewModel.ExInEnabled ? "ExIn ON" : "ExIn OFF";
 
-        string nvidia =
-            $"NVIDIA {_viewModel.NvidiaProfile}";
+        string visionProfile =
+            $"VE {_viewModel.VisionProfile}";
 
         EngineFeatureStatus14.Text =
-            $"NOVORA · {privacy} · {integration} · {gamepad} · {nvidia}";
+            $"NOVORA · {privacy} · {integration} · {gamepad} · {visionProfile}";
 
         EngineFeatureStatus14.ToolTip =
             "Estado de funciones independientes y aceleración de VisionEngine. " +
@@ -1382,7 +1386,7 @@ public partial class NLUIWindowMain
             _viewModel.ConnectionStatus = "Solicitud de VisionEngine cancelada.";
             return Task.CompletedTask;
         }
-        return RequestAppControlVideoFromPcAsync();
+        return RequestAndroidVideoFromPcAsync();
     }
 
     private async Task SetVisionEngineRunningVEAsync(bool running, Func<bool>? authorization = null)

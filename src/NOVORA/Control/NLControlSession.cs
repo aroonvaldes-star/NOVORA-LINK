@@ -5,7 +5,11 @@ namespace NOVORA.Control;
 public enum NLControlSessionPhase { Disconnected, Connecting, Connected, Lost }
 
 public sealed record NLControlSessionState(long Generation, NLControlSessionPhase Phase,
-    string Transport, string Message, NLControlSnapshot? Snapshot, bool Busy = false, bool Tunnel = false);
+    string Transport, string Message, NLControlSnapshot? Snapshot, bool Busy = false, bool Tunnel = false)
+{
+    public bool UsesNativeVeLanVideo =>
+        Phase == NLControlSessionPhase.Connected && Transport == "LAN" && !Tunnel;
+}
 
 /// <summary>Owns a connection independently of UI subscriptions. Never retries a mutation or stores a credential.</summary>
 public sealed class NLControlSession : IAsyncDisposable
@@ -36,6 +40,9 @@ public sealed class NLControlSession : IAsyncDisposable
 
     public Task ConnectLanAsync(NLControlLanInvitation invitation) =>
         ConnectAsync("LAN", client => client.ConnectLanAsync(invitation));
+
+    public Task ConnectLanAsync(NLControlLanPeer peer, string pairingCode) =>
+        ConnectAsync("LAN", client => client.ConnectLanAsync(peer, pairingCode));
 
     public Task ConnectTrustedAsync(NLControlTrustedPc pc, bool allowLoopback = false) =>
         ConnectAsync(pc.Transport, client => client.ConnectTrustedAsync(pc, allowLoopback || pc.Transport == "USB"));

@@ -2,10 +2,12 @@ namespace NOVORA.VisionEngine.Video;
 
 public enum VEAccelerationBackend
 {
-    Software,
+    Automatic,
+    D3D11VA,
     NvidiaNvdec,
     Amd,
-    Intel
+    Intel,
+    Software
 }
 
 public sealed record VEAccelerationState(
