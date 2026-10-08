@@ -43,6 +43,7 @@ public sealed class VECoreRuntime : IAsyncDisposable
         PrivacyVE = new VEPrivacyManager();
         PerformanceVE = new VEPerformanceManager();
         NvidiaVE = new NLNVIDIAManager(paths);
+        NvidiaApiVE = new NLNVIDIAApiClient();
 
         DeviceVE = new VEDeviceManager(adb);
         ServerVE = new VEServerManager(adb, paths);
@@ -77,6 +78,7 @@ public sealed class VECoreRuntime : IAsyncDisposable
     public VEPrivacyManager PrivacyVE { get; }
     public VEPerformanceManager PerformanceVE { get; }
     public NLNVIDIAManager NvidiaVE { get; }
+    public NLNVIDIAApiClient NvidiaApiVE { get; }
     public VEDeviceManager DeviceVE { get; }
     public VEServerManager ServerVE { get; }
     public VETransportManager TransportVE { get; }
@@ -319,6 +321,7 @@ public sealed class VECoreRuntime : IAsyncDisposable
             await VideoVE.DisposeAsync().ConfigureAwait(false);
             await RendererVE.DisposeAsync().ConfigureAwait(false);
             await ControlVE.DisposeAsync().ConfigureAwait(false);
+            NvidiaApiVE.Dispose();
         }
         finally
         {
