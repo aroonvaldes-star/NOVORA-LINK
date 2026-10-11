@@ -1,3 +1,5 @@
+<img width="1923" height="818" alt="Banner tecnológico Novora-Link en negro" src="https://github.com/user-attachments/assets/ca182ce8-2818-428d-bc34-f3757027ed62" />
+
 # NOVORA-LINK 1.4
 
 ## Descripción técnica y acciones de la interfaz
