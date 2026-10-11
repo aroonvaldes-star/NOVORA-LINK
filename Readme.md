@@ -1,3 +1,5 @@
+<img width="1584" height="672" alt="Gemini_Generated_Image_l2yt5tl2yt5tl2yt" src="https://github.com/user-attachments/assets/41d5e5b0-2525-43d3-b67b-ca22c900b5fe" />
+
 # NOVORA-LINK 1.4
 
 ## Descripción técnica y acciones de la interfaz
