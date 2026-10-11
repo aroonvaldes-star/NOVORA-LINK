@@ -1,3 +1,6 @@
+<img width="772" height="137" alt="NLAssetNOVORABRAND" src="https://github.com/user-attachments/assets/b4fc12a5-c7e2-4753-967b-423863fd9c7b" />
+<img width="2048" height="2048" alt="AppControl" src="https://github.com/user-attachments/assets/a65ac49e-6347-48b8-8b15-18408c1e347f" />
+
 # NOVORA-LINK 1.4
 
 ## Descripción técnica y acciones de la interfaz
