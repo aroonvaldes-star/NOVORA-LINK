@@ -1,105 +1,61 @@
-NOVORA-LINK COMMUNITY PROPRIETARY LICENSE (NLCPL) v1.0
+NOVORA-LINK COPYRIGHT NOTICE
 
 Copyright (c) 2026 Aaron Yair Galarza Valdes.
 Todos los derechos reservados.
 
-1. TITULARIDAD
+──────────────────────────────────────────────────────────────
+ESPAÑOL
+──────────────────────────────────────────────────────────────
 
 NOVORA-LINK, incluyendo su código fuente, código objeto,
-documentación, diseños, interfaces, marcas, logotipos, elementos
-gráficos y demás activos originales (en conjunto, el "Software"),
-es propiedad exclusiva de Aaron Yair Galarza Valdes, salvo aquellos
-componentes expresamente identificados como pertenecientes a terceros.
+documentación, diseños, logotipos, marcas, elementos gráficos,
+contenido multimedia y demás activos originales, está protegido
+por las leyes de derechos de autor de los Estados Unidos Mexicanos
+y por los tratados internacionales aplicables.
 
-Todos los derechos de propiedad intelectual sobre NOVORA-LINK están
-protegidos por la legislación mexicana aplicable, incluidos la Ley
-Federal del Derecho de Autor, los tratados de la OMPI y el Convenio
-de Berna para la Protección de las Obras Literarias y Artísticas.
+Salvo que se indique expresamente lo contrario, todos los derechos,
+títulos e intereses sobre NOVORA-LINK pertenecen exclusivamente a
+Aaron Yair Galarza Valdes.
 
-2. PERMISOS CONCEDIDOS
+El acceso al código fuente o a los archivos del proyecto no implica
+la transferencia de derechos de autor, propiedad intelectual o
+derechos de marca.
 
-Se concede a cualquier persona una licencia limitada, revocable,
-personal, no exclusiva e intransferible para:
+Los componentes de terceros incluidos en NOVORA-LINK permanecen bajo
+sus respectivas licencias y son propiedad de sus respectivos titulares.
 
-a) Descargar el Software.
-b) Ejecutar el Software para uso personal o de evaluación.
-c) Analizar, inspeccionar y estudiar el código fuente.
-d) Identificar errores, vulnerabilidades o áreas de mejora.
-e) Modificar localmente el Software para fines personales,
-   educativos, de investigación o desarrollo.
+Para los permisos de uso, modificación y distribución consulte:
+LICENSE.md
 
-3. CONDICIÓN PARA MODIFICACIONES
+──────────────────────────────────────────────────────────────
+ENGLISH
+──────────────────────────────────────────────────────────────
 
-Toda persona que realice modificaciones, mejoras, correcciones o
-adaptaciones del Software deberá notificar dichas modificaciones al
-titular del proyecto mediante los canales oficiales establecidos por
-NOVORA-LINK, incluyendo Pull Requests, Issues, correo electrónico u
-otros medios designados por el titular.
+NOVORA-LINK, including its source code, object code,
+documentation, designs, logos, trademarks, graphical assets,
+multimedia content, and other original assets, is protected by
+copyright laws of the United Mexican States and applicable
+international treaties.
 
-La notificación de una modificación no implica la cesión automática
-de derechos ni obliga al titular a aceptar, incorporar o distribuir
-dicha modificación.
+Unless expressly stated otherwise, all rights, title, and interest
+in and to NOVORA-LINK are exclusively owned by Aaron Yair Galarza
+Valdes.
 
-4. RESTRICCIONES
+Access to the source code or project files does not constitute a
+transfer of copyright, intellectual property rights, or trademark
+rights.
 
-Salvo autorización previa y por escrito del titular, queda prohibido:
+Third-party components included in NOVORA-LINK remain under their
+respective licenses and are the property of their respective owners.
 
-a) Redistribuir versiones modificadas como si fueran oficiales.
-b) Vender, sublicenciar o comercializar el Software.
-c) Crear proyectos derivados con fines comerciales.
-d) Eliminar avisos de copyright o atribución.
-e) Utilizar las marcas, nombres comerciales o identidad visual de
-   NOVORA-LINK para promocionar productos propios.
-f) Presentar modificaciones no autorizadas como versiones oficiales.
+For permissions regarding use, modification, and distribution,
+refer to:
+LICENSE.md
 
-5. DISTRIBUCIÓN
-
-Se permite compartir copias íntegras y sin modificar del Software,
-siempre que:
-
-a) Se conserve esta licencia completa.
-b) Se mantengan todos los avisos de copyright.
-c) No exista cobro alguno por el Software.
-d) No se altere la identidad de NOVORA-LINK.
-
-6. COMPONENTES DE TERCEROS
-
-Los componentes de terceros conservan sus respectivas licencias y
-condiciones de uso. Esta licencia no modifica ni reemplaza dichas
-licencias.
-
-Consulte:
-
-- NLLegalThirdPartyNotices.md
-- NLLegalAcknowledgements.md
-
-7. AUSENCIA DE GARANTÍAS
-
-EL SOFTWARE SE PROPORCIONA "TAL CUAL" ("AS IS"), SIN GARANTÍA DE
-NINGÚN TIPO, EXPRESA O IMPLÍCITA.
-
-8. LIMITACIÓN DE RESPONSABILIDAD
-
-EN LA MÁXIMA MEDIDA PERMITIDA POR LA LEY, EL TITULAR NO SERÁ
-RESPONSABLE DE DAÑOS DIRECTOS, INDIRECTOS, INCIDENTALES, ESPECIALES,
-PUNITIVOS O CONSECUENTES DERIVADOS DEL USO O IMPOSIBILIDAD DE USO
-DEL SOFTWARE.
-
-9. TERMINACIÓN
-
-Cualquier incumplimiento de esta licencia terminará automática e
-inmediatamente los permisos aquí concedidos.
-
-10. RESERVA DE DERECHOS
-
-Todos los derechos no expresamente concedidos en esta licencia quedan
-reservados por el titular.
-
-11. LEGISLACIÓN APLICABLE
-
-Esta licencia se regirá por las leyes de los Estados Unidos Mexicanos,
-sin perjuicio de la protección otorgada por los tratados
-internacionales de propiedad intelectual aplicables.
+──────────────────────────────────────────────────────────────
 
 © 2026 Aaron Yair Galarza Valdes
-NOVORA-LINK. Todos los derechos reservados.
+NOVORA-LINK®
+
+All Rights Reserved.
+Todos los derechos reservados.
