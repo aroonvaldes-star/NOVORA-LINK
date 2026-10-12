@@ -1,43 +1,94 @@
-# NOVORA — Third-Party Notices
+NOVORA-LINK THIRD-PARTY NOTICES
+Version 1.0
 
-Este archivo identifica componentes de terceros conocidos integrados o utilizados por NOVORA.
+Copyright (c) 2026 Aaron Yair Galarza Valdes.
+Todos los derechos reservados.
 
-| Componente | Autor / proyecto | Licencia |
-|---|---|---|
-| scrcpy | Genymobile / Romain Vimont | Apache-2.0 |
-| Gnirehtet | Genymobile | Apache-2.0 |
-| ADB | Android Open Source Project | Apache-2.0 en los componentes ADB aplicables |
-| SDL3 | Simple DirectMedia Layer | zlib License |
-| FFmpeg | FFmpeg project | Sujeto a la licencia del build distribuido (LGPL/GPL según configuración) |
+──────────────────────────────────────────────────────────────
+ESPAÑOL
+──────────────────────────────────────────────────────────────
 
-Las copias o binarios de terceros deben conservar sus respectivos archivos `LICENSE`, `NOTICE`, avisos de copyright y demás textos exigidos por sus licencias.
+NOVORA-LINK incluye, utiliza o puede distribuir componentes,
+bibliotecas, recursos, servicios o dependencias desarrollados
+por terceros.
 
-NOVORA no reclama propiedad sobre esos componentes.
+Todos los componentes de terceros conservan sus respectivos
+derechos de autor, marcas comerciales y condiciones de licencia.
 
-## Fuentes oficiales
+La inclusión de un componente de terceros dentro de NOVORA-LINK
+no implica la transferencia de propiedad intelectual sobre dicho
+componente al titular de NOVORA-LINK.
 
-- scrcpy: https://github.com/Genymobile/scrcpy
-- Gnirehtet: https://github.com/Genymobile/gnirehtet
-- ADB: https://android.googlesource.com/platform/packages/modules/adb/
-- SDL: https://github.com/libsdl-org/SDL
-- FFmpeg: https://ffmpeg.org/
+Los usuarios deben cumplir con los términos y condiciones de las
+licencias correspondientes a cada componente de terceros.
 
-## FFmpeg compartido de VE — 2026-09-14
+Cuando exista alguna discrepancia entre la licencia de NOVORA-LINK
+y una licencia de terceros, prevalecerán las condiciones exigidas
+por la licencia del componente de terceros respecto a dicho
+componente.
 
-Se sustituyeron avcodec-62, avutil-60, avformat-62 y swresample-6 por el conjunto
-BtbN `ffmpeg-n8.1-latest-win64-lgpl-shared-8.1.zip`, versión real
-`n8.1.2-52-g5a03dfa0f6-20260913`. Es un build compartido LGPLv3 (`--enable-version3`,
-sin `--enable-gpl`); incluye NVDEC y mantiene decodificadores software.
-La licencia del paquete se distribuye en `src/NOVORA/Tools/FFmpeg-LICENSE.txt`.
-[Manifiesto, configuración completa y hashes](../src/NOVORA/Tools/FFmpeg-build.json).
+A continuación se muestra una lista de componentes de terceros
+utilizados por NOVORA-LINK:
 
-Fuentes de FFmpeg: https://github.com/FFmpeg/FFmpeg/tree/5a03dfa0f6
-Recetas y dependencias del proveedor: https://github.com/BtbN/FFmpeg-Builds
-El enlace latest es mutable: el SHA-256 conservado identifica el paquete probado.
-Esta validación técnica no constituye una auditoría de cumplimiento de todas las
-licencias de dependencias estáticas para una futura distribución pública.
+──────────────────────────────────────────────────────────────
 
+[Nombre del componente]
+Copyright (c) [Año] [Autor o Entidad]
+Licencia: [MIT / Apache-2.0 / BSD-3-Clause / GPL / etc.]
+Sitio web: [URL]
 
-## Backend temporal de VisionEngine
+──────────────────────────────────────────────────────────────
 
-VisionEngine conserva temporalmente `scrcpy-server` como backend Android compatible mientras NOVORA desarrolla y valida una sustitución propia. Su uso no se presenta como código original de NOVORA. Consulte `Documentation/ThirdParty/NLDocumentationScrcpyServerProvenance.md`.
+[Nombre del componente]
+Copyright (c) [Año] [Autor o Entidad]
+Licencia: [MIT / Apache-2.0 / BSD-3-Clause / GPL / etc.]
+Sitio web: [URL]
+
+──────────────────────────────────────────────────────────────
+
+ENGLISH
+──────────────────────────────────────────────────────────────
+
+NOVORA-LINK includes, uses, or may distribute third-party
+components, libraries, resources, services, or dependencies.
+
+All third-party components remain the property of their
+respective copyright holders and are subject to their own
+license terms and conditions.
+
+The inclusion of a third-party component within NOVORA-LINK
+does not transfer ownership or intellectual property rights of
+that component to the owner of NOVORA-LINK.
+
+Users are responsible for complying with the applicable license
+terms governing each third-party component.
+
+If any conflict exists between the NOVORA-LINK license and a
+third-party component license, the terms of the third-party
+license shall govern that specific component.
+
+The following list identifies third-party components used by
+NOVORA-LINK:
+
+──────────────────────────────────────────────────────────────
+
+[Component Name]
+Copyright (c) [Year] [Author or Organization]
+License: [MIT / Apache-2.0 / BSD-3-Clause / GPL / etc.]
+Website: [URL]
+
+──────────────────────────────────────────────────────────────
+
+[Component Name]
+Copyright (c) [Year] [Author or Organization]
+License: [MIT / Apache-2.0 / BSD-3-Clause / GPL / etc.]
+Website: [URL]
+
+──────────────────────────────────────────────────────────────
+
+This file may be updated as dependencies are added, removed,
+or modified.
+
+© 2026 Aaron Yair Galarza Valdes
+NOVORA-LINK®
+`
