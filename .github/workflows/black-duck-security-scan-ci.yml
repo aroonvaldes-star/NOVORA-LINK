@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Black Duck Security Scan
-        uses: blackduck-inc/black-duck-security-scan@v2.11.0
+        uses: blackduck-inc/black-duck-security-scan@152247222aa9cd38124acd5c0cf60f4db71adc3f # v2.11.0
         with:
           blackducksca_url: ${{ secrets.BLACKDUCK_URL }}
           blackducksca_token: ${{ secrets.BLACKDUCK_TOKEN }}
