@@ -54,7 +54,7 @@ jobs:
           test -s novora-linkengine.apk
 
       - name: Appknox scan
-        uses: appknox/appknox-github-action@1.1.2
+        uses: appknox/appknox-github-action@b7d2bfb2321d5544e97bffcba48557234ab953a4 # 1.1.2
         with:
           appknox_access_token: ${{ secrets.APPKNOX_ACCESS_TOKEN }}
           file_path: novora-linkengine.apk
