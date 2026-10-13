@@ -63,7 +63,12 @@ jobs:
         run: dotnet workload restore .\src\NOVORA.Android\NLProjectAndroid.csproj
 
       - name: Restore
-        run: dotnet restore .\NOVORA.sln
+        shell: pwsh
+        run: |
+          dotnet restore .\NOVORA.sln
+          if ($LASTEXITCODE -ne 0) { throw "Falló la restauración de NOVORA." }
+          dotnet restore .\tests\NOVORA.Tests\NLProjectTests.csproj
+          if ($LASTEXITCODE -ne 0) { throw "Falló la restauración de pruebas." }
 
       - name: Build
         shell: pwsh
@@ -78,4 +83,4 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Falló la compilación de pruebas." }
 
       - name: Test
-        run: dotnet test .\tests\NOVORA.Tests\NLProjectTests.csproj -c Release --no-build
+        run: dotnet run --project .\tests\NOVORA.Tests\NLProjectTests.csproj -c Release --no-build --no-restore

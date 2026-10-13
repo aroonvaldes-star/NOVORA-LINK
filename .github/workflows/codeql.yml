@@ -68,7 +68,11 @@ jobs:
       - name: Restore
         if: matrix.language == 'csharp'
         shell: pwsh
-        run: dotnet restore .\NOVORA.sln
+        run: |
+          dotnet restore .\NOVORA.sln
+          if ($LASTEXITCODE -ne 0) { throw "Falló la restauración de NOVORA." }
+          dotnet restore .\tests\NOVORA.Tests\NLProjectTests.csproj
+          if ($LASTEXITCODE -ne 0) { throw "Falló la restauración de pruebas." }
 
       - name: Build
         if: matrix.language == 'csharp'
