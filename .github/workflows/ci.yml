@@ -16,6 +16,17 @@ permissions:
   contents: read
 
 jobs:
+  relay:
+    name: Rust relay
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test locked relay dependencies
+        run: cargo test --locked --manifest-path src/NOVORA/LinkEngine/Network/Native/RelayCore/Cargo.toml
+      - name: Build release relay
+        run: cargo build --release --locked --manifest-path src/NOVORA/LinkEngine/Network/Native/RelayCore/Cargo.toml
+
   build:
     runs-on: windows-latest
     steps:
