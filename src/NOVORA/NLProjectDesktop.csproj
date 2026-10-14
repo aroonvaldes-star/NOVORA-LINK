@@ -41,22 +41,29 @@
 		<Resource Include="Asset\NLAssetNOVORABRANDLIGHT.png" />
 	</ItemGroup>
 
-  <ItemGroup>
-    
-  </ItemGroup>
+   <ItemGroup>
+     
+   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="Asset\NLAssetPDI2T.mp4"
-          CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" />
-  </ItemGroup>
-  <ItemGroup>
-    <ApplicationDefinition Include="Application\NLApplicationApp.xaml" />
-  </ItemGroup>
-  <ItemGroup><PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" /></ItemGroup>
-  <ItemGroup>
-    <Content Include="Android\NLAndroidApp.apk" Condition="Exists('Android\NLAndroidApp.apk')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="Android\NLAndroidRelease.json" Condition="Exists('Android\NLAndroidRelease.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-  </ItemGroup>
+   <ItemGroup>
+     <None Update="Asset\NLAssetPDI2T.mp4"
+           CopyToOutputDirectory="PreserveNewest"
+           CopyToPublishDirectory="PreserveNewest" />
+   </ItemGroup>
+   <ItemGroup>
+     <ApplicationDefinition Include="Application\NLApplicationApp.xaml" />
+   </ItemGroup>
+   <ItemGroup>
+     <Compile Remove="..\UI\**\*.cs" />
+     <Compile Remove="..\ViewModel\**\*.cs" />
+     <Page Remove="..\UI\**\*.xaml" />
+     <None Remove="..\UI\**\*.xaml" />
+     <None Remove="..\ViewModel\**\*.cs" />
+   </ItemGroup>
+   <ItemGroup><PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" /></ItemGroup>
+   <ItemGroup>
+     <Content Include="Android\NLAndroidApp.apk" Condition="Exists('Android\NLAndroidApp.apk')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+     <Content Include="Android\NLAndroidRelease.json" Condition="Exists('Android\NLAndroidRelease.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+   </ItemGroup>
 
 </Project>
