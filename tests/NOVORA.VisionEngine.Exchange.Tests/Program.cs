@@ -61,6 +61,14 @@ await CheckAsync("Router_RejectsStaleGeneration", async () =>
     Require(router.Current is null && newTransport.DisposeCount == 1, "Clearing the current session did not dispose its transport.");
 });
 
+Check("UsbPush_UsesCategorizedPath", () =>
+{
+    string destination = NOVORA.VisionEngine.Exchange.VEExchangePath.BuildCategorizedDestinationFromNameVE("foto.jpg");
+    Require(destination.StartsWith("/sdcard/NOVORA/", StringComparison.Ordinal), "Destination is outside the NOVORA root: " + destination);
+    Require(destination.EndsWith("/foto.jpg", StringComparison.Ordinal), "File name was not kept: " + destination);
+    Require(destination.Contains("/Imagenes/", StringComparison.Ordinal), "Image was not categorized: " + destination);
+});
+
 await CheckAsync("UsbPush_UsesBackendSerialAndReturnsDestination", async () =>
 {
     var backend = new FakeUsbBackend
