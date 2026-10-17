@@ -1,3 +1,4 @@
+using NOVORA.Control;
 using System.IO;
 using System.Linq;
 using NOVORA.VisionEngine.Exchange;
@@ -158,6 +159,53 @@ Check("UsbBackend_RejectsLanEndpoint", () =>
     Require(rejected, "A LAN endpoint was accepted as an ADB serial.");
 });
 
+await CheckAsync("LanSend_ForwardsPathsAndReportsCount", async () =>
+{
+    var files = new FakeLanFiles { SendResult = 2 };
+    await using var lan = new VEExchangeLanTransport(files, full);
+    VEExchangeResult result = await lan.SendPathsAsync(["a.txt", "b.txt"], CancellationToken.None);
+    Require(result.Success && result.ItemCount == 2, "LAN send did not report the count.");
+    Require(files.SentPaths.SequenceEqual(["a.txt", "b.txt"]), "Paths were not forwarded.");
+});
+
+await CheckAsync("LanReceive_ReportsConfirmedDestination", async () =>
+{
+    var files = new FakeLanFiles();
+    await using var lan = new VEExchangeLanTransport(files, full);
+    VEExchangeResult? seen = null;
+    lan.ReceivedVE += result => seen = result;
+    files.Raise(new NLFileTransferResultV2(Guid.NewGuid(), 42, new byte[32], "C:/NOVORA-Files/Documentos/a.txt"));
+    Require(seen is { Success: true, Destination: "C:/NOVORA-Files/Documentos/a.txt", Bytes: 42 },
+        "Confirmed receive was not reported with its destination.");
+});
+
+await CheckAsync("LanPull_IsNotPcInitiated", async () =>
+{
+    var files = new FakeLanFiles();
+    await using var lan = new VEExchangeLanTransport(files, full);
+    VEExchangeResult file = await lan.PullFileAsync("/sdcard/Download/a.txt", CancellationToken.None);
+    VEExchangeResult folder = await lan.PullNovoraFolderAsync(CancellationToken.None);
+    Require(!file.Success && !folder.Success, "LAN pulled a file without phone initiation.");
+    Require(files.SentPaths.Count == 0, "A pull reached the LAN send path.");
+});
+
+await CheckAsync("LanCapabilities_GateSendAndReceive", async () =>
+{
+    var files = new FakeLanFiles();
+    var sendOff = full with { SendFiles = false };
+    await using var lan = new VEExchangeLanTransport(files, sendOff);
+    VEExchangeResult result = await lan.SendPathsAsync(["a.txt"], CancellationToken.None);
+    Require(!result.Success && files.SentPaths.Count == 0, "Disabled send capability still sent.");
+});
+
+await CheckAsync("LanPrivacy_BlocksBeforeEngine", async () =>
+{
+    var files = new FakeLanFiles();
+    await using var lan = new VEExchangeLanTransport(files, full, () => false);
+    VEExchangeResult result = await lan.SendPathsAsync(["a.txt"], CancellationToken.None);
+    Require(!result.Success && files.SentPaths.Count == 0, "Privacy did not block the LAN send.");
+});
+
 Console.WriteLine($"VisionEngine Exchange: {passed} PASS / {failed} FAIL");
 return failed == 0 ? 0 : 1;
 
@@ -217,6 +265,23 @@ sealed class FakeUsbBackend : IVEExchangeUsbBackend
         Serials.Add(serial);
         return PullFolderHandler(serial, remotePath, localPath, cancellationToken);
     }
+}
+
+sealed class FakeLanFiles : IVEExchangeLanFiles
+{
+    public List<string> SentPaths { get; } = [];
+    public int SendResult { get; init; } = 1;
+    public event Action<NLFileTransferResultV2>? Received;
+
+    public Task<int> SendPathsAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+    {
+        SentPaths.AddRange(paths);
+        return Task.FromResult(SendResult);
+    }
+
+    public void Raise(NLFileTransferResultV2 result) => Received?.Invoke(result);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
 
 sealed class FakeTransport(VEExchangeRoute route, VEExchangeCapabilities capabilities) : IVEExchangeTransport
