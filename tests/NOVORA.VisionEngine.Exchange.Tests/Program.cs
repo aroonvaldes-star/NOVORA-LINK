@@ -214,6 +214,69 @@ await CheckAsync("LanPrivacy_BlocksBeforeEngine", async () =>
     Require(!result.Success && files.SentPaths.Count == 0, "Privacy did not block the LAN send.");
 });
 
+await CheckAsync("StartUsb_BindsUsbAdapter", async () =>
+{
+    var router = new VEExchangeRouter();
+    var binder = new VEExchangeSessionBinder(router);
+    string root = NewRoot();
+    try
+    {
+        VEExchangeSession session = await binder.BindUsbAsync(1, new FakeUsbBackend(), "usb-A", full, root);
+        Require(router.Current == session, "USB session was not bound.");
+        Require(session.Transport.Route == VEExchangeRoute.UsbAppControl, "USB start bound the wrong route.");
+        Require(session.Transport is VEExchangeUsbTransport, "USB start did not create the USB adapter.");
+        await binder.ReleaseAsync(1);
+    }
+    finally { DeleteRoot(root); }
+});
+
+await CheckAsync("StartNativeLan_BindsLanAdapter", async () =>
+{
+    var router = new VEExchangeRouter();
+    var binder = new VEExchangeSessionBinder(router);
+    VEExchangeSession session = await binder.BindNativeLanAsync(2, new FakeLanFiles(), full);
+    Require(router.Current == session, "LAN session was not bound.");
+    Require(session.Transport.Route == VEExchangeRoute.NativeLan, "LAN start bound the wrong route.");
+    Require(session.Transport is VEExchangeLanTransport, "LAN start did not create the LAN adapter.");
+    await binder.ReleaseAsync(2);
+});
+
+await CheckAsync("StopSession_DisposesAdapter", async () =>
+{
+    var router = new VEExchangeRouter();
+    var binder = new VEExchangeSessionBinder(router);
+    var files = new FakeLanFiles();
+    VEExchangeSession session = await binder.BindNativeLanAsync(3, files, full);
+    int received = 0;
+    ((VEExchangeLanTransport)session.Transport).ReceivedVE += _ => received++;
+    await binder.ReleaseAsync(3);
+    Require(router.Current is null, "Released session is still current.");
+    Require(session.IsDisposedVE, "Released session was not disposed.");
+    files.Raise(new NLFileTransferResultV2(Guid.NewGuid(), 1, new byte[32], "late.txt"));
+    Require(received == 0, "A released adapter still reported a receive.");
+});
+
+await CheckAsync("NewGeneration_RejectsOldCallbacks", async () =>
+{
+    var router = new VEExchangeRouter();
+    var binder = new VEExchangeSessionBinder(router);
+    var oldFiles = new FakeLanFiles();
+    VEExchangeSession oldSession = await binder.BindNativeLanAsync(4, oldFiles, full);
+    int oldReceived = 0;
+    ((VEExchangeLanTransport)oldSession.Transport).ReceivedVE += _ => oldReceived++;
+
+    VEExchangeSession newSession = await binder.BindNativeLanAsync(5, new FakeLanFiles(), full);
+    Require(oldSession.IsDisposedVE, "Replaced generation was not disposed.");
+    Require(!router.TryGet(4, out _) && router.TryGet(5, out var current) && current == newSession,
+        "Old generation still resolves.");
+    oldFiles.Raise(new NLFileTransferResultV2(Guid.NewGuid(), 1, new byte[32], "old.txt"));
+    Require(oldReceived == 0, "An old generation callback reached the consumer.");
+
+    await binder.ReleaseAsync(4);
+    Require(router.TryGet(5, out _), "A stale release removed the new generation.");
+    await binder.ReleaseAsync(5);
+});
+
 Console.WriteLine($"VisionEngine Exchange: {passed} PASS / {failed} FAIL");
 return failed == 0 ? 0 : 1;
 
