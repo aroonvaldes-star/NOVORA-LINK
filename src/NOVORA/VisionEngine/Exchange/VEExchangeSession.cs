@@ -28,6 +28,13 @@ public sealed class VEExchangeSession : IAsyncDisposable
 
     public IVEExchangeTransport Transport { get; }
 
+    /// <summary>
+    /// Control de la sesión para operaciones como el portapapeles. Falla si la sesión no tiene control,
+    /// así que nunca usa un canal de otra generación.
+    /// </summary>
+    public VEControlManager RequireControlVE()
+        => Control ?? throw new InvalidOperationException("La sesión VisionEngine no tiene canal de control.");
+
     public bool IsDisposedVE => Volatile.Read(ref _disposedVE) != 0;
 
     public async ValueTask DisposeAsync()

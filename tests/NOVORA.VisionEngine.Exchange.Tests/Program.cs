@@ -277,6 +277,61 @@ await CheckAsync("NewGeneration_RejectsOldCallbacks", async () =>
     await binder.ReleaseAsync(5);
 });
 
+Check("Clipboard_UsesActiveSessionControl", () =>
+{
+    var session = new VEExchangeSession(6, null, new FakeTransport(VEExchangeRoute.NativeLan, full));
+    bool refused = false;
+    try { session.RequireControlVE(); }
+    catch (InvalidOperationException) { refused = true; }
+    Require(refused, "Clipboard reached a session without its control channel.");
+});
+
+await CheckAsync("Capabilities_DoNotCoupleDragDropAndTransfer", async () =>
+{
+    var root = NewRoot();
+    try
+    {
+        var noDrag = full with { DragDrop = false };
+        var transport = new VEExchangeUsbTransport(new FakeUsbBackend(), "usb-A", noDrag, root);
+        string local = Path.Combine(root, "nota.txt");
+        File.WriteAllText(local, "x");
+        VEExchangeResult result = await transport.SendPathsAsync([local], CancellationToken.None);
+        Require(result.Success, "Disabling drag and drop blocked file transfer.");
+    }
+    finally { DeleteRoot(root); }
+});
+
+Check("ImageMediaApk_KeepFileClassification", () =>
+{
+    Require(NOVORA.VisionEngine.Exchange.VEExchangePath.BuildCategorizedDestinationFromNameVE("foto.jpg").Contains("/Imagenes/", StringComparison.Ordinal), "Image category changed.");
+    Require(NOVORA.VisionEngine.Exchange.VEExchangePath.BuildCategorizedDestinationFromNameVE("clip.mp4").Contains("/Videos/", StringComparison.Ordinal), "Video category changed.");
+    Require(NOVORA.VisionEngine.Exchange.VEExchangePath.BuildCategorizedDestinationFromNameVE("app.apk").Contains("/Instaladores/", StringComparison.Ordinal), "APK category changed.");
+});
+
+await CheckAsync("ApkTransfer_DoesNotMeanInstalled", async () =>
+{
+    var root = NewRoot();
+    try
+    {
+        string apk = Path.Combine(root, "app.apk");
+        File.WriteAllBytes(apk, [1, 2, 3]);
+        var transport = new VEExchangeUsbTransport(new FakeUsbBackend(), "usb-A", full, root);
+        VEExchangeResult sent = await transport.SendPathsAsync([apk], CancellationToken.None);
+        Require(sent.Success, "APK transfer failed.");
+        VEExchangeApkInstallResult install = await transport.InstallApkAsync("/sdcard/NOVORA/Instaladores/app.apk", CancellationToken.None);
+        Require(!install.InstalledVE, "A transferred APK was reported as installed.");
+    }
+    finally { DeleteRoot(root); }
+});
+
+Check("InstallApk_ReturnsSystemOutcome", () =>
+{
+    Require(VEExchangeApkInstallMapper.FromPackageInstallerStatus(0, null).State == VEExchangeApkInstallState.Confirmed, "Success status was not confirmed.");
+    Require(VEExchangeApkInstallMapper.FromPackageInstallerStatus(-1, null).State == VEExchangeApkInstallState.Pending, "User action was not pending.");
+    Require(VEExchangeApkInstallMapper.FromPackageInstallerStatus(3, null).State == VEExchangeApkInstallState.Denied, "Aborted install was not denied.");
+    Require(VEExchangeApkInstallMapper.FromPackageInstallerStatus(4, "bad").State == VEExchangeApkInstallState.Failed, "Invalid package was not failed.");
+});
+
 Console.WriteLine($"VisionEngine Exchange: {passed} PASS / {failed} FAIL");
 return failed == 0 ? 0 : 1;
 
