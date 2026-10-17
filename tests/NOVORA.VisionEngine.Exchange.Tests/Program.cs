@@ -1,3 +1,5 @@
+using System.IO;
+using System.Linq;
 using NOVORA.VisionEngine.Exchange;
 
 int passed = 0, failed = 0;
@@ -58,6 +60,104 @@ await CheckAsync("Router_RejectsStaleGeneration", async () =>
     Require(router.Current is null && newTransport.DisposeCount == 1, "Clearing the current session did not dispose its transport.");
 });
 
+await CheckAsync("UsbPush_UsesBackendSerialAndReturnsDestination", async () =>
+{
+    var backend = new FakeUsbBackend
+    {
+        PushHandler = (serial, local, ct) => Task.FromResult("/storage/emulated/0/Download/foto.jpg")
+    };
+    string root = NewRoot();
+    try
+    {
+        string local = Path.Combine(root, "foto.jpg");
+        File.WriteAllBytes(local, [1, 2, 3]);
+        var transport = new VEExchangeUsbTransport(backend, " usb-A ", full, root);
+        VEExchangeResult result = await transport.SendPathsAsync([local], CancellationToken.None);
+        Require(result.Success, "Push failed: " + result.Message);
+        Require(backend.Serials.Single() == "usb-A", "Serial was not trimmed and forwarded.");
+        Require(result.Destination == "/storage/emulated/0/Download/foto.jpg", "Destination was not returned.");
+        Require(result.ItemCount == 1 && result.Bytes == 3, "Counts were not reported.");
+    }
+    finally { DeleteRoot(root); }
+});
+
+await CheckAsync("UsbPull_CommitsIntoNovoraFiles", async () =>
+{
+    var backend = new FakeUsbBackend
+    {
+        PullHandler = (serial, remote, local, ct) => { File.WriteAllBytes(local, [9, 8, 7, 6]); return Task.CompletedTask; }
+    };
+    string root = NewRoot();
+    try
+    {
+        var transport = new VEExchangeUsbTransport(backend, "usb-A", full, root);
+        VEExchangeResult result = await transport.PullFileAsync("/storage/emulated/0/Download/nota.txt", CancellationToken.None);
+        Require(result.Success, "Pull failed: " + result.Message);
+        Require(File.Exists(result.Destination!), "Committed file is missing.");
+        Require(File.ReadAllBytes(result.Destination!).SequenceEqual(new byte[] { 9, 8, 7, 6 }), "Committed bytes differ.");
+        Require(Directory.EnumerateFiles(root, ".novora-*.partial", SearchOption.AllDirectories).Count() == 0, "Partial file left behind.");
+    }
+    finally { DeleteRoot(root); }
+});
+
+await CheckAsync("UsbFolderPull_PreservesRelativePaths", async () =>
+{
+    var backend = new FakeUsbBackend
+    {
+        PullFolderHandler = (serial, remote, local, ct) =>
+        {
+            Directory.CreateDirectory(Path.Combine(local, "NOVORA", "Proyecto", "sub"));
+            File.WriteAllText(Path.Combine(local, "NOVORA", "Proyecto", "sub", "x.txt"), "hola");
+            return Task.CompletedTask;
+        }
+    };
+    string root = NewRoot();
+    try
+    {
+        var transport = new VEExchangeUsbTransport(backend, "usb-A", full, root);
+        VEExchangeResult result = await transport.PullNovoraFolderAsync(CancellationToken.None);
+        Require(result.Success, "Folder pull failed: " + result.Message);
+        string[] matches = Directory.GetFiles(root, "x.txt", SearchOption.AllDirectories);
+        Require(matches.Length == 1, "Folder file missing.");
+        Require(matches[0].Replace('\\', '/').Contains("/Proyecto-", StringComparison.Ordinal)
+            && matches[0].Replace('\\', '/').EndsWith("/sub/x.txt", StringComparison.Ordinal),
+            "Relative structure was not preserved: " + matches[0]);
+    }
+    finally { DeleteRoot(root); }
+});
+
+await CheckAsync("UsbOperations_PropagateCancellation", async () =>
+{
+    var backend = new FakeUsbBackend
+    {
+        PullHandler = async (serial, remote, local, ct) =>
+        {
+            File.WriteAllBytes(local, [1]);
+            await Task.Delay(Timeout.Infinite, ct);
+        }
+    };
+    string root = NewRoot();
+    try
+    {
+        var transport = new VEExchangeUsbTransport(backend, "usb-A", full, root);
+        using var cts = new CancellationTokenSource(50);
+        bool cancelled = false;
+        try { await transport.PullFileAsync("/storage/emulated/0/Download/a.bin", cts.Token); }
+        catch (OperationCanceledException) { cancelled = true; }
+        Require(cancelled, "Cancellation was swallowed.");
+        Require(Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Count() == 0, "Partial survived cancellation.");
+    }
+    finally { DeleteRoot(root); }
+});
+
+Check("UsbBackend_RejectsLanEndpoint", () =>
+{
+    bool rejected = false;
+    try { _ = new VEExchangeUsbTransport(new FakeUsbBackend(), "LAN:192.168.1.20:5555", full, NewRoot()); }
+    catch (ArgumentException) { rejected = true; }
+    Require(rejected, "A LAN endpoint was accepted as an ADB serial.");
+});
+
 Console.WriteLine($"VisionEngine Exchange: {passed} PASS / {failed} FAIL");
 return failed == 0 ? 0 : 1;
 
@@ -76,6 +176,47 @@ async Task CheckAsync(string name, Func<Task> test)
 {
     try { await test(); passed++; Console.WriteLine($"PASS {name}"); }
     catch (Exception ex) { failed++; Console.WriteLine($"FAIL {name}: {ex.Message}"); }
+}
+
+static string NewRoot()
+{
+    string root = Path.Combine(Path.GetTempPath(), "novora-exchange-tests-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(root);
+    return root;
+}
+
+static void DeleteRoot(string root)
+{
+    try { Directory.Delete(root, true); } catch (IOException) { }
+}
+
+sealed class FakeUsbBackend : IVEExchangeUsbBackend
+{
+    public List<string> Serials { get; } = [];
+    public Func<string, string, CancellationToken, Task<string>> PushHandler { get; init; } =
+        (_, _, _) => Task.FromResult("/storage/emulated/0/Download/unset");
+    public Func<string, string, string, CancellationToken, Task> PullHandler { get; init; } =
+        (_, _, _, _) => Task.CompletedTask;
+    public Func<string, string, string, CancellationToken, Task> PullFolderHandler { get; init; } =
+        (_, _, _, _) => Task.CompletedTask;
+
+    public Task<string> PushAsync(string serial, string localPath, CancellationToken cancellationToken)
+    {
+        Serials.Add(serial);
+        return PushHandler(serial, localPath, cancellationToken);
+    }
+
+    public Task PullAsync(string serial, string remotePath, string localPath, CancellationToken cancellationToken)
+    {
+        Serials.Add(serial);
+        return PullHandler(serial, remotePath, localPath, cancellationToken);
+    }
+
+    public Task PullFolderAsync(string serial, string remotePath, string localPath, CancellationToken cancellationToken)
+    {
+        Serials.Add(serial);
+        return PullFolderHandler(serial, remotePath, localPath, cancellationToken);
+    }
 }
 
 sealed class FakeTransport(VEExchangeRoute route, VEExchangeCapabilities capabilities) : IVEExchangeTransport
