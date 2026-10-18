@@ -155,6 +155,12 @@ public sealed class ExInSdl : IDisposable
         {
             while (!cancellationToken.IsCancellationRequested && !_disposedVE && _initializedVE)
             {
+                // Vaciar primero la cola interna: con eventos continuos no debe esperar al siguiente timeout.
+                while (_eventsVE.Reader.TryRead(out ExInEvent queued))
+                {
+                    yield return queued;
+                }
+
                 bool received =
                     _waitEventTimeoutVE!(
                         eventBuffer,
@@ -167,12 +173,6 @@ public sealed class ExInSdl : IDisposable
                     message is not null)
                 {
                     yield return message.Value;
-                    continue;
-                }
-
-                while (_eventsVE.Reader.TryRead(out ExInEvent queued))
-                {
-                    yield return queued;
                 }
 
                 await Task.Yield();
@@ -438,6 +438,8 @@ public sealed class ExInSdl : IDisposable
 
     private void EnsureInitializedVE()
     {
+        // Tras Dispose no se reinicia SDL: una llamada tardía debe fallar, no reabrir la biblioteca.
+        ThrowIfDisposedVE();
         if (!_initializedVE) InitializeVE();
     }
 
