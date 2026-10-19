@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Test locked relay dependencies
         run: cargo test --locked --manifest-path src/NOVORA/LinkEngine/Network/Native/RelayCore/Cargo.toml
       - name: Build release relay
@@ -31,10 +31,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET 8 and 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
             8.0.x
