@@ -14,6 +14,13 @@ public sealed record ExInStatus(
         => new(ExInStates.Stopped, 0, 0, DateTimeOffset.UtcNow, "ExInEngine detenido.", null, [], []);
 }
 
+public sealed record ExInOutputIssue(
+    uint InstanceId,
+    string Operation,
+    string Message,
+    DateTimeOffset OccurredAtUtc,
+    bool Recoverable);
+
 public sealed record ExInLiveSnapshot(
     ExInDevice? Device,
     string DeviceName,
@@ -24,8 +31,6 @@ public sealed record ExInLiveSnapshot(
     double Deadzone,
     string Message,
     ExInCalibrationDetails? Calibration,
-    string? SdlMapping,
-    string TranslationTrace,
     ExInCalibrationProgress? CalibrationProgress,
     long Sequence = 0,
     DateTimeOffset? SampledAtUtc = null,

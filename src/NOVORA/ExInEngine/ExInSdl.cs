@@ -161,10 +161,16 @@ public sealed class ExInSdl : IDisposable
                     yield return queued;
                 }
 
-                bool received =
-                    _waitEventTimeoutVE!(
-                        eventBuffer,
-                        250);
+                // El cerrojo compartido impide que el renderer cierre el vídeo de SDL mientras se espera un evento.
+                bool received;
+                lock (SdlSharedGate.Gate)
+                {
+                    if (_disposedVE || !_initializedVE) break;
+                    received =
+                        _waitEventTimeoutVE!(
+                            eventBuffer,
+                            250);
+                }
 
                 if (received &&
                     TryReadEventVE(
@@ -450,7 +456,10 @@ public sealed class ExInSdl : IDisposable
     {
         if (_initializedVE)
         {
-            try { _quitVE?.Invoke(SdlInitGamepadVE); } catch { }
+            lock (SdlSharedGate.Gate)
+            {
+                try { _quitVE?.Invoke(SdlInitGamepadVE); } catch { }
+            }
         }
 
         _initializedVE = false;
