@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text;
 
 namespace NOVORA.Service;
@@ -13,18 +12,13 @@ public sealed record NLServiceConsoleCommandResult(
 /// </summary>
 public sealed class NLServiceConsoleCommand
 {
-    private readonly NLServiceNovoraPaths _paths;
-
     private readonly NLServiceADB _adb;
 
     public NLServiceConsoleCommand(
         NLServiceNovoraPaths paths,
         NLServiceADB adb)
     {
-        _paths =
-            paths ??
-            throw new ArgumentNullException(
-                nameof(paths));
+        ArgumentNullException.ThrowIfNull(paths);
 
         _adb =
             adb ??
@@ -97,16 +91,10 @@ public sealed class NLServiceConsoleCommand
                                 serial),
                             cancellationToken));
 
-                case "scrcpy":
-                    return await RunToolAsync(
-                        _paths.Scrcpy,
-                        args,
-                        cancellationToken);
-
                 default:
                     return new(
                         false,
-                        "Solo se permiten comandos de NOVORA, ADB y scrcpy.");
+                        "Solo se permiten comandos de NOVORA y ADB.");
             }
         }
         catch (Exception ex)
@@ -156,75 +144,6 @@ public sealed class NLServiceConsoleCommand
 
         return
             "Comandos NOVORA: novora status | novora devices";
-    }
-
-    private async Task<NLServiceConsoleCommandResult> RunToolAsync(
-        string executable,
-        string[] args,
-        CancellationToken cancellationToken)
-    {
-        _paths.ValidateRequiredTools();
-
-        ProcessStartInfo info =
-            new()
-            {
-                FileName =
-                    executable,
-
-                WorkingDirectory =
-                    _paths.ToolsDirectory,
-
-                UseShellExecute =
-                    false,
-
-                CreateNoWindow =
-                    true,
-
-                RedirectStandardOutput =
-                    true,
-
-                RedirectStandardError =
-                    true,
-
-                StandardOutputEncoding =
-                    Encoding.UTF8,
-
-                StandardErrorEncoding =
-                    Encoding.UTF8
-            };
-
-        foreach (string arg in args)
-        {
-            info.ArgumentList.Add(arg);
-        }
-
-        using Process process =
-            Process.Start(info) ??
-            throw new InvalidOperationException(
-                "No fue posible iniciar la herramienta.");
-
-        Task<string> stdout =
-            process.StandardOutput
-                .ReadToEndAsync(
-                    cancellationToken);
-
-        Task<string> stderr =
-            process.StandardError
-                .ReadToEndAsync(
-                    cancellationToken);
-
-        await process.WaitForExitAsync(
-            cancellationToken);
-
-        string output =
-            (await stdout) +
-            (await stderr);
-
-        return new(
-            process.ExitCode == 0,
-            string.IsNullOrWhiteSpace(output)
-                ? $"Codigo de salida: {process.ExitCode}"
-                : output.Trim());
     }
 
     private static string[] EnsureSerial(

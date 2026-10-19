@@ -21,8 +21,9 @@ public readonly record struct ExInPointerReport(
 
 public sealed class ExInPointerTranslator
 {
+    private const int MaxTouchContactsVE = 2;
     private readonly double _deadzoneVE;
-    private double _sensitivityVE = 1d;
+    private double _sensitivityVE = ExInPointerSensitivity.DefaultVE;
     private readonly Dictionary<TouchKeyVE, TouchPointVE> _touchesVE = [];
     private ExInButtons _previousButtonsVE;
     private TouchPointVE? _lastCentroidVE;
@@ -35,28 +36,36 @@ public sealed class ExInPointerTranslator
     }
 
     public ExInPointerReport FromXboxVE(ExInState state, bool inputAlreadyCalibrated = false)
+        => FromXboxVE(state, inputAlreadyCalibrated, _sensitivityVE);
+
+    public ExInPointerReport FromXboxVE(ExInState state, bool inputAlreadyCalibrated, double sensitivity)
     {
+        ValidateSensitivityVE(sensitivity);
         ExInButtons pressed = state.Buttons & ~_previousButtonsVE;
         _previousButtonsVE = state.Buttons;
         ExInUiAction action = GetActionVE(pressed);
         double deadzone = inputAlreadyCalibrated ? 0 : _deadzoneVE;
         return new(
-            ScalePointerVE(state.LeftX, deadzone),
-            ScalePointerVE(state.LeftY, deadzone),
-            ScaleWheelVE(state.RightY, invert: true),
-            ScaleWheelVE(state.RightX, invert: false),
+            ScalePointerVE(state.LeftX, deadzone, sensitivity),
+            ScalePointerVE(state.LeftY, deadzone, sensitivity),
+            ScaleWheelVE(state.RightY, invert: true, sensitivity),
+            ScaleWheelVE(state.RightX, invert: false, sensitivity),
             state.Buttons.HasFlag(ExInButtons.South) ? (byte)1 : (byte)0,
             action);
     }
 
     public ExInPointerReport FromAxesVE(ExInState state, bool inputAlreadyCalibrated = false)
+        => FromAxesVE(state, inputAlreadyCalibrated, _sensitivityVE);
+
+    public ExInPointerReport FromAxesVE(ExInState state, bool inputAlreadyCalibrated, double sensitivity)
     {
+        ValidateSensitivityVE(sensitivity);
         double deadzone = inputAlreadyCalibrated ? 0 : _deadzoneVE;
         return new(
-            ScalePointerVE(state.LeftX, deadzone),
-            ScalePointerVE(state.LeftY, deadzone),
-            ScaleWheelVE(state.RightY, invert: true),
-            ScaleWheelVE(state.RightX, invert: false),
+            ScalePointerVE(state.LeftX, deadzone, sensitivity),
+            ScalePointerVE(state.LeftY, deadzone, sensitivity),
+            ScaleWheelVE(state.RightY, invert: true, sensitivity),
+            ScaleWheelVE(state.RightX, invert: false, sensitivity),
             state.Buttons.HasFlag(ExInButtons.South) ? (byte)1 : (byte)0,
             ExInUiAction.None);
     }
@@ -67,8 +76,7 @@ public sealed class ExInPointerTranslator
 
     public void SetSensitivityVE(double value)
     {
-        if (!double.IsFinite(value) || value is < 0.25 or > 3d)
-            throw new ArgumentOutOfRangeException(nameof(value));
+        ValidateSensitivityVE(value);
         _sensitivityVE = value;
     }
 
@@ -78,6 +86,7 @@ public sealed class ExInPointerTranslator
         ValidateTouchVE(x, y);
         TouchKeyVE key = new(touchpadId, fingerId);
         if (_touchesVE.ContainsKey(key)) FailGestureVE("Down duplicado.");
+        if (_touchesVE.Count >= MaxTouchContactsVE) FailGestureVE("Demasiados contactos de touchpad.");
         _touchesVE[key] = new(x, y);
         UpdateCentroidVE();
         return new(0, 0, 0, 0, physicalClick ? (byte)1 : (byte)0, ExInUiAction.None);
@@ -131,22 +140,25 @@ public sealed class ExInPointerTranslator
         _lastCentroidVE = null;
     }
 
-    private sbyte ScalePointerVE(short value, double deadzone)
+    private sbyte ScalePointerVE(short value, double deadzone, double sensitivity)
     {
         double normalized = value / 32767d;
         double magnitude = Math.Abs(normalized);
         if (magnitude <= deadzone) return 0;
         double active = (magnitude - deadzone) / (1 - deadzone);
         double accelerated = 1 + active * active * 63;
-        return (sbyte)Math.Clamp((int)Math.Round(Math.CopySign(accelerated * _sensitivityVE, normalized)), -24, 24);
+        return (sbyte)Math.Clamp((int)Math.Round(Math.CopySign(accelerated * sensitivity, normalized)), -24, 24);
     }
 
-    private sbyte ScaleWheelVE(short value, bool invert)
+    private static sbyte ScaleWheelVE(short value, bool invert, double sensitivity)
     {
         if (Math.Abs((int)value) < 7000) return 0;
-        int scaled = Math.Clamp((int)Math.Round(value / 12000d * _sensitivityVE), -3, 3);
+        int scaled = Math.Clamp((int)Math.Round(value / 12000d * sensitivity), -3, 3);
         return (sbyte)(invert ? -scaled : scaled);
     }
+
+    private static void ValidateSensitivityVE(double value)
+        => ExInPointerSensitivity.ValidateVE(value);
 
     private static sbyte ScaleTouchVE(float delta)
         => (sbyte)Math.Clamp((int)Math.Round(delta * 900), -48, 48);

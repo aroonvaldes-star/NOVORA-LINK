@@ -39,18 +39,16 @@ Sólo H264 está comprobado con el teléfono en esta etapa. La salida de CUVID s
 transfiere a CPU y SDL recibe NV12; no existe zero-copy ni encoder NVENC conectado.
 La selección Disabled abre directamente el decoder software.
 
-Las bibliotecas FFmpeg comunes están en Tools porque también sirven a audio,
-scrcpy y equipos sin NVIDIA. Su procedencia y hashes están en Tools/FFmpeg-build.json.
+Las bibliotecas FFmpeg comunes están en Tools porque sirven a video, audio y
+equipos sin NVIDIA. Su procedencia y hashes están en Tools/FFmpeg-build.json.
 Los controladores NVIDIA del sistema no se copian ni redistribuyen. El contenido
 NVIDIA/Native y NLNVIDIAPaths quedan como contrato histórico opcional; no gobiernan
 la activación ni producen mensajes de puente ausente en el recorrido actual.
 
-## NVTX y RelayCore
+## NVTX y LinkEngine
 
-LinkEngine/Network/Native/RelayCore/Cargo.toml conserva la dependencia nvtx 2.0.0
-opcional y la feature nvtx. Cargo.lock conserva su resolución. Son metadatos del
-proyecto Rust y no deben separarse de su manifiesto. No se identificaron llamadas
-NVTX propias en el código Rust; no se afirma instrumentación activa.
+El relay actual está en `LinkEngine/Network/Native/NovoraRelay` y no declara
+la dependencia NVTX. No hay instrumentación NVTX propia en ese relay.
 
 ## Alcance y evolución
 

@@ -2,18 +2,40 @@
 
 [CmdletBinding()]
 param(
-    [string]$RepoPath = (Split-Path -Parent $PSScriptRoot)
+    [string]$RepoPath = '',
+    [switch]$NoRestore,
+    [string]$OutputRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+if ([string]::IsNullOrWhiteSpace($RepoPath)) { $RepoPath = Split-Path -Parent $PSScriptRoot }
+
 $RepoPath = [IO.Path]::GetFullPath($RepoPath)
-$NovoraProject = Join-Path $RepoPath 'src\NOVORA\NOVORA.csproj'
-$AndroidProject = Join-Path $RepoPath 'NOVORA.linkEngine.Android\NOVORA.linkEngine.Android.csproj'
-$TestsProject = Join-Path $RepoPath 'tests\NOVORA.Tests\NOVORA.Tests.csproj'
-$RelayCore = Join-Path $RepoPath 'src\NOVORA\LinkEngine\Network\Native\RelayCore'
-$CargoManifest = Join-Path $RelayCore 'Cargo.toml'
+$NovoraProject = Join-Path $RepoPath 'src\NOVORA\NLProjectDesktop.csproj'
+$AndroidProject = Join-Path $RepoPath 'src\NOVORA.Android\NLProjectAndroid.csproj'
+$TestsProjects = @(
+    'tests\NOVORA.LinkEngine.Tests\NOVORA.LinkEngine.Tests.csproj',
+    'tests\NOVORA.ExInHid.Tests\NOVORA.ExInHid.Tests.csproj',
+    'tests\NOVORA.DynamicAddress.Tests\NOVORA.DynamicAddress.Tests.csproj',
+    'tests\NOVORA.VisionEngine.Startup.Tests\NOVORA.VisionEngine.Startup.Tests.csproj',
+    'tests\NOVORA.VisionEngine.Presentation.Tests\NLProjectVisionEnginePresentationTests.csproj',
+    'tests\NOVORA.NetworkPolicy.Tests\NOVORA.NetworkPolicy.Tests.csproj',
+    'tests\NOVORA.RelayPolicy.Tests\NOVORA.RelayPolicy.Tests.csproj',
+    'tests\NOVORA.NetworkSession.Tests\NOVORA.NetworkSession.Tests.csproj',
+    'tests\NOVORA.NetworkControlProbe.Tests\NOVORA.NetworkControlProbe.Tests.csproj',
+    'tests\NOVORA.CapturePolicy.Tests\NOVORA.CapturePolicy.Tests.csproj',
+    'tests\NOVORA.CaptureControl.Tests\NOVORA.CaptureControl.Tests.csproj',
+    'tests\NOVORA.FileProtocol.Tests\NOVORA.FileProtocol.Tests.csproj'
+) | ForEach-Object { Join-Path $RepoPath $_ }
+$NovoraRelay = Join-Path $RepoPath 'src\NOVORA\LinkEngine\Network\Native\NovoraRelay'
+$CargoManifest = Join-Path $NovoraRelay 'Cargo.toml'
+$ProtocolPath = Join-Path $RepoPath 'src\NOVORA\Control\NLControlProtocol.cs'
+if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
+    $OutputRoot = Join-Path $RepoPath ('artifacts\verification\' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+}
+$OutputRoot = [IO.Path]::GetFullPath($OutputRoot)
 
 function Section([string]$Text) {
     Write-Host ''
@@ -40,8 +62,9 @@ function Run-Step([string]$Name, [scriptblock]$Command) {
 Section 'PRECHECK NOVORA-LINK'
 Require-File $NovoraProject
 Require-File $AndroidProject
-Require-File $TestsProject
+foreach ($TestsProject in $TestsProjects) { Require-File $TestsProject }
 Require-File $CargoManifest
+Require-File $ProtocolPath
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     throw 'dotnet no está disponible en PATH.'
@@ -67,54 +90,67 @@ foreach ($token in $forbiddenPolling) {
 }
 Write-Host '[OK] No se detectaron los loops periódicos legacy retirados.' -ForegroundColor Green
 
-$pcProtocol = Get-Content -LiteralPath (Join-Path $RepoPath 'src\NOVORA\Remote\ProtocolRemoteNV.cs') -Raw
-$androidProtocol = Get-Content -LiteralPath (Join-Path $RepoPath 'NOVORA.linkEngine.Android\Remote\ProtocolRemoteNV.cs') -Raw
-if ($pcProtocol -notmatch 'ProtocolVersionNV\s*=\s*\r?\n\s*2;' -or
-    $androidProtocol -notmatch 'ProtocolVersionNV\s*=\s*\r?\n\s*2;') {
-    throw 'RemoteNV PC/Android no están ambos en protocolo v2.'
+[xml]$androidProjectXml = Get-Content -LiteralPath $AndroidProject -Raw
+$linkedProtocol = @($androidProjectXml.SelectNodes('/Project/ItemGroup/Compile[@Include]') |
+    Where-Object { $_.GetAttribute('Include') -notmatch '[*?]' } | ForEach-Object {
+    [IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $AndroidProject) $_.GetAttribute('Include')))
+}) -contains [IO.Path]::GetFullPath($ProtocolPath)
+if (-not $linkedProtocol) {
+    throw 'AppControl debe compilar el mismo NLControlProtocol que Windows.'
 }
-Write-Host '[OK] RemoteNV v2 PC/Android.' -ForegroundColor Green
+Write-Host '[OK] NLControlProtocol compartido por PC y Android.' -ForegroundColor Green
 
-Run-Step 'CARGO CHECK RELAYCORE' {
-    Push-Location $RelayCore
-    try { cargo check --all-targets --manifest-path $CargoManifest }
+Run-Step 'CARGO CHECK NOVORA RELAY' {
+    Push-Location $NovoraRelay
+    try { cargo check --all-targets --offline --locked --manifest-path $CargoManifest }
     finally { Pop-Location }
 }
 
-Run-Step 'CARGO TEST RELAYCORE' {
-    Push-Location $RelayCore
-    try { cargo test --manifest-path $CargoManifest }
+Run-Step 'CARGO TEST NOVORA RELAY' {
+    Push-Location $NovoraRelay
+    try { cargo test --release --offline --locked --manifest-path $CargoManifest }
     finally { Pop-Location }
 }
 
-Run-Step 'CARGO BUILD RELEASE RELAYCORE' {
-    Push-Location $RelayCore
-    try { cargo build --release --manifest-path $CargoManifest }
+Run-Step 'CARGO BUILD RELEASE NOVORA RELAY' {
+    Push-Location $NovoraRelay
+    try { cargo build --release --offline --locked --manifest-path $CargoManifest }
     finally { Pop-Location }
 }
 
-Run-Step 'DOTNET RESTORE WINDOWS' {
-    dotnet restore $NovoraProject
+if (-not $NoRestore) {
+    Run-Step 'DOTNET RESTORE WINDOWS' { dotnet restore $NovoraProject }
 }
 
 Run-Step 'DOTNET BUILD WINDOWS RELEASE' {
-    dotnet build $NovoraProject -c Release --no-restore
+    dotnet build $NovoraProject -c Release --no-restore "-p:OutputPath=$(Join-Path $OutputRoot 'Windows')/"
 }
 
-Run-Step 'DOTNET TEST WINDOWS' {
-    dotnet test $TestsProject -c Release
+foreach ($TestsProject in $TestsProjects) {
+    $TestName = [IO.Path]::GetFileNameWithoutExtension($TestsProject)
+    if (-not $NoRestore) {
+        Run-Step "DOTNET RESTORE $TestName" { dotnet restore $TestsProject }
+    }
+    Run-Step "DOTNET RUN $TestName" {
+        dotnet run --project $TestsProject -c Release --no-restore "-p:OutputPath=$(Join-Path $OutputRoot $TestName)/"
+    }
 }
 
-Run-Step 'DOTNET RESTORE ANDROID' {
-    dotnet restore $AndroidProject
+if (-not $NoRestore) {
+    Run-Step 'DOTNET RESTORE ANDROID' { dotnet restore $AndroidProject -r android-arm64 }
 }
 
 Run-Step 'DOTNET BUILD ANDROID RELEASE' {
-    dotnet build $AndroidProject -c Release -t:Compile --no-restore
+    dotnet build $AndroidProject -c Release -t:Compile --no-restore "-p:OutputPath=$(Join-Path $OutputRoot 'Android')/"
+}
+
+Run-Step 'TEST REPARACION FIREWALL SIN CAMBIOS AL SISTEMA' {
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoPath 'tests\Test-NOVORA-PrivateLanFirewall.ps1')
 }
 
 Section 'RESULTADO'
 Write-Host '[OK] NOVORA Windows compila.' -ForegroundColor Green
-Write-Host '[OK] NOVORA Android compila.' -ForegroundColor Green
-Write-Host '[OK] RelayCore compila y pasa tests.' -ForegroundColor Green
-Write-Host '[OK] Verificación completa terminada.' -ForegroundColor Green
+Write-Host '[OK] Código Android compilado; no se generó ni instaló un APK.' -ForegroundColor Green
+Write-Host "[OK] Las $($TestsProjects.Count) suites de consola pasaron." -ForegroundColor Green
+Write-Host '[OK] NovoraRelay compila y pasa tests.' -ForegroundColor Green
+Write-Host '[OK] Verificación de código terminada; la sesión física PC-Android requiere pruebas independientes.' -ForegroundColor Green

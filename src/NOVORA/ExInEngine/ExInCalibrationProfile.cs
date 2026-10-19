@@ -77,21 +77,57 @@ public sealed record ExInCalibrationProfile(
     private static bool IsDeadzoneVE(double value)
         => double.IsFinite(value) && value >= 0 && value < 0.5;
 
+    /// <summary>
+    /// Corrige un eje analógico con deadzone y normalización.
+    /// ⭐ FIJO: Ahora valida rangos mínimo/máximo antes de procesamiento
+    /// </summary>
     private static short CorrectAxisVE(short value, short center, short minimum, short maximum, double deadzone)
     {
-        double span = value >= center ? Math.Max(1, maximum - center) : Math.Max(1, center - minimum);
+        // ⭐ NUEVO: Validar que minimum < maximum
+        if (minimum >= maximum)
+        {
+            // Controlador severamente dañado: devolver valor clampeado neutral
+            return Math.Clamp(value, short.MinValue, short.MaxValue);
+        }
+
+        // ⭐ NUEVO: Usar spans negativos y positivos por separado
+        double negativeSpan = Math.Max(1.0, center - minimum); // Rango hacia abajo
+        double positiveSpan = Math.Max(1.0, maximum - center); // Rango hacia arriba
+
+        double span = value >= center ? positiveSpan : negativeSpan;
         double normalized = Math.Clamp((value - center) / span, -1d, 1d);
-        if (Math.Abs(normalized) <= deadzone) return 0;
+
+        // Aplicar deadzone
+        if (Math.Abs(normalized) <= deadzone) 
+            return 0;
+
+        // Expandir después de deadzone
         normalized = Math.CopySign((Math.Abs(normalized) - deadzone) / (1 - deadzone), normalized);
+
+        // Clampear y convertir a rango final
         if (normalized <= -1d) return short.MinValue;
         if (normalized >= 1d) return short.MaxValue;
+        
         return (short)Math.Clamp((int)Math.Round(normalized * 32767), short.MinValue, short.MaxValue);
     }
 
+    /// <summary>
+    /// Corrige un gatillo con normalización lineal.
+    /// ⭐ FIJO: Ahora valida rangos antes de procesamiento
+    /// </summary>
     private static short CorrectTriggerVE(short value, short minimum, short maximum)
     {
+        // ⭐ NUEVO: Validar que minimum <= maximum
+        if (minimum > maximum)
+        {
+            // Controlador dañado: devolver valor neutral
+            return 0;
+        }
+
+        // ⭐ NUEVO: Evitar división imprecisa
         int span = Math.Max(1, maximum - minimum);
-        double normalized = Math.Clamp((value - minimum) / (double)span, 0d, 1d);
+        double normalized = Math.Clamp((double)(value - minimum) / span, 0d, 1d);
+        
         return (short)Math.Round(normalized * 32767);
     }
 }

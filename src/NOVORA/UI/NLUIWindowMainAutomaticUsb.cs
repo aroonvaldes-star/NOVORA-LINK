@@ -213,8 +213,9 @@ public partial class NLUIWindowMain
                 if (server.IsAuthorized)
                 {
                     _ = EnsureExInStandaloneAsync();
-                    if (!lanFailover)
-                        _ = PrepareVisionLanFallbackVEAsync(serial, epoch, automatic: true);
+                    RequestWaitingExternalVisionFromAndroid();
+                    // El failover LAN ya no se prepara automáticamente: VE arranca por USB sin él.
+                    // Sigue disponible con el botón manual PREPARAR FAILOVER LAN.
                 }
                 if (!server.IsAuthorized && !AndroidControlAuthorized)
                 {

@@ -1,8 +1,10 @@
 # NOVORA — Agradecimientos y contribuciones de terceros
 
-NOVORA utiliza e integra herramientas de terceros. Su autoría y licencias se mantienen separadas de la propiedad intelectual original de NOVORA.
+NOVORA utiliza componentes de terceros y conserva este registro de herramientas usadas anteriormente. Su autoría y licencias se mantienen separadas de la propiedad intelectual original de NOVORA.
 
 ## scrcpy
+
+Uso histórico; el ejecutable y el servidor ya no se distribuyen.
 
 **Genymobile / Romain Vimont (rom1v)** — herramienta para mostrar y controlar dispositivos Android.
 
@@ -11,6 +13,8 @@ scrcpy se distribuye bajo **Apache License 2.0**. El proyecto oficial reconoce C
 Proyecto oficial: https://github.com/Genymobile/scrcpy
 
 ## Gnirehtet
+
+Uso histórico; su relay derivado fue sustituido por NovoraRelay.
 
 **Genymobile** — herramienta de reverse tethering para Android mediante ADB.
 

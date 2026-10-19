@@ -71,11 +71,6 @@ public partial class NLUIWindowSettings : Window
         _themeInitialized =
             true;
 
-        NLServiceNovoraSettings startupSettingsNV =
-            _settingsService.Load();
-
-        StartWithWindowsCheckBox.IsChecked =
-            startupSettingsNV.StartWithWindows;
     }
 
     private void Theme_SelectionChanged(
@@ -129,21 +124,9 @@ public partial class NLUIWindowSettings : Window
             settings.Theme =
                 _viewModel.Theme;
 
-            settings.StartWithWindows =
-                StartWithWindowsCheckBox.IsChecked != false;
-
-            if (!settings.StartWithWindows)
-            {
-                settings.AutoStartSuppressed =
-                    false;
-            }
-
             NLServiceSettingsAdvanced.CaptureNV(_viewModel, settings);
             _settingsService.Save(
                 settings);
-
-            NLServiceAutoStart.ApplyRegistrationNV(
-                settings.StartWithWindows);
 
             NLServiceTheme.Apply(
                 _viewModel.Theme);

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/NOVORA/UI/NLUIWindowMainRuntimeControls.cs" Link="Production/NLUIWindowMainRuntimeControls.cs" />
+    <Compile Include="../../src/NOVORA/UI/NLUIWindowMainExInRoute.cs" Link="Production/NLUIWindowMainExInRoute.cs" />
+    <Compile Include="../../src/NOVORA.Android/AndroidVideo/NLAndroidVideoProjectionRequest.cs" Link="Production/NLAndroidVideoProjectionRequest.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlProtocol.cs" Link="Production/NLControlProtocol.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlSession.cs" Link="Production/NLControlSession.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlClient.cs" Link="Production/NLControlClient.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlLanInvitation.cs" Link="Production/NLControlLanInvitation.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlLanDiscovery.cs" Link="Production/NLControlLanDiscovery.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlTrustedPc.cs" Link="Production/NLControlTrustedPc.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../src/NOVORA/Control/NLControlNetworkPolicy.cs" Link="Production/NLControlNetworkPolicy.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlCapturePolicy.cs" Link="Production/NLControlCapturePolicy.cs" />
+  </ItemGroup>
+</Project>

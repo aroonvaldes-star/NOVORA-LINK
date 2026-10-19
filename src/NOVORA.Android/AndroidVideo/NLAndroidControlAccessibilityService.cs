@@ -195,7 +195,7 @@ public sealed class NLAndroidControlAccessibilityService : AccessibilityService
                 completion.SetResult();
                 return;
             default:
-                throw new NotSupportedException($"La orden de control {command.Type} no está disponible en AppControl.");
+                throw new NotSupportedException($"La orden de control {command.Type} no está disponible en LINK Control.");
         }
     }
 

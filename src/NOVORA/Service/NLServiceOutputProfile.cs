@@ -3,7 +3,7 @@ using NOVORA.Model;
 namespace NOVORA.Service;
 
 /// <summary>
-/// Construye el perfil de salida de scrcpy utilizando las capacidades
+/// Construye el perfil de salida de VisionEngine utilizando las capacidades
 /// detectadas del dispositivo Android.
 ///
 /// El monitor del PC NO limita FPS ni resolución.

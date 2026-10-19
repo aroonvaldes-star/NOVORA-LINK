@@ -1,0 +1,3 @@
+<inset xmlns:android="http://schemas.android.com/apk/res/android" android:inset="12dp">
+  <bitmap android:src="@drawable/link_control_emblem" android:gravity="fill" android:tint="@color/link_launcher_foreground" />
+</inset>

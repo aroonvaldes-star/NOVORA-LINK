@@ -10,7 +10,7 @@ using Uri = Android.Net.Uri;
 
 namespace NOVORA.AndroidUI;
 
-[Activity(Name = "com.novora.appcontrol.ShareActivity", Label = "Enviar con NOVORA", Exported = true,
+[Activity(Name = "com.novora.appcontrol.ShareActivity", Label = "Enviar con LINK Control", Exported = true,
     ConfigurationChanges = Android.Content.PM.ConfigChanges.Orientation | Android.Content.PM.ConfigChanges.ScreenSize,
     Theme = "@android:style/Theme.Material.NoActionBar")]
 [IntentFilter(new[] { Intent.ActionSend, Intent.ActionSendMultiple }, Categories = new[] { Intent.CategoryDefault }, DataMimeType = "*/*")]
@@ -116,6 +116,8 @@ public sealed class NLAndroidUIShareActivity : Activity
         _cancel = new CancellationTokenSource();
         _send.Enabled = _pick.Enabled = false; _stop.Enabled = true;
         int completed = 0;
+        void TransferState(object? sender, string message) => RunOnUiThread(() => { if (!_destroyed && _sending) _status.Text = message; });
+        service.FileTransferStateChanged += TransferState;
         try
         {
             foreach (Uri uri in _uris)
@@ -123,13 +125,8 @@ public sealed class NLAndroidUIShareActivity : Activity
                 _cancel.Token.ThrowIfCancellationRequested();
                 var (name, length) = Describe(uri);
                 using var stream = ContentResolver!.OpenInputStream(uri) ?? throw new IOException("No se pudo abrir el archivo.");
-                string result = await NLControlFileSender.SendAsync(stream, name, length, (action, value) =>
-                {
-                    var current = service.Session.Current;
-                    if (current.Phase != NLControlSessionPhase.Connected || current.Generation != _generation)
-                        throw new IOException("La PC o la sesión cambió; vuelve a iniciar el envío.");
-                    return service.Session.SendAsync(action, value);
-                }, new Progress<long>(bytes => { if (!_destroyed && _sending) _status.Text = $"{name}: {bytes:N0} / {length:N0} bytes"; }), _cancel.Token);
+                string result = await service.SendFileToPcAsync(stream, name, length,
+                    new Progress<long>(bytes => { if (!_destroyed && _sending) _status.Text = $"{name}: {bytes:N0} / {length:N0} bytes"; }), _cancel.Token);
                 completed++;
                 _selection.Text = $"{completed}/{_uris.Count}: {result}";
             }
@@ -139,6 +136,7 @@ public sealed class NLAndroidUIShareActivity : Activity
         catch (Exception ex) { if (!_destroyed) _status.Text = $"{completed} archivo(s) completado(s). {ex.Message}"; }
         finally
         {
+            service.FileTransferStateChanged -= TransferState;
             service.EndFileTransfer();
             _sending = false; _cancel.Dispose(); _cancel = null;
             if (!_destroyed) { _pick.Enabled = true; _stop.Enabled = false; _send.Enabled = false; }

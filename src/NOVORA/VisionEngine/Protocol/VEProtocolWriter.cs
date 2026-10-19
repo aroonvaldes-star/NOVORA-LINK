@@ -67,12 +67,7 @@ public sealed class VEProtocolWriter
             : (ulong)presentationTimeUs!.Value;
         if (isKeyFrame) ptsFlags |= VEProtocolConstants.PacketFlagKeyFrameVE;
 
-        byte[] header = new byte[VEProtocolConstants.PacketHeaderSizeVE];
-        BinaryPrimitives.WriteUInt64BigEndian(header.AsSpan(0, 8), ptsFlags);
-        BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(8, 4), checked((uint)payload.Length));
-
-        await _stream.WriteAsync(header, cancellationToken).ConfigureAwait(false);
-        await _stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
+        await WriteFramedAsync(ptsFlags, payload, cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask WriteAudioSessionAsync(
@@ -107,11 +102,31 @@ public sealed class VEProtocolWriter
             throw new ArgumentOutOfRangeException(nameof(presentationTimeUs));
         ulong ptsFlags = (ulong)presentationTimeUs;
         if (keyFrame) ptsFlags |= VEProtocolConstants.PacketFlagKeyFrameVE;
-        byte[] header = new byte[VEProtocolConstants.PacketHeaderSizeVE];
-        BinaryPrimitives.WriteUInt64BigEndian(header.AsSpan(0, 8), ptsFlags);
-        BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(8, 4), checked((uint)payload.Length));
-        await _stream.WriteAsync(header, cancellationToken).ConfigureAwait(false);
-        await _stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
+        await WriteFramedAsync(ptsFlags, payload, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Header and payload in one write: over TLS with NoDelay, two writes become two records
+    /// and an extra small segment per frame.
+    /// </summary>
+    private async ValueTask WriteFramedAsync(
+        ulong ptsFlags,
+        ReadOnlyMemory<byte> payload,
+        CancellationToken cancellationToken)
+    {
+        int length = VEProtocolConstants.PacketHeaderSizeVE + payload.Length;
+        byte[] frame = System.Buffers.ArrayPool<byte>.Shared.Rent(length);
+        try
+        {
+            BinaryPrimitives.WriteUInt64BigEndian(frame.AsSpan(0, 8), ptsFlags);
+            BinaryPrimitives.WriteUInt32BigEndian(frame.AsSpan(8, 4), checked((uint)payload.Length));
+            payload.Span.CopyTo(frame.AsSpan(VEProtocolConstants.PacketHeaderSizeVE));
+            await _stream.WriteAsync(frame.AsMemory(0, length), cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(frame);
+        }
     }
 
     private async ValueTask WriteSessionHeaderAsync(

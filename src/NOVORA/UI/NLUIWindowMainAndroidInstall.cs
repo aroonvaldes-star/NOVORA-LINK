@@ -46,7 +46,7 @@ public partial class NLUIWindowMain
         long generation = ++_androidInstallGeneration;
         _androidInstallPackage = null; _androidInstallState = null;
         AndroidInstallButton.IsEnabled = false;
-        AndroidInstallButton.Content = "INSTALAR NOVORA POR USB";
+        AndroidInstallButton.Content = "INSTALAR NOVORA EN ANDROID";
         var device = _viewModel.Device;
         try
         {
@@ -60,15 +60,22 @@ public partial class NLUIWindowMain
             var package = await Task.Run(() => NLServiceAndroidPackage.Load(directory), check.Token);
             if (generation != _androidInstallGeneration || _closing) return;
             AndroidPackageTitle.Text = $"NOVORA Android {package.VersionName}";
-            if (!device.Connected || device.IsWifiConnection || string.IsNullOrWhiteSpace(device.Serial))
-            { AndroidInstallStatus.Text = $"NOVORA Android {package.VersionName} disponible. Selecciona un teléfono USB y autoriza la depuración USB en su pantalla."; return; }
+            if (!NLAndroidInstallDevicePolicy.CanInstallOverAdb(
+                    device.Connected,
+                    device.Serial))
+            {
+                AndroidInstallStatus.Text =
+                    $"NOVORA Android {package.VersionName} disponible. " +
+                    "Selecciona un teléfono ADB por USB o Wi-Fi y autoriza la depuración en su pantalla.";
+                return;
+            }
             AndroidInstallStatus.Text = $"Comprobando NOVORA en {device.FriendlyName}…";
             var state = await CreateAndroidInstaller().InspectAsync(device.Serial, package, check.Token);
             if (generation != _androidInstallGeneration || _closing) return;
             _androidInstallPackage = package; _androidInstallState = state;
             AndroidInstallButton.Content = state.Action switch
             {
-                NLServiceAndroidInstallAction.Install => "INSTALAR NOVORA POR USB",
+                NLServiceAndroidInstallAction.Install => "INSTALAR NOVORA EN ANDROID",
                 NLServiceAndroidInstallAction.Update => "ACTUALIZAR NOVORA ANDROID",
                 _ => "NOVORA ANDROID ACTUALIZADO"
             };
@@ -95,13 +102,17 @@ public partial class NLUIWindowMain
                 $"Teléfono: {name}\nVersión actual: {oldVersion}\nVersión disponible: {package.VersionName} ({package.VersionCode})\n\nSe instalará la misma app de NOVORA. La actualización solicita conservar sus datos. El control y la VPN de NOVORA se desconectarán durante la instalación. Si Android rechaza la firma, no se desinstalará la app existente.\n\n¿Continuar?",
                 "Instalar NOVORA Android", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (answer != MessageBoxResult.Yes) return;
-            if (generation != _androidInstallGeneration || _viewModel.Device.Serial != serial || !_viewModel.Device.Connected || _viewModel.Device.IsWifiConnection)
+            if (generation != _androidInstallGeneration ||
+                _viewModel.Device.Serial != serial ||
+                !NLAndroidInstallDevicePolicy.CanInstallOverAdb(
+                    _viewModel.Device.Connected,
+                    _viewModel.Device.Serial))
                 throw new InvalidOperationException("El teléfono cambió. Comprueba la app antes de instalar.");
             await StopAndroidControlAsync();
             operation.Token.ThrowIfCancellationRequested();
             if (generation != _androidInstallGeneration || _viewModel.Device.Serial != serial)
                 throw new InvalidOperationException("El teléfono cambió durante la preparación.");
-            AndroidInstallStatus.Text = $"Instalando en {name}. Mantén conectado el cable USB…";
+            AndroidInstallStatus.Text = $"Instalando en {name} mediante ADB…";
             var result = await CreateAndroidInstaller().InstallAsync(serial, package, expected, operation.Token);
             if (!_closing && generation == _androidInstallGeneration)
             {

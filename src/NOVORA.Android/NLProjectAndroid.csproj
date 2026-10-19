@@ -1,15 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0-android</TargetFramework>
-    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion>30</SupportedOSPlatformVersion>
     <OutputType>Exe</OutputType>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>NOVORA.AndroidApp</RootNamespace>
     <ApplicationId>com.novora.appcontrol</ApplicationId>
-    <ApplicationVersion>61</ApplicationVersion>
-    <ApplicationDisplayVersion>1.4.61</ApplicationDisplayVersion>
-    <ApplicationTitle>NOVORA-LINK</ApplicationTitle>
+    <ApplicationVersion>113</ApplicationVersion>
+    <ApplicationDisplayVersion>1.4.113</ApplicationDisplayVersion>
+    <ApplicationTitle>LINK Control</ApplicationTitle>
     <AndroidManifest>Properties\NLPropertiesAndroidManifest.xml</AndroidManifest>
     <AndroidPackageFormats>apk</AndroidPackageFormats>
     <AndroidBuildApplicationPackage>false</AndroidBuildApplicationPackage>
@@ -21,7 +21,14 @@
     <RuntimeIdentifier>android-arm64</RuntimeIdentifier>
   </PropertyGroup>
   <ItemGroup>
+
     <Compile Include="..\NOVORA\Control\NLControlProtocol.cs" Link="Control\NLControlProtocol.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlCapturePolicy.cs" Link="Control\NLControlCapturePolicy.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlNetworkPolicy.cs" Link="Control\NLControlNetworkPolicy.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlNetworkAllocation.cs" Link="Control\NLControlNetworkAllocation.cs" />
+    <Compile Include="..\NOVORA\Network\NLNetworkBudget.cs" Link="Network\NLNetworkBudget.cs" />
+    <Compile Include="..\NOVORA\Network\NLNetworkPacer.cs" Link="Network\NLNetworkPacer.cs" />
+    <Compile Include="..\NOVORA\Network\NLNetworkStabilityController.cs" Link="Network\NLNetworkStabilityController.cs" />
     <Compile Include="..\NOVORA\Control\NLControlInputLoop.cs" Link="Control\NLControlInputLoop.cs" />
     <Compile Include="..\NOVORA\Control\NLControlAndroidInput.cs" Link="Control\NLControlAndroidInput.cs" />
     <Compile Include="..\NOVORA\Control\NLControlVideoSize.cs" Link="Control\NLControlVideoSize.cs" />
@@ -40,6 +47,7 @@
   </Target>
   <ItemGroup><Compile Include="..\NOVORA\Control\NLControlLanInvitation.cs" Link="Control\NLControlLanInvitation.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\NOVORA\Control\NLControlLanDiscovery.cs" Link="Control\NLControlLanDiscovery.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA\Control\NLControlLanCodeHandoff.cs" Link="Control\NLControlLanCodeHandoff.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\NOVORA\Control\NLControlSession.cs" Link="Control\NLControlSession.cs" /></ItemGroup>
   <ItemGroup>
     <Compile Include="..\NOVORA\Control\NLControlVeLanProtocol.cs" Link="Control\NLControlVeLanProtocol.cs" />

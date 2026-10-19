@@ -35,6 +35,10 @@ public sealed class NLAndroidVideoService : Service
     private VirtualDisplay? _display;
     private NLAndroidVideoEncoder? _encoder;
     private NLAndroidVideoCompositor? _compositor;
+    private NLControlCapturePolicySession? _capturePolicySession;
+    private NLControlNetworkCapabilities? _captureCapabilities;
+    private long _captureGeneration;
+    private readonly NLControlCaptureTelemetrySequencer _captureTelemetrySequence = new();
     private TcpClient? _client;
     private TcpClient? _controlClient;
     private TcpClient? _audioClient;
@@ -92,6 +96,7 @@ public sealed class NLAndroidVideoService : Service
     {
         if (intent?.Action == StopAction)
         {
+            Android.Util.Log.Warn("NOVORA-VE", "Motivo de parada: intent StopAction recibido.");
             CancelExpectedReconfiguration();
             StartService(new Intent(this, typeof(NLAndroidServiceControl)).SetAction(NLAndroidServiceControl.StopVideoAction));
             _ = StopVideoAsync();
@@ -133,7 +138,11 @@ public sealed class NLAndroidVideoService : Service
             var projectionManager = (MediaProjectionManager)GetSystemService(MediaProjectionService)!;
             _projection = projectionManager.GetMediaProjection((int)result, projectionData)
                 ?? throw new InvalidOperationException("Android no entregó la captura de pantalla.");
-            _projectionCallback = new NLAndroidProjectionCallback(() => TryCancel(lifetime));
+            _projectionCallback = new NLAndroidProjectionCallback(() =>
+            {
+                Android.Util.Log.Warn("NOVORA-VE", "Motivo de parada: MediaProjection.OnStop (captura detenida por Android).");
+                TryCancel(lifetime);
+            });
             _projection.RegisterCallback(_projectionCallback, new Handler(Looper.MainLooper!));
 
             NLControlVideoSourceOffer nextOffer = offer;
@@ -143,6 +152,8 @@ public sealed class NLAndroidVideoService : Service
                 catch (System.OperationCanceledException) when (lifetime.IsCancellationRequested) { break; }
                 catch (Exception ex) { Android.Util.Log.Warn("NOVORA-VE", ex.ToString()); }
 
+                Android.Util.Log.Info("NOVORA-VE", "Motivo de parada: RunFeedAsync terminó; cancelación=" +
+                    lifetime.IsCancellationRequested + ", reconfiguración=" + _expectReconfiguration + ".");
                 if (lifetime.IsCancellationRequested) break;
                 if (Interlocked.Exchange(ref _expectReconfiguration, 0) == 0) break;
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
@@ -165,6 +176,8 @@ public sealed class NLAndroidVideoService : Service
         try
         {
             Validate(offer);
+            _captureGeneration = offer.CaptureGeneration;
+            _captureCapabilities = offer.CaptureCapabilities;
             _client = new TcpClient { NoDelay = true };
             await _client.ConnectAsync("127.0.0.1", offer.Port, feed.Token);
             NetworkStream stream = _client.GetStream();
@@ -178,7 +191,7 @@ public sealed class NLAndroidVideoService : Service
             if (offer.AudioEnabled)
             {
                 if (!OperatingSystem.IsAndroidVersionAtLeast(29))
-                    throw new NotSupportedException("Audio AppControl requiere Android 10 o posterior.");
+                    throw new NotSupportedException("Audio LINK Control requiere Android 10 o posterior.");
                 _audioClient = new TcpClient { NoDelay = true };
                 await _audioClient.ConnectAsync("127.0.0.1", offer.AudioPort, feed.Token);
                 NetworkStream audioStream = _audioClient.GetStream();
@@ -192,6 +205,7 @@ public sealed class NLAndroidVideoService : Service
         finally
         {
             feed.Cancel();
+            Interlocked.Exchange(ref _capturePolicySession, null)?.Close();
             try { if (_display is not null) _display.Surface = null; } catch { }
             if (_compositor is not null) await _compositor.DisposeAsync();
             _compositor = null;
@@ -235,9 +249,10 @@ public sealed class NLAndroidVideoService : Service
             encodedSize.Height,
             offer.Bitrate,
             offer.Fps,
-            ex => encoderFailure.TrySetResult(ex));
+            ex => encoderFailure.TrySetResult(ex), offer.CaptureGeneration);
         _compositor = new NLAndroidVideoCompositor(
-            _encoder.InputSurface, encodedSize.Width, encodedSize.Height);
+            _encoder.InputSurface, encodedSize.Width, encodedSize.Height,
+            offer.CaptureGeneration > 0 && offer.CaptureCapabilities?.CaptureFramePacing == true ? offer.Fps : 0);
         Surface captureSurface = await _compositor.GetCaptureSurfaceAsync(cancellationToken);
         await _compositor.UpdateSourceAsync(sourceSize.Width, sourceSize.Height, 0, cancellationToken);
 
@@ -262,6 +277,11 @@ public sealed class NLAndroidVideoService : Service
             _display.Surface = captureSurface;
         }
         _encoder.Start();
+        var activeEncoder = _encoder;
+        var activeCompositor = _compositor;
+        _capturePolicySession = new NLControlCapturePolicySession(offer.CaptureGeneration, offer.Bitrate,
+            offer.Fps, offer.CaptureCapabilities ?? new(), activeEncoder.TrySetTargetBitrate,
+            activeCompositor.TrySetTargetFps);
 
         // ChannelReader.ReadAllAsync devuelve un enumerador cuya liberación
         // asíncrona no está implementada en este runtime Android. Los recursos
@@ -309,6 +329,7 @@ public sealed class NLAndroidVideoService : Service
             if (!await packetReady)
                 throw new EndOfStreamException("El encoder Android cerró el video inesperadamente.");
             NLAndroidVideoPacket packet = packets.Current;
+            activeEncoder.PacketDequeued(packet);
             if (pendingSession is not null)
             {
                 if (!packet.KeyFrame)
@@ -326,9 +347,13 @@ public sealed class NLAndroidVideoService : Service
                 presentationTimeUs = Math.Max(nextPresentationTimeUs, sourcePts);
                 nextPresentationTimeUs = presentationTimeUs.Value + 1;
             }
+            long writeStarted = TimeProvider.System.GetTimestamp();
+            activeEncoder.Telemetry.BeginWrite();
             await writer.WriteVideoPacketAsync(
                 packet.Payload, presentationTimeUs, packet.Configuration, packet.KeyFrame,
                 cancellationToken);
+            activeEncoder.Telemetry.RecordWrite(packet.Payload.Length, packet.Payload.Length + VEProtocolConstants.PacketHeaderSizeVE,
+                TimeProvider.System.GetElapsedTime(writeStarted));
             packetReady = packets.MoveNextAsync().AsTask();
         }
     }
@@ -363,17 +388,35 @@ public sealed class NLAndroidVideoService : Service
                 (offer.AudioPort is < 1 or > 65535 || offer.AudioToken.Length != 64)) ||
             offer.Bitrate is < 250_000 or > 100_000_000 || offer.MaxSize is < 240 or > 4320 ||
             offer.Fps is < 10 or > 120)
-            throw new InvalidDataException("Oferta de video AppControl inválida.");
+            throw new InvalidDataException("Oferta de video LINK Control inválida.");
         _ = Convert.FromHexString(offer.Token);
         _ = Convert.FromHexString(offer.ControlToken);
         if (offer.AudioEnabled) _ = Convert.FromHexString(offer.AudioToken);
     }
 
-    private static async Task RunControlAsync(Stream stream, CancellationToken cancellationToken)
+    private async Task RunControlAsync(Stream stream, CancellationToken cancellationToken)
     {
         await NLControlInputLoop.RunDuplexAsync(
             stream,
-            NLAndroidControlAccessibilityService.ExecuteWithResponseAsync,
+            async (command, token) =>
+            {
+                if (command.Type == 17) { _encoder?.RequestKeyFrame(); return null; }
+                if (command.Type == 23)
+                {
+                    NLControlCapturePolicy? policy = command.CapturePolicy;
+                    var ack = policy is not null && _capturePolicySession is { } session
+                        ? session.Apply(policy) : new NLControlCapturePolicyAck(
+                            policy?.Generation ?? _captureGeneration, policy?.Sequence ?? 0, false,
+                            policy?.TargetBitrate ?? 0, null, "La captura no está disponible.");
+                    return new NLControlInputResponse(NLControlInputResponse.CapturePolicyAckType,
+                        CapturePolicyAck: ack);
+                }
+                if (command.Type == 24 && _captureGeneration > 0 && _captureCapabilities?.StabilityTelemetry == true)
+                    return new NLControlInputResponse(NLControlInputResponse.NetworkEchoType, Sequence: command.Sequence,
+                        // CLOCK_MONOTONIC, the same base as the SurfaceTexture/MediaCodec timestamps.
+                        DeviceClockUs: Java.Lang.JavaSystem.NanoTime() / 1000);
+                return await NLAndroidControlAccessibilityService.ExecuteWithResponseAsync(command, token);
+            },
             async (command, exception, token) =>
             {
                 Android.Util.Log.Warn("NOVORA-VE",
@@ -382,7 +425,15 @@ public sealed class NLAndroidVideoService : Service
                     await NLAndroidControlAccessibilityService.ResetPointersAsync(token);
             },
             TimeSpan.FromSeconds(2),
-            cancellationToken);
+            cancellationToken, _captureGeneration > 0 && _captureCapabilities?.StabilityTelemetry == true
+                ? CaptureTelemetryResponse : null);
+    }
+
+    private NLControlInputResponse? CaptureTelemetryResponse()
+    {
+        NLControlCaptureTelemetry? sample = _encoder?.TakeTelemetry();
+        return sample is null ? null : new(NLControlInputResponse.CaptureTelemetryType,
+            CaptureTelemetry: _captureTelemetrySequence.Stamp(sample));
     }
 
     private Notification BuildNotification()
@@ -403,6 +454,7 @@ public sealed class NLAndroidVideoService : Service
         CancelExpectedReconfiguration();
         var lifetime = Interlocked.Exchange(ref _lifetime, null);
         TryCancel(lifetime);
+        Interlocked.Exchange(ref _capturePolicySession, null)?.Close();
         try { _display?.Release(); } catch { }
         _display = null;
         if (_compositor is not null) await _compositor.DisposeAsync();

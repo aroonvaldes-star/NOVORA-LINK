@@ -44,7 +44,7 @@ public sealed class VETransportLanChannel : IAsyncDisposable
         if (sessionId is not { Length: >= 8 and <= 128 })
             throw new InvalidDataException("Sesión VE LAN no válida.");
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        if (expiresAt <= now || expiresAt > now.AddSeconds(30))
+        if (expiresAt <= now || expiresAt > now.AddSeconds(NLControlVeLanOffer.OfferLifetimeSeconds))
             throw new InvalidDataException("Caducidad VE LAN no válida.");
 
         lock (_gate)

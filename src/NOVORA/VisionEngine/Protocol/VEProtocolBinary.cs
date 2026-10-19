@@ -3,7 +3,7 @@ using System.Buffers.Binary;
 namespace NOVORA.VisionEngine.Protocol;
 
 /// <summary>
-/// Lecturas big-endian usadas por el wire protocol de scrcpy 4.1.
+/// Lecturas big-endian usadas por el protocolo multimedia de NOVORA.
 /// </summary>
 public static class VEProtocolBinary
 {

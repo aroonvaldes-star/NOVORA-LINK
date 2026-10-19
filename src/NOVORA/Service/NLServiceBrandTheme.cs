@@ -19,10 +19,10 @@ public static class NLServiceBrandTheme
     public const string ResourceKey = "NovoraBrandImageSource";
 
     private const string DarkBrandUri =
-        "pack://application:,,,/NOVORA;component/Asset/NLAssetNOVORABRAND.png";
+        "pack://application:,,,/NOVORA-LINK;component/Asset/NLAssetNOVORABRAND.png";
 
     private const string LightBrandUri =
-        "pack://application:,,,/NOVORA;component/Asset/NLAssetNOVORABRANDLIGHT.png";
+        "pack://application:,,,/NOVORA-LINK;component/Asset/NLAssetNOVORABRANDLIGHT.png";
 
     /// <summary>
     /// Aplica al recurso dinámico de WPF la imagen correspondiente

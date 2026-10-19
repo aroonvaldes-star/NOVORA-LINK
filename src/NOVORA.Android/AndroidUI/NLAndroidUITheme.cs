@@ -21,10 +21,10 @@ internal static class NLAndroidUITheme
         8, 16, 48);
 
     internal static readonly NLAndroidUIPalette Light = new(
-        "#F6FAFA", "#FFFFFF", "#EDF3F4", "#D2DEE1",
-        "#191C1D", "#53646C", "#087F91", "#FFFFFF",
-        "#FFFFFF", "#839095", "#16845B", "#976C00", "#B3262E",
-        8, 16, 48);
+        "#F4F6FB", "#FFFFFF", "#EDF1F8", "#D7DDE8",
+        "#121722", "#657087", "#304FFE", "#FFFFFF",
+        "#FFFFFF", "#C4C5D9", "#16845B", "#976C00", "#B3262E",
+        12, 16, 48);
 
     internal static bool IsDark(Context context) =>
         context.GetSharedPreferences(Preferences, FileCreationMode.Private)?.GetString(ThemeKey, "light") == "dark";

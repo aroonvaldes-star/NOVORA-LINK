@@ -9,7 +9,6 @@ public partial class NLApplicationApp :
 {
     private NLServiceTray? _trayServiceNV;
     private NLServiceSingleInstance? _singleInstanceNV;
-    private bool _backgroundStartNV;
 
     internal static bool IsExplicitExitNV
     {
@@ -34,9 +33,6 @@ public partial class NLApplicationApp :
                 .IsAutoStartLaunchNV(
                     e.Args);
 
-        _backgroundStartNV =
-            autoStartNV;
-
         ConfigureUnhandledExceptionNV();
 
         var settingsServiceNV =
@@ -45,37 +41,28 @@ public partial class NLApplicationApp :
         NLServiceNovoraSettings settingsNV =
             settingsServiceNV.Load();
 
+        if (settingsNV.StartWithWindows ||
+            settingsNV.AutoStartSuppressed)
+        {
+            settingsNV.StartWithWindows =
+                false;
+
+            settingsNV.AutoStartSuppressed =
+                false;
+
+            settingsServiceNV.Save(
+                settingsNV);
+        }
+
+        NLServiceAutoStart
+            .ApplyRegistrationNV(
+                enabled: false);
+
         if (autoStartNV)
         {
-            if (!settingsNV.StartWithWindows ||
-                settingsNV.AutoStartSuppressed)
-            {
-                NLServiceAutoStart
-                    .ApplyRegistrationNV(
-                        enabled: false);
+            Shutdown();
 
-                Shutdown();
-
-                return;
-            }
-
-            await Task.Delay(
-                TimeSpan.FromSeconds(5));
-        }
-        else
-        {
-            if (settingsNV.AutoStartSuppressed)
-            {
-                settingsNV.AutoStartSuppressed =
-                    false;
-
-                settingsServiceNV.Save(
-                    settingsNV);
-            }
-
-            NLServiceAutoStart
-                .ApplyRegistrationNV(
-                    settingsNV.StartWithWindows);
+            return;
         }
 
         ApplySavedTheme();
@@ -83,23 +70,20 @@ public partial class NLApplicationApp :
         NLUIWindowStartup? startupWindowNV =
             null;
 
-        if (!autoStartNV)
+        try
         {
-            try
-            {
-                startupWindowNV =
-                    new NLUIWindowStartup();
+            startupWindowNV =
+                new NLUIWindowStartup();
 
-                startupWindowNV.Show();
+            startupWindowNV.Show();
 
-                await startupWindowNV
-                    .PlayIntroAsync();
-            }
-            catch (Exception ex)
-            {
-                LogException(
-                    ex);
-            }
+            await startupWindowNV
+                .PlayIntroAsync();
+        }
+        catch (Exception ex)
+        {
+            LogException(
+                ex);
         }
 
         try
@@ -111,50 +95,20 @@ public partial class NLApplicationApp :
                 mainWindowNV;
 
             InitializeTrayNV(
-                mainWindowNV,
-                settingsServiceNV);
+                mainWindowNV);
 
-            if (autoStartNV)
-            {
-                /*
-                 * Show() dispara Loaded y con ello inicializa motores,
-                 * y detección de dispositivos ADB. Opacity 0 evita cualquier
-                 * destello y después la ventana queda escondida.
-                 */
-                mainWindowNV.Opacity =
-                    0d;
-
-                mainWindowNV.ShowInTaskbar =
-                    false;
-
-                mainWindowNV.Show();
-
-                mainWindowNV.Hide();
-
-                mainWindowNV.Opacity =
-                    1d;
-
-                mainWindowNV.ShowInTaskbar =
-                    true;
-            }
-            else
-            {
-                mainWindowNV.Show();
-            }
+            mainWindowNV.Show();
         }
         catch (Exception ex)
         {
             LogException(
                 ex);
 
-            if (!autoStartNV)
-            {
-                MessageBox.Show(
-                    ex.Message,
-                    "NOVORA - Error de inicio",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
+            MessageBox.Show(
+                ex.Message,
+                "NOVORA - Error de inicio",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
 
             Shutdown(1);
 
@@ -176,8 +130,7 @@ public partial class NLApplicationApp :
     }
 
     private void InitializeTrayNV(
-        NLUIWindowMain mainWindowNV,
-        NLServiceSettings settingsServiceNV)
+        NLUIWindowMain mainWindowNV)
     {
         _trayServiceNV =
             new NLServiceTray();
@@ -202,15 +155,6 @@ public partial class NLApplicationApp :
                 Dispatcher.Invoke(
                     () =>
                     {
-                        NLServiceNovoraSettings settingsNV =
-                            settingsServiceNV.Load();
-
-                        settingsNV.AutoStartSuppressed =
-                            true;
-
-                        settingsServiceNV.Save(
-                            settingsNV);
-
                         NLServiceAutoStart
                             .ApplyRegistrationNV(
                                 enabled: false);
@@ -266,14 +210,11 @@ public partial class NLApplicationApp :
                 LogException(
                     args.Exception);
 
-                if (!_backgroundStartNV)
-                {
-                    MessageBox.Show(
-                        args.Exception.Message,
-                        "Error no controlado",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Error);
-                }
+                MessageBox.Show(
+                    args.Exception.Message,
+                    "Error no controlado",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
 
                 args.Handled =
                     true;

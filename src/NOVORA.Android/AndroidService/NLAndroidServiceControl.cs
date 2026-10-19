@@ -2,6 +2,7 @@ using Android.App;
 using Android.Content;
 using Android.Content.PM;
 using Android.Net;
+using AndroidNetNetwork = Android.Net.Network;
 using Android.OS;
 using NOVORA.Control;
 using NOVORA.AndroidUI;
@@ -19,7 +20,6 @@ public sealed partial class NLAndroidServiceControl : Service
     private const string Channel = "novora_control";
     private const int NotificationId = 214;
     public const string DisconnectAction = "com.novora.appcontrol.DISCONNECT";
-    public const string ExInModeAction = "com.novora.appcontrol.EXIN_MODE";
     public const string StopVideoAction = "com.novora.appcontrol.STOP_VIDEO";
     public const string UsbBootstrapAction = "com.novora.appcontrol.USB_BOOTSTRAP";
     public const string UsbBootstrapExtra = "novora.usb";
@@ -28,6 +28,7 @@ public sealed partial class NLAndroidServiceControl : Service
     private NLAndroidStorageTrustedPcs _trustedStore = null!;
     private NLControlTrustedPc? _recoveryPeer;
     private NLControlTrustedPc? _connectingPeer;
+    private int _launchPresenceRequested;
     private NLControlLanInvitation? _freshInvitation;
     private NLControlLanPeer? _freshLanPeer;
     private NLControlLanInvitation? _usbInvitation;
@@ -70,7 +71,7 @@ public sealed partial class NLAndroidServiceControl : Service
     private readonly object _lifecycle = new();
     private ConnectivityManager? _connectivity;
     private NLAndroidServiceNetworkWatch? _networkWatch;
-    private Network? _network;
+    private AndroidNetNetwork? _network;
     private int _internetControlHandoff;
     public sealed class NLAndroidServiceBinder(NLAndroidServiceControl owner) : Binder
     { public NLAndroidServiceControl Owner { get; } = owner; }
@@ -95,7 +96,6 @@ public sealed partial class NLAndroidServiceControl : Service
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
     {
         if (intent?.Action == DisconnectAction) _ = DisconnectFromNotificationAsync();
-        else if (intent?.Action == ExInModeAction) _ = SendNotificationCommandAsync("exin.mode", intent.GetStringExtra("mode"));
         else if (intent?.Action == StopVideoAction) _ = SendNotificationCommandAsync("stopVideo");
         else if (intent?.Action == UsbBootstrapAction)
         {
@@ -218,9 +218,40 @@ public sealed partial class NLAndroidServiceControl : Service
         }
         finally { RenderNotification(); }
     }
-    public async Task ConnectTrustedAsync(NLControlTrustedPc peer)
+    /// <summary>
+    /// Connects AppControl to the LAN PC explicitly selected for automatic entry.
+    /// USB remains owned by its protected ADB bootstrap flow.
+    /// </summary>
+    public async Task<bool> AnnounceTrustedLanPcOnLaunchAsync(string fingerprint)
     {
-        _automaticUsbOrigin = "ManualTrusted";
+        if (Interlocked.Exchange(ref _launchPresenceRequested, 1) != 0 || _destroyed ||
+            Session.Current.Phase is NLControlSessionPhase.Connecting or NLControlSessionPhase.Connected)
+            return false;
+
+        try
+        {
+            NLControlTrustedPc? saved = GetSavedPcs().SingleOrDefault(p =>
+                p.Transport == "LAN" && p.Fingerprint == fingerprint);
+            if (saved is null) return false;
+
+            await ConnectTrustedCoreAsync(saved, "LaunchTrustedLan");
+            return Session.Current.Phase == NLControlSessionPhase.Connected;
+        }
+        finally
+        {
+            // Startup may race the PC listener. Permit the bounded UI recovery
+            // attempts when this one did not establish a trusted LAN session.
+            if (Session.Current.Phase != NLControlSessionPhase.Connected)
+                Interlocked.Exchange(ref _launchPresenceRequested, 0);
+        }
+    }
+
+    public Task ConnectTrustedAsync(NLControlTrustedPc peer) =>
+        ConnectTrustedCoreAsync(peer, "ManualTrusted");
+
+    private async Task ConnectTrustedCoreAsync(NLControlTrustedPc peer, string origin)
+    {
+        _automaticUsbOrigin = origin;
         StopLocalInternet();
         peer.Validate();
         // Reload protected storage: stale dialogs cannot reconnect a forgotten PC.
@@ -235,10 +266,38 @@ public sealed partial class NLAndroidServiceControl : Service
         _network = _connectivity?.ActiveNetwork;
         try
         {
-            await Session.ConnectTrustedAsync(peer);
-            if (operation == _operation) _recoveryPeer = peer.Transport == "LAN" ? peer : null;
+            NLControlTrustedPc connectedPeer = await ConnectTrustedAtCurrentAddressAsync(peer, operation);
+            if (operation == _operation) _recoveryPeer = connectedPeer.Transport == "LAN" ? connectedPeer : null;
         }
         finally { if (operation == _operation) _connectingPeer = null; RenderNotification(); }
+    }
+
+    private async Task<NLControlTrustedPc> ConnectTrustedAtCurrentAddressAsync(
+        NLControlTrustedPc peer, long operation, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await Session.ConnectTrustedAsync(peer);
+            return peer;
+        }
+        catch (Exception ex) when (peer.Transport == "LAN" &&
+                                   ex is IOException or System.Net.Sockets.SocketException or
+                                       System.OperationCanceledException or AuthenticationException)
+        {
+            // A saved LAN address is only a hint. Discovery identifies the PC by its
+            // pinned certificate; resume still authenticates with the saved token.
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deadline.CancelAfter(TimeSpan.FromSeconds(4));
+            var discovered = await NLControlLanDiscovery.SearchAsync(deadline.Token);
+            NLControlTrustedPc? updated = peer.AtDiscoveredLanAddress(discovered);
+            if (updated is null) throw;
+            if (operation != _operation || !GetSavedPcs().Any(saved => saved == peer))
+                throw new System.OperationCanceledException("La reconexión LAN fue cancelada.");
+            await Session.ConnectTrustedAsync(updated);
+            if (operation == _operation && GetSavedPcs().Any(saved => saved == peer))
+                _trustedStore.Save(updated);
+            return updated;
+        }
     }
     public async Task RememberCurrentPcAsync()
     {
@@ -248,10 +307,6 @@ public sealed partial class NLAndroidServiceControl : Service
         if ((invitation is null && lanPeer is null) || state.Phase != NLControlSessionPhase.Connected)
             throw new InvalidOperationException("Prepara un enlace USB o LAN nuevo para recordar esta PC.");
         string expectedFingerprint = invitation?.Fingerprint ?? lanPeer!.Fingerprint;
-        // Check corruption/capacity before creating any credential in PC.
-        var existing = GetSavedPcs();
-        if (existing.Count >= 16 && !existing.Any(p => p.Fingerprint == expectedFingerprint))
-            throw new InvalidOperationException("Olvida una PC antes de agregar otra; el máximo es 16.");
         long operation = _operation;
         var reply = await Session.SendAsync("trust.enroll", SafeName(Build.Model ?? "Android"));
         if (!reply.Success || reply.TrustedPc is not { } peer) throw new InvalidOperationException(reply.Message);
@@ -328,7 +383,7 @@ public sealed partial class NLAndroidServiceControl : Service
                 if (operation != _operation || !_foreground || _destroyed) return;
                 try
                 {
-                    await Session.ConnectTrustedAsync(peer);
+                    peer = await ConnectTrustedAtCurrentAddressAsync(peer, operation, cancellation.Token);
                     if (operation == _operation) RecoveryMessage = null;
                     return;
                 }
@@ -392,12 +447,12 @@ public sealed partial class NLAndroidServiceControl : Service
     private void SessionChanged(object? sender, NLControlSessionState state) => Post(() =>
     {
         var current = Session.Current;
+        TryAnnounceNetworkCapabilities(current);
         PublishAutomaticUsbDiagnostics();
         _controllerNotifications?.Update(current.Generation, current.Snapshot?.ExIn);
         if (_internetStopGeneration >= 0) _ = StopRemoteInternetAfterFailureAsync();
         if (_internetOwned && Volatile.Read(ref _internetControlHandoff) == 0 &&
-            (current.Transport != "USB" || current.Phase != NLControlSessionPhase.Connected ||
-            (!_internetStarting && current.Snapshot?.Engines is { LinkCanStart: true, LinkCanStop: false }))) StopLocalInternet();
+            current.ShouldStopOwnedInternet(_internetStarting)) StopLocalInternet();
         if (Session.Current.Phase == NLControlSessionPhase.Lost && !_retrying && _foreground && _recoveryPeer is { } peer)
         {
             _retrying = true;
@@ -468,20 +523,11 @@ public sealed partial class NLAndroidServiceControl : Service
             .SetPublicVersion(generic);
         if (ongoing)
         {
-            AddExInNotificationAction(builder, state);
             if (state.Snapshot?.Engines?.VideoCanStop == true)
                 builder.AddAction(NotificationServiceAction(216, StopVideoAction, "Detener pantalla"));
             builder.AddAction(new Notification.Action.Builder(null, "Desconectar", disconnect).Build());
         }
         return builder.Build();
-    }
-    private void AddExInNotificationAction(Notification.Builder builder, NLControlSessionState state)
-    {
-        if (state.Snapshot?.ExIn is not { Detected: true, Transitioning: false } exIn) return;
-        if (!exIn.CanSetMode) return;
-        bool game = string.Equals(exIn.Mode, "Game", StringComparison.OrdinalIgnoreCase);
-        builder.AddAction(NotificationServiceAction(217, ExInModeAction,
-            game ? "Modo UI" : "Modo Juego", "mode", game ? "Ui" : "Game"));
     }
     private Notification.Action NotificationServiceAction(int requestCode, string action, string label,
         string? extraName = null, string? extraValue = null)
@@ -507,14 +553,14 @@ public sealed partial class NLAndroidServiceControl : Service
     }
     private sealed class NLAndroidServiceNetworkWatch(NLAndroidServiceControl owner) : ConnectivityManager.NetworkCallback
     {
-        public override void OnAvailable(Network network) => owner.Post(() =>
+        public override void OnAvailable(AndroidNetNetwork network) => owner.Post(() =>
         {
             if (owner._destroyed) return;
             var previous = owner._network;
             owner._network = network;
             if (previous is not null && !previous.Equals(network)) owner.LoseLan();
         });
-        public override void OnLost(Network network) => owner.Post(() =>
+        public override void OnLost(AndroidNetNetwork network) => owner.Post(() =>
         {
             if (owner._destroyed || !network.Equals(owner._network)) return;
             owner._network = null;

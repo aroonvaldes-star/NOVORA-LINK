@@ -5,7 +5,7 @@ using System.Globalization;
 
 namespace NOVORA.Control;
 
-/// <summary>Existing LinkEngine CONTROL framing and RelayCore raw IPv4 DATA stream.</summary>
+/// <summary>LinkEngine CONTROL framing and NOVORA relay raw IPv4 DATA stream.</summary>
 public static class NLControlVpnProtocol
 {
     public static async Task<uint> ReadRelayIdAsync(Stream stream, CancellationToken token)

@@ -1,20 +1,17 @@
 name: CodeQL
-
-on:
+'on':
   push:
     branches:
-      - NOVORA-LINK
-      - "release/**"
+    - NOVORA-LINK
+    - release/**
   pull_request:
     branches:
-      - NOVORA-LINK
+    - NOVORA-LINK
   schedule:
-    - cron: "23 5 * * 1"
-  workflow_dispatch:
-
+  - cron: 23 5 * * 1
+  workflow_dispatch: null
 permissions:
   contents: read
-
 jobs:
   analyze:
     name: CodeQL (${{ matrix.language }})
@@ -27,67 +24,58 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - language: csharp
-            runner: windows-latest
-            build_mode: manual
-          - language: actions
-            runner: ubuntu-latest
-            build_mode: none
-
+        - language: csharp
+          runner: windows-latest
+          build_mode: manual
+        - language: actions
+          runner: ubuntu-latest
+          build_mode: none
     runs-on: ${{ matrix.runner }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+      with:
+        languages: ${{ matrix.language }}
+        build-mode: ${{ matrix.build_mode }}
+        queries: security-extended
+    - name: Setup .NET 8 and 10
+      if: matrix.language == 'csharp'
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        dotnet-version: '8.0.x
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build_mode }}
-          queries: security-extended
+          10.0.x
 
-      - name: Setup .NET 8 and 10
-        if: matrix.language == 'csharp'
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
+          '
+    - name: Restore verified runtime tools
+      if: matrix.language == 'csharp'
+      shell: pwsh
+      run: .\scripts\Setup-Tools.ps1
+    - name: Restore Android workload
+      if: matrix.language == 'csharp'
+      shell: pwsh
+      run: dotnet workload restore .\src\NOVORA.Android\NLProjectAndroid.csproj
+    - name: Restore
+      if: matrix.language == 'csharp'
+      shell: pwsh
+      run: 'dotnet restore src/NOVORA/NLProjectDesktop.csproj
 
-      - name: Restore verified runtime tools
-        if: matrix.language == 'csharp'
-        shell: pwsh
-        run: .\scripts\Setup-Tools.ps1
+        if ($LASTEXITCODE -ne 0) { throw "Restore failed." }'
+    - name: Build
+      if: matrix.language == 'csharp'
+      shell: pwsh
+      run: 'dotnet build src/NOVORA/NLProjectDesktop.csproj -c Release --no-restore
 
-      - name: Restore Android workload
-        if: matrix.language == 'csharp'
-        shell: pwsh
-        run: dotnet workload restore .\src\NOVORA.Android\NLProjectAndroid.csproj
+        if ($LASTEXITCODE -ne 0) { throw "Windows build failed." }
 
-      - name: Restore
-        if: matrix.language == 'csharp'
-        shell: pwsh
-        run: |
-          dotnet restore .\NOVORA.sln
-          if ($LASTEXITCODE -ne 0) { throw "Falló la restauración de NOVORA." }
-          dotnet restore .\tests\NOVORA.Tests\NLProjectTests.csproj
-          if ($LASTEXITCODE -ne 0) { throw "Falló la restauración de pruebas." }
+        dotnet build src/NOVORA.Android/NLProjectAndroid.csproj -c Release -r android-arm64 -t:Compile -p:AndroidBuildApplicationPackage=false
 
-      - name: Build
-        if: matrix.language == 'csharp'
-        shell: pwsh
-        run: |
-          dotnet build .\src\NOVORA\NLProjectDesktop.csproj -c Release --no-restore
-          if ($LASTEXITCODE -ne 0) { throw "Falló la compilación Release de NOVORA PC." }
-
-          dotnet build .\src\NOVORA.Android\NLProjectAndroid.csproj -c Release -t:Compile --no-restore
-          if ($LASTEXITCODE -ne 0) { throw "Falló la compilación de código Android." }
-
-          dotnet build .\tests\NOVORA.Tests\NLProjectTests.csproj -c Release --no-restore
-          if ($LASTEXITCODE -ne 0) { throw "Falló la compilación de pruebas." }
-
-      - name: Analyze
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:${{ matrix.language }}"
+        if ($LASTEXITCODE -ne 0) { throw "Android compile failed." }'
+    - name: Analyze
+      uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+      with:
+        category: /language:${{ matrix.language }}

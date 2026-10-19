@@ -48,11 +48,12 @@ public sealed class LEMetricsDevice
     private bool _internetActive;
     private long _bytesSent;
     private long _bytesReceived;
-    private double _latencyMs;
-    private double _throughputMbps;
-    private int _tcpSessions;
-    private int _udpSessions;
-    private int _dnsFailures;
+    private double? _latencyMs;
+    private double? _throughputMbps;
+    private int? _tcpSessions;
+    private int? _udpSessions;
+    private int? _dnsFailures;
+    private bool _trafficMeasured;
     private int _recoveryAttempts;
     private int _successfulRecoveries;
     private DateTimeOffset _lastActivityUtc = DateTimeOffset.UtcNow;
@@ -89,12 +90,15 @@ public sealed class LEMetricsDevice
         {
             _bytesSent += Math.Max(0, bytesSent);
             _bytesReceived += Math.Max(0, bytesReceived);
+            _trafficMeasured = true;
             _lastActivityUtc = DateTimeOffset.UtcNow;
         }
     }
 
     public void UpdateNetwork(double latencyMs, double throughputMbps)
     {
+        if (!double.IsFinite(latencyMs) || !double.IsFinite(throughputMbps) || latencyMs < 0 || throughputMbps < 0)
+            throw new ArgumentOutOfRangeException(nameof(latencyMs), "Las mediciones deben ser finitas y no negativas.");
         lock (_sync)
         {
             _latencyMs = Math.Max(0, latencyMs);
@@ -117,7 +121,7 @@ public sealed class LEMetricsDevice
     {
         lock (_sync)
         {
-            _dnsFailures++;
+            _dnsFailures = (_dnsFailures ?? 0) + 1;
             _lastActivityUtc = DateTimeOffset.UtcNow;
         }
     }
@@ -146,9 +150,8 @@ public sealed class LEMetricsDevice
         lock (_sync)
         {
             bool healthy =
-                _state != LECoreStates.Failed &&
-                _state != LECoreStates.Degraded &&
-                _latencyMs < 250;
+                _state == LECoreStates.Online && _internetActive &&
+                _latencyMs is double latency && latency < 250;
 
             return new LEMetricsDeviceMetricsSnapshot(
                 Serial,
@@ -164,7 +167,7 @@ public sealed class LEMetricsDevice
                 _recoveryAttempts,
                 _successfulRecoveries,
                 healthy,
-                _lastActivityUtc);
+                _lastActivityUtc) { TrafficMeasured = _trafficMeasured };
         }
     }
 }
@@ -175,12 +178,15 @@ public sealed record LEMetricsDeviceMetricsSnapshot(
     bool InternetActive,
     long BytesSent,
     long BytesReceived,
-    double LatencyMs,
-    double ThroughputMbps,
-    int TcpSessions,
-    int UdpSessions,
-    int DnsFailures,
+    double? LatencyMs,
+    double? ThroughputMbps,
+    int? TcpSessions,
+    int? UdpSessions,
+    int? DnsFailures,
     int RecoveryAttempts,
     int SuccessfulRecoveries,
     bool Healthy,
-    DateTimeOffset LastActivityUtc);
+    DateTimeOffset LastActivityUtc)
+{
+    public bool TrafficMeasured { get; init; }
+}

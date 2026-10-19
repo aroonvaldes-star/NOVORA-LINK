@@ -9,6 +9,11 @@ public sealed record NLControlSessionState(long Generation, NLControlSessionPhas
 {
     public bool UsesNativeVeLanVideo =>
         Phase == NLControlSessionPhase.Connected && Transport == "LAN" && !Tunnel;
+
+    public bool ShouldStopOwnedInternet(bool internetStarting) =>
+        Transport is not ("USB" or "LAN") ||
+        Phase != NLControlSessionPhase.Connected ||
+        (!internetStarting && Snapshot?.Engines is { LinkCanStart: true, LinkCanStop: false });
 }
 
 /// <summary>Owns a connection independently of UI subscriptions. Never retries a mutation or stores a credential.</summary>
@@ -137,7 +142,13 @@ public sealed class NLControlSession : IAsyncDisposable
             lock (_gate)
             {
                 if (!ReferenceEquals(_client, client)) throw new OperationCanceledException("La sesión cambió durante la orden.");
-                _current = _current with { Message = reply.Message, Busy = false };
+                // A successful command may carry the only up-to-date snapshot (for example,
+                // applyVideoSettings). Keep it in the session before notifying the UI so a
+                // subsequent render cannot restore the values that were just replaced in PC.
+                NLControlSnapshot? snapshot = reply.Snapshot;
+                if (_current.Snapshot is { } current && snapshot is not null && current.Revision > snapshot.Revision)
+                    snapshot = current;
+                _current = _current with { Message = reply.Message, Busy = false, Snapshot = snapshot ?? _current.Snapshot };
             }
             Notify();
             return reply;

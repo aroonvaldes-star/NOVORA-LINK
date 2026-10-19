@@ -1,168 +1,112 @@
 name: NOVORA Release
-
-on:
+'on':
   push:
-    branches:
-      - "release/**"
     tags:
-      - "v*.*"
-
+    - v*.*
+  workflow_dispatch:
+    inputs:
+      version:
+        description: New Windows version (for example 1.4.1)
+        required: true
+        type: string
+      android_release_tag:
+        description: Existing signed LINK Control release tag
+        required: true
+        type: string
 permissions:
-  contents: write
-
+  contents: read
 jobs:
   build-release:
     runs-on: windows-latest
-
+    timeout-minutes: 60
+    permissions:
+      contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Setup .NET 8 and 10
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        dotnet-version: '8.0.x
 
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
+          10.0.x
 
-      - name: Resolve release version
-        id: version
-        shell: pwsh
-        run: |
-          if ("${{ github.ref_type }}" -eq "tag") {
-              $tag = "${{ github.ref_name }}"
-              if (-not $tag.StartsWith("v")) {
-                  throw "El tag debe comenzar con v."
-              }
+          '
+    - name: Resolve version and signed Android release
+      shell: pwsh
+      run: '$version = $env:REQUESTED_VERSION
 
-              $version = $tag.Substring(1)
-          }
-          else {
-              $version = "1.4"
-              $tag = "v1.4"
-          }
+        if ($env:GITHUB_REF_TYPE -eq ''tag'') { $version = $env:GITHUB_REF_NAME.TrimStart(''v'') }
 
-          if ($version -notmatch '^\d+\.\d+(\.\d+)?$') {
-              throw "Formato inválido: $version. Usa versiones como 1.4, 1.5 o 1.5.1."
-          }
+        if ($version -notmatch ''^\d+\.\d+(?:\.\d+)?$'') { throw ''Provide a numeric Windows version.'' }
 
-          $parts = $version.Split('.')
-          $assemblyVersion = if ($parts.Count -eq 2) { "$version.0.0" } else { "$version.0" }
+        $tag = $env:ANDROID_RELEASE_TAG
 
-          "VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "ASSEMBLY_VERSION=$assemblyVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "TAG=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        if ([string]::IsNullOrWhiteSpace($tag)) { throw ''Set LINK_CONTROL_RELEASE_TAG or provide android_release_tag.'' }
 
-      - name: Restore verified runtime tools
-        shell: pwsh
-        run: .\scripts\Setup-Tools.ps1
+        if ($tag -notmatch ''^v\d+\.\d+\.\d+$'') { throw ''Invalid LINK Control release tag.'' }
 
-      - name: Restore
-        run: dotnet restore .\src\NOVORA\NLProjectDesktop.csproj
+        "VERSION=$version" >> $env:GITHUB_ENV
 
-      - name: Publish NOVORA
-        shell: pwsh
-        run: |
-          $publishDir = "${{ github.workspace }}\artifacts\publish\win-x64"
+        "ANDROID_TAG=$tag" >> $env:GITHUB_ENV'
+      env:
+        REQUESTED_VERSION: ${{ inputs.version }}
+        ANDROID_RELEASE_TAG: ${{ inputs.android_release_tag || vars.LINK_CONTROL_RELEASE_TAG }}
+    - name: Download existing signed LINK Control package
+      shell: pwsh
+      run: "if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {\n    throw 'Configure APPCONTROL_RELEASE_TOKEN with read access\
+        \ to the private NOVORA-AppControl repository.'\n}\n$destination = 'src/NOVORA/Android'\ngh release download $env:ANDROID_TAG\
+        \ --repo aroonvaldes-star/NOVORA-AppControl --dir $destination --clobber --pattern NLAndroidApp.apk --pattern NLAndroidRelease.json\n\
+        if ($LASTEXITCODE -ne 0) { throw 'Signed Android release download failed.' }\n$descriptor = Get-Content \"$destination/NLAndroidRelease.json\"\
+        \ -Raw | ConvertFrom-Json\n$hash = (Get-FileHash \"$destination/NLAndroidApp.apk\" -Algorithm SHA256).Hash\nif ($descriptor.PackageId\
+        \ -ne 'com.novora.appcontrol' -or $hash -ne $descriptor.Sha256) {\n    throw 'The downloaded signed APK does not match\
+        \ its descriptor.'\n}"
+      env:
+        GH_TOKEN: ${{ secrets.APPCONTROL_RELEASE_TOKEN }}
+    - name: Verify tools
+      shell: pwsh
+      run: ./scripts/Setup-Tools.ps1
+    - name: Build canonical relay
+      shell: pwsh
+      run: ./scripts/Build-LinkEngine-Relay.ps1
+    - name: Publish Windows
+      shell: pwsh
+      run: 'dotnet publish src/NOVORA/NLProjectDesktop.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION
+        -o artifacts/publish/win-x64
 
-          dotnet publish .\src\NOVORA\NLProjectDesktop.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:Version=${{ steps.version.outputs.VERSION }} `
-            -p:AssemblyVersion=${{ steps.version.outputs.ASSEMBLY_VERSION }} `
-            -p:FileVersion=${{ steps.version.outputs.ASSEMBLY_VERSION }} `
-            -p:InformationalVersion=${{ steps.version.outputs.VERSION }} `
-            -o $publishDir
+        if ($LASTEXITCODE -ne 0) { throw ''Windows publish failed.'' }
 
-          if (-not (Test-Path "$publishDir\NOVORA.exe")) {
-              throw "No se generó NOVORA.exe."
-          }
+        if (-not (Test-Path artifacts/publish/win-x64/NOVORA-LINK.exe)) { throw ''NOVORA-LINK.exe was not produced.'' }'
+    - name: Prepare compliance
+      shell: pwsh
+      run: ./scripts/Prepare-ThirdPartyCompliance.ps1 -PublishDir artifacts/publish/win-x64 -OutputDir artifacts/compliance
+    - name: Ensure Inno Setup
+      shell: pwsh
+      run: "$iscc = Get-ChildItem \"${env:ProgramFiles(x86)}/Inno Setup */ISCC.exe\" -ErrorAction SilentlyContinue\nif (-not\
+        \ $iscc) {\n    choco install innosetup --yes --no-progress\n    if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation\
+        \ failed.' }\n}"
+    - name: Build unified installer
+      shell: pwsh
+      run: ./scripts/Build-UnifiedInstaller.ps1 -PublishDir artifacts/publish/win-x64 -ComplianceDir artifacts/compliance
+        -Version $env:VERSION
+    - name: Upload installer artifacts
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: NOVORA-LINK-${{ env.VERSION }}
+        path: 'Installer/output/*.exe
 
-      - name: Prepare third-party compliance bundle
-        shell: pwsh
-        run: |
-          .\scripts\Prepare-ThirdPartyCompliance.ps1 `
-            -PublishDir "${{ github.workspace }}\artifacts\publish\win-x64" `
-            -OutputDir "${{ github.workspace }}\artifacts\compliance"
+          Installer/output/*.sha256'
+        if-no-files-found: error
+    - name: Publish tagged Windows release
+      if: github.ref_type == 'tag'
+      uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+      with:
+        tag_name: ${{ github.ref_name }}
+        target_commitish: ${{ github.sha }}
+        generate_release_notes: true
+        fail_on_unmatched_files: true
+        files: 'Installer/output/*.exe
 
-      - name: Ensure Inno Setup
-        shell: pwsh
-        run: |
-          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-
-          if (-not $iscc) {
-              choco install innosetup --yes --no-progress
-          }
-
-      - name: Build installer
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.VERSION }}"
-          $publishDir = "${{ github.workspace }}\artifacts\publish\win-x64"
-          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-
-          if (-not $iscc) {
-              throw "No se encontró ISCC.exe."
-          }
-
-          & $iscc.FullName `
-              "/DAppVersion=$version" `
-              "/DVersionInfoVersion=${{ steps.version.outputs.ASSEMBLY_VERSION }}" `
-              "/DPublishDir=$publishDir" `
-              ".\Installer\NOVORA.Installer.iss"
-
-          if ($LASTEXITCODE -ne 0) {
-              throw "Inno Setup terminó con código $LASTEXITCODE."
-          }
-
-          $installer = "${{ github.workspace }}\Installer\output\NOVORA-Setup-$version.exe"
-
-          if (-not (Test-Path $installer)) {
-              throw "No se generó $installer"
-          }
-
-          "INSTALLER=$installer" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Generate SHA-256
-        shell: pwsh
-        run: |
-          $hash = Get-FileHash -Path "$env:INSTALLER" -Algorithm SHA256
-
-          $hash.Hash.ToLowerInvariant() |
-              Out-File `
-                  -FilePath "$env:INSTALLER.sha256" `
-                  -Encoding ascii `
-                  -NoNewline
-
-      - name: Publish NOVORA-LINK 1.3 Release
-        if: steps.version.outputs.VERSION == '1.3'
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
-        with:
-          tag_name: ${{ steps.version.outputs.TAG }}
-          target_commitish: ${{ github.sha }}
-          name: NOVORA-LINK 1.3
-          body_path: RELEASE_NOTES_1.3.md
-          draft: false
-          prerelease: false
-          make_latest: true
-          files: |
-            ${{ env.INSTALLER }}
-            ${{ env.INSTALLER }}.sha256
-            ${{ github.workspace }}/artifacts/compliance/ffmpeg-8.1.2.tar.xz
-            ${{ github.workspace }}/artifacts/compliance/libusb-1.0.30.tar.gz
-            ${{ github.workspace }}/artifacts/compliance/THIRD-PARTY-SOURCE-NOTES.txt
-
-      - name: Publish future tagged release
-        if: steps.version.outputs.VERSION != '1.3'
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
-        with:
-          tag_name: ${{ steps.version.outputs.TAG }}
-          target_commitish: ${{ github.sha }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-          files: |
-            ${{ env.INSTALLER }}
-            ${{ env.INSTALLER }}.sha256
-            ${{ github.workspace }}/artifacts/compliance/ffmpeg-8.1.2.tar.xz
-            ${{ github.workspace }}/artifacts/compliance/libusb-1.0.30.tar.gz
-            ${{ github.workspace }}/artifacts/compliance/THIRD-PARTY-SOURCE-NOTES.txt
+          Installer/output/*.sha256'

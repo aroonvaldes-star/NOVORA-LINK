@@ -1,5 +1,8 @@
 using System.IO;
 using NOVORA.Service;
+using NOVORA.VisionEngine.Metrics;
+using NOVORA.VisionEngine.Optimization;
+using NOVORA.VisionEngine.Performance;
 using NOVORA.VisionEngine.Protocol;
 using NOVORA.VisionEngine.Renderer;
 using NOVORA.VisionEngine.Transport;
@@ -33,6 +36,13 @@ public sealed class VEVideoManager : IAsyncDisposable
     private long _lastStatusPublishMsVE;
 
     private bool _disposed;
+    private readonly object _optimizationGateVE = new();
+    private Func<VEDynamicLatencyOptimizer>? _optimizerFactoryVE;
+    private Func<VEMetricsSnapshot>? _captureOptimizationMetricsVE;
+    private Func<VEProfile>? _getOptimizationProfileVE;
+    private VEDynamicLatencyOptimizer? _sessionOptimizerVE;
+    private VELatencyOptimizationSnapshot? _latencyOptimizationVE;
+    private bool _dynamicLatencyOptimizationEnabledVE;
 
     public VEVideoManager(NLServiceNovoraPaths paths)
     {
@@ -57,7 +67,75 @@ public sealed class VEVideoManager : IAsyncDisposable
     }
 
     public bool PreferNvidiaVE { get; set; }
+    // El switch modifica observación en vivo; las opciones del decoder se fijan al iniciar.
+    public bool DynamicLatencyOptimizationEnabledVE
+    {
+        get { lock (_optimizationGateVE) return _dynamicLatencyOptimizationEnabledVE; }
+        set
+        {
+            lock (_optimizationGateVE)
+            {
+                _dynamicLatencyOptimizationEnabledVE = value;
+                if (!value) _latencyOptimizationVE = null;
+            }
+        }
+    }
+    public VELatencyOptimizationSnapshot? LatencyOptimizationVE
+    {
+        get { lock (_optimizationGateVE) return _latencyOptimizationVE; }
+    }
+    public bool LowDelayEnabledVE => _decoderVE?.LowDelayEnabledVE == true;
     public Func<CancellationToken, Task>? RequestKeyFrameVE { get; set; }
+
+    internal void ConfigureLatencyOptimizationVE(
+        Func<VEDynamicLatencyOptimizer> optimizerFactory,
+        Func<VEMetricsSnapshot> captureMetrics,
+        Func<VEProfile> getProfile)
+    {
+        _optimizerFactoryVE = optimizerFactory ?? throw new ArgumentNullException(nameof(optimizerFactory));
+        _captureOptimizationMetricsVE = captureMetrics ?? throw new ArgumentNullException(nameof(captureMetrics));
+        _getOptimizationProfileVE = getProfile ?? throw new ArgumentNullException(nameof(getProfile));
+    }
+
+    private void InitializeDecoderVE(VEVideoDecoder decoder, VEProtocolCodec codec)
+    {
+        lock (_optimizationGateVE)
+        {
+            if (!_dynamicLatencyOptimizationEnabledVE || _optimizerFactoryVE is null)
+            {
+                decoder.InitializeVE(codec, PreferNvidiaVE);
+                return;
+            }
+            _sessionOptimizerVE = _optimizerFactoryVE();
+            VEMetricsSnapshot metrics = _captureOptimizationMetricsVE!();
+            VEProfileOptions options = _sessionOptimizerVE.ApplyToDecoder(
+                decoder, codec, metrics, _getOptimizationProfileVE!(), PreferNvidiaVE);
+            _latencyOptimizationVE = new(metrics, options, LowDelayRequested: true);
+        }
+    }
+
+    internal void ObserveLatencyOptimizationVE()
+    {
+        lock (_optimizationGateVE)
+        {
+            if (!_dynamicLatencyOptimizationEnabledVE || _sessionOptimizerVE is null ||
+                StatusVE.State != VEVideoStates.Streaming) return;
+            VEMetricsSnapshot metrics = _captureOptimizationMetricsVE!();
+            // No reabrir decoder ni aplicar perfil/bitrate con cada snapshot.
+            VEProfileOptions options = _sessionOptimizerVE.OptimizeForLowestLatency(
+                metrics, _getOptimizationProfileVE!(), PreferNvidiaVE);
+            _latencyOptimizationVE = new(metrics, options, LowDelayRequested: true);
+        }
+    }
+
+    private void ResetLatencyOptimizationVE()
+    {
+        lock (_optimizationGateVE)
+        {
+            _sessionOptimizerVE = null;
+            _latencyOptimizationVE = null;
+        }
+    }
 
     public bool IsRunningVE
         => _runTaskVE is not null &&
@@ -85,20 +163,6 @@ public sealed class VEVideoManager : IAsyncDisposable
         });
     }
 
-    public Task StartAsync(
-        VETransportSession transport,
-        CancellationToken cancellationToken = default)
-    {
-        ThrowIfDisposedVE();
-        ArgumentNullException.ThrowIfNull(transport);
-
-        return StartAsync(
-            transport.VideoStream
-                ?? throw new InvalidOperationException(
-                    "La sesión VisionEngine no contiene un stream de video."),
-            cancellationToken);
-    }
-
     public async Task StartAsync(
         Stream videoStream,
         CancellationToken cancellationToken = default)
@@ -113,6 +177,7 @@ public sealed class VEVideoManager : IAsyncDisposable
         }
 
         ResetCountersVE();
+        ResetLatencyOptimizationVE();
 
         PublishStatusVE(
             _status with
@@ -149,7 +214,7 @@ public sealed class VEVideoManager : IAsyncDisposable
 
             try
             {
-                decoder.InitializeVE(codec, PreferNvidiaVE);
+                InitializeDecoderVE(decoder, codec);
             }
             catch
             {
@@ -212,6 +277,7 @@ public sealed class VEVideoManager : IAsyncDisposable
             _decoderVE = null;
             _demuxerVE = null;
             _mergerVE = null;
+            ResetLatencyOptimizationVE();
 
             throw;
         }
@@ -220,6 +286,7 @@ public sealed class VEVideoManager : IAsyncDisposable
     public async Task StopAsync(
         bool preserveRendererVE = false)
     {
+        ResetLatencyOptimizationVE();
         if (_runTaskVE is null)
         {
             if (_rendererVE is not null &&
@@ -306,6 +373,7 @@ public sealed class VEVideoManager : IAsyncDisposable
     {
         bool awaitingKeyFrame = false;
         long recoveryStarted = 0;
+        using IDisposable timerResolution = NLServiceTimerResolution.Acquire();
         try
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -360,7 +428,7 @@ public sealed class VEVideoManager : IAsyncDisposable
                 }
                 else if (packet.IsConfiguration)
                 {
-                    // Igual que el decoder de scrcpy: los config packets no se
+                    // Los paquetes de configuración del codec no se
                     // envían directamente a avcodec_send_packet.
                     decodePacket = null;
                 }

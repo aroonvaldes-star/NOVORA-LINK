@@ -31,20 +31,21 @@ public sealed class NLControlLanDiscovery : IAsyncDisposable
     private readonly NLControlLanPeer _peer;
     private readonly IPEndPoint _bind;
     private readonly bool _allowLoopback;
+    private readonly bool _persistent;
     internal IPEndPoint LocalEndpoint => (IPEndPoint)_udp!.Client.LocalEndPoint!;
     private readonly CancellationTokenSource _stop = new();
     private int _disposed;
     private UdpClient? _udp;
     private Task _run = Task.CompletedTask;
-    public NLControlLanDiscovery(NLControlLanPeer peer)
-        : this(peer, new IPEndPoint(IPAddress.Any, Port), false) { }
-    internal NLControlLanDiscovery(NLControlLanPeer peer, IPEndPoint bind, bool allowLoopback)
-    { _peer = peer; _bind = bind; _allowLoopback = allowLoopback; }
+    public NLControlLanDiscovery(NLControlLanPeer peer, bool persistent = false)
+        : this(peer, new IPEndPoint(IPAddress.Any, Port), false, persistent) { }
+    internal NLControlLanDiscovery(NLControlLanPeer peer, IPEndPoint bind, bool allowLoopback, bool persistent = false)
+    { _peer = peer; _bind = bind; _allowLoopback = allowLoopback; _persistent = persistent; }
     public void Start()
     {
         if (_udp is not null || Volatile.Read(ref _disposed) != 0) throw new InvalidOperationException("La búsqueda ya fue iniciada o cerrada.");
         _peer.Validate(_allowLoopback);
-        _stop.CancelAfter(TimeSpan.FromMinutes(2));
+        if (!_persistent) _stop.CancelAfter(TimeSpan.FromMinutes(2));
         _udp = new UdpClient(_bind);
         _run = RespondAsync();
     }
@@ -101,6 +102,10 @@ public sealed class NLControlLanDiscovery : IAsyncDisposable
                         !IPAddress.TryParse(peer.Host, out var address) || !address.Equals(response.RemoteEndPoint.Address)) continue;
                     peer.Validate(allowLoopback);
                     peers[peer.Host] = peer;
+                    // Keep a short window for other PCs, then return the first
+                    // discovery result without waiting for the full timeout.
+                    if (peers.Count == 1)
+                        timeout.CancelAfter(TimeSpan.FromMilliseconds(500));
                 }
                 catch (Exception ex) when (ex is System.IO.InvalidDataException or JsonException) { }
             }

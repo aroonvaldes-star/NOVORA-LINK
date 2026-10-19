@@ -11,10 +11,16 @@
   #define VersionInfoVersion "1.4.0.0"
 #endif
 #define Publisher "Aaron Yair Galarza Valdes"
-#define ExeName "NOVORA.exe"
+#define ExeName "NOVORA-LINK.exe"
 
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish\win-x64"
+#endif
+#ifndef ComplianceDir
+  #define ComplianceDir "..\artifacts\compliance"
+#endif
+#ifndef SetupBaseFilename
+  #define SetupBaseFilename "NOVORA-Setup-" + AppVersion
 #endif
 
 [Setup]
@@ -25,7 +31,7 @@ AppPublisher={#Publisher}
 DefaultDirName={autopf}\NOVORA
 DefaultGroupName=NOVORA
 OutputDir=output
-OutputBaseFilename=NOVORA-Setup-{#AppVersion}
+OutputBaseFilename={#SetupBaseFilename}
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
@@ -41,10 +47,11 @@ VersionInfoCompany={#Publisher}
 VersionInfoDescription=NOVORA Installer
 VersionInfoCopyright=Copyright (C) 2026 Aaron Yair Galarza Valdes
 VersionInfoProductName=NOVORA
-VersionInfoProductVersion={#AppVersion}
+VersionInfoProductVersion={#VersionInfoVersion}
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,*.xml"
+Source: "{#ComplianceDir}\ffmpeg-8.1.2.tar.xz"; DestDir: "{app}\Tools\Legal\Sources"; Flags: ignoreversion
 
 [Tasks]
 Name: "desktopicon"; Description: "Crear acceso directo en el escritorio"; GroupDescription: "Accesos directos:"; Flags: unchecked

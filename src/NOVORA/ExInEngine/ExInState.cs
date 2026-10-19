@@ -1,7 +1,7 @@
 namespace NOVORA.ExInEngine;
 
 /// <summary>
-/// Estado normalizado con el mismo rango de ejes usado por SDL/scrcpy.
+/// Estado normalizado con el rango de ejes de SDL y UHID.
 /// Sticks: -32768..32767. Triggers: 0..32767.
 /// </summary>
 public readonly record struct ExInState(
