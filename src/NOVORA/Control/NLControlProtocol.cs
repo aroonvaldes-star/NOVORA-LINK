@@ -13,7 +13,11 @@ public sealed record NLControlMetric<T>(T Value, DateTimeOffset SampledAtUtc, Ti
 public sealed record NLControlLinkTelemetry(double RoundTripMs, double PacketLossPercent,
     double TxMbps, double RxMbps, DateTimeOffset SampledAtUtc);
 public sealed record NLControlVisionTelemetry(int Width, int Height, double FramesPerSecond,
-    double MegabitsPerSecond, DateTimeOffset SampledAtUtc);
+    double MegabitsPerSecond, DateTimeOffset SampledAtUtc,
+    long FramesDecoded = 0, long FramesRendered = 0, long FramesDropped = 0,
+    long DecodeErrors = 0, long RenderErrors = 0,
+    bool ObservationActive = false, bool ObservationCompleted = false,
+    int ObservationSecondsRemaining = 0);
 public sealed record NLControlAcceleration(string Requested, string Selected, string Active,
     bool Confirmed, string Evidence, string? FallbackReason = null);
 public sealed record NLControlExInTelemetry(long Sequence, DateTimeOffset SampledAtUtc,
@@ -26,13 +30,18 @@ public sealed record NLControlEngines(bool VideoCanStart, bool VideoCanStop, boo
     string ExInState = "NotDetected", string ExInMessage = "ExInEngine no reportado por esta PC.",
     bool LinkCanTakeOver = false, bool VideoAuthorizationRequested = false,
     string VideoTransport = "", string VideoPhase = "", bool VideoDegraded = false,
-    NLControlLinkTelemetry? LinkTelemetry = null, NLControlVisionTelemetry? VisionTelemetry = null);
+    NLControlLinkTelemetry? LinkTelemetry = null, NLControlVisionTelemetry? VisionTelemetry = null,
+    long VideoAuthorizationRequestId = 0, bool ExInCanStart = false);
 public sealed record NLControlVideoSettings(string Resolution, string Fps,
     NLControlOption[] Resolutions, NLControlOption[] FrameRates,
-    string Monitor = "", NLControlOption[]? Monitors = null, bool CanApplyTogether = false);
-public sealed record NLControlVideoChanges(string Profile, string Bitrate, string Resolution, string Fps, string Audio, string Monitor);
+    string Monitor = "", NLControlOption[]? Monitors = null, bool CanApplyTogether = false,
+    string PresentationMode = "Window", NLControlOption[]? PresentationModes = null);
+public sealed record NLControlVideoChanges(string Profile, string Bitrate, string Resolution, string Fps, string Audio,
+    string Monitor, string PresentationMode = "Window");
 public sealed record NLControlMedia(bool CanCapture, bool CanRecord, bool Recording, string Message,
     bool Starting = false, bool AudioIncluded = false);
+public sealed record NLControlAppUpdate(string PackageId, long VersionCode, string VersionName,
+    string Sha256, string ReleaseUrl, long Size);
 public sealed record NLControlExIn(bool Detected, string DeviceName, string VidPid,
     int LeftX, int LeftY, int RightX, int RightY, int LeftTrigger, int RightTrigger,
     string[] Buttons, bool Calibrating, bool Calibrated, double Deadzone, string Message,
@@ -52,14 +61,16 @@ public sealed record NLControlSnapshot(
     string AudioOutput, string ActiveAudioOutput, bool VideoRunning,
     NLControlOption[] Bitrates, NLControlOption[] Profiles, NLControlOption[] AudioOutputs, NLControlEngines? Engines = null,
     NLControlVideoSettings? VideoSettings = null, NLControlMedia? Media = null, bool FileSharing = false,
-    NLControlExIn? ExIn = null, NLControlAcceleration? Acceleration = null);
+    NLControlExIn? ExIn = null, NLControlAcceleration? Acceleration = null,
+    NLControlNetworkCapabilities? Capabilities = null, NLControlAppUpdate? AppUpdate = null);
 public sealed record NLControlRequest(int Version, long Id, string Action, string? Value = null,
     long Revision = -1, string? Code = null);
 public sealed record NLControlReply(int Version, long Id, bool Success, string Message,
     NLControlSnapshot? Snapshot = null, NLControlTrustedPc? TrustedPc = null, string? Value = null);
 public sealed record NLControlVideoSourceOffer(int Port, string Token, int Bitrate, int MaxSize, int Fps,
     int ControlPort = 0, string ControlToken = "", int AudioPort = 0, string AudioToken = "",
-    bool MuteDeviceAudio = false, bool AudioEnabled = true);
+    bool MuteDeviceAudio = false, bool AudioEnabled = true,
+    long CaptureGeneration = 0, NLControlNetworkCapabilities? CaptureCapabilities = null);
 public sealed record NLControlTunnelBootstrap(NLControlLanInvitation Invitation, string Transport);
 public sealed record NLControlLinkOffer(string Host, int Port, string Fingerprint, string Token,
     string Transport = "LAN");
@@ -72,17 +83,24 @@ public sealed record NLControlInputCommand(
     float HorizontalScroll = 0, float VerticalScroll = 0, int CopyKey = 0,
     ulong Sequence = 0, bool Paste = false, bool BooleanValue = false,
     ushort UhidId = 0, ushort VendorId = 0, ushort ProductId = 0,
-    string? Name = null, byte[]? Data = null, ushort Width = 0, ushort Height = 0);
-public sealed record NLControlInputResponse(int Type, string? Text = null, ulong Sequence = 0)
+    string? Name = null, byte[]? Data = null, ushort Width = 0, ushort Height = 0,
+    NLControlCapturePolicy? CapturePolicy = null);
+public sealed record NLControlInputResponse(int Type, string? Text = null, ulong Sequence = 0,
+    NLControlCapturePolicyAck? CapturePolicyAck = null, NLControlCaptureTelemetry? CaptureTelemetry = null,
+    long DeviceClockUs = 0)
 {
     public const int ClipboardType = 1;
     public const int ClipboardAckType = 2;
+    public const int CapturePolicyAckType = 3;
+    public const int NetworkEchoType = 4;
+    public const int CaptureTelemetryType = 5;
 }
 
 /// <summary>Framed JSON: USB uses loopback ADB; LAN requires the pinned TLS transport. Never expose raw frames on a LAN socket.</summary>
 public static class NLControlProtocol
 {
     public const int Version = 1;
+    public const string VideoOnlyCapture = "video-only";
     public const int Port = 27214;
     public const int MaxFrame = 65536;
     private static readonly JsonSerializerOptions Options = new() { MaxDepth = 16 };
@@ -99,14 +117,21 @@ public static class NLControlProtocol
             ?? throw new InvalidDataException("Mensaje vacío.");
     }
 
-    public static async Task WriteAsync<T>(Stream stream, T value, CancellationToken cancellationToken)
+    public static Task WriteAsync<T>(Stream stream, T value, CancellationToken cancellationToken)
+        => WriteFrameAsync(stream, value, cancellationToken);
+
+    /// <summary>Writes one frame and returns its size on the wire (header included).</summary>
+    public static async Task<int> WriteFrameAsync<T>(Stream stream, T value, CancellationToken cancellationToken)
     {
         byte[] payload = JsonSerializer.SerializeToUtf8Bytes(value, Options);
         if (payload.Length > MaxFrame) throw new InvalidDataException("Mensaje demasiado grande.");
-        byte[] header = new byte[4];
-        BinaryPrimitives.WriteInt32BigEndian(header, payload.Length);
-        await stream.WriteAsync(header, cancellationToken);
-        await stream.WriteAsync(payload, cancellationToken);
-        await stream.FlushAsync(cancellationToken);
+        // One write: over TLS with NoDelay, header and payload would otherwise travel as two
+        // records and two segments for every input event.
+        byte[] frame = new byte[4 + payload.Length];
+        BinaryPrimitives.WriteInt32BigEndian(frame, payload.Length);
+        payload.CopyTo(frame, 4);
+        await stream.WriteAsync(frame, cancellationToken).ConfigureAwait(false);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        return frame.Length;
     }
 }

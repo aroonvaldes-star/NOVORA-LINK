@@ -14,9 +14,10 @@ public sealed record NLViewModelSettingOption<T>(
         => Label;
 }
 
-public sealed class NLViewModelMain : INotifyPropertyChanged
+public sealed partial class NLViewModelMain : INotifyPropertyChanged
 {
     public const string VideoPresentationModeWindow = "Window";
+    public const string VideoPresentationModeMaximized = "Maximized";
     public const string VideoPresentationModeFullscreen = "Fullscreen";
 
     private bool _audioEnabled = true;
@@ -30,13 +31,11 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
     private string _bitrate = "8M";
     private int _targetFps = 45;
     private int _maxSize = 1280;
-    private string _theme = NLServiceTheme.Dark;
     private string _videoPresentationMode = VideoPresentationModeWindow;
     private string _selectedAudioOutput = VEAudioOutput.DefaultValueVE;
     private IReadOnlyList<NLViewModelSettingOption<string>> _audioOutputOptions = Array.Empty<NLViewModelSettingOption<string>>();
     private IReadOnlyList<NLViewModelSettingOption<int>> _resolutionOptions = Array.Empty<NLViewModelSettingOption<int>>();
     private IReadOnlyList<NLViewModelSettingOption<int>> _fpsOptions = Array.Empty<NLViewModelSettingOption<int>>();
-    private bool _privacyShieldEnabled;
     private bool _integrationClipboardEnabled = true;
     private bool _integrationFileTransferEnabled = true;
     private bool _integrationDragDropEnabled = true;
@@ -194,30 +193,17 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
             Math.Max(480, value));
     }
 
-    public string Theme
-    {
-        get => _theme;
-        set => Set(
-            ref _theme,
-            string.Equals(
-                value,
-                NLServiceTheme.Light,
-                StringComparison.OrdinalIgnoreCase)
-                ? NLServiceTheme.Light
-                : NLServiceTheme.Dark);
-    }
 
     public string VideoPresentationMode
     {
         get => _videoPresentationMode;
         set => Set(
             ref _videoPresentationMode,
-            string.Equals(
-                value,
-                VideoPresentationModeFullscreen,
-                StringComparison.OrdinalIgnoreCase)
+            string.Equals(value, VideoPresentationModeFullscreen, StringComparison.OrdinalIgnoreCase)
                 ? VideoPresentationModeFullscreen
-                : VideoPresentationModeWindow);
+                : string.Equals(value, VideoPresentationModeMaximized, StringComparison.OrdinalIgnoreCase)
+                    ? VideoPresentationModeMaximized
+                    : VideoPresentationModeWindow);
     }
 
     public string SelectedAudioOutput
@@ -269,11 +255,6 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
             value ?? Array.Empty<NLViewModelSettingOption<int>>());
     }
 
-    public bool PrivacyShieldEnabled
-    {
-        get => _privacyShieldEnabled;
-        set => Set(ref _privacyShieldEnabled, value);
-    }
 
     public bool IntegrationClipboardEnabled
     {
@@ -355,7 +336,7 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
             new NLViewModelSettingOption<string>("5M", "5 Mb/s"),
             new NLViewModelSettingOption<string>("6M", "6 Mb/s"),
             new NLViewModelSettingOption<string>("7M", "7 Mb/s"),
-            new NLViewModelSettingOption<string>("8M", "8 Mb/s"),
+            new NLViewModelSettingOption<string>("8M", "8 Mb/s (recomendado para LAN)"),
             new NLViewModelSettingOption<string>("9M", "9 Mb/s"),
             new NLViewModelSettingOption<string>("10M", "10 Mb/s"),
             new NLViewModelSettingOption<string>("11M", "11 Mb/s"),
@@ -373,16 +354,14 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
                 "Ventana"),
 
             new NLViewModelSettingOption<string>(
+                VideoPresentationModeMaximized,
+                "Ventana maximizada"),
+
+            new NLViewModelSettingOption<string>(
                 VideoPresentationModeFullscreen,
                 "Pantalla completa")
         };
 
-    public IReadOnlyList<NLViewModelSettingOption<string>> ThemeOptions { get; } =
-        new[]
-        {
-            new NLViewModelSettingOption<string>(NLServiceTheme.Dark, "Dark"),
-            new NLViewModelSettingOption<string>(NLServiceTheme.Light, "Light")
-        };
 
     public void RefreshAudioOutputOptions(
         NLServiceNovoraPaths paths)

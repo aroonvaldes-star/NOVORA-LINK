@@ -8,13 +8,13 @@ Cambios directos autorizados, sin backups ni publicación en GitHub.
 Ya existe decodificación H264 por NVDEC dentro de VE. No requiere el archivo
 NOVORA.NVIDIA.Native.dll: el puente funcional lo proporciona FFmpeg compartido.
 El conjunto mínimo anterior carecía de decoders CUVID y configuraciones hardware.
-Se reemplazaron cuatro bibliotecas comunes por el build BtbN compartido LGPLv3,
+Se reemplazaron bibliotecas comunes por el build BtbN compartido LGPLv3,
 versión `n8.1.2-52-g5a03dfa0f6-20260913` (familia ABI avcodec62/avutil60).
 [Procedencia, configuración y hashes](../Tools/FFmpeg-build.json),
 [licencia](../Tools/FFmpeg-LICENSE.txt), [avisos](../../../Legal/NLLegalThirdPartyNotices.md).
-Las cuatro DLL ocupan aproximadamente 111 MiB; el conjunto anterior rondaba 10 MiB.
+Las DLL conservadas cubren la decodificación de video y audio.
 
-Android codifica H264 -> ADB/scrcpy transporta -> VE abre h264_cuvid -> NVDEC decodifica
+App Control codifica H264 -> VisionEngine recibe el flujo -> VE abre h264_cuvid -> NVDEC decodifica
 -> FFmpeg entrega planos NV12 en CPU -> SDL/direct3d11 presenta. Hay transferencia
 GPU-CPU y carga de textura: NO es zero-copy. No se modificó el codificador Android
 ni se conectó NVENC, RTX Video o FRUC. AMF/QSV aparecen en el build FFmpeg, pero VE
@@ -91,7 +91,6 @@ aproximadamente 44 FPS con otro tramo de contenido: no se mezclan como benchmark
 - 85 pruebas Windows aprobadas: selección y opciones de UI, política, frames H264
   nativos, apertura sin anunciar actividad, recuperación a software, clones,
   reconfiguración de dimensiones y audio Opus -> PCM estéreo 48 kHz.
-- scrcpy --version carga el conjunto compartido y reporta las versiones esperadas.
 - Build de escritorio y harnesses; verificación de nombres; segunda revisión de
   carga/descarga de DLL, propiedad de frames, EAGAIN, recuperación y publicación de estado.
 - El test de audio es de decodificación; no demuestra reproducción audible en una

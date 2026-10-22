@@ -9,9 +9,50 @@ public partial class NLUIWindowMain
     private readonly CancellationTokenSource _officialReleaseCts14 = new();
     private NLServiceNovoraUpdateInfo? _officialRelease14;
     private bool _officialReleaseInstalling14;
+    private bool _officialReleaseChecking14;
 
     internal static string UpdateActionText14(string version, bool downloading) =>
         downloading ? $"DESCARGANDO {version}…" : $"DESCARGAR E INSTALAR {version}";
+
+    private async void CheckPcUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_closing || _officialReleaseChecking14 || _officialReleaseInstalling14) return;
+        _officialReleaseChecking14 = true;
+        CheckPcUpdateButton14.IsEnabled = false;
+        OfficialReleaseStatusText14.Text = "Buscando una versión oficial más reciente de NOVORA-LINK…";
+
+        try
+        {
+            var release = await _updateService.CheckForUpdateAsync(_officialReleaseCts14.Token);
+            if (_closing) return;
+            if (release is null || !release.Available)
+            {
+                _officialRelease14 = null;
+                UpdateBannerActionButton14.Visibility = Visibility.Collapsed;
+                OfficialReleaseStatusText14.Text = "No hay una actualización oficial de NOVORA-LINK disponible.";
+                return;
+            }
+
+            _officialRelease14 = release;
+            var message = $"NOVORA-LINK {release.LatestVersion} oficial disponible";
+            OfficialReleaseStatusText14.Text = message + ". Puedes descargarla, verificarla e instalarla desde el aviso superior.";
+            UpdateBannerActionButton14.Content = UpdateActionText14(release.LatestVersion, downloading: false);
+            UpdateBannerActionButton14.ToolTip = message;
+            UpdateBannerActionButton14.Visibility = Visibility.Visible;
+            ShowTopMessage14(message, NLUIMessageKind14.Success);
+        }
+        catch (OperationCanceledException) when (_officialReleaseCts14.IsCancellationRequested) { }
+        catch (Exception)
+        {
+            if (!_closing)
+                OfficialReleaseStatusText14.Text = "No se pudo consultar la release oficial. Revisa la conexión e inténtalo de nuevo.";
+        }
+        finally
+        {
+            _officialReleaseChecking14 = false;
+            if (!_closing) CheckPcUpdateButton14.IsEnabled = true;
+        }
+    }
 
     private async Task CheckOfficialReleaseOnce14Async()
     {

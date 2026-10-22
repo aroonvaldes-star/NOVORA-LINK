@@ -6,10 +6,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>NOVORA.AndroidApp</RootNamespace>
-    <ApplicationId>com.novora.appcontrol</ApplicationId>
-    <ApplicationVersion>105</ApplicationVersion>
-    <ApplicationDisplayVersion>1.4.105</ApplicationDisplayVersion>
-    <ApplicationTitle>APPCONTROL</ApplicationTitle>
+    <ApplicationId>com.linkcontrol.novora</ApplicationId>
+    <ApplicationVersion>116</ApplicationVersion>
+    <ApplicationDisplayVersion>1.4.116</ApplicationDisplayVersion>
+    <ApplicationTitle>LINK Control</ApplicationTitle>
     <AndroidManifest>Properties\NLPropertiesAndroidManifest.xml</AndroidManifest>
     <AndroidPackageFormats>apk</AndroidPackageFormats>
     <AndroidBuildApplicationPackage>false</AndroidBuildApplicationPackage>
@@ -21,6 +21,7 @@
     <RuntimeIdentifier>android-arm64</RuntimeIdentifier>
   </PropertyGroup>
   <ItemGroup>
+
     <Compile Include="..\NOVORA\Control\NLControlProtocol.cs" Link="Control\NLControlProtocol.cs" />
     <Compile Include="..\NOVORA\Control\NLControlCapturePolicy.cs" Link="Control\NLControlCapturePolicy.cs" />
     <Compile Include="..\NOVORA\Control\NLControlNetworkPolicy.cs" Link="Control\NLControlNetworkPolicy.cs" />
@@ -43,6 +44,9 @@
     <AndroidResource Include="AndroidResource\NLAndroidResourceAccessibility.xml" Link="Resources\xml\novora_accessibility.xml" />
   </ItemGroup>
   <Target Name="NovoraRequireExplicitPackaging" BeforeTargets="_CreateBaseApk;_BuildApkEmbed;_BuildApkFastDev;SignAndroidPackage">
+  </Target>
+  <Target Name="LinkControlNameSignedApk" AfterTargets="SignAndroidPackage" Condition="Exists('$(ApkFileSigned)')">
+    <Copy SourceFiles="$(ApkFileSigned)" DestinationFiles="$(OutDir)LinkControl.apk" />
   </Target>
   <ItemGroup><Compile Include="..\NOVORA\Control\NLControlLanInvitation.cs" Link="Control\NLControlLanInvitation.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\NOVORA\Control\NLControlLanDiscovery.cs" Link="Control\NLControlLanDiscovery.cs" /></ItemGroup>

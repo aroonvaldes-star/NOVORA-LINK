@@ -6,7 +6,6 @@ internal static class NLServiceSettingsAdvanced
 {
     internal static void CaptureNV(NLViewModelMain view, NLServiceNovoraSettings settings)
     {
-        settings.PrivacyShieldEnabled = view.PrivacyShieldEnabled;
         settings.IntegrationClipboardEnabled = view.IntegrationClipboardEnabled;
         settings.IntegrationFileTransferEnabled = view.IntegrationFileTransferEnabled;
         settings.IntegrationDragDropEnabled = view.IntegrationDragDropEnabled;
@@ -19,7 +18,6 @@ internal static class NLServiceSettingsAdvanced
 
     internal static void ApplyNV(NLServiceNovoraSettings settings, NLViewModelMain view)
     {
-        view.PrivacyShieldEnabled = settings.PrivacyShieldEnabled;
         view.IntegrationClipboardEnabled = settings.IntegrationClipboardEnabled;
         view.IntegrationFileTransferEnabled = settings.IntegrationFileTransferEnabled;
         view.IntegrationDragDropEnabled = settings.IntegrationDragDropEnabled;

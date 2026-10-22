@@ -13,25 +13,24 @@ public partial class NLUIWindowMain
         bool hasDevice =
             _viewModel.Device.Connected;
 
-        bool visionBusy =
-            _visionCommandApplyingVE ||
-            _visionRecoveryRunningVE;
+        bool visionBusy = _visionCommandApplyingVE;
 
         MainActionButton.IsEnabled =
-            hasDevice &&
+            (hasDevice || _androidLanControl?.IsAuthorized == true ||
+                IsVisionEngineRunningVE() || _pcVideoAuthorizationRequested) &&
             !_closing &&
             !visionBusy;
 
         MainActionButton.Content =
             _pcVideoAuthorizationRequested
-                ? "CANCELAR SOLICITUD"
+                ? "CANCELAR"
                 : visionBusy
                 ? IsVisionEngineRunningVE()
-                    ? "DETENIENDO…"
-                    : "INICIANDO…"
+                    ? "DETENIENDO VIDEO…"
+                    : "INICIANDO VIDEO…"
                 : IsVisionEngineRunningVE()
-                ? "DETENER"
-                : "INICIAR";
+                ? "DETENER VIDEO"
+                : "VER PANTALLA";
 
         RefreshDevicesButton.IsEnabled =
             !_closing;
@@ -39,9 +38,11 @@ public partial class NLUIWindowMain
         UpdateLinkEngineButtonLE();
 
         WifiAdbButton.IsEnabled =
-            hasDevice &&
             !_closing &&
             !visionBusy &&
             !IsVisionEngineRunningVE();
+        WifiAdbButton.Content = hasDevice && !_viewModel.Device.IsWifiConnection
+            ? "PREPARAR ADB WI-FI DESDE USB"
+            : "CONECTAR ADB INALÁMBRICO";
     }
 }

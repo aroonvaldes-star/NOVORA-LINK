@@ -1,13 +1,13 @@
 using NOVORA.Service;
 using NOVORA.VisionEngine.Audio;
 using NOVORA.VisionEngine.Control;
-using NOVORA.VisionEngine.Device;
 using NOVORA.VisionEngine.Events;
 using NOVORA.NVIDIA;
 using NOVORA.VisionEngine.Performance;
+using NOVORA.VisionEngine.Metrics;
+using NOVORA.VisionEngine.Optimization;
 using NOVORA.VisionEngine.Privacy;
 using NOVORA.VisionEngine.Renderer;
-using NOVORA.VisionEngine.Server;
 using NOVORA.VisionEngine.Transport;
 using NOVORA.VisionEngine.Video;
 using System.IO;
@@ -17,22 +17,19 @@ namespace NOVORA.VisionEngine.Core;
 public enum VEExternalSourceKind { None, UsbAppControl, NativeLan }
 
 /// <summary>
-/// Runtime Block D: Device -> Server -> transport -> decode -> renderer Direct3D11,
-/// además de audio y el adaptador de control. ExInEngine y las integraciones
+/// Runtime de VisionEngine: recibe video, audio y control de App Control,
+/// decodifica y presenta en Direct3D11. ExInEngine y las integraciones
 /// generales tienen ciclos de vida independientes.
 /// </summary>
 public sealed class VECoreRuntime : IAsyncDisposable
 {
     private readonly NLServiceNovoraPaths _paths;
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private VEDeviceSession? _deviceSessionVE;
-    private VETransportTunnel? _tunnelVE;
-    private VEServerSession? _serverSessionVE;
-    private VETransportSession? _transportSessionVE;
     private VEExternalSourceKind _externalSourceKindVE;
     private int _appControlCleanupQueuedVE;
     private bool _initialized;
     private bool _disposed;
+    private VEMetricsCollector _optimizationMetricsVE = new();
 
     public VECoreRuntime(NLServiceNovoraPaths paths, NLServiceADB adb)
     {
@@ -44,15 +41,17 @@ public sealed class VECoreRuntime : IAsyncDisposable
         PerformanceVE = new VEPerformanceManager();
         NvidiaVE = new NLNVIDIAManager(paths);
 
-        DeviceVE = new VEDeviceManager(adb);
-        ServerVE = new VEServerManager(adb, paths);
-        TransportVE = new VETransportManager(adb);
         RendererVE = new VERendererManager(paths);
         VideoVE = new VEVideoManager(paths);
-        VideoVE.AttachRendererVE(RendererVE);
         AudioVE = new VEAudioManager(paths);
         RecordingVE = new VEMediaRecorder(VideoVE, AudioVE);
         ControlVE = new VEControlManager();
+        VideoVE.ConfigureLatencyOptimizationVE(
+            () => new VEDynamicLatencyOptimizer(DecoderCapabilitiesVE(), PerformanceVE),
+            () => _optimizationMetricsVE.CaptureVE(VideoVE.StatusVE, AudioVE.StatusVE, ControlVE.StatusVE,
+                ControlVE.IsReadyVE ? VETransportStates.Connected : VETransportStates.Stopped),
+            () => VEProfileOptions.FromLegacyNvidiaVE(NvidiaVE.ProfileVE.ToString()));
+        VideoVE.AttachRendererVE(RendererVE);
         VideoVE.RequestKeyFrameVE = token => ControlVE.IsReadyVE
             ? ControlVE.SendAsync(VEControlMessage.SimpleVE(VEControlType.ResetVideo), token)
             : Task.CompletedTask;
@@ -61,9 +60,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
             message => PrivacyVE.CanSendControlVE(message.Type),
             () => PrivacyVE.CanUseClipboardVE);
 
-        DeviceVE.StatusChangedVE += Device_StatusChangedVE;
-        ServerVE.StatusChangedVE += Server_StatusChangedVE;
-        TransportVE.StateChangedVE += Transport_StateChangedVE;
         VideoVE.StatusChangedVE += Video_StatusChangedVE;
         RendererVE.StatusChangedVE += Renderer_StatusChangedVE;
         AudioVE.StatusChangedVE += Audio_StatusChangedVE;
@@ -77,21 +73,28 @@ public sealed class VECoreRuntime : IAsyncDisposable
     public VEPrivacyManager PrivacyVE { get; }
     public VEPerformanceManager PerformanceVE { get; }
     public NLNVIDIAManager NvidiaVE { get; }
-    public VEDeviceManager DeviceVE { get; }
-    public VEServerManager ServerVE { get; }
-    public VETransportManager TransportVE { get; }
     public VEVideoManager VideoVE { get; }
     public VEMediaRecorder RecordingVE { get; }
     public VERendererManager RendererVE { get; }
     public VEAudioManager AudioVE { get; }
     public VEControlManager ControlVE { get; }
-    public VEDeviceSession? DeviceSessionVE => _deviceSessionVE;
-    public VETransportSession? TransportSessionVE => _transportSessionVE;
     public bool IsInitializedVE => _initialized;
-    public bool IsRunningVE => _externalSourceKindVE != VEExternalSourceKind.None ||
-        _deviceSessionVE is not null && _serverSessionVE is not null && _transportSessionVE is not null;
+    public bool IsRunningVE => _externalSourceKindVE != VEExternalSourceKind.None;
     public bool IsAppControlVideoActiveVE => _externalSourceKindVE != VEExternalSourceKind.None;
     public VEExternalSourceKind ExternalSourceKindVE => _externalSourceKindVE;
+    public bool DynamicLatencyOptimizationEnabledVE
+    {
+        get => VideoVE.DynamicLatencyOptimizationEnabledVE;
+        set => VideoVE.DynamicLatencyOptimizationEnabledVE = value;
+    }
+    public VELatencyOptimizationSnapshot? LatencyOptimizationVE => VideoVE.LatencyOptimizationVE;
+
+    private VEAccelerationCapabilities DecoderCapabilitiesVE()
+    {
+        NLNVIDIACapabilities nvidia = NvidiaVE.StatusVE.Capabilities;
+        return new(false, nvidia.NvdecApiAvailable, false,
+            nvidia.CudaInitialized && nvidia.CudaDeviceCount > 0, false, false);
+    }
 
     public Task InitializeAsync(CancellationToken cancellationToken = default)
     {
@@ -103,56 +106,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
         _initialized = true;
         RaiseStatusChangedVE();
         return Task.CompletedTask;
-    }
-
-    public async Task StartAsync(
-        string deviceSerial,
-        VEServerOptions? options = null,
-        CancellationToken cancellationToken = default)
-    {
-        ThrowIfDisposedVE();
-        ArgumentException.ThrowIfNullOrWhiteSpace(deviceSerial);
-        if (!_initialized) throw new InvalidOperationException("VECoreRuntime debe inicializarse antes de iniciar.");
-
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            if (IsRunningVE)
-            {
-                if (string.Equals(_deviceSessionVE?.Serial, deviceSerial.Trim(), StringComparison.OrdinalIgnoreCase)) return;
-                throw new InvalidOperationException("VisionEngine ya tiene otra sesión activa.");
-            }
-
-            VEServerOptions effectiveOptions = options ?? VEServerOptions.CreateDefaultVE();
-            effectiveOptions.ValidateVE();
-            RecordingVE.PhoneAudioAllowed = effectiveOptions.AudioEnabled &&
-                effectiveOptions.AudioSource is VEAudioSource.Output or VEAudioSource.Playback;
-
-            try
-            {
-                _deviceSessionVE = await DeviceVE.OpenAsync(deviceSerial, cancellationToken).ConfigureAwait(false);
-                _tunnelVE = await TransportVE.PrepareAsync(_deviceSessionVE.Serial, cancellationToken).ConfigureAwait(false);
-                _serverSessionVE = await ServerVE.StartAsync(_deviceSessionVE, _tunnelVE, effectiveOptions, cancellationToken).ConfigureAwait(false);
-                _transportSessionVE = await TransportVE.ConnectAsync(_tunnelVE, effectiveOptions, cancellationToken: cancellationToken).ConfigureAwait(false);
-
-                if (effectiveOptions.ControlEnabled)
-                    await ControlVE.StartAsync(_transportSessionVE, cancellationToken).ConfigureAwait(false);
-
-                VideoVE.PreferNvidiaVE = NvidiaVE.BeginSessionVE() != NLNVIDIAProfile.Disabled;
-                await VideoVE.StartAsync(_transportSessionVE, cancellationToken).ConfigureAwait(false);
-
-                if (effectiveOptions.AudioEnabled)
-                    await AudioVE.StartAsync(_transportSessionVE, effectiveOptions.AudioPlaybackEnabled, cancellationToken).ConfigureAwait(false);
-
-                RaiseStatusChangedVE();
-            }
-            catch
-            {
-                await StopInternalAsync().ConfigureAwait(false);
-                throw;
-            }
-        }
-        finally { _gate.Release(); }
     }
 
     public async Task StartAppControlAsync(
@@ -187,6 +140,7 @@ public sealed class VECoreRuntime : IAsyncDisposable
             try
             {
                 RecordingVE.PhoneAudioAllowed = audioEnabled;
+                _optimizationMetricsVE = new VEMetricsCollector();
                 await ControlVE.StartNativeAsync(controlStream, cancellationToken).ConfigureAwait(false);
                 if (audioEnabled)
                     await AudioVE.StartAsync(audioStream!, playbackEnabled: true, cancellationToken).ConfigureAwait(false);
@@ -222,25 +176,7 @@ public sealed class VECoreRuntime : IAsyncDisposable
         if (RecordingVE.StatusVE.Recording) { try { await RecordingVE.StopAsync().ConfigureAwait(false); } catch { } }
         try { await ControlVE.StopAsync().ConfigureAwait(false); } catch { }
 
-        if (_transportSessionVE is not null)
-        {
-            try { await _transportSessionVE.DisposeAsync().ConfigureAwait(false); } catch { }
-            _transportSessionVE = null;
-        }
-        if (_serverSessionVE is not null)
-        {
-            try { await _serverSessionVE.DisposeAsync().ConfigureAwait(false); } catch { }
-            _serverSessionVE = null;
-        }
-        if (_tunnelVE is not null)
-        {
-            try { await TransportVE.RemoveAsync(_tunnelVE, CancellationToken.None).ConfigureAwait(false); } catch { }
-            _tunnelVE = null;
-        }
-        _deviceSessionVE = null;
         _externalSourceKindVE = VEExternalSourceKind.None;
-        DeviceVE.CloseVE();
-        ServerVE.MarkStoppedVE();
         RaiseStatusChangedVE();
     }
 
@@ -259,11 +195,19 @@ public sealed class VECoreRuntime : IAsyncDisposable
             throw new FileNotFoundException("VisionEngine Block D no puede iniciar porque faltan Tools: " + string.Join(", ", missing) + ".");
     }
 
-    private void Device_StatusChangedVE(object? sender, VEDeviceStatus e) => PublishStatusEventVE(VEEventsTypeEvent.DeviceStatus);
-    private void Server_StatusChangedVE(object? sender, VEServerStatus e) => PublishStatusEventVE(VEEventsTypeEvent.ServerStatus);
-    private void Transport_StateChangedVE(object? sender, VETransportStates e) => PublishStatusEventVE(VEEventsTypeEvent.TransportState);
+    private int _latencyObservationQueuedVE;
+
     private void Video_StatusChangedVE(object? sender, VEVideoStatus e)
     {
+        // This event is raised on the decode thread. The optimizer snapshot reads process
+        // CPU/memory (system calls that can stall for ms), so it runs on the pool, one at a time.
+        if (Interlocked.Exchange(ref _latencyObservationQueuedVE, 1) == 0)
+            ThreadPool.UnsafeQueueUserWorkItem(_ =>
+            {
+                try { VideoVE.ObserveLatencyOptimizationVE(); }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"VE latency observation: {ex.Message}"); }
+                finally { Volatile.Write(ref _latencyObservationQueuedVE, 0); }
+            }, null);
         NvidiaVE.UpdateDecoderVE(e);
         PublishStatusEventVE(VEEventsTypeEvent.VideoStatus);
         if (_externalSourceKindVE != VEExternalSourceKind.None &&
@@ -322,9 +266,6 @@ public sealed class VECoreRuntime : IAsyncDisposable
         }
         finally
         {
-            DeviceVE.StatusChangedVE -= Device_StatusChangedVE;
-            ServerVE.StatusChangedVE -= Server_StatusChangedVE;
-            TransportVE.StateChangedVE -= Transport_StateChangedVE;
             VideoVE.StatusChangedVE -= Video_StatusChangedVE;
             RendererVE.StatusChangedVE -= Renderer_StatusChangedVE;
             AudioVE.StatusChangedVE -= Audio_StatusChangedVE;

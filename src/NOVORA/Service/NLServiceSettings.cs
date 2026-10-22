@@ -9,7 +9,6 @@ namespace NOVORA.Service;
 
 public sealed class NLServiceNovoraSettings
 {
-    public bool PrivacyShieldEnabled { get; set; }
     public bool IntegrationClipboardEnabled { get; set; } = true;
     public bool IntegrationFileTransferEnabled { get; set; } = true;
     public bool IntegrationDragDropEnabled { get; set; } = true;
@@ -17,7 +16,7 @@ public sealed class NLServiceNovoraSettings
     public bool IntegrationNotificationsEnabled { get; set; } = true;
     public bool IntegrationDynamicResizeEnabled { get; set; } = true;
     public bool ExInEnabled { get; set; } = true;
-    public int ExInPointerSensitivity { get; set; } = 100;
+    public int ExInPointerSensitivity { get; set; } = 50;
     [System.Obsolete("Compatibilidad de configuración; usa ExInEnabled.")]
     public bool GamepadEnabled { get => ExInEnabled; set => ExInEnabled = value; }
     public string VisionProfile { get; set; } = "Automatic";
@@ -80,13 +79,13 @@ public sealed class NLServiceNovoraSettings
     // APARIENCIA
     // ============================================================
 
-    public string Theme { get; set; } = NLServiceTheme.Dark;
+    public string Theme { get; set; } = NLServiceTheme.Light;
 
     // ============================================================
     // INICIO / CICLO DE VIDA
     // ============================================================
 
-    public bool StartWithWindows { get; set; } = true;
+    public bool StartWithWindows { get; set; }
 
     public bool AutoStartSuppressed { get; set; }
 
@@ -195,9 +194,16 @@ public sealed class NLServiceSettings
                 settings,
                 JsonOptions);
 
-        File.WriteAllText(
-            _settingsPath,
-            json);
+        string temporaryPath = _settingsPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temporaryPath, json);
+            File.Move(temporaryPath, _settingsPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+        }
     }
 
     // ============================================================
@@ -296,13 +302,13 @@ public sealed class NLServiceSettings
             Math.Clamp(
                 settings.TargetFps,
                 15,
-                45);
+                240);
 
         settings.MaxSize =
             Math.Clamp(
                 settings.MaxSize,
-                1,
-                1280);
+                480,
+                4320);
     }
 
     private static string NormalizeLowJitterBitrate(

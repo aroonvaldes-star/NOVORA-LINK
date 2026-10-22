@@ -17,12 +17,14 @@ namespace NOVORA.Service;
 public static class NLServiceBrandTheme
 {
     public const string ResourceKey = "NovoraBrandImageSource";
+    public const string TitleEmblemResourceKey = "NovoraTitleEmblemSource";
+    public const string TitleWordmarkResourceKey = "NovoraTitleWordmarkSource";
 
     private const string DarkBrandUri =
-        "pack://application:,,,/NOVORA;component/Asset/NLAssetNOVORABRAND.png";
+        "pack://application:,,,/NOVORA-LINK;component/Asset/NLAssetNOVORABRAND.png";
 
     private const string LightBrandUri =
-        "pack://application:,,,/NOVORA;component/Asset/NLAssetNOVORABRANDLIGHT.png";
+        "pack://application:,,,/NOVORA-LINK;component/Asset/NLAssetNOVORABRANDLIGHT.png";
 
     /// <summary>
     /// Aplica al recurso dinámico de WPF la imagen correspondiente
@@ -51,6 +53,14 @@ public static class NLServiceBrandTheme
                 "La aplicación WPF todavía no está inicializada.");
 
         application.Resources[ResourceKey] = image;
+        application.Resources[TitleEmblemResourceKey] = LoadBitmap(
+            selectedTheme == NLServiceTheme.Light
+                ? "pack://application:,,,/NOVORA-LINK;component/Asset/Emblema NOVORA blanco sobre fondo transparente - copia.png"
+                : "pack://application:,,,/NOVORA-LINK;component/Asset/Emblema NOVORA blanco sobre fondo transparente.png");
+        application.Resources[TitleWordmarkResourceKey] = LoadBitmap(
+            selectedTheme == NLServiceTheme.Light
+                ? "pack://application:,,,/NOVORA-LINK;component/Asset/NOVORA-LINK.png"
+                : "pack://application:,,,/NOVORA-LINK;component/Asset/NOVORA-LINK en blanco sobre transparencia.png");
     }
 
     /// <summary>

@@ -4,7 +4,7 @@ using NOVORA.VisionEngine.Control;
 namespace NOVORA.VisionEngine.Exchange;
 
 /// <summary>
-/// Transferencia bidireccional de archivos sin usar scrcpy.exe.
+/// Transferencia bidireccional de archivos de NOVORA.
 /// ADB mueve los bytes y ControlVE solicita MediaScanner cuando corresponde.
 /// </summary>
 public sealed class VEExchangeFile
@@ -76,7 +76,13 @@ public sealed class VEExchangeFile
             string output = await _adbVE.PullAsync(serial.Trim(), remotePath.Trim(), local, cancellationToken).ConfigureAwait(false);
             if (!File.Exists(local)) return VEExchangeResult.FailVE("ADB terminó pero el archivo local no apareció.", remotePath, local, output.Trim());
             string committed = NOVORA.Control.NLControlFileStorage.Commit(local, root, name);
-            return VEExchangeResult.OkVE("Archivo recibido desde Android.", remotePath, committed, output.Trim());
+            return VEExchangeResult.OkVE(
+                "Archivo recibido desde Android.",
+                remotePath,
+                committed,
+                output.Trim(),
+                itemCount: 1,
+                bytes: new FileInfo(committed).Length);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -115,9 +121,16 @@ public sealed class VEExchangeFile
                 .ConfigureAwait(false);
 
             string receivedRoot = Directory.Exists(Path.Combine(local, "NOVORA")) ? Path.Combine(local, "NOVORA") : local;
+            (long files, long bytes) = GetDirectoryStatsVE(receivedRoot);
             int count = NOVORA.Control.NLControlFileStorage.ImportDirectory(receivedRoot, root);
             return count > 0
-                ? VEExchangeResult.OkVE($"{count} archivo(s)/carpeta(s) recibidos y organizados por tipo.", VEExchangePath.RootAndroidVE, root, output.Trim())
+                ? VEExchangeResult.OkVE(
+                    $"{count} archivo(s)/carpeta(s) recibidos y organizados por tipo.",
+                    VEExchangePath.RootAndroidVE,
+                    root,
+                    output.Trim(),
+                    itemCount: files,
+                    bytes: bytes)
                 : VEExchangeResult.FailVE("ADB terminó pero no aparecieron archivos locales.", VEExchangePath.RootAndroidVE, root, output.Trim());
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -125,6 +138,28 @@ public sealed class VEExchangeFile
             return VEExchangeResult.FailVE("No fue posible recibir la carpeta NOVORA desde Android.", VEExchangePath.RootAndroidVE, local, ex.Message);
         }
         finally { try { Directory.Delete(local, true); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
+    }
+
+    private static (long Files, long Bytes) GetDirectoryStatsVE(
+        string directory)
+    {
+        long files =
+            0;
+
+        long bytes =
+            0;
+
+        foreach (string path in Directory.EnumerateFiles(
+                     directory,
+                     "*",
+                     SearchOption.AllDirectories))
+        {
+            files++;
+            bytes +=
+                new FileInfo(path).Length;
+        }
+
+        return (files, bytes);
     }
 
     private async Task RequestMediaScanAsync(

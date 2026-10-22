@@ -44,7 +44,12 @@ public sealed class VEVideoDecoder : IDisposable
     private VEProtocolCodec? _codecVE;
     private long _frameSequenceVE;
     private long _backendFramesVE;
+    // FFmpeg exige ceros al final de cada bitstream. Reutilizar este bloque
+    // inmutable evita una asignación administrada por paquete de video.
+    private static readonly byte[] FfmpegInputPaddingVE =
+        new byte[VEProtocolConstants.FfmpegInputPaddingSizeVE];
     private byte[]? _configurationVE;
+    private bool _lowLatencyRequestedVE;
     private bool _disposed;
 
     public VEVideoDecoder(NLServiceNovoraPaths paths)
@@ -62,10 +67,17 @@ public sealed class VEVideoDecoder : IDisposable
     public string? FallbackReasonVE { get; private set; }
     public bool IsNvidiaVE => DecoderNameVE.EndsWith("_cuvid", StringComparison.Ordinal);
     public bool NvdecActiveVE => IsNvidiaVE && _backendFramesVE > 0;
+    public bool LowDelayEnabledVE { get; private set; }
 
     public void InitializeVE(VEProtocolCodec codec, bool preferNvidia = false)
+        => InitializeVE(codec, new VEAccelerationRequest(preferNvidia
+            ? VEAccelerationBackend.NvidiaNvdec : VEAccelerationBackend.Software), lowLatency: false);
+
+    public void InitializeVE(VEProtocolCodec codec, VEAccelerationRequest acceleration, bool lowLatency)
     {
         ThrowIfDisposedVE();
+        ArgumentNullException.ThrowIfNull(acceleration);
+        if (!Enum.IsDefined(acceleration.Backend)) throw new ArgumentOutOfRangeException(nameof(acceleration));
 
         if (IsInitializedVE)
         {
@@ -88,7 +100,12 @@ public sealed class VEVideoDecoder : IDisposable
         LoadLibrariesVE();
         LoadExportsVE();
 
-        string? hardwareName = preferNvidia ? NLNVIDIADecoder.GetNameVE(codec) : null;
+        _lowLatencyRequestedVE = lowLatency;
+        FallbackReasonVE = acceleration.Backend is VEAccelerationBackend.Intel or VEAccelerationBackend.Amd or VEAccelerationBackend.D3D11VA
+            ? $"El decoder VisionEngine no implementa {acceleration.Backend}; se usa software."
+            : null;
+        string? hardwareName = acceleration.Backend is VEAccelerationBackend.NvidiaNvdec or VEAccelerationBackend.Automatic
+            ? NLNVIDIADecoder.GetNameVE(codec) : null;
         if (hardwareName is not null)
         {
             try { OpenDecoderVE(hardwareName); }
@@ -121,11 +138,13 @@ public sealed class VEVideoDecoder : IDisposable
             throw new NotSupportedException($"FFmpeg no contiene decoder '{name}'.");
         _codecContextVE = _avcodecAllocContext3VE!(codecPointer);
         if (_codecContextVE == IntPtr.Zero) throw new OutOfMemoryException("No se pudo crear AVCodecContext.");
-        if (name.EndsWith("_cuvid", StringComparison.Ordinal))
+        LowDelayEnabledVE = false;
+        if (_lowLatencyRequestedVE || name.EndsWith("_cuvid", StringComparison.Ordinal))
         {
             // FFmpeg CUVID usa ulMaxDisplayDelay=0 con low_delay; sin offsets de AVCodecContext.
             int optionResult = _avOptSetVE!(_codecContextVE, "flags", "+low_delay", 0);
             if (optionResult < 0) throw CreateVEVideoFfmpegException("av_opt_set low_delay", optionResult);
+            LowDelayEnabledVE = true;
         }
         int result = _avcodecOpen2VE!(_codecContextVE, codecPointer, IntPtr.Zero);
         if (result < 0)
@@ -211,14 +230,11 @@ public sealed class VEVideoDecoder : IDisposable
                 inputBuffer,
                 packet.Data.Length);
 
-            byte[] padding =
-                new byte[VEProtocolConstants.FfmpegInputPaddingSizeVE];
-
             Marshal.Copy(
-                padding,
+                FfmpegInputPaddingVE,
                 0,
                 IntPtr.Add(inputBuffer, packet.Data.Length),
-                padding.Length);
+                FfmpegInputPaddingVE.Length);
 
             int packetResult =
                 _avPacketFromDataVE!(
@@ -242,7 +258,7 @@ public sealed class VEVideoDecoder : IDisposable
 
             if (sendResult == VEProtocolConstants.FfmpegAgainVE)
             {
-                DrainFramesVE(frames, packet.PresentationTimeUs, codec, session);
+                DrainFramesVE(frames, packet.PresentationTimeUs, codec, session, packet.ReceivedTimestamp);
                 sendResult = _avcodecSendPacketVE!(_codecContextVE, _packetVE);
             }
             if (sendResult < 0) throw CreateVEVideoFfmpegException("avcodec_send_packet", sendResult);
@@ -251,7 +267,8 @@ public sealed class VEVideoDecoder : IDisposable
                 frames,
                 packet.PresentationTimeUs,
                 codec,
-                session);
+                session,
+                packet.ReceivedTimestamp);
 
             return frames;
         }
@@ -277,7 +294,8 @@ public sealed class VEVideoDecoder : IDisposable
         List<VEVideoFrame> frames,
         long? sourcePts,
         VEProtocolCodec codec,
-        VEProtocolSession session)
+        VEProtocolSession session,
+        long receivedTimestamp)
     {
         while (true)
         {
@@ -328,7 +346,8 @@ public sealed class VEVideoDecoder : IDisposable
                         decodedAtUtc: DateTimeOffset.UtcNow,
                         nativeFrame: clonedFrame,
                         layout: layout,
-                        release: ReleaseClonedFrameVE));
+                        release: ReleaseClonedFrameVE,
+                        receivedTimestamp: receivedTimestamp));
 
                 _backendFramesVE++;
                 clonedFrame = IntPtr.Zero;

@@ -60,7 +60,7 @@ $GeneratedDirectories = @(
     (Join-Path $RepoPath "src\NOVORA\obj"),
     (Join-Path $RepoPath "NOVORA.linkEngine.Android\bin"),
     (Join-Path $RepoPath "NOVORA.linkEngine.Android\obj"),
-    (Join-Path $RepoPath "src\NOVORA\LinkEngine\Network\Native\RelayCore\target"),
+    (Join-Path $RepoPath "src\NOVORA\LinkEngine\Network\Native\NovoraRelay\target"),
     (Join-Path $RepoPath "Installer\output"),
     (Join-Path $RepoPath "artifacts")
 )
@@ -106,4 +106,4 @@ Get-ChildItem -LiteralPath $RepoPath -Filter "*.csproj.user" -File -Recurse -For
 
 Write-Host ""
 Write-Host "Limpieza terminada." -ForegroundColor Green
-Write-Host "No se eliminaron src, proyectos, APK firmado, relay, ADB, scrcpy, assets, docs ni tests." -ForegroundColor Green
+Write-Host "No se eliminaron src, proyectos, APK firmado, relay, ADB, assets, docs ni tests." -ForegroundColor Green

@@ -10,7 +10,7 @@ using Uri = Android.Net.Uri;
 
 namespace NOVORA.AndroidUI;
 
-[Activity(Name = "com.novora.appcontrol.ShareActivity", Label = "Enviar con NOVORA", Exported = true,
+[Activity(Name = "com.linkcontrol.novora.ShareActivity", Label = "Enviar con LINK Control", Exported = true,
     ConfigurationChanges = Android.Content.PM.ConfigChanges.Orientation | Android.Content.PM.ConfigChanges.ScreenSize,
     Theme = "@android:style/Theme.Material.NoActionBar")]
 [IntentFilter(new[] { Intent.ActionSend, Intent.ActionSendMultiple }, Categories = new[] { Intent.CategoryDefault }, DataMimeType = "*/*")]
@@ -19,12 +19,10 @@ public sealed class NLAndroidUIShareActivity : Activity
     private readonly List<Uri> _uris = new();
     private NLAndroidServiceControl? _service;
     private Connection? _connection;
-    private bool _bound, _sending, _destroyed;
-    private CancellationTokenSource? _cancel;
+    private bool _bound, _destroyed;
     private TextView _status = null!;
     private TextView _selection = null!;
     private Button _send = null!, _pick = null!, _stop = null!;
-    private long _generation = -1;
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
@@ -53,8 +51,8 @@ public sealed class NLAndroidUIShareActivity : Activity
             picker.AddCategory(Intent.CategoryOpenable); picker.PutExtra(Intent.ExtraAllowMultiple, true);
             StartActivityForResult(picker, 1);
         };
-        _send.Click += async (_, _) => await SendFilesAsync();
-        _stop.Click += (_, _) => _cancel?.Cancel();
+        _send.Click += (_, _) => SendFilesInBackground();
+        _stop.Click += (_, _) => _service?.CancelBackgroundFileTransfer();
         open.Click += (_, _) => StartActivity(new Intent(this, typeof(NLAndroidUIActivity)));
         if (savedInstanceState?.GetStringArray("uris") is { } restored)
             foreach (string uri in restored) AddUri(Uri.Parse(uri));
@@ -83,66 +81,43 @@ public sealed class NLAndroidUIShareActivity : Activity
         if (requestCode != 1 || resultCode != Result.Ok || data is null) return;
         _uris.Clear(); ReadUris(data); RenderSelection(); UpdateSession();
     }
-    private (string Name, long Length) Describe(Uri uri)
-    {
-        using var cursor = ContentResolver!.Query(uri, new[] { IOpenableColumns.DisplayName, IOpenableColumns.Size }, null, null, null);
-        if (cursor?.MoveToFirst() != true || cursor.IsNull(0) || cursor.IsNull(1))
-            throw new IOException("El proveedor no informa el nombre y tamaño. Guarda una copia local y vuelve a elegirla.");
-        return (NLControlFileStorage.SafeName(cursor.GetString(0)!), cursor.GetLong(1));
-    }
     private void RenderSelection()
     {
         _selection.Text = _uris.Count == 0 ? "Selecciona uno o varios archivos (máximo 100)." : $"{_uris.Count} archivo(s) seleccionado(s). Máximo 2 GiB por archivo.";
     }
     private void Changed(object? sender, NLControlSessionState args) => RunOnUiThread(UpdateSession);
+    private void ServiceChanged(object? sender, EventArgs args) => RunOnUiThread(UpdateSession);
     private void UpdateSession()
     {
         if (_destroyed) return;
         var state = _service?.Session.Current;
         bool connected = state?.Phase == NLControlSessionPhase.Connected;
-        if (_sending)
-        {
-            if (!connected || state!.Generation != _generation) _cancel?.Cancel();
-            return;
-        }
-        _status.Text = connected ? $"Enviar a {state!.Snapshot?.PcName ?? "PC vinculada"} · {state.Transport}" : "Conecta NOVORA con tu PC antes de enviar.";
-        _send.Enabled = connected && state?.Busy == false && _uris.Count > 0;
+        bool sending = _service?.TransferInProgress == true;
+        _status.Text = sending || !string.IsNullOrWhiteSpace(_service?.FileTransferMessage)
+            ? _service!.FileTransferMessage
+            : connected ? $"Enviar a {state!.Snapshot?.PcName ?? "PC vinculada"} · {state.Transport}"
+            : "Conecta NOVORA con tu PC antes de enviar.";
+        _send.Enabled = connected && state?.Busy == false && !sending && _uris.Count > 0;
+        _pick.Enabled = !sending;
+        _stop.Enabled = sending;
     }
-    private async Task SendFilesAsync()
+    private void SendFilesInBackground()
     {
-        var service = _service;
-        if (_sending || service?.Session.Current.Phase != NLControlSessionPhase.Connected || !service.BeginFileTransfer()) return;
-        _sending = true; _generation = service.Session.Current.Generation;
-        _cancel = new CancellationTokenSource();
-        _send.Enabled = _pick.Enabled = false; _stop.Enabled = true;
-        int completed = 0;
+        if (_service?.Session.Current.Phase != NLControlSessionPhase.Connected ||
+            _service.TransferInProgress || _uris.Count == 0) return;
         try
         {
-            foreach (Uri uri in _uris)
-            {
-                _cancel.Token.ThrowIfCancellationRequested();
-                var (name, length) = Describe(uri);
-                using var stream = ContentResolver!.OpenInputStream(uri) ?? throw new IOException("No se pudo abrir el archivo.");
-                string result = await NLControlFileSender.SendAsync(stream, name, length, (action, value) =>
-                {
-                    var current = service.Session.Current;
-                    if (current.Phase != NLControlSessionPhase.Connected || current.Generation != _generation)
-                        throw new IOException("La PC o la sesión cambió; vuelve a iniciar el envío.");
-                    return service.Session.SendAsync(action, value);
-                }, new Progress<long>(bytes => { if (!_destroyed && _sending) _status.Text = $"{name}: {bytes:N0} / {length:N0} bytes"; }), _cancel.Token);
-                completed++;
-                _selection.Text = $"{completed}/{_uris.Count}: {result}";
-            }
-            _status.Text = $"Envío completo: {completed} archivo(s) verificado(s) en la PC.";
+            var clip = ClipData.NewRawUri("Archivos LINK Control", _uris[0]);
+            for (int i = 1; i < _uris.Count; i++) clip!.AddItem(new ClipData.Item(_uris[i]));
+            var intent = new Intent(this, typeof(NLAndroidServiceControl))
+                .SetAction(NLAndroidServiceControl.SendFilesAction)
+                .AddFlags(ActivityFlags.GrantReadUriPermission);
+            intent.ClipData = clip;
+            StartService(intent);
+            _status.Text = "Envío iniciado en segundo plano. Puedes salir de esta pantalla.";
+            _send.Enabled = false;
         }
-        catch (System.OperationCanceledException) { if (!_destroyed) _status.Text = $"Envío cancelado. {completed} archivo(s) ya completado(s)."; }
-        catch (Exception ex) { if (!_destroyed) _status.Text = $"{completed} archivo(s) completado(s). {ex.Message}"; }
-        finally
-        {
-            service.EndFileTransfer();
-            _sending = false; _cancel.Dispose(); _cancel = null;
-            if (!_destroyed) { _pick.Enabled = true; _stop.Enabled = false; _send.Enabled = false; }
-        }
+        catch (Exception ex) { _status.Text = "No se pudo iniciar el envío: " + ex.Message; }
     }
     protected override void OnSaveInstanceState(Bundle outState)
     {
@@ -151,8 +126,8 @@ public sealed class NLAndroidUIShareActivity : Activity
     }
     protected override void OnDestroy()
     {
-        _destroyed = true; _cancel?.Cancel();
-        if (_service is { } service) service.Session.Changed -= Changed;
+        _destroyed = true;
+        if (_service is { } service) { service.Session.Changed -= Changed; service.StatusChanged -= ServiceChanged; }
         if (_bound && _connection is { } connection) UnbindService(connection);
         _service = null; base.OnDestroy();
     }
@@ -161,8 +136,11 @@ public sealed class NLAndroidUIShareActivity : Activity
         public void OnServiceConnected(ComponentName? name, IBinder? binder)
         {
             if (owner._destroyed || binder is not NLAndroidServiceControl.NLAndroidServiceBinder service) return;
-            owner._service = service.Owner; owner._service.Session.Changed += owner.Changed; owner.UpdateSession();
+            owner._service = service.Owner;
+            owner._service.Session.Changed += owner.Changed;
+            owner._service.StatusChanged += owner.ServiceChanged;
+            owner.UpdateSession();
         }
-        public void OnServiceDisconnected(ComponentName? name) { owner._cancel?.Cancel(); owner._service = null; owner.UpdateSession(); }
+        public void OnServiceDisconnected(ComponentName? name) { owner._service = null; owner.UpdateSession(); }
     }
 }

@@ -1,9 +1,7 @@
 using NOVORA.Service;
 using NOVORA.VisionEngine.Audio;
 using NOVORA.VisionEngine.Control;
-using NOVORA.VisionEngine.Device;
 using NOVORA.VisionEngine.Renderer;
-using NOVORA.VisionEngine.Server;
 using NOVORA.VisionEngine.Transport;
 using NOVORA.VisionEngine.Video;
 using System;
@@ -157,131 +155,6 @@ public sealed class VECoreEngine : IAsyncDisposable
 
             return VECoreResult.Fail(
                 "No fue posible inicializar VisionEngine.",
-                ex);
-        }
-        finally
-        {
-            _lifecycleGate.Release();
-        }
-    }
-
-    public async Task<VECoreResult> StartAsync(
-        string deviceSerial,
-        CancellationToken cancellationToken = default)
-        => await StartAsync(
-                deviceSerial,
-                VEServerOptions.CreateDefaultVE(),
-                cancellationToken)
-            .ConfigureAwait(false);
-
-    public async Task<VECoreResult> StartAsync(
-        string deviceSerial,
-        VEServerOptions options,
-        CancellationToken cancellationToken = default)
-    {
-        ThrowIfDisposedVE();
-
-        if (string.IsNullOrWhiteSpace(deviceSerial))
-        {
-            return VECoreResult.Fail(
-                "El serial del dispositivo es obligatorio.");
-        }
-
-        ArgumentNullException.ThrowIfNull(options);
-
-        await _lifecycleGate
-            .WaitAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        try
-        {
-            if (!_status.IsInitialized)
-            {
-                return VECoreResult.Fail(
-                    "VisionEngine debe inicializarse antes de iniciar una sesión.");
-            }
-
-            string serial = deviceSerial.Trim();
-
-            if (_status.IsRunning)
-            {
-                if (string.Equals(
-                        _status.DeviceSerial,
-                        serial,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    return VECoreResult.Ok(
-                        "VisionEngine ya está activo para este dispositivo.");
-                }
-
-                return VECoreResult.Fail(
-                    "VisionEngine ya controla otro dispositivo.");
-            }
-
-            VECoreSession session =
-                VECoreSession.CreateVE(serial);
-
-            lock (_stateGate)
-            {
-                _session = session;
-            }
-
-            PublishStatusVE(
-                _status with
-                {
-                    State = VECoreStates.Starting,
-                    IsRunning = false,
-                    DeviceSerial = serial,
-                    SessionId = session.SessionId,
-                    RendererEnabled = false,
-                    UpdatedAtUtc = DateTimeOffset.UtcNow,
-                    Message = "Iniciando pipeline multimedia y RendererVE.",
-                    LastError = null
-                });
-
-            await _runtime.StartAsync(
-                    serial,
-                    options,
-                    cancellationToken)
-                .ConfigureAwait(false);
-
-            UpdateSessionVE(
-                session with
-                {
-                    State = VECoreStates.Running,
-                    StartedAtUtc = DateTimeOffset.UtcNow,
-                    UpdatedAtUtc = DateTimeOffset.UtcNow,
-                    Message = "Pipeline VisionEngine Block D activo.",
-                    LastError = null
-                });
-
-            PublishStatusVE(
-                BuildRuntimeStatusVE(
-                    _status with
-                    {
-                        State = VECoreStates.Running,
-                        IsRunning = true,
-                        RendererEnabled = false,
-                        UpdatedAtUtc = DateTimeOffset.UtcNow,
-                        Message = "VisionEngine Block D: video, renderer, audio, control y exchange activos.",
-                        LastError = null
-                    }));
-
-            return VECoreResult.Ok(
-                "VisionEngine Block D inició correctamente.");
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            PublishFailureVE(
-                "No fue posible iniciar VisionEngine.",
-                ex);
-
-            return VECoreResult.Fail(
-                "No fue posible iniciar VisionEngine.",
                 ex);
         }
         finally
@@ -476,10 +349,9 @@ public sealed class VECoreEngine : IAsyncDisposable
 
         return source with
         {
-            DeviceReady = _runtime.DeviceVE.StatusVE.State == VEDeviceStates.Ready,
-            ServerRunning = _runtime.ServerVE.StatusVE.State == VEServerStates.Running,
-            TransportConnected = _runtime.IsAppControlVideoActiveVE ||
-                _runtime.TransportVE.StateVE == VETransportStates.Connected,
+            DeviceReady = _runtime.IsAppControlVideoActiveVE,
+            ServerRunning = _runtime.IsAppControlVideoActiveVE,
+            TransportConnected = _runtime.IsAppControlVideoActiveVE,
             VideoStreaming = video.State == VEVideoStates.Streaming,
             VideoPacketsReceived = video.Stats.PacketsReceived,
             VideoFramesDecoded = video.Stats.FramesDecoded,
@@ -519,6 +391,16 @@ public sealed class VECoreEngine : IAsyncDisposable
             {
                 State = VECoreStates.Failed,
                 Message = "El pipeline de video VisionEngine falló.",
+                LastError = video.LastError
+            };
+        }
+        else if (_runtime.ExternalSourceKindVE != VEExternalSourceKind.None &&
+            video.State == VEVideoStates.EndOfStream)
+        {
+            updated = updated with
+            {
+                State = VECoreStates.Failed,
+                Message = "El flujo de Android terminó.",
                 LastError = video.LastError
             };
         }

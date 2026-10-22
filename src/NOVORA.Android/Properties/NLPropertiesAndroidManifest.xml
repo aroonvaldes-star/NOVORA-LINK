@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
   <uses-permission android:name="android.permission.CAMERA" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
@@ -16,7 +17,7 @@
     </intent>
   </queries>
   <uses-feature android:name="android.hardware.camera" android:required="false" />
-  <application android:allowBackup="false" android:label="NOVORA-LINK" android:supportsRtl="true"
+  <application android:allowBackup="false" android:label="LINK Control" android:supportsRtl="true"
     android:enableOnBackInvokedCallback="false"
-    android:icon="@drawable/novora_logo" android:roundIcon="@drawable/novora_logo" />
+    android:icon="@mipmap/link_control_launcher" android:roundIcon="@mipmap/link_control_launcher" />
 </manifest>

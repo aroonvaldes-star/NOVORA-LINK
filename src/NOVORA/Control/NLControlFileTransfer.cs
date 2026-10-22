@@ -11,6 +11,7 @@ public sealed record NLControlFileMessage(string Id, string? Name = null, long L
 /// <summary>Single streaming transfer owned by one authenticated control session.</summary>
 public sealed class NLControlFileReceiver(string root) : IDisposable
 {
+    public event Action<string, long>? Received;
     public const long MaxLength = 2L * 1024 * 1024 * 1024;
     // Hexadecimal payload is ASCII-safe through both JSON envelopes: 24 KiB becomes 48 KiB.
     public const int ChunkLength = 24 * 1024;
@@ -62,7 +63,9 @@ public sealed class NLControlFileReceiver(string root) : IDisposable
                     throw new InvalidDataException("El archivo está incompleto o no coincide su SHA-256.");
                 _stream.Flush(true); _stream.Dispose(); _stream = null;
                 string destination = NLControlFileStorage.Commit(_temporary!, root, _name!);
+                long completedLength = _length;
                 _temporary = null; Reset();
+                Received?.Invoke(destination, completedLength);
                 return Task.FromResult("Guardado en " + destination);
             }
             catch { Reset(); throw; }

@@ -7,7 +7,8 @@ public sealed record VEVideoPacket(
     long? PresentationTimeUs,
     bool IsConfiguration,
     bool IsKeyFrame,
-    byte[] Data)
+    byte[] Data,
+    long ReceivedTimestamp = 0)
 {
     public int LengthVE => Data.Length;
 }

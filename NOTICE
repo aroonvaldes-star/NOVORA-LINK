@@ -1,0 +1,67 @@
+NOVORA-LINK — NOTICE / AVISO DE ATRIBUCIÓN
+==========================================
+
+Copyright (c) 2026 Aaron Yair Galarza Valdes.
+Todos los derechos reservados. All rights reserved.
+
+Este producto incluye componentes de terceros que se distribuyen bajo sus
+propias licencias. La presencia de un componente en este aviso no implica
+que el Titular reclame su autoría ni que otorgue derechos sobre él.
+
+This product includes third-party components distributed under their own
+licenses. The inclusion of a component in this notice does not imply that
+the Licensor claims authorship of it or grants rights over it.
+
+Componentes principales / Key components
+----------------------------------------
+
+- FFmpeg (build compartido LGPLv3, sin GPL) — LGPL-3.0
+  https://ffmpeg.org/ · https://github.com/BtbN/FFmpeg-Builds
+- Android Debug Bridge (ADB), Android Open Source Project — Apache-2.0
+  https://android.googlesource.com/platform/packages/modules/adb/
+- SDL3, Simple DirectMedia Layer — zlib License
+  https://github.com/libsdl-org/SDL
+- tcp_ip, rustp2p — Apache-2.0
+  https://github.com/rustp2p/tcp_ip
+- QRCoder — MIT
+  https://github.com/codebude/QRCoder
+- Microsoft.Extensions.Logging.Abstractions — MIT
+- System.Security.Cryptography.ProtectedData — MIT
+- .NET Runtime — MIT
+  https://github.com/dotnet/runtime
+- tokio — MIT · serde — MIT OR Apache-2.0 · bytes — MIT
+
+Textos íntegros / Full license texts
+------------------------------------
+
+- `Legal/LICENSES/Apache-2.0.txt`
+- `Legal/LICENSES/MIT.txt`
+- `Legal/LICENSES/Zlib.txt`
+- `Legal/LICENSES/LGPL-3.0.txt`
+
+Inventario detallado / Detailed inventory
+-----------------------------------------
+
+- `Legal/NLLegalThirdPartyNotices.md`
+- `Legal/NLLegalAcknowledgements.md`
+
+FFmpeg se distribuye como bibliotecas compartidas y reemplazables. El
+código fuente correspondiente está disponible en el instalador
+(`Tools\Legal\Sources\ffmpeg-8.1.2.tar.xz`) y en
+https://github.com/FFmpeg/FFmpeg/tree/5a03dfa0f6
+
+FFmpeg is distributed as shared, replaceable libraries. The corresponding
+source code is available in the installer
+(`Tools\Legal\Sources\ffmpeg-8.1.2.tar.xz`) and at
+https://github.com/FFmpeg/FFmpeg/tree/5a03dfa0f6
+
+Licencia del Software / Software license
+----------------------------------------
+
+El Software original de NOVORA-LINK se distribuye bajo la
+NOVORA-LINK PROPRIETARY LICENSE (NLPL) v1.1. Consulte `LICENSE`.
+
+The original NOVORA-LINK Software is distributed under the
+NOVORA-LINK PROPRIETARY LICENSE (NLPL) v1.1. See `LICENSE`.
+
+Contacto / Contact: aroonvaldes@gmail.com

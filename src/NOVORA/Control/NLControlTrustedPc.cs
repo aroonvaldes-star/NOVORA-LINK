@@ -3,6 +3,16 @@ using System.Net;
 namespace NOVORA.Control;
 public sealed record NLControlTrustedPc(string PcName, string Host, int Port, string Fingerprint, string DeviceId, string Token, string Transport = "LAN")
 {
+    public NLControlTrustedPc? AtDiscoveredLanAddress(IEnumerable<NLControlLanPeer> discovered)
+    {
+        if (Transport != "LAN") return null;
+        NLControlLanPeer[] matches = discovered.Where(candidate =>
+            string.Equals(candidate.Fingerprint, Fingerprint, StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (matches.Length != 1) return null;
+        matches[0].Validate();
+        return this with { Host = matches[0].Host, Port = matches[0].Port };
+    }
+
     public void Validate(bool allowLoopback = false)
     {
         if (string.IsNullOrWhiteSpace(PcName) || PcName.Length > 128 || Port is < 1 or > 65535 || !IPAddress.TryParse(Host, out var ip) ||

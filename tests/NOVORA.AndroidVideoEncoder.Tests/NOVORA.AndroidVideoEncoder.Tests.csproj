@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
+    <EncoderSource Condition="'$(EncoderSource)' == ''">../../src/NOVORA.Android/AndroidVideo/NLAndroidVideoEncoder.cs</EncoderSource>
+    <QueueSource Condition="'$(QueueSource)' == ''">../../src/NOVORA.Android/AndroidVideo/NLAndroidVideoPacketQueue.cs</QueueSource>
+    <ConfigurationSource Condition="'$(ConfigurationSource)' == ''">../../src/NOVORA.Android/AndroidVideo/NLAndroidVideoEncoderConfiguration.cs</ConfigurationSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(EncoderSource)" Link="Production/NLAndroidVideoEncoder.cs" />
+    <Compile Include="$(QueueSource)" Link="Production/NLAndroidVideoPacketQueue.cs" />
+    <Compile Include="$(ConfigurationSource)" Link="Production/NLAndroidVideoEncoderConfiguration.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlCapturePolicy.cs" Link="Production/NLControlCapturePolicy.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlNetworkPolicy.cs" Link="Production/NLControlNetworkPolicy.cs" />
+  </ItemGroup>
+</Project>

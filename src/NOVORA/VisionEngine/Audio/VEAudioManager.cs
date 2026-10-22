@@ -205,30 +205,6 @@ public sealed class VEAudioManager : IAsyncDisposable
     }
 
     public async Task StartAsync(
-        VETransportSession transport,
-        bool playbackEnabled,
-        CancellationToken cancellationToken = default)
-    {
-        ThrowIfDisposedVE();
-
-        ArgumentNullException.ThrowIfNull(
-            transport);
-
-        if (_taskVE is not null)
-        {
-            throw new InvalidOperationException(
-                "Audio VisionEngine ya está iniciado.");
-        }
-
-        NetworkStream stream =
-            transport.AudioStream ??
-            throw new InvalidOperationException(
-                "La sesión VisionEngine no contiene audio socket.");
-
-        await StartAsync(stream, playbackEnabled, cancellationToken).ConfigureAwait(false);
-    }
-
-    public async Task StartAsync(
         Stream stream,
         bool playbackEnabled,
         CancellationToken cancellationToken = default)

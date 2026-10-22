@@ -1,0 +1,4 @@
+<resources>
+  <color name="link_launcher_background">#000000</color>
+  <color name="link_launcher_foreground">#FFFFFF</color>
+</resources>
