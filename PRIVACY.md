@@ -12,8 +12,8 @@ Reglamento.
 ## 1. Identidad y domicilio del responsable
 
 El responsable del tratamiento es Aaron Yair Galarza Valdes, con domicilio
-en los Estados Unidos Mexicanos. Para cualquier asunto relacionado con
-este aviso, el correo de contacto es **aroonvaldes@gmail.com**.
+en los Estados Unidos Mexicanos. El domicilio exacto para efectos de
+notificaciones puede solicitarse al correo **aroonvaldes@gmail.com**.
 
 NOVORA-LINK es una aplicación local de conexión entre un equipo Windows y
 un teléfono Android. **No requiere cuenta, no opera un servicio en la nube

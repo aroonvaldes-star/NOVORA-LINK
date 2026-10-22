@@ -16,10 +16,11 @@ conserva sus licencias, avisos y atribuciones.
 | Microsoft.Extensions.Logging.Abstractions | 8.0.2 | Microsoft Corporation | MIT | `Legal/LICENSES/MIT.txt` |
 | System.Security.Cryptography.ProtectedData | 8.0.0 | Microsoft Corporation | MIT | `Legal/LICENSES/MIT.txt` |
 | .NET Runtime | 8.0 / 10.0 | .NET Foundation, Microsoft | MIT | `Legal/LICENSES/MIT.txt` |
-| tcp_ip | rev. `6ebaaad5b7379dba266fd36b3726798f70e57810` | rustp2p | Apache-2.0 | `Legal/LICENSES/Apache-2.0.txt` |
-| tokio | 1.42 | Tokio Contributors | MIT | `Legal/LICENSES/MIT.txt` |
-| serde / serde_json | 1.x | Serde Contributors | MIT OR Apache-2.0 | `Legal/LICENSES/MIT.txt`, `Legal/LICENSES/Apache-2.0.txt` |
-| bytes | 1.9 | Alice Ryhl, Carl Lerche, Sean McArthur | MIT | `Legal/LICENSES/MIT.txt` |
+| tcp_ip | 0.2.2, rev. `6ebaaad5b7379dba266fd36b3726798f70e57810` | rustp2p | Apache-2.0 | `Legal/LICENSES/Apache-2.0.txt` |
+| tokio | 1.53.2 (resuelto en `Cargo.lock`; `Cargo.toml` declara 1.42) | Tokio Contributors | MIT | `Legal/LICENSES/MIT.txt` |
+| serde | 1.0.229 | Serde Contributors | MIT OR Apache-2.0 | `Legal/LICENSES/MIT.txt`, `Legal/LICENSES/Apache-2.0.txt` |
+| serde_json | 1.0.154 | Serde Contributors | MIT OR Apache-2.0 | `Legal/LICENSES/MIT.txt`, `Legal/LICENSES/Apache-2.0.txt` |
+| bytes | 1.12.1 | Alice Ryhl, Carl Lerche, Sean McArthur | MIT | `Legal/LICENSES/MIT.txt` |
 | FFmpeg | `n8.1.2-52-g5a03dfa0f6-20260913` (build BtbN `win64-lgpl-shared`) | FFmpeg project | LGPL-3.0 | `Legal/LICENSES/LGPL-3.0.txt` |
 | Android Debug Bridge (ADB) | AOSP `platform-tools` | Android Open Source Project | Apache-2.0 | `Legal/LICENSES/Apache-2.0.txt` |
 | SDL3 | 3.x | Sam Lantinga / SDL Contributors | zlib | `Legal/LICENSES/Zlib.txt` |
