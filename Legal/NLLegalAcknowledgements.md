@@ -11,12 +11,22 @@ mantienen separadas de la propiedad intelectual original de NOVORA.
 
 **Proyecto FFmpeg** — decodificación y conversión de audio y video.
 
-Se distribuye un build compartido LGPLv3 de BtbN, sin componentes GPL.
-Incluye NVDEC y decodificadores software.
+Se distribuye el build compartido LGPLv3 de BtbN, versión
+`n8.1.2-52-g5a03dfa0f6-20260913`, sin componentes GPL. Incluye NVDEC y
+decodificadores software.
 
 - Proyecto: https://ffmpeg.org/
 - Builds: https://github.com/BtbN/FFmpeg-Builds
 - Licencia: LGPL-3.0
+
+### dav1d
+
+**VideoLAN y autores de dav1d** — decodificador AV1 enlazado estáticamente
+en el build de FFmpeg.
+
+- Proyecto: https://code.videolan.org/videolan/dav1d
+- Licencia: BSD-2-Clause
+- Versión: 1.5.3
 
 ### SDL3
 
@@ -24,6 +34,7 @@ Incluye NVDEC y decodificadores software.
 de mandos en Windows.
 
 - Proyecto: https://github.com/libsdl-org/SDL
+- Versión: 3.4.12
 - Licencia: zlib
 
 ### Android Debug Bridge (ADB)

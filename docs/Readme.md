@@ -1,10 +1,13 @@
 # NOVORA-LINK 1.4
 
+> **Nota:** la versión canónica y actualizada de este documento es
+> [`../Readme.md`](../Readme.md). Esta copia se conserva como referencia.
+
 ## Descripción técnica y acciones de la interfaz
 
 NOVORA-LINK conecta un teléfono Android con una PC Windows para mostrar su pantalla, transportar datos y permitir la interacción autorizada. VisionEngine (VE) se ocupa de video y audio, LinkEngine (LE) del enlace y de la ruta de Internet por VPN, y Experience Input Engine (ExInEngine) de las entradas. Cada resultado depende del dispositivo, el transporte, los permisos y el estado de la sesión.
 
-Esta descripción corresponde al árbol local de código revisado el 10 de octubre de 2026. App Control declara `versionCode 91` y `versionName 1.4.91`; el proyecto de escritorio declara la serie `1.4.0`. Estos datos de fuente no confirman la versión instalada en un teléfono, el contenido de un instalador ni los activos publicados.
+Esta descripción corresponde al árbol local de código revisado el 21 de octubre de 2026. LINK Control declara `versionCode 116` y `versionName 1.4.116`; el proyecto de escritorio declara la serie `1.4.0`. Estos datos de fuente no confirman la versión instalada en un teléfono, el contenido de un instalador ni los activos publicados.
 
 En Android, App Control presenta dos pestañas: **Principal** y **Configuración**. Principal reúne la conexión USB/LAN, la elección de modo Juego, Video o Internet, el inicio de motores y los estados de VE, LE y ExIn. Configuración agrupa el estado de LE, los ajustes de VE y audio, y el estado de ExIn. Las páginas auxiliares que pueda conservar el código no son pestañas de navegación.
 

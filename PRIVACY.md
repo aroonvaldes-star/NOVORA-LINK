@@ -53,8 +53,9 @@ conexión y ejecutar las funciones que el usuario solicita:
 - Los mensajes de estado no incluyen el contenido del portapapeles.
 
 **NOVORA-LINK no recopila** nombre, correo, teléfono, contactos, ubicación,
-identificador de publicidad, datos biométricos ni el contenido de otras
-aplicaciones.
+identificador de publicidad ni datos biométricos. La captura de pantalla
+puede incluir el contenido visible de otras aplicaciones, pero se transmite
+únicamente a la PC del usuario durante la sesión y no se envía al Titular.
 
 ## 3. Finalidades del tratamiento
 

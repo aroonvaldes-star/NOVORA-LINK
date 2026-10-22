@@ -22,8 +22,9 @@ conserva sus licencias, avisos y atribuciones.
 | serde_json | 1.0.154 | Serde Contributors | MIT OR Apache-2.0 | `Legal/LICENSES/MIT.txt`, `Legal/LICENSES/Apache-2.0.txt` |
 | bytes | 1.12.1 | Alice Ryhl, Carl Lerche, Sean McArthur | MIT | `Legal/LICENSES/MIT.txt` |
 | FFmpeg | `n8.1.2-52-g5a03dfa0f6-20260913` (build BtbN `win64-lgpl-shared`) | FFmpeg project | LGPL-3.0 | `Legal/LICENSES/LGPL-3.0.txt` |
-| Android Debug Bridge (ADB) | AOSP `platform-tools` | Android Open Source Project | Apache-2.0 | `Legal/LICENSES/Apache-2.0.txt` |
-| SDL3 | 3.x | Sam Lantinga / SDL Contributors | zlib | `Legal/LICENSES/Zlib.txt` |
+| dav1d | 1.5.3 (enlazado estáticamente en el build de FFmpeg) | VideoLAN y autores de dav1d | BSD-2-Clause | `Legal/LICENSES/BSD-2-Clause-dav1d.txt` |
+| Android Debug Bridge (ADB) | AOSP `platform-tools` (`adb.exe`, `AdbWinApi.dll`, `AdbWinUsbApi.dll`) | Android Open Source Project | Apache-2.0 | `Legal/LICENSES/Apache-2.0.txt` |
+| SDL3 | 3.4.12 | Sam Lantinga / SDL Contributors | zlib | `Legal/LICENSES/Zlib.txt` |
 
 ## 2. Componentes históricos
 
@@ -89,9 +90,24 @@ modificado conforme a la LGPL-3.0.
 
 ### 4.5 ADB
 
-Se distribuye `adb.exe` proveniente de AOSP. Se conserva el texto
-Apache-2.0 y la atribución al Android Open Source Project. ADB se usa
-únicamente para funciones de desarrollo y conexión autorizada.
+Se distribuyen `adb.exe`, `AdbWinApi.dll` y `AdbWinUsbApi.dll` provenientes
+de AOSP. Se conserva el texto Apache-2.0 y la atribución al Android Open
+Source Project. ADB se usa únicamente para funciones de desarrollo y
+conexión autorizada.
+
+### 4.6 BSD-2-Clause (dav1d)
+
+dav1d 1.5.3 se enlaza estáticamente dentro de las DLL de FFmpeg al compilar
+con `--enable-libdav1d`. Se conserva el aviso de copyright de VideoLAN y el
+texto íntegro de la licencia BSD-2-Clause. Las fuentes de dav1d están
+disponibles en https://code.videolan.org/videolan/dav1d.
+
+El build de FFmpeg habilita otras bibliotecas estáticas (por ejemplo libaom,
+rav1e, SVT-AV1, libvpx, libvorbis, libopus). Sus avisos deben conservarse
+conforme a sus licencias; el manifiesto completo del build y las recetas del
+proveedor están en `src/NOVORA/Tools/FFmpeg-build.json` y
+https://github.com/BtbN/FFmpeg-Builds. Este inventario debe ampliarse si se
+distribuye una compilación con dependencias adicionales.
 
 ## 5. Limitaciones de este inventario
 

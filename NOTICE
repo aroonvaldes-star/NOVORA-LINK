@@ -17,6 +17,8 @@ Componentes principales / Key components
 
 - FFmpeg (build compartido LGPLv3, sin GPL) — LGPL-3.0
   https://ffmpeg.org/ · https://github.com/BtbN/FFmpeg-Builds
+- dav1d (decodificador AV1 enlazado en el build de FFmpeg) — BSD-2-Clause
+  https://code.videolan.org/videolan/dav1d
 - Android Debug Bridge (ADB), Android Open Source Project — Apache-2.0
   https://android.googlesource.com/platform/packages/modules/adb/
 - SDL3, Simple DirectMedia Layer — zlib License
@@ -36,6 +38,7 @@ Textos íntegros / Full license texts
 
 - `Legal/LICENSES/Apache-2.0.txt`
 - `Legal/LICENSES/MIT.txt`
+- `Legal/LICENSES/BSD-2-Clause-dav1d.txt`
 - `Legal/LICENSES/Zlib.txt`
 - `Legal/LICENSES/LGPL-3.0.txt`
 

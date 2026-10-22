@@ -89,8 +89,8 @@ $dependencies = @(
         Uri = "https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz"
         Sha256 = "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c"
         Archive = "ffmpeg-8.1.2.tar.xz"
-        LicenseCandidates = @("COPYING.LGPLv2.1")
-        LicenseOutput = "FFmpeg-LGPL-2.1.txt"
+        LicenseCandidates = @("COPYING.LGPLv3")
+        LicenseOutput = "FFmpeg-LGPL-3.0.txt"
         PublishSource = $true
     },
     @{
@@ -120,7 +120,7 @@ New-Item -ItemType Directory -Force -Path $temp | Out-Null
 
 $notes = New-Object System.Collections.Generic.List[string]
 $notes.Add("NOVORA-LINK third-party source and license bundle")
-$notes.Add("NOVORA redistributes FFmpeg and SDL3 for video, audio and gamepad support.")
+$notes.Add("NOVORA redistributes FFmpeg, SDL3 and dav1d (statically linked in FFmpeg) for video, audio and gamepad support.")
 $notes.Add("NOVORA LinkEngine relay uses the tcp_ip stack under Apache-2.0; its license is installed as Tools/Legal/tcp_ip-Apache-2.0-LICENSE.txt.")
 $notes.Add("")
 
@@ -160,7 +160,7 @@ try {
     Copy-Item -LiteralPath $notesPath -Destination (Join-Path $legalDir "THIRD-PARTY-SOURCE-NOTES.txt") -Force
 
     $requiredLegal = @(
-        "FFmpeg-LGPL-2.1.txt",
+        "FFmpeg-LGPL-3.0.txt",
         "SDL3-zlib-LICENSE.txt",
         "dav1d-BSD-2-Clause.txt",
         "tcp_ip-Apache-2.0-LICENSE.txt",

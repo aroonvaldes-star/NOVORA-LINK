@@ -47,6 +47,7 @@ del binario instalado y la NLPL para el código fuente.
 
 - [`LICENSES/Apache-2.0.txt`](LICENSES/Apache-2.0.txt)
 - [`LICENSES/MIT.txt`](LICENSES/MIT.txt)
+- [`LICENSES/BSD-2-Clause-dav1d.txt`](LICENSES/BSD-2-Clause-dav1d.txt)
 - [`LICENSES/Zlib.txt`](LICENSES/Zlib.txt)
 - [`LICENSES/LGPL-3.0.txt`](LICENSES/LGPL-3.0.txt)
 

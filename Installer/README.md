@@ -7,7 +7,7 @@ pwsh -File .\scripts\Setup-Tools.ps1
 dotnet publish .\src\NOVORA\NLProjectDesktop.csproj -c Release -r win-x64 --self-contained true -o .\artifacts\publish\win-x64
 ```
 
-Antes de compilar el instalador, ejecuta `scripts/Prepare-ThirdPartyCompliance.ps1` para incluir las licencias en la publicación y adjuntar las fuentes redistribuibles de FFmpeg. Después compila `Installer/NOVORA.Installer.iss` con Inno Setup 6 o 7. En CI, `AppVersion` y `PublishDir` se pasan como defines para que el tag sea la fuente de verdad de la versión.
+Antes de compilar el instalador, ejecuta `scripts/Prepare-ThirdPartyCompliance.ps1` para incluir las licencias en la publicación y adjuntar las fuentes redistribuibles de FFmpeg. Después compila `Installer/NOVORA.Installer.iss` con Inno Setup 6 o 7. En CI, `AppVersion` y `PublishDir` se pasan como defines para que el tag sea la fuente de verdad de la versión. El instalador muestra el EULA desde `Legal/NLLegalEULA.txt` y copia la carpeta `Legal/` a la instalación.
 
 Para generar un solo ejecutable con Windows autónomo, APK, herramientas, licencias y fuentes de FFmpeg, usa `scripts/Build-UnifiedInstaller.ps1 -PublishDir <directorio-publicado> -ComplianceDir <directorio-compliance> -Version <versión>`. El script exige `Android/NLAndroidApp.apk` y `Android/NLAndroidRelease.json` concordantes y verifica la fuente LGPL antes de compilar. La fuente se instala en `Tools/Legal/Sources`; el instalador y su SHA-256 quedan en `Installer/output`. El flujo de GitHub publica únicamente estos dos archivos y falla si falta algún componente.
 

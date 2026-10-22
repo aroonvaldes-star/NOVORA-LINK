@@ -112,6 +112,10 @@ f) Acepta que la Contribución queda sujeta a la NLPL v1.1 y a este
 Si su empleador o una institución tiene derechos sobre su trabajo, obtenga
 la autorización correspondiente antes de contribuir.
 
+El Titular podrá solicitar un acuerdo de licencia o cesión adicional (CLA)
+antes de aceptar una Contribución. La firma del DCO no sustituye, por sí
+sola, ese acuerdo cuando resulte necesario.
+
 ## 7. Conducta
 
 Mantenga un trato respetuoso y técnico. No se toleran acosos, amenazas,

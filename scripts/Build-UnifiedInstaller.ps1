@@ -25,7 +25,7 @@ $required = @(
     'Tools\adb.exe',
     'Tools\LinkEngine\LENetworkRelay.exe',
     'Tools\Legal\THIRD-PARTY-SOURCE-NOTES.txt',
-    'Tools\Legal\FFmpeg-LGPL-2.1.txt',
+    'Tools\Legal\FFmpeg-LGPL-3.0.txt',
     'Tools\Legal\SDL3-zlib-LICENSE.txt',
     'Tools\Legal\dav1d-BSD-2-Clause.txt',
     'Tools\Legal\tcp_ip-Apache-2.0-LICENSE.txt'
