@@ -9,15 +9,76 @@ namespace NOVORA;
 
 public partial class NLUIWindowMain
 {
-    private void HomeLanConnectionButton_Click(object sender, RoutedEventArgs e)
-        => PrepareAndroidLan_Click(sender, e);
+    private void HomeConnectionTypeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (HomeConnectionTypeButton.ContextMenu is not { } menu) return;
+        menu.PlacementTarget = HomeConnectionTypeButton;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        menu.IsOpen = true;
+    }
+
+    private async void HomeConnectionUsb_Click(object sender, RoutedEventArgs e)
+    {
+        if (_androidControlPreparing || _androidInstalling) return;
+        try
+        {
+            await RefreshDevicesAsync(force: true);
+            if (!_viewModel.Devices.Any(device => device.Connected && !device.IsWifiConnection))
+            {
+                ShowTopMessage14("Conecta el teléfono por USB y autoriza la depuración para preparar esta ruta.", NLUIMessageKind14.Info);
+                return;
+            }
+            if (_androidControl?.IsAuthorized == true)
+            {
+                ShowTopMessage14("La conexión USB ya está autorizada.", NLUIMessageKind14.Info);
+                return;
+            }
+            if (_androidLanControl?.IsAuthorized == true)
+            {
+                if (IsVisionEngineRunningVE() || _visionCommandApplyingVE ||
+                    _linkEngineRuntimeLE?.IsRunningLE == true || _androidLinkStarting || _androidLinkStopping)
+                {
+                    ShowTopMessage14("Detén el video y LinkEngine antes de cambiar la conexión LAN a USB.", NLUIMessageKind14.Warning);
+                    return;
+                }
+                await StopAndroidControlAsync();
+            }
+            _automaticUsb.Retry();
+            QueueAutomaticUsb();
+            ShowTopMessage14("Preparando conexión USB. Autoriza el teléfono si lo solicita.", NLUIMessageKind14.Info);
+        }
+        catch (Exception ex)
+        {
+            ShowTopMessage14("No se pudo preparar USB: " + ex.Message, NLUIMessageKind14.Error);
+        }
+    }
+
+    private void HomeConnectionLan_Click(object sender, RoutedEventArgs e)
+    {
+        if (_androidLanControl?.IsAuthorized == true)
+        {
+            ShowTopMessage14("La conexión LAN ya está autorizada.", NLUIMessageKind14.Info);
+            return;
+        }
+        if (IsVisionEngineRunningVE() || _visionCommandApplyingVE ||
+            _linkEngineRuntimeLE?.IsRunningLE == true || _androidLinkStarting || _androidLinkStopping)
+        {
+            ShowTopMessage14("Detén el video y LinkEngine antes de cambiar la conexión a LAN.", NLUIMessageKind14.Warning);
+            return;
+        }
+        PrepareAndroidLan_Click(sender, e);
+    }
 
     private void UpdateHomeLanConnectionButton()
     {
-        if (_closing || HomeLanConnectionButton is null) return;
-        bool connected = _androidLanControl?.IsAuthorized == true;
-        HomeLanConnectionButton.Content = connected ? "LAN CONECTADA" : "CONECTAR POR LAN";
-        HomeLanConnectionButton.IsEnabled = !_androidControlPreparing && !_androidInstalling;
+        if (_closing || HomeConnectionTypeButton is null) return;
+        bool usb = _androidControl?.IsAuthorized == true;
+        bool lan = _androidLanControl?.IsAuthorized == true;
+        HomeConnectionTypeButton.Content = usb && lan ? "USB Y LAN ▾" :
+            usb ? "CONEXIÓN: USB ▾" : lan ? "CONEXIÓN: LAN ▾" : "TIPO DE CONEXIÓN ▾";
+        HomeConnectionUsbOption.IsChecked = usb;
+        HomeConnectionLanOption.IsChecked = lan;
+        HomeConnectionTypeButton.IsEnabled = !_androidControlPreparing && !_androidInstalling;
     }
 
     private static bool IsPrivateLanAddress(IPAddress address)

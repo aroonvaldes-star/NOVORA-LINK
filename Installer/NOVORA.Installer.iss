@@ -14,10 +14,10 @@
 #define ExeName "NOVORA-LINK.exe"
 
 #ifndef PublishDir
-  #define PublishDir "..\artifacts\publish\win-x64"
+  #define PublishDir "..\..\..\Versiones\Generados\NOVORA-LINK\publish\win-x64"
 #endif
 #ifndef ComplianceDir
-  #define ComplianceDir "..\artifacts\compliance"
+  #define ComplianceDir "..\..\..\Versiones\Generados\NOVORA-LINK\compliance"
 #endif
 #ifndef SetupBaseFilename
   #define SetupBaseFilename "NOVORA-Setup-" + AppVersion
@@ -30,7 +30,10 @@ AppVersion={#AppVersion}
 AppPublisher={#Publisher}
 DefaultDirName={autopf}\NOVORA
 DefaultGroupName=NOVORA
-OutputDir=output
+#ifndef InstallerOutputDir
+  #define InstallerOutputDir "..\..\..\Versiones\Instaladores"
+#endif
+OutputDir={#InstallerOutputDir}
 OutputBaseFilename={#SetupBaseFilename}
 Compression=lzma2
 SolidCompression=yes

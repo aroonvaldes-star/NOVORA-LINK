@@ -385,9 +385,43 @@ public partial class NLUIWindowMain : Window
         object sender,
         RoutedEventArgs e)
     {
-        ShowTopMessage14(
-            "Conecta el teléfono por USB, abre NOVORA-LINK en Android y toca Iniciar Internet.",
-            NLUIMessageKind14.Info);
+        bool running = _linkEngineRuntimeLE?.IsRunningLE == true ||
+            _androidLanDataGateway?.IsConnected == true;
+        bool usb = _androidControl?.IsAuthorized == true;
+        bool lan = _androidLanControl?.IsAuthorized == true;
+        var body = new StackPanel();
+
+        void AddLine(string text, bool heading = false)
+        {
+            var line = new TextBlock
+            {
+                Text = text,
+                FontSize = heading ? 16 : 14,
+                FontWeight = heading ? FontWeights.SemiBold : FontWeights.Normal,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, heading ? 0 : 8, 0, 0)
+            };
+            ApplyNovoraText(line);
+            body.Children.Add(line);
+        }
+
+        AddLine(running ? "LinkEngine está en ejecución" : "Cómo activar Internet desde LINK CONTROL", heading: true);
+        AddLine("Este botón muestra la guía y el estado. El inicio se solicita en el teléfono.");
+        AddLine("1. Conecta LINK CONTROL con esta PC por USB o LAN. Para USB en esta compilación, autoriza la depuración en Android; para LAN, vincula ambos equipos en la misma red.");
+        AddLine("2. En LINK CONTROL abre Principal, elige Internet y pulsa INICIAR. También puedes abrir Motores y pulsar Iniciar LinkEngine.");
+        AddLine("3. Acepta el permiso VPN que muestra Android. Espera a que LinkEngine confirme la conexión antes de usar Internet por la PC.");
+        AddLine($"Ruta autorizada en PC: {(usb && lan ? "USB y LAN" : usb ? "USB" : lan ? "LAN" : "ninguna")}.");
+        AddLine("Estado de LinkEngine: " + LinkEngineFriendlyConnectionStatus.Text);
+        AddLine("Enlace: " + LinkEngineFriendlyUsbStatus.Text);
+        AddLine(LinkEngineResultStatus.Text);
+
+        var dialog = CreateNovoraDialog("Internet por LinkEngine", 540,
+            new ScrollViewer { Content = body, MaxHeight = 560, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        var close = new System.Windows.Controls.Button { Content = "ENTENDIDO", Height = 38, Margin = new Thickness(0, 18, 0, 0) };
+        ApplyNovoraActionButton(close);
+        close.Click += (_, _) => dialog.Close();
+        body.Children.Add(close);
+        dialog.ShowDialog();
     }
 
     private async void OpenLinkMeasurementsButton_Click(object sender, RoutedEventArgs e)

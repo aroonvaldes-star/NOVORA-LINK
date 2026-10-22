@@ -321,20 +321,20 @@ public partial class NLUIWindowMain
     private void UpdateLinkEngineButtonLE()
     {
         bool running =
-            _linkEngineRuntimeLE?.IsRunningLE == true;
+            _linkEngineRuntimeLE?.IsRunningLE == true || _androidLanDataGateway?.IsConnected == true;
 
         LinkEngineTestButton.IsEnabled =
             !_closing;
 
         LinkEngineTestButton.Content =
             running
-                ? "VER ESTADO DE INTERNET USB"
-                : "CÓMO ACTIVAR INTERNET USB";
+                ? "VER ESTADO DE LINKENGINE"
+                : "VER PASOS PARA ACTIVAR INTERNET";
 
         LinkEngineTestButton.ToolTip =
             running
-                ? "Internet USB está activo; consulta aquí su estado."
-                : "Internet USB se activa desde NOVORA-LINK Android después de autorizar USB y aceptar el permiso VPN.";
+                ? "Muestra el estado actual de LinkEngine en PC."
+                : "Muestra los pasos para iniciar LinkEngine desde LINK CONTROL por USB o LAN.";
     }
 
     /*

@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory)][string]$ComplianceDir,
     [Parameter(Mandatory)][string]$Version,
     [string]$OutputBaseFilename = "NOVORA-Setup-$Version",
+    [string]$OutputDir = '',
     [string]$IsccPath
 )
 
@@ -19,6 +20,12 @@ if ($OutputBaseFilename -notmatch '^[a-zA-Z0-9._-]+$') {
 
 $publish = [IO.Path]::GetFullPath($PublishDir)
 $compliance = [IO.Path]::GetFullPath($ComplianceDir)
+if ([string]::IsNullOrWhiteSpace($OutputDir)) {
+    $versionsRoot = if ($env:NOVORA_VERSIONES_DIR) { $env:NOVORA_VERSIONES_DIR } else { Join-Path $PSScriptRoot '..\..\..\Versiones' }
+    $OutputDir = Join-Path $versionsRoot 'Instaladores'
+}
+$OutputDir = [IO.Path]::GetFullPath($OutputDir)
+New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 $required = @(
     'NOVORA-LINK.exe', 'hostfxr.dll', 'hostpolicy.dll',
     'Android\NLAndroidApp.apk', 'Android\NLAndroidRelease.json',
@@ -75,11 +82,11 @@ $fileVersion = if ($versionParts.Count -eq 2) { "$numericVersion.0.0" } else { "
 $installerScript = Join-Path $PSScriptRoot '..\Installer\NOVORA.Installer.iss'
 
 & $IsccPath "/DAppVersion=$Version" "/DVersionInfoVersion=$fileVersion" `
-    "/DPublishDir=$publish" "/DComplianceDir=$compliance" `
+    "/DPublishDir=$publish" "/DComplianceDir=$compliance" "/DInstallerOutputDir=$OutputDir" `
     "/DSetupBaseFilename=$OutputBaseFilename" $installerScript
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup terminó con código $LASTEXITCODE." }
 
-$installer = Join-Path $PSScriptRoot "..\Installer\output\$OutputBaseFilename.exe"
+$installer = Join-Path $OutputDir "$OutputBaseFilename.exe"
 if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
     throw "No se generó el instalador: $installer"
 }

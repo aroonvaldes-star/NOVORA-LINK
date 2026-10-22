@@ -61,8 +61,7 @@ $GeneratedDirectories = @(
     (Join-Path $RepoPath "NOVORA.linkEngine.Android\bin"),
     (Join-Path $RepoPath "NOVORA.linkEngine.Android\obj"),
     (Join-Path $RepoPath "src\NOVORA\LinkEngine\Network\Native\NovoraRelay\target"),
-    (Join-Path $RepoPath "Installer\output"),
-    (Join-Path $RepoPath "artifacts")
+    (Join-Path $RepoPath "Installer\output")
 )
 
 foreach ($Path in $GeneratedDirectories) {

@@ -33,7 +33,7 @@ jobs:
           directory-to-scan: .
           should-scan-archives: false
           output-filename: devskim-results.sarif
-          ignore-globs: "**/.git/**,**/bin/**,**/obj/**,**/artifacts/**,**/Installer/output/**"
+          ignore-globs: "**/.git/**,**/bin/**,**/obj/**,**/Versiones/**,**/Installer/output/**"
 
       - name: Upload SARIF
         if: always() && hashFiles('devskim-results.sarif') != ''

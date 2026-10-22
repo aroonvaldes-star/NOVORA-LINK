@@ -16,7 +16,7 @@
 # .NET / C# build
 **/bin/
 **/obj/
-artifacts/
+Versiones/
 TestResults/
 *.pdb
 *.cache
