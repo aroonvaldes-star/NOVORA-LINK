@@ -11,6 +11,8 @@ public partial class NLUIWindowMain
 {
     private NLControlTrustStore? _androidTrustStore;
     private NLControlTrustStore? _androidUsbTrustStore;
+    private bool _androidLanNetworkSubscribed;
+    private bool _androidLanRebinding;
     private NLControlTrustStore GetAndroidUsbTrustStore() => _androidUsbTrustStore ??= new NLControlTrustStore(Path.Combine(AndroidTrustDirectory, "USB"));
     private static string AndroidTrustDirectory => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NOVORA", "AndroidControl");
@@ -25,19 +27,53 @@ public partial class NLUIWindowMain
 
     private async Task RestoreAndroidTrustAsync()
     {
+        if (!_androidLanNetworkSubscribed)
+        {
+            NetworkChange.NetworkAddressChanged += AndroidLanNetworkAddressChanged;
+            _androidLanNetworkSubscribed = true;
+        }
         if (_closing || AndroidControlSessionOpen || !File.Exists(Path.Combine(AndroidTrustDirectory, NLControlTrustStore.FileName))) return;
         try
         {
             var store = GetAndroidTrustStore();
             if (!store.ListenEnabled || store.Devices.Count == 0) return;
-            if (!IPAddress.TryParse(store.LastHost, out var address) || !IsAvailableAndroidLanAddress(address))
+            IPAddress? address = IPAddress.TryParse(store.LastHost, out var saved) && IsAvailableAndroidLanAddress(saved)
+                ? saved : GetAndroidLanAddresses() is { Length: 1 } addresses ? addresses[0] : null;
+            if (address is null)
             {
-                AndroidControlStatus.Text = "La red guardada cambió. Activa reconexión LAN y vuelve a vincular si cambió la dirección de PC.";
+                AndroidControlStatus.Text = "La red guardada cambió. Elige la red actual en Activar reconexión LAN.";
                 return;
             }
             await StartAndroidTrustedListenerAsync(address);
         }
         catch (Exception ex) { AndroidControlStatus.Text = "No se pudo recuperar la confianza LAN: " + ex.Message; }
+    }
+
+    private void AndroidLanNetworkAddressChanged(object? sender, EventArgs e)
+    {
+        _ = Dispatcher.InvokeAsync(async () =>
+        {
+            if (_closing || _androidLanRebinding || _androidControlPreparing) return;
+            _androidLanRebinding = true;
+            try
+            {
+                var store = _androidTrustStore;
+                if (store?.ListenEnabled != true || store.Devices.Count == 0 ||
+                    IPAddress.TryParse(store.LastHost, out var current) && IsAvailableAndroidLanAddress(current)) return;
+                IPAddress[] addresses = GetAndroidLanAddresses();
+                if (addresses.Length == 1) await StartAndroidTrustedListenerAsync(addresses[0]);
+                else AndroidControlStatus.Text = "La IP de la PC cambió. Elige la red actual en Activar reconexión LAN.";
+            }
+            catch (Exception ex) { AndroidControlStatus.Text = "No se pudo reactivar LAN tras cambiar de IP: " + ex.Message; }
+            finally { _androidLanRebinding = false; }
+        });
+    }
+
+    private void StopAndroidLanNetworkWatch()
+    {
+        if (!_androidLanNetworkSubscribed) return;
+        NetworkChange.NetworkAddressChanged -= AndroidLanNetworkAddressChanged;
+        _androidLanNetworkSubscribed = false;
     }
 
     private async Task StartAndroidTrustedListenerAsync(IPAddress address)
@@ -55,14 +91,29 @@ public partial class NLUIWindowMain
                     ? "USB activo; LAN permanece disponible como respaldo."
                     : status;
                 if (!server.IsAuthorized && !AndroidControlAuthorized) { ResetAndroidFileTransfer(); _ = FinishAndroidRecordingAsync(); }
+                if (server.IsAuthorized) RequestWaitingExternalVisionFromAndroid();
                 UpdateHomeLanConnectionButton();
+                UpdateRuntimeButtons();
+                AndroidEngineStateChanged();
             }
         }));
         try
         {
             server.Start();
             store.SetListening(address.ToString(), true);
-            AndroidControlStatus.Text = "Reconexión LAN activa para teléfonos autorizados. No hay código temporal abierto.";
+            var discovery = new NLControlLanDiscovery(
+                new(Environment.MachineName, address.ToString(), server.Port, store.Fingerprint),
+                persistent: true);
+            bool discoverable = true;
+            try { discovery.Start(); _androidLanDiscovery = discovery; }
+            catch
+            {
+                discoverable = false;
+                await discovery.DisposeAsync();
+            }
+            AndroidControlStatus.Text = discoverable
+                ? "Reconexión LAN activa para teléfonos autorizados. No hay código temporal abierto."
+                : "Reconexión LAN activa; el descubrimiento no está disponible en esta red.";
             UpdateHomeLanConnectionButton();
         }
         catch { await StopAndroidControlAsync(); throw; }

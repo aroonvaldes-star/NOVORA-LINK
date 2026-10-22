@@ -17,13 +17,13 @@ public sealed class VEMetricsCollector
     private long _lastAudioPacketsVE;
     private long _lastAudioFramesVE;
     private long _lastControlMessagesVE;
+    private DateTimeOffset? _transportConnectedAtUtcVE;
 
     public VEMetricsSnapshot CaptureVE(
         VEVideoStatus video,
         VEAudioStatus audio,
         VEControlStatus control,
-        VETransportStates transportState,
-        VETransportSession? transportSession)
+        VETransportStates transportState)
     {
         ArgumentNullException.ThrowIfNull(video);
         ArgumentNullException.ThrowIfNull(audio);
@@ -32,6 +32,9 @@ public sealed class VEMetricsCollector
         lock (_gateVE)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
+            _transportConnectedAtUtcVE = transportState == VETransportStates.Connected
+                ? _transportConnectedAtUtcVE ?? now
+                : null;
             bool hasPrevious = _lastCaptureUtcVE is not null;
             double seconds = hasPrevious
                 ? Math.Max(0.001, (now - _lastCaptureUtcVE!.Value).TotalSeconds)
@@ -79,11 +82,10 @@ public sealed class VEMetricsCollector
                     controlMessagesDelta / seconds),
                 Transport: new VEMetricsTransport(
                     transportState,
-                    transportSession?.Tunnel.Mode,
-                    transportSession?.HasVideoVE ?? false,
-                    transportSession?.HasAudioVE ?? false,
-                    transportSession?.HasControlVE ?? false,
-                    transportSession is null ? TimeSpan.Zero : now - transportSession.ConnectedAtUtc),
+                    video.State == VEVideoStates.Streaming,
+                    audio.State == VEAudioStates.Streaming,
+                    control.State == VEControlStates.Ready,
+                    _transportConnectedAtUtcVE is null ? TimeSpan.Zero : now - _transportConnectedAtUtcVE.Value),
                 WorkingSetBytes: process.WorkingSet64,
                 ProcessCpuPercent: cpu,
                 RendererEnabled: video.RendererEnabled);

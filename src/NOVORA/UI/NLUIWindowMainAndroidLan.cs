@@ -16,7 +16,7 @@ public partial class NLUIWindowMain
     {
         if (_closing || HomeLanConnectionButton is null) return;
         bool connected = _androidLanControl?.IsAuthorized == true;
-        HomeLanConnectionButton.Content = connected ? "CONECTADO POR LAN" : "CÓDIGO LAN";
+        HomeLanConnectionButton.Content = connected ? "LAN CONECTADA" : "CONECTAR POR LAN";
         HomeLanConnectionButton.IsEnabled = !_androidControlPreparing && !_androidInstalling;
     }
 
@@ -27,6 +27,14 @@ public partial class NLUIWindowMain
             (bytes[0] == 172 && bytes[1] is >= 16 and <= 31) ||
             (bytes[0] == 192 && bytes[1] == 168));
     }
+
+    private static IPAddress[] GetAndroidLanAddresses() => NetworkInterface.GetAllNetworkInterfaces()
+        .Where(n => n.OperationalStatus == OperationalStatus.Up &&
+            n.NetworkInterfaceType is NetworkInterfaceType.Ethernet or NetworkInterfaceType.Wireless80211)
+        .SelectMany(n => n.GetIPProperties().UnicastAddresses
+            .Where(a => IsPrivateLanAddress(a.Address))
+            .Select(a => a.Address))
+        .Distinct().ToArray();
 
     private IPAddress? ChooseAndroidLanAddress(bool createInvitation = true)
     {
@@ -81,6 +89,9 @@ public partial class NLUIWindowMain
                     ? "USB activo; LAN permanece disponible como respaldo."
                     : status;
                 UpdateHomeLanConnectionButton();
+                UpdateRuntimeButtons();
+                AndroidEngineStateChanged();
+                if (server.IsAuthorized) RequestWaitingExternalVisionFromAndroid();
                 if (server.IsAuthorized || server.IsClosed || !server.IsInvitationOpen)
                 {
                     var discovery = _androidLanDiscovery;
@@ -103,9 +114,12 @@ public partial class NLUIWindowMain
                 _androidLanDiscovery = null;
                 discoveryStatus = "La búsqueda no está disponible en esta red. Revisa el firewall privado de Windows.";
             }
+            // Show the invitation immediately; ADB discovery can take several seconds.
+            Task<bool> codeDelivery = TryDeliverLanCodeOverAdbAsync(server);
 
             var body = new StackPanel();
-            var title = new TextBlock { Text = $"{Environment.MachineName} · {address}\nEscribe este código en NOVORA Android:", FontSize = 17, TextWrapping = TextWrapping.Wrap };
+            var title = new TextBlock { Text = $"{Environment.MachineName} · {address}\n" +
+                "Escribe este código en NOVORA Android:", FontSize = 17, TextWrapping = TextWrapping.Wrap };
             ApplyNovoraText(title);
             body.Children.Add(title);
             var code = new TextBlock { Text = server.PairingCode, FontSize = 42, FontWeight = FontWeights.Bold,
@@ -120,6 +134,14 @@ public partial class NLUIWindowMain
             ApplyNovoraText(details, "MutedBrush");
             body.Children.Add(details);
             invitationDialog = CreateNovoraDialog("NOVORA Android · Código LAN", 510, body);
+            invitationDialog.Loaded += async (_, _) =>
+            {
+                bool delivered = await codeDelivery;
+                if (delivered && ReferenceEquals(_androidLanControl, server) &&
+                    server.IsInvitationOpen && invitationDialog?.IsVisible == true)
+                    title.Text = $"{Environment.MachineName} · {address}\n" +
+                        "Código colocado en AppControl por depuración autorizada:";
+            };
             AndroidControlStatus.Text = "Código LAN abierto; todavía no hay un Android autorizado.";
             invitationDialog.ShowDialog();
             invitationDialog = null;
@@ -136,5 +158,45 @@ public partial class NLUIWindowMain
             _androidControlPreparing = false;
             UpdateHomeLanConnectionButton();
         }
+    }
+
+    private async Task<bool> TryDeliverLanCodeOverAdbAsync(NLControlTrustServer server)
+    {
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            var devices = (await _adb.GetDevicesAsync(timeout.Token, forceRefresh: true))
+                .Where(device => device.Connected).ToArray();
+            if (devices.Length == 0) return false;
+            var physicalIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var device in devices)
+            {
+                string id = (await _adb.ExecuteRawAsync(
+                    ["-s", device.Serial, "shell", "getprop", "ro.serialno"], timeout.Token)).Trim();
+                if (string.IsNullOrWhiteSpace(id) || id.Equals("unknown", StringComparison.OrdinalIgnoreCase))
+                    return false;
+                physicalIds.Add(id);
+            }
+            if (physicalIds.Count != 1) return false;
+            string serial = devices[0].Serial;
+            string installed = await _adb.ExecuteRawAsync(
+                ["-s", serial, "shell", "pm", "path", "com.novora.appcontrol"], timeout.Token);
+            if (!installed.Contains("package:com.novora.appcontrol", StringComparison.Ordinal)) return false;
+            var invitation = server.Invitation;
+            var handoff = new NLControlLanCodeHandoff(
+                Environment.MachineName, invitation.Host, invitation.Port,
+                invitation.Fingerprint, server.PairingCode, invitation.ExpiresUnix);
+            handoff.Validate();
+            string payload = Convert.ToBase64String(
+                System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(handoff));
+            string launch = await _adb.ExecuteRawAsync(
+                ["-s", serial, "shell", "am", "start", "--user", "0", "-n",
+                    "com.novora.appcontrol/.LanCodeActivity", "--es", "novora.lan.code", payload],
+                timeout.Token);
+            return !launch.Contains("Error:", StringComparison.OrdinalIgnoreCase) &&
+                !launch.Contains("Permission Denial", StringComparison.OrdinalIgnoreCase) &&
+                !launch.Contains("SecurityException", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception) { return false; }
     }
 }

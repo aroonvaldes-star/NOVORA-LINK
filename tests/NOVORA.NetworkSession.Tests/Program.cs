@@ -1,0 +1,43 @@
+using NOVORA.Control;
+using NOVORA.Network;
+void Require(bool value,string reason) { if(!value)throw new Exception(reason); }
+var clock=new ManualClock();
+using var session=new NLExperimentalNetworkSession(new(1,10,"lan:a",NLNetworkDomain.DeviceLink,NLNetworkPolicyMode.Manual,2_000_000,500_000),8_000_000,true,clock);
+var d=session.Evaluate();
+Require(d.VideoRateFactor==1,"Sufficient measured capacity reduced chosen video before bulk");
+Require(d.Grants.Where(g=>g.Direction==NLNetworkDirection.FromAndroid).Sum(g=>g.BytesPerSecond)<=2_000_000,"Upload cap exceeded");
+Require(d.Grants.Where(g=>g.Direction==NLNetworkDirection.ToAndroid).All(g=>g.TrafficClass!=NLNetworkTrafficClass.Video && g.TrafficClass!=NLNetworkTrafficClass.Audio),"PC download budget reserved nonexistent reverse video/audio");
+Require(d.Grants.Any(g=>g.Direction==NLNetworkDirection.ToAndroid && g.TrafficClass==NLNetworkTrafficClass.Bulk),"Reverse files cannot progress");
+var revision=d.AppliedPolicy.Revision; clock.Advance(1000);
+using var reverseOnly=new NLExperimentalNetworkSession(new(1,10,"lan:c",NLNetworkDomain.DeviceLink,NLNetworkPolicyMode.Manual,null,500_000),8_000_000,true,clock);
+Require(reverseOnly.Evaluate().VideoRateFactor==1,"Unknown upload capacity reduced video");
+Require(session.Evaluate().AppliedPolicy.Revision==revision,"Unchanged rate incremented revision");
+using var internet=new NLExperimentalNetworkSession(new(1,10,"usb:b",NLNetworkDomain.Internet,NLNetworkPolicyMode.Adaptive,1_000_000,2_000_000),0,false,clock);
+var quiet=internet.Evaluate();
+Require(quiet.AppliedPolicy.Mode==NLNetworkPolicyMode.Adaptive && quiet.Grants.Count==2,"Missing telemetry removed explicit manual ceiling");
+NLNetworkSample Sample(long gen,long at)=>new(gen,"usb:b",NLNetworkDomain.Internet,NLNetworkDirection.FromAndroid,NLNetworkSampleSource.Pipeline,at,1,null,20,60,65536,0,0,0,true);
+internet.Observe([Sample(9,clock.GetTimestamp())]); internet.Evaluate(); clock.Advance(1000);
+internet.Observe([Sample(10,clock.GetTimestamp())]); var first=internet.Evaluate(); clock.Advance(1000);
+internet.Observe([Sample(10,clock.GetTimestamp())]); var cut=internet.Evaluate();
+Require(cut.Grants.Single(g=>g.Direction==NLNetworkDirection.FromAndroid).BytesPerSecond==800_000,"Unknown Internet traffic not regulated");
+Require(cut.AppliedPolicy.Revision>first.AppliedPolicy.Revision && cut.Grants.All(g=>g.Revision==cut.AppliedPolicy.Revision),"Changed rate reused old revision");
+Require(cut.VideoRateFactor==1,"WAN-only congestion reduced VE video");
+Console.WriteLine("PASS session: directional budgets, stale generation, ceiling retention, revisions, WAN isolation");
+var probeClock=new ManualClock();
+using var probe=new NLExperimentalInternetProbe(10,"usb:b",probeClock);
+probe.BeginCalibration(true);
+for(int i=0;i<60;i++){ probeClock.Advance(500); probe.RecordResult(10,true); }
+var baseline=probe.TryGetBaseline();
+Require(baseline is {QuietCalibrationConfirmed:true,Source:NLNetworkSampleSource.InternetPcHttp} && baseline.RttP95Ms==10,"Quiet 30sec source baseline unavailable");
+Require(probe.Samples.All(s=>s.Domain==NLNetworkDomain.Internet && s.Source==NLNetworkSampleSource.InternetPcHttp),"PC HTTP probe mislabeled device/tunnel");
+probe.BeginCalibration(false); probeClock.Advance(31000); probe.RecordResult(10,true);
+Require(probe.TryGetBaseline() is null,"Unconfirmed quiet calibration accepted");
+probe.RecordResult(double.NaN,true); Require(probe.Samples.All(s=>s.RttMs is null || double.IsFinite(s.RttMs.Value)),"Invalid HTTP sample accepted");
+Console.WriteLine("PASS calibration: confirmed 30sec only, source separation, bounded valid metrics");
+var shared=NLNetworkSharedLinkBudget.Split(2_000_000,1_000_000,1_000_000,192_000);
+Require(shared.VeFromAndroid+shared.RelayFromAndroid==2_000_000 && shared.VeToAndroid+shared.RelayToAndroid==1_000_000,"Shared route exceeds physical ceilings");
+using var sharedVideo=new NLExperimentalNetworkSession(new(1,10,"lan:shared",NLNetworkDomain.DeviceLink,NLNetworkPolicyMode.Manual,shared.VeFromAndroid,shared.VeToAndroid),8_000_000,true,clock);
+Require(sharedVideo.Evaluate().VideoRateFactor==1,"Shared route lowered video despite sufficient capacity");
+Require(shared.RelayFromAndroid>=64_000,"Shared LE has no reserved progress");
+try { NLNetworkSharedLinkBudget.Split(null,1_000_000,1_000_000,192_000); throw new Exception("Unknown shared capacity accepted"); } catch(ArgumentException) { }
+Console.WriteLine("PASS explicitly shared route: joint ceilings, profile retention, LE progress, unknown capacity refusal");

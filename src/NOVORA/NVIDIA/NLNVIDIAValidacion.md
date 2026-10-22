@@ -67,7 +67,7 @@ Todos mantuvieron UseNvdec/UseNvenc/UseZeroCopy/UseRtxVideo/UseFruc desactivados
 | Backend nativo NVIDIA | Ausente; sin decodificación/codificación NVIDIA activa |
 | RTX Video/FRUC/zero-copy NVIDIA | No implementados |
 | NLNVIDIAMetrics | Contrato sin productor conectado; no telemetría GPU real |
-| NVTX en RelayCore | Dependencia opcional declarada; sin llamadas propias encontradas |
+| NVTX en NovoraRelay | No declarado ni instrumentado en el relay actual |
 | Skills/SDK citados en documentos | Referencias, no instalaciones o integraciones de ejecución realizadas aquí |
 
 Las duraciones de detección en el JSON son tiempos de consulta de APIs, no medidas

@@ -23,7 +23,8 @@ public sealed class VEVideoFrame : IDisposable
         DateTimeOffset decodedAtUtc,
         IntPtr nativeFrame,
         VEVideoLayout layout,
-        Action<IntPtr> release)
+        Action<IntPtr> release,
+        long receivedTimestamp = 0)
     {
         if (nativeFrame == IntPtr.Zero)
             throw new ArgumentException("AVFrame clonado nulo.", nameof(nativeFrame));
@@ -37,6 +38,7 @@ public sealed class VEVideoFrame : IDisposable
         ExpectedWidth = expectedWidth;
         ExpectedHeight = expectedHeight;
         DecodedAtUtc = decodedAtUtc;
+        ReceivedTimestamp = receivedTimestamp;
         _nativeFrameVE = nativeFrame;
         _releaseVE = release;
 
@@ -60,6 +62,8 @@ public sealed class VEVideoFrame : IDisposable
     public int ExpectedWidth { get; }
     public int ExpectedHeight { get; }
     public DateTimeOffset DecodedAtUtc { get; }
+    /// <summary>Marca <see cref="System.Diagnostics.Stopwatch"/> al recibir el paquete; 0 si no se conoce.</summary>
+    public long ReceivedTimestamp { get; }
     public int Width { get; }
     public int Height { get; }
     public int NativePixelFormat { get; }

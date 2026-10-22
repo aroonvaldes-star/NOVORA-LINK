@@ -5,7 +5,7 @@ Este archivo identifica componentes de terceros conocidos integrados o utilizado
 | Componente | Autor / proyecto | Licencia |
 |---|---|---|
 | scrcpy | Genymobile / Romain Vimont | Apache-2.0 |
-| Gnirehtet | Genymobile | Apache-2.0 |
+| tcp_ip | rustp2p | Apache-2.0 |
 | ADB | Android Open Source Project | Apache-2.0 en los componentes ADB aplicables |
 | SDL3 | Simple DirectMedia Layer | zlib License |
 | FFmpeg | FFmpeg project | Sujeto a la licencia del build distribuido (LGPL/GPL según configuración) |
@@ -17,14 +17,14 @@ NOVORA no reclama propiedad sobre esos componentes.
 ## Fuentes oficiales
 
 - scrcpy: https://github.com/Genymobile/scrcpy
-- Gnirehtet: https://github.com/Genymobile/gnirehtet
+- tcp_ip: https://github.com/rustp2p/tcp_ip
 - ADB: https://android.googlesource.com/platform/packages/modules/adb/
 - SDL: https://github.com/libsdl-org/SDL
 - FFmpeg: https://ffmpeg.org/
 
 ## FFmpeg compartido de VE — 2026-09-14
 
-Se sustituyeron avcodec-62, avutil-60, avformat-62 y swresample-6 por el conjunto
+Se conservan avcodec-62, avutil-60 y swresample-6 del conjunto
 BtbN `ffmpeg-n8.1-latest-win64-lgpl-shared-8.1.zip`, versión real
 `n8.1.2-52-g5a03dfa0f6-20260913`. Es un build compartido LGPLv3 (`--enable-version3`,
 sin `--enable-gpl`); incluye NVDEC y mantiene decodificadores software.
@@ -38,6 +38,8 @@ Esta validación técnica no constituye una auditoría de cumplimiento de todas 
 licencias de dependencias estáticas para una futura distribución pública.
 
 
-## Backend temporal de VisionEngine
+## Video Android y relay IP
 
-VisionEngine conserva temporalmente `scrcpy-server` como backend Android compatible mientras NOVORA desarrolla y valida una sustitución propia. Su uso no se presenta como código original de NOVORA. Consulte `Documentation/ThirdParty/NLDocumentationScrcpyServerProvenance.md`.
+VisionEngine recibe video, audio y control desde App Control. Los ejecutables de scrcpy ya no forman parte del proyecto. Se conserva el reconocimiento histórico de scrcpy hasta completar la revisión de procedencia del protocolo multimedia y del descriptor HID.
+
+El relay IP de LinkEngine es código de NOVORA sobre el stack `tcp_ip` (Apache-2.0). El código derivado del relay anterior fue retirado del árbol activo. El reconocimiento histórico de Gnirehtet permanece en `NLLegalAcknowledgements.md` para registrar procedencia previa.

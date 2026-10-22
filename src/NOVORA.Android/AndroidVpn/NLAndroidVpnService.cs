@@ -2,6 +2,7 @@ using Android.App;
 using Android.Content;
 using Android.Content.PM;
 using Android.Net;
+using AndroidNetNetwork = Android.Net.Network;
 using Android.OS;
 using Android.Systems;
 using NOVORA.Control;
@@ -12,6 +13,7 @@ using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.IO;
+using System.Text.Json;
 using Resource = NOVORA.AndroidApp.Resource;
 
 namespace NOVORA.AndroidVpn;
@@ -41,7 +43,20 @@ public sealed class NLAndroidVpnService : VpnService
     private static volatile bool _running;
     private static string _status = "VPN USB detenida.";
     private static NLControlLinkOffer? _lanOffer;
+    private static long _vpnTxBytes, _vpnRxBytes, _vpnTxPackets, _vpnRxPackets;
+    private static volatile bool _tunnelReady;
+    private static string _activeTransport = "USB";
+    private static readonly object MonitorGate = new();
+    private static CancellationTokenSource? _monitorRun;
+    private static NLLinkMonitorSample? _monitorSample;
+    public sealed record NLLinkMonitorSample(DateTimeOffset SampledAtUtc, string Transport,
+        double TxMbps, double RxMbps, long TxBytes, long RxBytes,
+        long TxPackets, long RxPackets, string SessionId);
     public static bool IsRunning => _running;
+    public static bool IsTunnelReady => _tunnelReady;
+    public static bool IsMonitoring { get { lock (MonitorGate) return _monitorRun is not null; } }
+    public static NLLinkMonitorSample? MonitorSample => Volatile.Read(ref _monitorSample);
+    public static event EventHandler? MonitorChanged;
     public static string Status => Volatile.Read(ref _status);
     public static event EventHandler? StatusChanged;
 
@@ -279,7 +294,7 @@ public sealed class NLAndroidVpnService : VpnService
                     .SetMtu(1500)!.AddAddress("10.0.0.2", 32)!.AddRoute("0.0.0.0", 0)!
                     .AddDnsServer("8.8.8.8")!.SetBlocking(false)!.AddDisallowedApplication(PackageName!);
                 if (OperatingSystem.IsAndroidVersionAtLeast(29)) builder.SetMetered(false);
-                Network? underlying = FindUnderlyingNetwork();
+                AndroidNetNetwork? underlying = FindUnderlyingNetwork();
                 if (underlying is not null) builder.SetUnderlyingNetworks([underlying]);
                 _tun = builder.Establish() ?? throw new InvalidOperationException("Android no autorizó el túnel VPN.");
                 _wake = Os.Pipe() ?? throw new IOException("No se pudo preparar cancelación del túnel.");
@@ -301,6 +316,8 @@ public sealed class NLAndroidVpnService : VpnService
                         if (NLControlVpnProtocol.ValidateIpv4(packet.AsSpan(0, count)) != count)
                             throw new InvalidDataException("Paquete TUN inconsistente.");
                         await dataStream.WriteAsync(packet.AsMemory(0, count), run.Token);
+                        Interlocked.Add(ref _vpnTxBytes, count);
+                        Interlocked.Increment(ref _vpnTxPackets);
                     }
                 });
                 inbound = Task.Run(async () =>
@@ -316,6 +333,8 @@ public sealed class NLAndroidVpnService : VpnService
                             {
                                 if (Os.Write(descriptor, packet, 0, count) != count)
                                     throw new IOException("Escritura TUN incompleta.");
+                                Interlocked.Add(ref _vpnRxBytes, count);
+                                Interlocked.Increment(ref _vpnRxPackets);
                                 break;
                             }
                             catch (ErrnoException ex) when (ex.Errno == OsConstants.Eagain) { }
@@ -323,6 +342,8 @@ public sealed class NLAndroidVpnService : VpnService
                     }
                 });
             }
+            _activeTransport = lanOffer is null ? "USB" : "LAN";
+            _tunnelReady = true;
             SetStatus(lanOffer is null ? "Conectado a Internet con LinkEngine USB" :
                 "Conectado a Internet con LinkEngine LAN", true);
             await await Task.WhenAny(heartbeat, outbound, inbound);
@@ -337,6 +358,8 @@ public sealed class NLAndroidVpnService : VpnService
         }
         finally
         {
+            _tunnelReady = false;
+            StopMonitor();
             CloseRun();
             try { await Task.WhenAll(new[] { heartbeat, outbound, inbound }.OfType<Task>()); } catch { }
             lock (_gate)
@@ -357,6 +380,75 @@ public sealed class NLAndroidVpnService : VpnService
             });
         }
     }
+    public static bool StartMonitor(Context context)
+    {
+        lock (MonitorGate)
+        {
+            if (!_tunnelReady) return false;
+            if (_monitorRun is not null) return true;
+            var run = new CancellationTokenSource();
+            _monitorRun = run;
+            Volatile.Write(ref _monitorSample, null);
+            string sessionId = Guid.NewGuid().ToString("N");
+            string path = Path.Combine(context.FilesDir!.AbsolutePath!,
+                $"linkengine-monitor-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{sessionId}.jsonl");
+            _ = Task.Run(() => RecordMonitorAsync(path, sessionId, run.Token));
+            MonitorChanged?.Invoke(null, EventArgs.Empty);
+            return true;
+        }
+    }
+
+    public static void StopMonitor()
+    {
+        CancellationTokenSource? run;
+        lock (MonitorGate)
+        {
+            run = _monitorRun;
+            _monitorRun = null;
+        }
+        run?.Cancel();
+        MonitorChanged?.Invoke(null, EventArgs.Empty);
+    }
+
+    private static async Task RecordMonitorAsync(string path, string sessionId, CancellationToken token)
+    {
+        long lastTx = Interlocked.Read(ref _vpnTxBytes);
+        long lastRx = Interlocked.Read(ref _vpnRxBytes);
+        long previousTicks = System.Diagnostics.Stopwatch.GetTimestamp();
+        try
+        {
+            await using var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write,
+                FileShare.Read, 4096, FileOptions.Asynchronous);
+            await using var writer = new StreamWriter(file);
+            while (!token.IsCancellationRequested && _tunnelReady)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), token);
+                long nowTicks = System.Diagnostics.Stopwatch.GetTimestamp();
+                double seconds = (nowTicks - previousTicks) /
+                    (double)System.Diagnostics.Stopwatch.Frequency;
+                previousTicks = nowTicks;
+                long tx = Interlocked.Read(ref _vpnTxBytes);
+                long rx = Interlocked.Read(ref _vpnRxBytes);
+                var sample = new NLLinkMonitorSample(DateTimeOffset.UtcNow, _activeTransport,
+                    (tx - lastTx) * 8 / seconds / 1_000_000,
+                    (rx - lastRx) * 8 / seconds / 1_000_000,
+                    tx, rx, Interlocked.Read(ref _vpnTxPackets),
+                    Interlocked.Read(ref _vpnRxPackets), sessionId);
+                lastTx = tx;
+                lastRx = rx;
+                await writer.WriteLineAsync(JsonSerializer.Serialize(sample));
+                await writer.FlushAsync(token);
+                Volatile.Write(ref _monitorSample, sample);
+                MonitorChanged?.Invoke(null, EventArgs.Empty);
+            }
+        }
+        catch (System.OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            Android.Util.Log.Error("NOVORA-VPN", "Monitor LE: " + ex.Message);
+            StopMonitor();
+        }
+    }
     public static void Start(Context context, NLControlLinkOffer offer)
     {
         ArgumentNullException.ThrowIfNull(offer);
@@ -364,7 +456,7 @@ public sealed class NLAndroidVpnService : VpnService
         StartCore(context);
     }
 
-    private Network? FindUnderlyingNetwork()
+    private AndroidNetNetwork? FindUnderlyingNetwork()
     {
         var connectivity =
             (ConnectivityManager?)GetSystemService(ConnectivityService);
@@ -375,7 +467,7 @@ public sealed class NLAndroidVpnService : VpnService
         }
 
 #pragma warning disable CA1422
-        foreach (Network network in connectivity.GetAllNetworks())
+        foreach (AndroidNetNetwork network in connectivity.GetAllNetworks())
 #pragma warning restore CA1422
         {
             NetworkCapabilities? capabilities =

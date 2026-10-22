@@ -27,7 +27,7 @@ public static class NLServiceBitrate
         if (mbps <= 0 || double.IsNaN(mbps) || double.IsInfinity(mbps))
             return "4M";
 
-        return FormatScrcpy(mbps);
+        return FormatEncoderBitrate(mbps);
     }
 
     public static string FormatMbps(double mbps)
@@ -89,7 +89,7 @@ public static class NLServiceBitrate
         return true;
     }
 
-    private static string FormatScrcpy(double mbps)
+    private static string FormatEncoderBitrate(double mbps)
     {
         return mbps.ToString("0.###", CultureInfo.InvariantCulture) + "M";
     }

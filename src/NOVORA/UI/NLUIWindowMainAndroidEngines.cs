@@ -25,14 +25,17 @@ public partial class NLUIWindowMain
     private NLControlLanDataGateway? _androidLanDataGateway;
     private NLControlLinkOffer? _androidLanLinkOffer;
     private bool _pcVideoAuthorizationRequested;
+    private long _pcVideoAuthorizationRequestId;
     private CancellationTokenSource? _pcVideoAuthorizationTimeout;
     private readonly VEMetricsCollector _androidVisionMetrics = new();
+    private readonly VEObservationWindow _androidVisionObservation = new();
+    private long _lastAndroidVisionTelemetryPublishTicks;
 
     private NLControlEngines CaptureAndroidEngines()
     {
         bool videoRunning = IsVisionEngineRunningVE();
         var videoState = _visionEngineVE?.StatusVE.State;
-        bool videoBusy = _visionCommandApplyingVE || _visionRecoveryRunningVE || videoState is
+        bool videoBusy = _visionCommandApplyingVE || videoState is
             VECoreStates.Initializing or VECoreStates.Starting or VECoreStates.Stopping or VECoreStates.Disposed;
         var device = _viewModel.Device;
         var link = _linkEngineRuntimeLE;
@@ -45,11 +48,13 @@ public partial class NLUIWindowMain
         bool lanEligible = _androidLanControl?.IsAuthorized == true;
         VEExternalSourceKind externalSource = _visionEngineVE?.RuntimeVE.ExternalSourceKindVE ??
             VEExternalSourceKind.None;
-        bool lanLifecycle = _veLanSessionVE is not null ||
+        bool lanWaitingForDevice = _externalVisionWaitingForDeviceVE &&
+            _externalVisionWaitingSourceVE == VEExternalSourceKind.NativeLan;
+        bool lanLifecycle = !lanWaitingForDevice && (_veLanSessionVE is not null ||
             externalSource == VEExternalSourceKind.NativeLan ||
             _veLanPhaseVE is "Preparing" or "AwaitingPermission" or "Connecting" or
-                "Degraded" or "Stopping";
-        bool lanStateVisible = lanLifecycle || _veLanPhaseVE == "Error";
+                "Degraded" or "Stopping");
+        bool lanStateVisible = lanLifecycle || lanWaitingForDevice || _veLanPhaseVE == "Error";
         string videoTransport = lanStateVisible ? "LAN" :
             externalSource == VEExternalSourceKind.UsbAppControl || videoRunning ? "USB" : "";
         string videoPhase = lanStateVisible ? _veLanPhaseVE :
@@ -74,16 +79,32 @@ public partial class NLUIWindowMain
         bool videoSourceAvailable = device.Connected && !string.IsNullOrWhiteSpace(device.Serial) || lanEligible;
         NLControlVisionTelemetry? visionTelemetry = null;
         var visionRuntime = _visionEngineVE?.RuntimeVE;
-        if (videoRunning && visionRuntime is not null)
+        bool visionStreaming = videoRunning && _visionEngineVE?.StatusVE.VideoStreaming == true;
+        if (visionStreaming && visionRuntime is not null)
         {
             VEMetricsSnapshot metrics = _androidVisionMetrics.CaptureVE(
                 visionRuntime.VideoVE.StatusVE, visionRuntime.AudioVE.StatusVE,
-                visionRuntime.ControlVE.StatusVE, visionRuntime.TransportVE.StateVE,
-                visionRuntime.TransportSessionVE);
+                visionRuntime.ControlVE.StatusVE, VisionEngine.Transport.VETransportStates.Connected);
             var renderer = visionRuntime.RendererVE.StatusVE;
             if (renderer.TextureWidth > 0 && renderer.TextureHeight > 0)
+            {
+                VEObservationWindowSnapshot observation = _androidVisionObservation.Observe(
+                    isStreaming: true, metrics.CapturedAtUtc);
+                VECoreStatus status = _visionEngineVE!.StatusVE;
                 visionTelemetry = new(renderer.TextureWidth, renderer.TextureHeight,
-                    metrics.Video.FramesPerSecond, metrics.Video.MegabitsPerSecond, metrics.CapturedAtUtc);
+                    metrics.Video.FramesPerSecond, metrics.Video.MegabitsPerSecond, metrics.CapturedAtUtc,
+                    status.VideoFramesDecoded, status.VideoFramesRendered, status.RendererFramesDropped,
+                    status.VideoDecodeErrors, status.RendererErrors,
+                    observation.IsActive, observation.IsCompleted, observation.RemainingSeconds);
+            }
+            else
+            {
+                _androidVisionObservation.Observe(isStreaming: false, metrics.CapturedAtUtc);
+            }
+        }
+        else
+        {
+            _androidVisionObservation.Observe(isStreaming: false, DateTimeOffset.UtcNow);
         }
         return new NLControlEngines(
             !_closing && !videoBusy && !videoRunning && !lanLifecycle && videoSourceAvailable &&
@@ -109,7 +130,8 @@ public partial class NLUIWindowMain
             videoPhase,
             lanStateVisible && _veLanDegradedVE,
             null,
-            visionTelemetry);
+            visionTelemetry,
+            _pcVideoAuthorizationRequested ? _pcVideoAuthorizationRequestId : 0);
     }
 
     // Existing engine/device events publish only changes relevant to the control UI.
@@ -124,17 +146,63 @@ public partial class NLUIWindowMain
         }
         NLControlEngines current = CaptureAndroidEngines();
         VisionLiveTelemetryText14.Text = current.VisionTelemetry is { } telemetry
-            ? $"Última medición del flujo: {telemetry.Width} × {telemetry.Height} · " +
-              $"{telemetry.FramesPerSecond:0.#} FPS · {telemetry.MegabitsPerSecond:0.##} Mb/s · " +
-              $"{telemetry.SampledAtUtc.ToLocalTime():HH:mm:ss}"
+            ? $"Monitor VE: {FormatVisionObservation(telemetry)} · {telemetry.Width} × {telemetry.Height} · " +
+              $"{telemetry.FramesPerSecond:F1} FPS · {telemetry.MegabitsPerSecond:F1} Mbps · " +
+              $"decodificados {telemetry.FramesDecoded:N0}, renderizados {telemetry.FramesRendered:N0}, " +
+              $"perdidos {telemetry.FramesDropped:N0}, errores {telemetry.DecodeErrors + telemetry.RenderErrors:N0}."
             : current.VideoState == "Activo"
-                ? "Transmisión activa; esperando la primera medición real."
-                : "Sin datos reales: VisionEngine no está transmitiendo.";
+                ? "La pantalla se está preparando."
+                : "La pantalla aún no se está mostrando.";
+
+        if (current.VideoState == "Activo" &&
+            _visionEngineVE?.RuntimeVE is { } latencyRuntime &&
+            latencyRuntime.RendererVE.StatusVE.Metrics is { FramesPresented: > 0 } latency)
+        {
+            VisionLiveTelemetryText14.Text +=
+                $" Latencia: recepción→pantalla {latency.LastReceiveToPresentMs:F1} ms · " +
+                $"decodificado→pantalla {latency.LastFrameAgeMs:F1} ms";
+            // Capture→screen needs the phone clock, reported by the control echo (Experimental observation).
+            if (latencyRuntime.ControlVE.DeviceClockOffsetUsVE is long offsetUs &&
+                latency.LastPresentedSourcePtsUs > 0 && latency.LastPresentedAtTimestamp > 0)
+            {
+                double presentedUs = latency.LastPresentedAtTimestamp * 1_000_000d / System.Diagnostics.Stopwatch.Frequency;
+                double captureToScreenMs = (presentedUs + offsetUs - latency.LastPresentedSourcePtsUs) / 1000d;
+                if (captureToScreenMs is >= 0 and < 5000)
+                    VisionLiveTelemetryText14.Text += $" · captura→pantalla {captureToScreenMs:F0} ms";
+            }
+            VisionLiveTelemetryText14.Text += ".";
+        }
+
+        if (current.VideoState == "Activo" &&
+            _visionEngineVE?.RuntimeVE.RendererVE.StatusVE.Metrics is { DynamicPresentationEnabled: true } timing)
+            VisionLiveTelemetryText14.Text +=
+                $" Presentación dinámica: {timing.PresentedFps:F1} FPS / {timing.TargetRefreshRateHz:F2} Hz · " +
+                $"intervalo {timing.LastPresentIntervalMs:F1} ms · variación {timing.PresentationJitterMs:F1} ms · " +
+                $"recuperaciones {timing.CompositionFallbacks:N0}.";
 
         if (current == _lastAndroidEngineState) return;
         _lastAndroidEngineState = current;
         _androidControlRevision++;
         QueueAndroidControlSnapshot();
+    }
+
+    private static string FormatVisionObservation(NLControlVisionTelemetry telemetry)
+    {
+        if (telemetry.ObservationCompleted) return "observación completada (20 min)";
+        if (!telemetry.ObservationActive) return "observación pendiente";
+        TimeSpan remaining = TimeSpan.FromSeconds(telemetry.ObservationSecondsRemaining);
+        return $"{remaining.Minutes:D2}:{remaining.Seconds:D2} restantes";
+    }
+
+    private bool ShouldPublishAndroidVisionTelemetry(VECoreStatus status)
+    {
+        if (!status.VideoStreaming) return false;
+
+        long nowTicks = DateTime.UtcNow.Ticks;
+        long previousTicks = Interlocked.Read(ref _lastAndroidVisionTelemetryPublishTicks);
+        if (nowTicks - previousTicks < TimeSpan.TicksPerSecond) return false;
+        return Interlocked.CompareExchange(
+            ref _lastAndroidVisionTelemetryPublishTicks, nowTicks, previousTicks) == previousTicks;
     }
 
     private async Task<NLControlReply> ApplyAndroidEngineActionAsync(NLControlRequest request, string transport)
@@ -152,12 +220,8 @@ public partial class NLUIWindowMain
                 ClearPcVideoAuthorizationRequest();
                 return await PrepareAppControlVideoAsync(request);
             case "startVideoLan":
+                ClearPcVideoAuthorizationRequest();
                 return await PrepareVeLanVideoAsync(request, transport);
-            case "startVideo":
-                if (IsVisionEngineRunningVE()) return Reply(true, "VisionEngine ya está iniciado.");
-                await SetVisionEngineRunningVEAsync(true, SameDevice);
-                return Reply(Authorized() && IsVisionEngineRunningVE(),
-                    IsVisionEngineRunningVE() ? "VisionEngine iniciado." : "VisionEngine no se inició.");
             case "stopVideo":
                 if (!IsVisionEngineRunningVE()) return Reply(true, "VisionEngine ya está detenido.");
                 if (_visionEngineVE?.RuntimeVE.ExternalSourceKindVE == VEExternalSourceKind.NativeLan)
@@ -170,30 +234,22 @@ public partial class NLUIWindowMain
                     await StopAppControlVideoSourceAsync();
                     return Reply(Authorized() && !IsVisionEngineRunningVE(), "VisionEngine detenido.");
                 }
-                await SetVisionEngineRunningVEAsync(false, Authorized);
-                return Reply(Authorized() && !IsVisionEngineRunningVE(), "VisionEngine detenido.");
+                return Reply(false, "La sesión de video no pertenece a App Control.");
             case "restartVideo":
                 if (_visionEngineVE?.RuntimeVE.ExternalSourceKindVE == VEExternalSourceKind.NativeLan)
                 {
                     await PreserveVisionFailoverDuringRestartVEAsync(() => StopVeLanVideoAsync(
                         "VisionEngine LAN detenido; vuelve a iniciarlo para renovar el permiso de captura."));
-                    return Reply(false, "VisionEngine LAN se detuvo. Inícialo otra vez para renovar la captura.");
+                    return Reply(Authorized() && !IsVisionEngineRunningVE(),
+                        "VisionEngine LAN se detuvo. Android solicitará la captura para reiniciarlo.");
                 }
                 if (_visionEngineVE?.RuntimeVE.IsAppControlVideoActiveVE == true)
                 {
                     await PreserveVisionFailoverDuringRestartVEAsync(StopAppControlVideoSourceAsync);
-                    return Reply(false,
-                        "VisionEngine AppControl se detuvo. Inícialo otra vez para renovar el permiso de captura de Android.");
+                    return Reply(Authorized() && !IsVisionEngineRunningVE(),
+                        "VisionEngine se detuvo. Android solicitará la captura para reiniciarlo.");
                 }
-                await PreserveVisionFailoverDuringRestartVEAsync(async () =>
-                {
-                    await SetVisionEngineRunningVEAsync(false, Authorized);
-                    if (!SameDevice()) return;
-                    await SetVisionEngineRunningVEAsync(true, SameDevice);
-                });
-                if (!SameDevice() || !IsVisionEngineRunningVE())
-                    return Reply(false, "Video detenido; la sesión o el dispositivo cambió.");
-                return Reply(Authorized() && IsVisionEngineRunningVE(), "Reinicio de VisionEngine completado.");
+                return Reply(false, "Solicita una nueva captura desde App Control.");
             case "startLink":
                 if (!CaptureAndroidEngines().LinkCanStart)
                     return Reply(false, "LinkEngine requiere una sesión USB o LAN autorizada y disponible.");
@@ -318,7 +374,7 @@ public partial class NLUIWindowMain
     {
         var device = _viewModel.Device;
         bool authorizedUsb = AndroidControlSessionOpen && _androidControl?.IsAuthorized == true &&
-            _androidControlSerial == device.Serial && device.Connected && !device.IsWifiConnection;
+            _androidControlSerial == device.Serial && device.Connected;
         bool authorizedLan = _androidLanControl?.IsAuthorized == true;
         if (!CanRequestAndroidVideoFromPc(authorizedUsb, authorizedLan))
             throw new InvalidOperationException(
@@ -329,6 +385,7 @@ public partial class NLUIWindowMain
         _pcVideoAuthorizationTimeout?.Cancel();
         _pcVideoAuthorizationTimeout?.Dispose();
         _pcVideoAuthorizationTimeout = new CancellationTokenSource();
+        _pcVideoAuthorizationRequestId++;
         _pcVideoAuthorizationRequested = true;
         _viewModel.ConnectionStatus = "Autoriza compartir pantalla en Android.";
         UpdateRuntimeButtons();

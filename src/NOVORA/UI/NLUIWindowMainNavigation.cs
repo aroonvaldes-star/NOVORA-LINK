@@ -37,7 +37,6 @@ public partial class NLUIWindowMain
         SetPageVisibility14(NetworkPage14, page, "Network");
         SetPageVisibility14(GameInputPage14, page, "GameInput");
         SetPageVisibility14(IntegrationPage14, page, "Integration");
-        SetPageVisibility14(PrivacyPage14, page, "Privacy");
         SetPageVisibility14(SettingsPage14, page, "Settings");
         UpdateNavigationState14(page);
     }
@@ -52,7 +51,6 @@ public partial class NLUIWindowMain
             NavNetwork14,
             NavGameInput14,
             NavIntegration14,
-            NavPrivacy14,
             NavSettings14
         ];
 

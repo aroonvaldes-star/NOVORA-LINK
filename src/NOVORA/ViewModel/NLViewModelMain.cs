@@ -17,6 +17,7 @@ public sealed record NLViewModelSettingOption<T>(
 public sealed class NLViewModelMain : INotifyPropertyChanged
 {
     public const string VideoPresentationModeWindow = "Window";
+    public const string VideoPresentationModeMaximized = "Maximized";
     public const string VideoPresentationModeFullscreen = "Fullscreen";
 
     private bool _audioEnabled = true;
@@ -212,12 +213,11 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
         get => _videoPresentationMode;
         set => Set(
             ref _videoPresentationMode,
-            string.Equals(
-                value,
-                VideoPresentationModeFullscreen,
-                StringComparison.OrdinalIgnoreCase)
+            string.Equals(value, VideoPresentationModeFullscreen, StringComparison.OrdinalIgnoreCase)
                 ? VideoPresentationModeFullscreen
-                : VideoPresentationModeWindow);
+                : string.Equals(value, VideoPresentationModeMaximized, StringComparison.OrdinalIgnoreCase)
+                    ? VideoPresentationModeMaximized
+                    : VideoPresentationModeWindow);
     }
 
     public string SelectedAudioOutput
@@ -355,7 +355,7 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
             new NLViewModelSettingOption<string>("5M", "5 Mb/s"),
             new NLViewModelSettingOption<string>("6M", "6 Mb/s"),
             new NLViewModelSettingOption<string>("7M", "7 Mb/s"),
-            new NLViewModelSettingOption<string>("8M", "8 Mb/s"),
+            new NLViewModelSettingOption<string>("8M", "8 Mb/s (recomendado para LAN)"),
             new NLViewModelSettingOption<string>("9M", "9 Mb/s"),
             new NLViewModelSettingOption<string>("10M", "10 Mb/s"),
             new NLViewModelSettingOption<string>("11M", "11 Mb/s"),
@@ -371,6 +371,10 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
             new NLViewModelSettingOption<string>(
                 VideoPresentationModeWindow,
                 "Ventana"),
+
+            new NLViewModelSettingOption<string>(
+                VideoPresentationModeMaximized,
+                "Ventana maximizada"),
 
             new NLViewModelSettingOption<string>(
                 VideoPresentationModeFullscreen,

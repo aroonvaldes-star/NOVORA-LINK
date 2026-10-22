@@ -51,7 +51,6 @@ public sealed class ExInSdl : IDisposable
     private SdlGetGamepadTypeDelegate? _getTypeVE;
     private SdlGetGamepadStringDelegate? _getPathVE;
     private SdlGetGamepadStringDelegate? _getSerialVE;
-    private SdlGetGamepadMappingDelegate? _getMappingVE;
     private SdlGetGamepadPowerInfoDelegate? _getPowerInfoVE;
     private SdlGetGamepadAxisDelegate? _axisVE;
     private SdlGetGamepadButtonDelegate? _buttonVE;
@@ -92,7 +91,6 @@ public sealed class ExInSdl : IDisposable
             _getTypeVE = TryLoadVE<SdlGetGamepadTypeDelegate>("SDL_GetGamepadType");
             _getPathVE = TryLoadVE<SdlGetGamepadStringDelegate>("SDL_GetGamepadPath");
             _getSerialVE = TryLoadVE<SdlGetGamepadStringDelegate>("SDL_GetGamepadSerial");
-            _getMappingVE = TryLoadVE<SdlGetGamepadMappingDelegate>("SDL_GetGamepadMapping");
             _getPowerInfoVE = TryLoadVE<SdlGetGamepadPowerInfoDelegate>("SDL_GetGamepadPowerInfo");
             _axisVE = LoadVE<SdlGetGamepadAxisDelegate>("SDL_GetGamepadAxis");
             _buttonVE = LoadVE<SdlGetGamepadButtonDelegate>("SDL_GetGamepadButton");
@@ -225,18 +223,6 @@ public sealed class ExInSdl : IDisposable
         return _getTypeVE?.Invoke(gamepad);
     }
 
-    public string? GetMappingVE(IntPtr gamepad)
-    {
-        EnsureInitializedVE();
-        ArgumentOutOfRangeException.ThrowIfEqual(gamepad, IntPtr.Zero);
-        if (_getMappingVE is null) return null;
-
-        IntPtr value = _getMappingVE(gamepad);
-        if (value == IntPtr.Zero) return null;
-        try { return Marshal.PtrToStringUTF8(value); }
-        finally { _freeVE!(value); }
-    }
-
     public ExInBatteryStatus GetBatteryStatusVE(IntPtr gamepad, ExInControllerIdentity identity)
     {
         EnsureInitializedVE();
@@ -269,6 +255,11 @@ public sealed class ExInSdl : IDisposable
         if (_buttonVE!(gamepad, 12)) buttons |= ExInButtons.DPadDown;
         if (_buttonVE!(gamepad, 13)) buttons |= ExInButtons.DPadLeft;
         if (_buttonVE!(gamepad, 14)) buttons |= ExInButtons.DPadRight;
+        // SDL3: right paddle 1=16, left paddle 1=17, right paddle 2=18, left paddle 2=19.
+        if (_buttonVE!(gamepad, 17)) buttons |= ExInButtons.P1;
+        if (_buttonVE!(gamepad, 19)) buttons |= ExInButtons.P2;
+        if (_buttonVE!(gamepad, 16)) buttons |= ExInButtons.P3;
+        if (_buttonVE!(gamepad, 18)) buttons |= ExInButtons.P4;
         if (_buttonVE!(gamepad, 20)) buttons |= ExInButtons.Touchpad;
 
         return new ExInState(
@@ -516,9 +507,6 @@ public sealed class ExInSdl : IDisposable
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate IntPtr SdlGetGamepadStringDelegate(IntPtr gamepad);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate IntPtr SdlGetGamepadMappingDelegate(IntPtr gamepad);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate int SdlGetGamepadPowerInfoDelegate(IntPtr gamepad, out int percent);

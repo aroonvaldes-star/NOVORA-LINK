@@ -1,14 +1,12 @@
 namespace NOVORA.VisionEngine.Protocol;
 
 /// <summary>
-/// Constantes del protocolo multimedia compatible con scrcpy 4.1.
-/// Block B comparte estas constantes entre video y audio.
+/// Constantes del protocolo multimedia compartido por App Control y VisionEngine.
 /// </summary>
 public static class VEProtocolConstants
 {
     public const int PacketHeaderSizeVE = 12;
     public const int CodecIdSizeVE = 4;
-    public const int DeviceNameFieldLengthVE = 64;
     public const int MaxPacketLengthVE = 64 * 1024 * 1024;
 
     public const int RawAudioSampleRateVE = 48_000;
@@ -28,9 +26,4 @@ public static class VEProtocolConstants
     public const int FfmpegAgainVE = -11;
     public const int FfmpegEofVE = -541478725;
 
-    public const string ScrcpyServerClassVE = "com.genymobile.scrcpy.Server";
-    public const string ScrcpyCompatibilityVersionVE = "4.1";
-    public const string ScrcpySocketPrefixVE = "scrcpy_";
-    public static string BuildRemoteServerPathVE(int scid)
-        => $"/data/local/tmp/novora-vision-server-{scid:x8}.jar";
 }

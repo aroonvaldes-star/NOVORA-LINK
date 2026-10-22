@@ -8,14 +8,14 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoPath = [IO.Path]::GetFullPath($RepoPath)
-$RelayCore = Join-Path $RepoPath "src\NOVORA\LinkEngine\Network\Native\RelayCore"
-$Manifest = Join-Path $RelayCore "Cargo.toml"
-$BuiltExe = Join-Path $RelayCore "target\release\novora-linkengine-relay.exe"
+$NovoraRelay = Join-Path $RepoPath "src\NOVORA\LinkEngine\Network\Native\NovoraRelay"
+$Manifest = Join-Path $NovoraRelay "Cargo.toml"
+$BuiltExe = Join-Path $NovoraRelay "target\release\novora-linkengine-relay.exe"
 $ToolsDir = Join-Path $RepoPath "src\NOVORA\Tools\LinkEngine"
-$RuntimeExe = Join-Path $ToolsDir "NOVORA.LinkEngine.Relay.exe"
+$RuntimeExe = Join-Path $ToolsDir "LENetworkRelay.exe"
 
 if (-not (Test-Path -LiteralPath $Manifest -PathType Leaf)) {
-    throw "No se encontró RelayCore: $Manifest"
+    throw "No se encontró NovoraRelay: $Manifest"
 }
 
 $Cargo = Get-Command cargo -ErrorAction SilentlyContinue
@@ -27,10 +27,10 @@ Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host " NOVORA-LINK - BUILD LINKENGINE RELAY" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "RelayCore: $RelayCore"
+Write-Host "NovoraRelay: $NovoraRelay"
 Write-Host ""
 
-Push-Location $RelayCore
+Push-Location $NovoraRelay
 try {
     & cargo build --release
     if ($LASTEXITCODE -ne 0) {

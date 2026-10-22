@@ -3,6 +3,7 @@ using Android.Opengl;
 using Android.OS;
 using Android.Views;
 using Java.Nio;
+using NOVORA.Control;
 
 namespace NOVORA.AndroidVideo;
 
@@ -10,7 +11,10 @@ internal sealed class NLAndroidVideoCompositor : Java.Lang.Object,
     SurfaceTexture.IOnFrameAvailableListener, IAsyncDisposable
 {
     private const int TextureExternalOes = 0x8D65;
-    private readonly HandlerThread _thread = new("NOVORA-VE-Compositor");
+    private readonly HandlerThread _thread = new("NOVORA-VE-Compositor", (int)Android.OS.ThreadPriority.Display);
+    private readonly float[] _transform = new float[16];
+    private long _deferredTimestamp;
+    private bool _deferredScheduled;
     private readonly TaskCompletionSource _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Surface _encoderSurface;
     private readonly int _outputWidth;
@@ -31,16 +35,23 @@ internal sealed class NLAndroidVideoCompositor : Java.Lang.Object,
     private int _rotationLocation;
     private int _rotationQuarterTurns;
     private bool _disposed;
+    private readonly NLControlCaptureFramePacer? _framePacer;
 
-    public NLAndroidVideoCompositor(Surface encoderSurface, int outputWidth, int outputHeight)
+    public NLAndroidVideoCompositor(Surface encoderSurface, int outputWidth, int outputHeight,
+        int initialFps = 0)
     {
         _encoderSurface = encoderSurface ?? throw new ArgumentNullException(nameof(encoderSurface));
         _outputWidth = outputWidth;
         _outputHeight = outputHeight;
+        _framePacer = initialFps == 0 ? null : new NLControlCaptureFramePacer(initialFps);
         _thread.Start();
         _handler = new Handler(_thread.Looper!);
         _handler.Post(Initialize);
     }
+
+    public bool TrySetTargetFps(int fps) => !_disposed && _framePacer?.SetTargetFps(fps) == true;
+    public long SourceFrames => _framePacer?.FramesSeen ?? 0;
+    public long PresentedFrames => _framePacer?.FramesPresented ?? 0;
 
     public async Task<Surface> GetCaptureSurfaceAsync(CancellationToken cancellationToken)
     {
@@ -76,33 +87,74 @@ internal sealed class NLAndroidVideoCompositor : Java.Lang.Object,
         try
         {
             surfaceTexture.UpdateTexImage();
-            float[] transform = new float[16];
-            surfaceTexture.GetTransformMatrix(transform);
-
-            GLES20.GlViewport(0, 0, _outputWidth, _outputHeight);
-            GLES20.GlClearColor(0f, 0f, 0f, 1f);
-            GLES20.GlClear(GLES20.GlColorBufferBit);
-            GLES20.GlUseProgram(_program);
-            GLES20.GlActiveTexture(GLES20.GlTexture0);
-            GLES20.GlBindTexture(TextureExternalOes, _textureId);
-            GLES20.GlUniformMatrix4fv(_matrixLocation, 1, false, transform, 0);
-            GLES20.GlUniform1i(_rotationLocation, _rotationQuarterTurns);
-
-            _vertices!.Position(0);
-            GLES20.GlVertexAttribPointer(_positionLocation, 2, GLES20.GlFloat, false, 0, _vertices);
-            GLES20.GlEnableVertexAttribArray(_positionLocation);
-            _textureCoordinates!.Position(0);
-            GLES20.GlVertexAttribPointer(_textureLocation, 2, GLES20.GlFloat, false, 0, _textureCoordinates);
-            GLES20.GlEnableVertexAttribArray(_textureLocation);
-            GLES20.GlDrawArrays(GLES20.GlTriangleStrip, 0, 4);
-            EGLExt.EglPresentationTimeANDROID(_display!, _eglSurface!, surfaceTexture.Timestamp);
-            if (!EGL14.EglSwapBuffers(_display!, _eglSurface!))
-                throw new InvalidOperationException($"EGL swap falló: 0x{EGL14.EglGetError():x}.");
+            // Always consume the current image. Skip its EGL presentation before the encoder,
+            // rather than allowing a queue of old textures to accumulate.
+            if (_framePacer is not null && !_framePacer.TryPresent())
+            {
+                // A VirtualDisplay only emits on change: the skipped image may be the last
+                // one of a change. Present it when its slot arrives unless a newer one does.
+                _deferredTimestamp = surfaceTexture.Timestamp;
+                ScheduleDeferred();
+                return;
+            }
+            _deferredTimestamp = 0;
+            Draw(surfaceTexture, surfaceTexture.Timestamp);
         }
         catch (Exception ex)
         {
             Android.Util.Log.Error("NOVORA-VE", $"Compositor persistente: {ex}");
         }
+    }
+
+    private void ScheduleDeferred()
+    {
+        if (_deferredScheduled || _handler is null) return;
+        _deferredScheduled = true;
+        long delayMs = Math.Max(1, (long)Math.Ceiling(_framePacer!.UntilNextPresentation.TotalMilliseconds));
+        _handler.PostDelayed(PresentDeferred, delayMs);
+    }
+
+    private void PresentDeferred()
+    {
+        _deferredScheduled = false;
+        if (_disposed || _deferredTimestamp == 0 || _surfaceTexture is null) return;
+        try
+        {
+            if (!_framePacer!.TryPresent(deferred: true)) { ScheduleDeferred(); return; }
+            long timestamp = _deferredTimestamp;
+            _deferredTimestamp = 0;
+            Draw(_surfaceTexture, timestamp);
+        }
+        catch (Exception ex)
+        {
+            Android.Util.Log.Error("NOVORA-VE", $"Compositor persistente: {ex}");
+        }
+    }
+
+    private void Draw(SurfaceTexture surfaceTexture, long timestampNs)
+    {
+        float[] transform = _transform;
+        surfaceTexture.GetTransformMatrix(transform);
+
+        GLES20.GlViewport(0, 0, _outputWidth, _outputHeight);
+        GLES20.GlClearColor(0f, 0f, 0f, 1f);
+        GLES20.GlClear(GLES20.GlColorBufferBit);
+        GLES20.GlUseProgram(_program);
+        GLES20.GlActiveTexture(GLES20.GlTexture0);
+        GLES20.GlBindTexture(TextureExternalOes, _textureId);
+        GLES20.GlUniformMatrix4fv(_matrixLocation, 1, false, transform, 0);
+        GLES20.GlUniform1i(_rotationLocation, _rotationQuarterTurns);
+
+        _vertices!.Position(0);
+        GLES20.GlVertexAttribPointer(_positionLocation, 2, GLES20.GlFloat, false, 0, _vertices);
+        GLES20.GlEnableVertexAttribArray(_positionLocation);
+        _textureCoordinates!.Position(0);
+        GLES20.GlVertexAttribPointer(_textureLocation, 2, GLES20.GlFloat, false, 0, _textureCoordinates);
+        GLES20.GlEnableVertexAttribArray(_textureLocation);
+        GLES20.GlDrawArrays(GLES20.GlTriangleStrip, 0, 4);
+        EGLExt.EglPresentationTimeANDROID(_display!, _eglSurface!, timestampNs);
+        if (!EGL14.EglSwapBuffers(_display!, _eglSurface!))
+            throw new InvalidOperationException($"EGL swap falló: 0x{EGL14.EglGetError():x}.");
     }
 
     private void Initialize()

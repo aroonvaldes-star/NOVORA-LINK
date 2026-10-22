@@ -26,6 +26,9 @@
 		</Content>
 	</ItemGroup>
 	<ItemGroup>
+		<Compile Remove="LinkEngine\Network\Native\NovoraRelay\**\*.cs" />
+	</ItemGroup>
+	<ItemGroup>
 		
 	</ItemGroup>
 	<ItemGroup>
@@ -37,8 +40,12 @@
 	<ItemGroup>
 		<None Remove="Asset\NLAssetNOVORABRAND.png" />
 		<None Remove="Asset\NLAssetNOVORABRANDLIGHT.png" />
+		<None Remove="Asset\NLAssetExInDualShock4FrontSideMatte.png" />
+		<None Remove="Asset\NLAssetExInXboxFrontSideMatte.png" />
 		<Resource Include="Asset\NLAssetNOVORABRAND.png" />
 		<Resource Include="Asset\NLAssetNOVORABRANDLIGHT.png" />
+		<Resource Include="Asset\NLAssetExInDualShock4FrontSideMatte.png" />
+		<Resource Include="Asset\NLAssetExInXboxFrontSideMatte.png" />
 	</ItemGroup>
 
   <ItemGroup>
@@ -53,7 +60,7 @@
   <ItemGroup>
     <ApplicationDefinition Include="Application\NLApplicationApp.xaml" />
   </ItemGroup>
-  <ItemGroup><PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" /></ItemGroup>
+  <ItemGroup><PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" /><PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" /></ItemGroup>
   <ItemGroup>
     <Content Include="Android\NLAndroidApp.apk" Condition="Exists('Android\NLAndroidApp.apk')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Android\NLAndroidRelease.json" Condition="Exists('Android\NLAndroidRelease.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

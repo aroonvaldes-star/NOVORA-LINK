@@ -213,6 +213,7 @@ public partial class NLUIWindowMain
                 if (server.IsAuthorized)
                 {
                     _ = EnsureExInStandaloneAsync();
+                    RequestWaitingExternalVisionFromAndroid();
                     if (!lanFailover)
                         _ = PrepareVisionLanFallbackVEAsync(serial, epoch, automatic: true);
                 }

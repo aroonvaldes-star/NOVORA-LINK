@@ -1,7 +1,7 @@
 namespace NOVORA.VisionEngine.Control;
 
 /// <summary>
-/// Tipos de mensajes del control protocol compatible con scrcpy 4.1.
+/// Tipos de mensajes del canal de control de App Control.
 /// Los valores son parte del wire protocol y no deben reordenarse.
 /// </summary>
 public enum VEControlType : byte
@@ -28,5 +28,7 @@ public enum VEControlType : byte
     CameraZoomIn = 19,
     CameraZoomOut = 20,
     ResizeDisplay = 21,
-    ScanFile = 22
+    ScanFile = 22,
+    ApplyCapturePolicy = 23,
+    NetworkEcho = 24
 }

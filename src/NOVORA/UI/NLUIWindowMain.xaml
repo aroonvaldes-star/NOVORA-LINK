@@ -371,12 +371,6 @@
                                     <TextBlock Text="Integración" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
-                            <Button x:Name="NavPrivacy14" Tag="Privacy" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="◆" FontSize="16" Width="36"/>
-                                    <TextBlock Text="Privacidad" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
                         </StackPanel>
 
                         <StackPanel Grid.Row="2" Margin="12,0,12,12">
@@ -405,8 +399,8 @@
                                     </Grid.ColumnDefinitions>
 
                                     <StackPanel Margin="0,0,18,0">
-                                        <TextBlock Text="Estado general" Style="{StaticResource NvSectionTitleStyle}"/>
-                                        <TextBlock Text="Dispositivo activo y estado en tiempo real de NOVORA" Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,8"/>
+                                        <TextBlock Text="Conecta tu teléfono" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <TextBlock Text="Usa un cable USB o conéctalo por Wi-Fi. Después podrás ver su pantalla en esta PC." Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,8" TextWrapping="Wrap"/>
                                         <StackPanel Orientation="Horizontal">
                                             <Ellipse Width="9" Height="9" Fill="{DynamicResource GreenBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                             <TextBlock Text="{Binding ConnectionStatus}" Style="{StaticResource NvCaptionStyle}" VerticalAlignment="Center"/>
@@ -414,35 +408,23 @@
                                         <TextBlock Text="{Binding DeviceDisplayName}" Foreground="{DynamicResource BlueBrush}" FontWeight="SemiBold" Margin="0,8,0,0"/>
                                     </StackPanel>
 
-                                    <Grid VerticalAlignment="Center" Grid.ColumnSpan="2" Margin="667,0,0,0">
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition/>
-                                        </Grid.RowDefinitions>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="0*"/>
-                                            <ColumnDefinition Width="64"/>
-                                        </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                         <Button x:Name="MainActionButton"
-                                                Grid.Column="1"
-                                                Content="▶"
+                                                Content="VER PANTALLA"
                                                 Style="{StaticResource NvPrimaryButtonStyle}"
-                                                Click="MainActionButton_Click" RenderTransformOrigin="0.5,0.5" Height="NaN" Margin="0,0,7,0">
-                                            <Button.RenderTransform>
-                                                <TransformGroup>
-                                                    <ScaleTransform/>
-                                                    <SkewTransform/>
-                                                    <RotateTransform Angle="-0.291"/>
-                                                    <TranslateTransform/>
-                                                </TransformGroup>
-                                            </Button.RenderTransform>
-                                        </Button>
+                                                Click="MainActionButton_Click"
+                                                Width="156"
+                                                Height="42"
+                                                ToolTip="Mostrar la pantalla del teléfono"/>
                                         <Button x:Name="HomeLanConnectionButton"
-                                                Grid.Column="1"
-                                                Content="LAN"
+                                                Content="CONECTAR POR LAN"
                                                 Style="{StaticResource NvFlatButtonStyle}"
                                                 Click="HomeLanConnectionButton_Click"
-                                                ToolTip="Vincular NOVORA Android por LAN" Margin="60,0,-55,0"/>
-                                    </Grid>
+                                                Width="164"
+                                                Height="42"
+                                                Margin="10,0,0,0"
+                                                ToolTip="Conectar el teléfono por Wi-Fi"/>
+                                    </StackPanel>
                                 </Grid>
                             </Border>
 
@@ -455,69 +437,22 @@
 
                                 <Border Grid.Column="0" Style="{StaticResource NvCardStyle}">
                                     <StackPanel>
-                                        <TextBlock Text="VisionEngine · Visión" Style="{StaticResource NvSectionTitleStyle}"/>
-                                        <TextBlock Text="Estado del stream, audio y salida visible" Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,10"/>
-                                        <TextBlock Text="{Binding OutputSummary}" Foreground="{DynamicResource BlueBrush}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                        <TextBlock Text="Modo: pantalla / ventana" Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0"/>
-                                        <TextBlock Text="Audio: activo / desactivado" Style="{StaticResource NvCaptionStyle}" Margin="0,4,0,0"/>
+                                        <TextBlock Text="Pantalla del teléfono" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <TextBlock Text="La calidad elegida se aplicará al iniciar." Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,10"/>
+                                        <TextBlock Text="{Binding OutputSummary}" Foreground="{DynamicResource BlueBrush}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="VisionLiveTelemetryText14" Text="La pantalla aún no se está mostrando." Style="{StaticResource NvCaptionStyle}" Margin="0,10,0,0" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
 
                                 <Border Grid.Column="2" Style="{StaticResource NvCardStyle}">
                                     <StackPanel>
-                                        <TextBlock Text="LinkEngine · Red" Style="{StaticResource NvSectionTitleStyle}"/>
-                                        <TextBlock Text="Conectividad USB y canal del teléfono" Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,10"/>
-                                        <TextBlock x:Name="HomeLinkEngineState14"
-                                                   Text="{Binding Text, ElementName=LinkEngineFriendlyConnectionStatus}"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextBrush}"
-                                                   TextWrapping="Wrap"/>
-                                        <TextBlock x:Name="HomeLinkEngineDetail14"
-                                                   Text="{Binding Text, ElementName=LinkEngineFriendlyUsbStatus}"
-                                                   Style="{StaticResource NvCaptionStyle}"
-                                                   Margin="0,8,0,0"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-
-                            <Grid Margin="0,0,0,14">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="14"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-
-                                <Border Grid.Column="0" Style="{StaticResource NvCardStyle}">
-                                    <StackPanel>
-                                        <TextBlock Text="ExInEngine · Control" Style="{StaticResource NvSectionTitleStyle}"/>
-                                        <TextBlock Text="Estado del mando y entrada del juego" Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,10"/>
+                                        <TextBlock Text="Controles" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <TextBlock Text="Mando y entradas disponibles para el teléfono." Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,10"/>
                                         <TextBlock x:Name="HomeGamepadStatusText14" Text="{Binding Text, ElementName=GamepadStatusText14}" Foreground="{DynamicResource TextBrush}" FontSize="15" TextWrapping="Wrap"/>
                                         <TextBlock x:Name="HomeGamepadCountText14" Text="{Binding Text, ElementName=GamepadCountText14}" Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0"/>
                                         <TextBlock x:Name="HomeExInBatteryText14" Text="{Binding Text, ElementName=ExInBatteryText14}" Style="{StaticResource NvCaptionStyle}" Margin="0,4,0,0"/>
+                                        <TextBlock Text="Reconexión automática" Style="{StaticResource NvCaptionStyle}" Margin="0,12,0,0"/>
                                     </StackPanel>
-                                </Border>
-
-                                <Border Grid.Column="2" Style="{StaticResource NvCardStyle}">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                            <TextBlock Text="Resolución" Style="{StaticResource NvSectionTitleStyle}"/>
-                                            <TextBlock Text="{Binding DeviceNativeResolutionLabel}" Style="{StaticResource NvCaptionStyle}" Margin="0,7,0,0" FontSize="16" TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                                            <TextBlock Text="FPS máximos" Style="{StaticResource NvSectionTitleStyle}"/>
-                                            <TextBlock Text="{Binding DeviceMaxFpsLabel}" Style="{StaticResource NvCaptionStyle}" Margin="0,7,0,0" FontSize="16" TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="2">
-                                            <TextBlock Text="Refresco" Style="{StaticResource NvSectionTitleStyle}"/>
-                                            <TextBlock Text="{Binding DeviceMaxRefreshRateLabel}" Style="{StaticResource NvCaptionStyle}" Margin="0,7,0,0" FontSize="16" TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                    </Grid>
                                 </Border>
                             </Grid>
                         </StackPanel>
@@ -529,36 +464,6 @@
                             <TextBlock Text="VisionEngine · Configuración" Style="{StaticResource NvPageTitleStyle}"/>
                             <TextBlock Text="Ajustes del motor de video, audio y salida visual."
                                        Style="{StaticResource NvCaptionStyle}" Margin="0,4,0,18"/>
-
-                            <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,14">
-                                <StackPanel>
-                                    <TextBlock Text="Perfil calculado" Style="{StaticResource NvSectionTitleStyle}"/>
-                                    <TextBlock Text="{Binding OutputSummary}" Foreground="{DynamicResource BlueBrush}" FontSize="16" FontWeight="SemiBold" Margin="0,7,0,12" TextWrapping="Wrap"/>
-                                    <TextBlock Text="Capacidades detectadas del Android" Style="{StaticResource NvSectionTitleStyle}"/>
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                            <TextBlock Text="Resolución nativa" Style="{StaticResource NvCaptionStyle}"/>
-                                            <TextBlock Text="{Binding DeviceNativeResolutionLabel}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                                            <TextBlock Text="FPS máximos" Style="{StaticResource NvCaptionStyle}"/>
-                                            <TextBlock Text="{Binding DeviceMaxFpsLabel}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="2">
-                                            <TextBlock Text="Refresco máximo" Style="{StaticResource NvCaptionStyle}"/>
-                                            <TextBlock Text="{Binding DeviceMaxRefreshRateLabel}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                    </Grid>
-                                    <TextBlock Text="Monitor seleccionado" Style="{StaticResource NvSectionTitleStyle}" Margin="0,12,0,0"/>
-                                    <TextBlock Text="{Binding SelectedMonitor.DisplayLabel, TargetNullValue='No hay monitor seleccionado'}" Style="{StaticResource NvCaptionStyle}" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                                    <TextBlock x:Name="VisionLiveTelemetryText14" Text="Sin datos reales de transmisión." Style="{StaticResource NvCaptionStyle}" Margin="0,10,0,0" TextWrapping="Wrap"/>
-                                </StackPanel>
-                            </Border>
 
                             <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,14">
                                 <Grid>
@@ -596,6 +501,24 @@
                                                 </DataTemplate>
                                             </ComboBox.ItemTemplate>
                                         </ComboBox>
+
+                                        <CheckBox x:Name="VisionDynamicPresentationCheck14"
+                                                  Content="Presentación dinámica (experimental)"
+                                                  IsChecked="False"
+                                                  Foreground="{DynamicResource TextBrush}"
+                                                  FontSize="14"
+                                                  Checked="VisionDynamicPresentation_Changed14"
+                                                  Unchecked="VisionDynamicPresentation_Changed14"
+                                                  Margin="0,0,0,6"/>
+                                        <TextBlock Text="Adapta la presentación al refresco de la pantalla y conserva la calidad. Puedes cambiarlo durante la sesión."
+                                                   Style="{StaticResource NvCaptionStyle}" Margin="0,0,0,14" TextWrapping="Wrap"/>
+                                        <CheckBox x:Name="VisionLatencyOptimizationCheck14"
+                                                  Content="Optimización de latencia (experimental)"
+                                                  IsChecked="True" Foreground="{DynamicResource TextBrush}" FontSize="14"
+                                                  Checked="VisionLatencyOptimization_Changed14"
+                                                  Unchecked="VisionLatencyOptimization_Changed14" Margin="0,0,0,6"/>
+                                        <TextBlock Text="Solicita decodificación de baja latencia al iniciar el video. Conserva los ajustes de resolución y bitrate."
+                                                   Style="{StaticResource NvCaptionStyle}" Margin="0,0,0,14" TextWrapping="Wrap"/>
 
                                         <TextBlock Text="Salida de audio" Style="{StaticResource NvSectionTitleStyle}"/>
                                         <ComboBox ItemsSource="{Binding AudioOutputOptions}"
@@ -724,84 +647,149 @@
                     </ScrollViewer>
 
                     <!-- NETWORK -->
-                    <ScrollViewer x:Name="NetworkPage14" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer x:Name="NetworkPage14"
+                                  Visibility="Collapsed"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
-                            <TextBlock Text="LinkEngine · Configuración" Style="{StaticResource NvPageTitleStyle}"/>
-                            <TextBlock Text="Conexión, transporte, ADB y red del teléfono."
+                            <TextBlock Text="Conexión del teléfono" Style="{StaticResource NvPageTitleStyle}"/>
+                            <TextBlock Text="Conecta el teléfono a esta PC por USB o Wi-Fi."
                                        Style="{StaticResource NvCaptionStyle}" Margin="0,4,0,18"/>
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="1.15*"/>
                                     <ColumnDefinition Width="14"/>
-                                    <ColumnDefinition Width="320"/>
+                                    <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Border Grid.Column="0" Style="{StaticResource NvCardStyle}">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Text="Estado de LinkEngine" Style="{StaticResource NvSectionTitleStyle}" Margin="0,0,0,12"/>
-                                        <Grid Grid.Row="1" Margin="0,4">
+                                    <StackPanel>
+                                        <TextBlock Text="Estado de conexión" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <TextBlock x:Name="LinkEngineResultStatus"
+                                                   Text="Conecta el teléfono para empezar."
+                                                   Foreground="{DynamicResource BlueBrush}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,7,0,14"
+                                                   TextWrapping="Wrap"/>
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="160"/>
-                                                <ColumnDefinition/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="Resultado" Foreground="{DynamicResource MutedBrush}"/>
-                                            <TextBlock x:Name="LinkEngineResultStatus" Grid.Column="1" Text="Detenido" Foreground="{DynamicResource TextBrush}"/>
+                                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,12">
+                                                <TextBlock Text="PC" Style="{StaticResource NvCaptionStyle}"/>
+                                                <TextBlock Text="{Binding Text, ElementName=LinkEngineFriendlyConnectionStatus}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,12">
+                                                <TextBlock Text="Teléfono" Style="{StaticResource NvCaptionStyle}"/>
+                                                <TextBlock Text="{Binding Text, ElementName=LinkEngineFriendlyPhoneStatus}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,0">
+                                                <TextBlock Text="Internet USB" Style="{StaticResource NvCaptionStyle}"/>
+                                                <TextBlock Text="{Binding Text, ElementName=LinkEngineFriendlyUsbStatus}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="1" Grid.Column="1">
+                                                <TextBlock Text="Reconexión" Style="{StaticResource NvCaptionStyle}"/>
+                                                <TextBlock Text="{Binding Text, ElementName=LinkEngineFriendlyRecoveryStatus}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                            </StackPanel>
                                         </Grid>
-                                        <Grid Grid.Row="2" Margin="0,4">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="160"/>
-                                                <ColumnDefinition/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="Dispositivo / ADB" Foreground="{DynamicResource MutedBrush}"/>
-                                            <TextBlock x:Name="LinkEngineDeviceStatus" Grid.Column="1" Text="ADB: -" Foreground="{DynamicResource TextBrush}"/>
-                                        </Grid>
-                                        <Grid Grid.Row="3" Margin="0,4">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="160"/>
-                                                <ColumnDefinition/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="Canal Android" Foreground="{DynamicResource MutedBrush}"/>
-                                            <TextBlock x:Name="LinkEngineClientStatus" Grid.Column="1" Text="Android: -" Foreground="{DynamicResource TextBrush}"/>
-                                        </Grid>
-                                        <Grid Grid.Row="4" Margin="0,4">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="160"/>
-                                                <ColumnDefinition/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="Recovery / protocolo" Foreground="{DynamicResource MutedBrush}"/>
-                                            <TextBlock x:Name="LinkEngineProtocolStatus" Grid.Column="1" Text="# 0" Foreground="{DynamicResource TextBrush}"/>
-                                        </Grid>
-                                        <Grid Grid.Row="5" Margin="0,4">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="160"/>
-                                                <ColumnDefinition/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="Transporte" Foreground="{DynamicResource MutedBrush}"/>
-                                            <TextBlock x:Name="LinkEngineTransportStatus" Grid.Column="1" Text="-" Foreground="{DynamicResource TextBrush}"/>
-                                        </Grid>
-                                    </Grid>
+                                    </StackPanel>
                                 </Border>
-
                                 <StackPanel Grid.Column="2">
-                                    <Button x:Name="LinkEngineTestButton" Content="AYUDA: CONEXIÓN USB" ToolTip="Muestra dónde iniciar Internet USB desde AppControl en Android" Style="{StaticResource NvPrimaryButtonStyle}" Click="LinkEngineTestButton_Click" Margin="0,0,0,10"/>
-                                    <Button x:Name="WifiAdbButton" Content="PREPARAR FAILOVER LAN" Style="{StaticResource NvFlatButtonStyle}" Click="WifiAdb_Click" Margin="0,0,0,10"/>
+                                    <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,10">
+                                        <StackPanel>
+                                            <TextBlock Text="Por USB" Style="{StaticResource NvSectionTitleStyle}"/>
+                                            <TextBlock Text="Conecta el cable y activa Internet en NOVORA-LINK Android." Style="{StaticResource NvCaptionStyle}" Margin="0,5,0,10" TextWrapping="Wrap"/>
+                                            <Button x:Name="LinkEngineTestButton"
+                                                    Content="CÓMO ACTIVAR INTERNET USB"
+                                                    ToolTip="Muestra los pasos para activar Internet USB desde NOVORA-LINK Android"
+                                                    Style="{StaticResource NvPrimaryButtonStyle}"
+                                                    Click="LinkEngineTestButton_Click"
+                                                    Height="38"/>
+                                        </StackPanel>
+                                    </Border>
                                     <Border Style="{StaticResource NvCardStyle}">
                                         <StackPanel>
-                                            <TextBlock Text="Remote Android" Style="{StaticResource NvSectionTitleStyle}"/>
-                                            <TextBlock Text="Canal remoto local de NOVORA. Se configura con el Android seleccionado y no inicia los motores por sí solo."
-                                                       Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,0"/>
+                                            <TextBlock Text="Por Wi-Fi" Style="{StaticResource NvSectionTitleStyle}"/>
+                                            <TextBlock Text="Prepara una conexión si el teléfono y la PC usan la misma red." Style="{StaticResource NvCaptionStyle}" Margin="0,5,0,10" TextWrapping="Wrap"/>
+                                            <Button x:Name="WifiAdbButton"
+                                                    Content="PREPARAR CONEXIÓN WI-FI"
+                                                    ToolTip="Conectar ADB inalámbrico con la dirección IP y puerto actuales, o prepararlo desde USB"
+                                                    Style="{StaticResource NvFlatButtonStyle}"
+                                                    Click="WifiAdb_Click"
+                                                    Height="38"/>
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
                             </Grid>
+                            <Border Style="{StaticResource NvCardStyle}" Margin="0,14,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Medición de LinkEngine" Style="{StaticResource NvSectionTitleStyle}"/>
+                                    <TextBlock Text="Inicia las mediciones aquí. Las pruebas de velocidad abren el navegador del teléfono por el VPN de LE; el monitor lee los contadores del relay en PC."
+                                               Style="{StaticResource NvCaptionStyle}" Margin="0,5,0,10" TextWrapping="Wrap"/>
+                                    <Button x:Name="LinkInternetSpeedTestButton"
+                                            Content="INICIAR SPEEDTEST DE INTERNET POR LE"
+                                            Style="{StaticResource NvPrimaryButtonStyle}"
+                                            Click="LinkInternetSpeedTestButton_Click"
+                                            Height="38" Margin="0,0,0,6"/>
+                                    <Button x:Name="LinkTunnelSpeedTestButton"
+                                            Content="MEDIR TÚNEL PC ↔ ANDROID"
+                                            Style="{StaticResource NvFlatButtonStyle}"
+                                            Click="LinkTunnelSpeedTestButton_Click"
+                                            Height="38" Margin="0,0,0,6"/>
+                                    <Button x:Name="LinkLiveMonitorButton"
+                                            Content="INICIAR MONITOREO EN VIVO DE LE"
+                                            Style="{StaticResource NvFlatButtonStyle}"
+                                            Click="LinkLiveMonitorButton_Click"
+                                            Height="38" Margin="0,0,0,6"/>
+                                    <Button x:Name="OpenLinkMeasurementsButton"
+                                            Content="ABRIR MEDICIÓN EN ANDROID"
+                                            Style="{StaticResource NvFlatButtonStyle}"
+                                            Click="OpenLinkMeasurementsButton_Click"
+                                            Height="38"/>
+                                    <TextBlock x:Name="LinkInternetMeasurementsStatus"
+                                               Text="Internet por LE: sin prueba guardada."
+                                               Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="LinkTunnelMeasurementsStatus"
+                                               Text="Túnel PC ↔ Android: sin prueba guardada."
+                                               Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="LinkLiveMonitorStatus"
+                                               Text="Monitor LE: detenido."
+                                               Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                    <Separator Margin="0,12,0,10"/>
+                                    <TextBlock Text="Estabilidad de red · experimental" Style="{StaticResource NvSectionTitleStyle}"/>
+                                    <CheckBox x:Name="ExperimentalNetworkFeatures" Content="Habilitar adaptación de VE y FILES binario en sesiones nuevas"
+                                              Checked="ExperimentalNetworkFeatures_Changed" Unchecked="ExperimentalNetworkFeatures_Changed" Margin="0,8,0,8"/>
+                                    <TextBlock Text="Prioriza latencia estable. Activar antes de iniciar VE. Solo regula tráfico que pasa por NOVORA; las descargas directas del router requieren control en el router."
+                                               Style="{StaticResource NvCaptionStyle}" TextWrapping="Wrap"/>
+                                    <ComboBox x:Name="ExperimentalNetworkDomain" SelectedIndex="0" Margin="0,8,0,6">
+                                        <ComboBoxItem Content="Internet de Android por LinkEngine"/>
+                                        <ComboBoxItem Content="Enlace PC ↔ Android de VisionEngine"/>
+                                    </ComboBox>
+                                    <ComboBox x:Name="ExperimentalNetworkMode" SelectedIndex="0" Margin="0,0,0,6">
+                                        <ComboBoxItem Content="Observar"/><ComboBoxItem Content="Límites manuales"/><ComboBoxItem Content="Adaptar para latencia estable"/>
+                                    </ComboBox>
+                                    <TextBlock Text="Capacidad útil medida (Mbps): subida desde Android / bajada hacia Android. Deja vacío si no la conoces."
+                                               Style="{StaticResource NvCaptionStyle}" TextWrapping="Wrap"/>
+                                    <Grid Margin="0,6,0,6"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                        <TextBox x:Name="ExperimentalNetworkUpload" ToolTip="Subida desde Android, Mbps"/>
+                                        <TextBox x:Name="ExperimentalNetworkDownload" Grid.Column="2" ToolTip="Bajada hacia Android, Mbps"/>
+                                    </Grid>
+                                    <Button Content="APLICAR A LA SESIÓN ACTUAL" Style="{StaticResource NvFlatButtonStyle}" Click="ExperimentalNetworkApply_Click" Height="38" Margin="0,0,0,6"/>
+                                    <Button Content="DESACTIVAR LÍMITES Y ADAPTACIÓN" Style="{StaticResource NvFlatButtonStyle}" Click="ExperimentalNetworkStop_Click" Height="38"/>
+                                    <CheckBox x:Name="ExperimentalQuietCalibration" Content="Confirmo que no hay descargas durante la calibración" Margin="0,8,0,6"/>
+                                    <CheckBox x:Name="ExperimentalSharedPhysicalLink" Content="Confirmo que LE y VE usan el mismo enlace físico; compartir presupuesto al aplicar VE"
+                                              Margin="0,0,0,6" ToolTip="Solo se agrupan una misma sesión USB física o la sesión LAN autorizada actual. Usa el mismo modo en ambos motores."/>
+                                    <Button Content="CALIBRAR INTERNET EN REPOSO · 30 SEGUNDOS" Style="{StaticResource NvFlatButtonStyle}" Click="ExperimentalNetworkCalibrate_Click" Height="38"/>
+                                    <TextBlock Text="La calibración mide respuestas HTTPS desde la PC a Google. La fuente se mantiene separada del túnel y del ping del juego."
+                                               Style="{StaticResource NvCaptionStyle}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                    <TextBlock x:Name="ExperimentalNetworkStatus" Text="Experimental: desactivado." Style="{StaticResource NvCaptionStyle}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </ScrollViewer>
 
@@ -872,7 +860,49 @@
                                         <TextBlock x:Name="GamepadStatusText14" Text="ExInEngine detenido." Foreground="{DynamicResource TextBrush}" FontSize="15" Margin="0,8,0,4" TextWrapping="Wrap"/>
                                         <TextBlock x:Name="GamepadCountText14" Text="Mandos conectados: 0" Style="{StaticResource NvCaptionStyle}"/>
                                     </StackPanel>
-                                    <Button x:Name="ExInReactivateButton14" Grid.Column="1" Content="REACTIVAR" Style="{StaticResource NvFlatButtonStyle}" Click="ExInReactivate_Click" Margin="18,0,0,0"/>
+                                    <TextBlock Grid.Column="1" Text="Reconexión automática" Style="{StaticResource NvCaptionStyle}" Margin="18,0,0,0"/>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,14">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition/>
+                                        <ColumnDefinition Width="14"/>
+                                        <ColumnDefinition/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Teléfono destino" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <ComboBox x:Name="ExInPhoneComboBox14"
+                                                  Style="{StaticResource NvComboStyle}"
+                                                  SelectionChanged="ExInPhone_SelectionChanged" Margin="0,8,0,4">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Label}" Foreground="{DynamicResource InputForegroundBrush}"/>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                        <TextBlock x:Name="ExInPhoneText14" Text="Automático: USB primero, después ADB Wi-Fi."
+                                                   Style="{StaticResource NvCaptionStyle}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Mando" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <ComboBox x:Name="ExInControllerComboBox14"
+                                                  Style="{StaticResource NvComboStyle}"
+                                                  SelectionChanged="ExInController_SelectionChanged" Margin="0,8,0,4">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Label}" Foreground="{DynamicResource InputForegroundBrush}"/>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                        <CheckBox x:Name="ExInForwardSelectedOnlyCheck14"
+                                                  Content="Enviar al teléfono solo el mando seleccionado"
+                                                  Foreground="{DynamicResource TextBrush}"
+                                                  Checked="ExInForwardSelectedOnly_Changed" Unchecked="ExInForwardSelectedOnly_Changed"
+                                                  Margin="0,4,0,0"/>
+                                        <TextBlock Text="La identidad, la calibración y los paddles siguen al mando seleccionado."
+                                                   Style="{StaticResource NvCaptionStyle}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                    </StackPanel>
                                 </Grid>
                             </Border>
                             <Grid Margin="0,0,0,14">
@@ -889,19 +919,16 @@
                                             <Button x:Name="ExInUiModeButton14" Content="UI" Style="{StaticResource NvFlatButtonStyle}" Click="ExInUiMode_Click" Margin="4,0,0,0"/>
                                         </UniformGrid>
                                         <TextBlock x:Name="ExInIdentityText14" Text="Sin control físico" Style="{StaticResource NvCaptionStyle}" Margin="0,10,0,0"/>
-                                        <TextBlock Text="Sensibilidad mouse · touchpad y joysticks" Style="{StaticResource NvCaptionStyle}" Margin="0,12,0,0"/>
-                                        <Slider x:Name="ExInPointerSensitivitySlider14" Minimum="25" Maximum="300" Value="100" TickFrequency="25" IsSnapToTickEnabled="True" ValueChanged="ExInPointerSensitivity_ValueChanged" Margin="0,4,0,0"/>
-                                        <TextBlock x:Name="ExInPointerSensitivityText14" Text="100%" Style="{StaticResource NvCaptionStyle}" Margin="0,2,0,0"/>
+                                        <TextBlock Text="Sensibilidad del joystick para mouse virtual · solo modo UI" Style="{StaticResource NvCaptionStyle}" Margin="0,12,0,0"/>
+                                        <Slider x:Name="ExInPointerSensitivitySlider14" Minimum="10" Maximum="75" Value="50" TickFrequency="5" IsSnapToTickEnabled="True" ValueChanged="ExInPointerSensitivity_ValueChanged" Margin="0,4,0,0"/>
+                                        <TextBlock x:Name="ExInPointerSensitivityText14" Text="50% · UI" Style="{StaticResource NvCaptionStyle}" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </Border>
                                 <Border Grid.Column="2" Style="{StaticResource NvCardStyle}">
                                     <StackPanel>
-                                        <TextBlock Text="Calibración guiada" Style="{StaticResource NvSectionTitleStyle}"/>
-                                        <TextBlock x:Name="ExInCalibrationGuideText14" Text="Deja el mando quieto y pulsa INICIAR." Foreground="{DynamicResource TextBrush}" FontSize="14" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                                        <local:NLUIExInDynamicCalibrationView x:Name="ExInDynamicCalibrationView14"
-                                                                               Height="292"
-                                                                               Margin="0,10,0,4"/>
-                                        <ProgressBar x:Name="ExInCalibrationOverallProgress14" Minimum="0" Maximum="100" Value="0" Style="{StaticResource NvMetricProgressStyle}" Margin="0,10,0,8"/>
+                                        <TextBlock Text="Paddles traseros" Style="{StaticResource NvSectionTitleStyle}"/>
+                                        <TextBlock x:Name="ExInPaddleSupportText14" Text="Conecta un mando compatible para configurar P1–P4."
+                                                   Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,10" TextWrapping="Wrap"/>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition/>
@@ -909,29 +936,91 @@
                                                 <ColumnDefinition/>
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock x:Name="ExInCalibrationLeftText14" Text="Stick izquierdo · 0%" Style="{StaticResource NvCaptionStyle}"/>
-                                                <ProgressBar x:Name="ExInCalibrationLeftProgress14" Minimum="0" Maximum="100" Value="0" Style="{StaticResource NvMetricProgressStyle}" Margin="0,4,0,7"/>
-                                                <TextBlock x:Name="ExInCalibrationLeftTriggerText14" Text="Gatillo izquierdo · 0%" Style="{StaticResource NvCaptionStyle}"/>
-                                                <ProgressBar x:Name="ExInCalibrationLeftTriggerProgress14" Minimum="0" Maximum="100" Value="0" Style="{StaticResource NvMetricProgressStyle}" Margin="0,4,0,0"/>
+                                                <TextBlock Text="P1" Style="{StaticResource NvCaptionStyle}"/>
+                                                <ComboBox x:Name="ExInP1MappingComboBox14" Tag="P1" SelectionChanged="ExInPaddleMapping_SelectionChanged" Margin="0,4,0,10"/>
+                                                <TextBlock Text="P2" Style="{StaticResource NvCaptionStyle}"/>
+                                                <ComboBox x:Name="ExInP2MappingComboBox14" Tag="P2" SelectionChanged="ExInPaddleMapping_SelectionChanged" Margin="0,4,0,0"/>
                                             </StackPanel>
                                             <StackPanel Grid.Column="2">
-                                                <TextBlock x:Name="ExInCalibrationRightText14" Text="Stick derecho · 0%" Style="{StaticResource NvCaptionStyle}"/>
-                                                <ProgressBar x:Name="ExInCalibrationRightProgress14" Minimum="0" Maximum="100" Value="0" Style="{StaticResource NvMetricProgressStyle}" Margin="0,4,0,7"/>
-                                                <TextBlock x:Name="ExInCalibrationRightTriggerText14" Text="Gatillo derecho · 0%" Style="{StaticResource NvCaptionStyle}"/>
-                                                <ProgressBar x:Name="ExInCalibrationRightTriggerProgress14" Minimum="0" Maximum="100" Value="0" Style="{StaticResource NvMetricProgressStyle}" Margin="0,4,0,0"/>
+                                                <TextBlock Text="P3" Style="{StaticResource NvCaptionStyle}"/>
+                                                <ComboBox x:Name="ExInP3MappingComboBox14" Tag="P3" SelectionChanged="ExInPaddleMapping_SelectionChanged" Margin="0,4,0,10"/>
+                                                <TextBlock Text="P4" Style="{StaticResource NvCaptionStyle}"/>
+                                                <ComboBox x:Name="ExInP4MappingComboBox14" Tag="P4" SelectionChanged="ExInPaddleMapping_SelectionChanged" Margin="0,4,0,0"/>
                                             </StackPanel>
                                         </Grid>
-                                        <UniformGrid Columns="4" Margin="0,12,0,0">
-                                            <Button x:Name="ExInCalibrationStartButton14" Content="INICIAR" ToolTip="Primero deja sticks y gatillos en reposo" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationStart_Click" Margin="0,0,4,0"/>
-                                            <Button x:Name="ExInCalibrationFinishButton14" Content="GUARDAR" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationFinish_Click" Margin="4,0"/>
-                                            <Button x:Name="ExInCalibrationResetButton14" Content="RESTABLECER" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationReset_Click" Margin="4,0"/>
-                                            <Button x:Name="ExInWindowsCalibrationButton14" Content="WINDOWS" ToolTip="Abrir controles de juego de Windows" Style="{StaticResource NvFlatButtonStyle}" Click="ExInWindowsCalibration_Click" Margin="4,0,0,0"/>
-                                        </UniformGrid>
-                                        <TextBlock x:Name="ExInCalibrationText14" Text="Sin perfil activo" Style="{StaticResource NvCaptionStyle}" Margin="0,10,0,0"/>
-                                        <TextBlock x:Name="ExInMappingText14" Text="Mapping SDL no disponible" Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                        <TextBlock Text="Cada paddle puede repetir el mismo botón. La asignación se guarda para este mando."
+                                                   Style="{StaticResource NvCaptionStyle}" Margin="0,12,0,0" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
+                            <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,14">
+                                <StackPanel>
+                                    <TextBlock Text="Calibración guiada" Style="{StaticResource NvSectionTitleStyle}"/>
+                                    <TextBlock x:Name="ExInCalibrationGuideText14" Text="Deja el mando quieto y pulsa INICIAR." Foreground="{DynamicResource TextBrush}" FontSize="14" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                    <TextBlock Text="La imagen muestra el frontal, los dos laterales y los gatillos. Durante la calibración, NOVORA bloquea las entradas hacia las aplicaciones."
+                                               Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                                    <UniformGrid Columns="4" Margin="0,12,0,0">
+                                        <Button x:Name="ExInCalibrationStartButton14" Content="INICIAR" ToolTip="Primero deja sticks y gatillos en reposo" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationStart_Click" Margin="0,0,4,0"/>
+                                        <Button x:Name="ExInCalibrationFinishButton14" Content="GUARDAR" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationFinish_Click" Margin="4,0"/>
+                                        <Button x:Name="ExInCalibrationResetButton14" Content="RESTABLECER" Style="{StaticResource NvFlatButtonStyle}" Click="ExInCalibrationReset_Click" Margin="4,0"/>
+                                        <Button x:Name="ExInWindowsCalibrationButton14" Content="WINDOWS" ToolTip="Abrir controles de juego de Windows" Style="{StaticResource NvFlatButtonStyle}" Click="ExInWindowsCalibration_Click" Margin="4,0,0,0"/>
+                                    </UniformGrid>
+                                    <local:NLUIExInDynamicCalibrationView x:Name="ExInDynamicCalibrationView14"
+                                                                           Height="590"
+                                                                           Margin="0,12,0,4"/>
+                                    <Grid Margin="0,4,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="COBERTURA MÍNIMA" Style="{StaticResource NvCaptionStyle}" FontWeight="SemiBold"
+                                                   ToolTip="Muestra el menor recorrido entre los dos sticks y los dos gatillos. La calibración se completa al llegar cada uno al 90%."/>
+                                        <TextBlock x:Name="ExInCalibrationOverallText14" Grid.Column="1" Text="0%"
+                                                   Style="{StaticResource NvCaptionStyle}" FontWeight="Bold"/>
+                                    </Grid>
+                                    <ProgressBar x:Name="ExInCalibrationOverallProgress14" Minimum="0" Maximum="100" Value="0"
+                                                 Style="{StaticResource NvMetricProgressStyle}" Height="10" Margin="0,0,0,14"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition/>
+                                            <ColumnDefinition Width="12"/>
+                                            <ColumnDefinition/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Stick izquierdo" Style="{StaticResource NvCaptionStyle}"/>
+                                                <TextBlock x:Name="ExInCalibrationLeftText14" Grid.Column="1" Text="0%" Style="{StaticResource NvCaptionStyle}" FontWeight="Bold"/>
+                                            </Grid>
+                                            <ProgressBar x:Name="ExInCalibrationLeftProgress14" Minimum="0" Maximum="100" Value="0"
+                                                         Style="{StaticResource NvMetricProgressStyle}" Height="10" Margin="0,0,0,12"/>
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Gatillo izquierdo" Style="{StaticResource NvCaptionStyle}"/>
+                                                <TextBlock x:Name="ExInCalibrationLeftTriggerText14" Grid.Column="1" Text="0%" Style="{StaticResource NvCaptionStyle}" FontWeight="Bold"/>
+                                            </Grid>
+                                            <ProgressBar x:Name="ExInCalibrationLeftTriggerProgress14" Minimum="0" Maximum="100" Value="0"
+                                                         Style="{StaticResource NvMetricProgressStyle}" Height="10"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Stick derecho" Style="{StaticResource NvCaptionStyle}"/>
+                                                <TextBlock x:Name="ExInCalibrationRightText14" Grid.Column="1" Text="0%" Style="{StaticResource NvCaptionStyle}" FontWeight="Bold"/>
+                                            </Grid>
+                                            <ProgressBar x:Name="ExInCalibrationRightProgress14" Minimum="0" Maximum="100" Value="0"
+                                                         Style="{StaticResource NvMetricProgressStyle}" Height="10" Margin="0,0,0,12"/>
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Gatillo derecho" Style="{StaticResource NvCaptionStyle}"/>
+                                                <TextBlock x:Name="ExInCalibrationRightTriggerText14" Grid.Column="1" Text="0%" Style="{StaticResource NvCaptionStyle}" FontWeight="Bold"/>
+                                            </Grid>
+                                            <ProgressBar x:Name="ExInCalibrationRightTriggerProgress14" Minimum="0" Maximum="100" Value="0"
+                                                         Style="{StaticResource NvMetricProgressStyle}" Height="10"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition/>
@@ -942,7 +1031,6 @@
                                     <StackPanel>
                                         <TextBlock Text="Lectura del mando" Style="{StaticResource NvSectionTitleStyle}"/>
                                         <TextBlock x:Name="ExInAxesText14" Text="Sticks y gatillos sin datos" Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0"/>
-                                        <TextBlock x:Name="ExInTranslationText14" Text="Sin eventos traducidos" Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
                                 <Border Grid.Column="2" Style="{StaticResource NvCardStyle}">
@@ -964,8 +1052,36 @@
                                        Style="{StaticResource NvCaptionStyle}" Margin="0,4,0,18"/>
                             <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,14">
                                 <StackPanel>
-                                    <TextBlock Text="Capacidades activas" Style="{StaticResource NvSectionTitleStyle}"/>
-                                    <TextBlock x:Name="IntegrationStatusText14" Text="Clipboard · archivos · Drag &amp; Drop" Foreground="{DynamicResource TextBrush}" FontSize="15" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                    <TextBlock Text="Archivos de esta sesión" Style="{StaticResource NvSectionTitleStyle}"/>
+                                    <TextBlock Text="El comparativo se actualiza cuando una transferencia termina correctamente."
+                                               Style="{StaticResource NvCaptionStyle}"
+                                               Margin="0,6,0,12"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="1"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                            <TextBlock Text="Enviados al teléfono" Style="{StaticResource NvCaptionStyle}"/>
+                                            <TextBlock x:Name="IntegrationFilesSentText14"
+                                                       Text="0 archivos · 0 B"
+                                                       Foreground="{DynamicResource BlueBrush}"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,5,0,0"/>
+                                        </StackPanel>
+                                        <Border Grid.Column="1" Background="{DynamicResource BorderBrush}"/>
+                                        <StackPanel Grid.Column="2" Margin="16,0,0,0">
+                                            <TextBlock Text="Recibidos en esta PC" Style="{StaticResource NvCaptionStyle}"/>
+                                            <TextBlock x:Name="IntegrationFilesReceivedText14"
+                                                       Text="0 archivos · 0 B"
+                                                       Foreground="{DynamicResource GreenBrush}"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,5,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,14">
@@ -984,7 +1100,7 @@
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                         <Button x:Name="AndroidInstallButton"
-                                                Content="INSTALAR NOVORA POR USB"
+                                                Content="INSTALAR NOVORA EN ANDROID"
                                                 Style="{StaticResource NvPrimaryButtonStyle}"
                                                 Click="InstallAndroidApp_Click"
                                                 IsEnabled="False"
@@ -1173,6 +1289,21 @@
 
                 <TextBlock x:Name="LinkEngineFriendlyRecoveryStatus"
                            Text="Recovery inactivo"/>
+
+                <TextBlock x:Name="LinkEngineDeviceStatus"
+                           Text="ADB: -"/>
+
+                <TextBlock x:Name="LinkEngineClientStatus"
+                           Text="Android: -"/>
+
+                <TextBlock x:Name="LinkEngineTransportStatus"
+                           Text="Puerto: -"/>
+
+                <TextBlock x:Name="LinkEngineProtocolStatus"
+                           Text="NOVORA-LINK/1"/>
+
+                <TextBlock x:Name="IntegrationStatusText14"
+                           Text="Funciones listas."/>
 
                 <!-- VisionEngine contract consumed by NLUIWindowMain.VisionEngineVE.cs -->
                 <TextBlock x:Name="EngineFeatureStatus14"

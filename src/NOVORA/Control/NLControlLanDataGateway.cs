@@ -4,10 +4,11 @@ using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace NOVORA.Control;
 
-/// <summary>Authenticated TLS bridge from one trusted LAN client to RelayCore's loopback DATA port.</summary>
+/// <summary>Authenticated TLS bridge from one trusted LAN client to NOVORA relay's loopback DATA port.</summary>
 public sealed class NLControlLanDataGateway : IAsyncDisposable
 {
     private readonly TcpListener _listener;
@@ -52,7 +53,7 @@ public sealed class NLControlLanDataGateway : IAsyncDisposable
                 _active = client;
                 try { await ServeAsync(client); }
                 catch (Exception ex) when (ex is IOException or AuthenticationException or InvalidDataException or
-                    OperationCanceledException or SocketException or ObjectDisposedException) { }
+                    OperationCanceledException or SocketException or ObjectDisposedException or JsonException) { }
                 finally
                 {
                     _active = null;
@@ -75,6 +76,7 @@ public sealed class NLControlLanDataGateway : IAsyncDisposable
         }, authorization.Token);
         NLControlLinkHello hello = await NLControlProtocol.ReadAsync<NLControlLinkHello>(tls, authorization.Token);
         if (hello.Version != NLControlProtocol.Version || hello.Channel != "DATA" || hello.Token is not { Length: 64 } ||
+            !hello.Token.All(Uri.IsHexDigit) ||
             !CryptographicOperations.FixedTimeEquals(Convert.FromHexString(hello.Token), Convert.FromHexString(_token)))
             throw new AuthenticationException("Autorización DATA LAN rechazada.");
 

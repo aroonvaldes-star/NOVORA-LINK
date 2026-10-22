@@ -6,17 +6,19 @@ namespace NOVORA.VisionEngine.Transport;
 
 public sealed class VETransportLanAcceptedStreams : IAsyncDisposable
 {
-    internal VETransportLanAcceptedStreams(Stream video, Stream control, Stream? audio, bool degraded)
+    internal VETransportLanAcceptedStreams(Stream video, Stream control, Stream? audio, Stream? files, bool degraded)
     {
         Video = video;
         Control = control;
         Audio = audio;
+        Files = files;
         Degraded = degraded;
     }
 
     public Stream Video { get; }
     public Stream Control { get; }
     public Stream? Audio { get; }
+    public Stream? Files { get; }
     public bool Degraded { get; }
 
     public async ValueTask DisposeAsync()
@@ -24,6 +26,7 @@ public sealed class VETransportLanAcceptedStreams : IAsyncDisposable
         await Video.DisposeAsync().ConfigureAwait(false);
         await Control.DisposeAsync().ConfigureAwait(false);
         if (Audio is not null) await Audio.DisposeAsync().ConfigureAwait(false);
+        if (Files is not null) await Files.DisposeAsync().ConfigureAwait(false);
     }
 }
 
@@ -33,6 +36,7 @@ public sealed class VETransportLanSession : IAsyncDisposable
     private readonly VETransportLanChannel _video;
     private readonly VETransportLanChannel _control;
     private readonly VETransportLanChannel? _audio;
+    private readonly VETransportLanChannel _files;
     private readonly NLControlTrustStore _trustStore;
     private readonly IPAddress _address;
     private readonly bool _allowLoopback;
@@ -57,6 +61,7 @@ public sealed class VETransportLanSession : IAsyncDisposable
         if (_optionalAudioGrace <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(optionalAudioGrace));
         _video = new(address, trustStore, NLControlVeLanChannel.Video, allowLoopback);
         _control = new(address, trustStore, NLControlVeLanChannel.Control, allowLoopback);
+        _files = new(address, trustStore, NLControlVeLanChannel.Files, allowLoopback);
         if (prepareAudio) _audio = new(address, trustStore, NLControlVeLanChannel.Audio, allowLoopback);
     }
 
@@ -70,7 +75,7 @@ public sealed class VETransportLanSession : IAsyncDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_offer is not null) throw new InvalidOperationException("La sesión VE LAN ya fue preparada.");
         string sessionId = Guid.NewGuid().ToString("N");
-        DateTimeOffset expiresAt = DateTimeOffset.UtcNow.AddSeconds(30);
+        DateTimeOffset expiresAt = DateTimeOffset.UtcNow.AddSeconds(NLControlVeLanOffer.OfferLifetimeSeconds);
         _expiresAt = expiresAt;
         NLControlVeLanEndpoint video = _video.PrepareVE(sessionId, expiresAt);
         NLControlVeLanEndpoint control = _control.PrepareVE(sessionId, expiresAt);
@@ -78,6 +83,7 @@ public sealed class VETransportLanSession : IAsyncDisposable
             ? (_audio ?? throw new InvalidOperationException("El canal de audio VE LAN no está disponible."))
                 .PrepareVE(sessionId, expiresAt)
             : null;
+        NLControlVeLanEndpoint files = _files.PrepareVE(sessionId, expiresAt);
         _offer = new NLControlVeLanOffer(
             NLControlProtocol.Version,
             sessionId,
@@ -90,7 +96,8 @@ public sealed class VETransportLanSession : IAsyncDisposable
             bitrate,
             maxSize,
             fps,
-            muteDeviceAudio);
+            muteDeviceAudio,
+            files);
         _offer.Validate(DateTimeOffset.UtcNow, _allowLoopback);
         return _offer;
     }
@@ -107,6 +114,9 @@ public sealed class VETransportLanSession : IAsyncDisposable
         Task<Stream>? audio = offer.Audio is null || _audio is null
             ? null
             : _audio.AcceptAsync(offer.SessionId, offer.Audio, expiresAt, linked.Token);
+        Task<Stream>? files = offer.Files is null
+            ? null
+            : _files.AcceptAsync(offer.SessionId, offer.Files, expiresAt, linked.Token);
 
         await Task.WhenAll(video, control).ConfigureAwait(false);
         Stream? audioStream = null;
@@ -121,8 +131,18 @@ public sealed class VETransportLanSession : IAsyncDisposable
                 await _audio!.DisposeAsync().ConfigureAwait(false);
             }
         }
+        Stream? filesStream = null;
+        if (files is not null)
+        {
+            try { filesStream = await files.WaitAsync(_optionalAudioGrace, linked.Token).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is TimeoutException or IOException or InvalidDataException or
+                OperationCanceledException && !linked.IsCancellationRequested)
+            {
+                await _files.DisposeAsync().ConfigureAwait(false);
+            }
+        }
         return new VETransportLanAcceptedStreams(await video.ConfigureAwait(false),
-            await control.ConfigureAwait(false), audioStream, degraded);
+            await control.ConfigureAwait(false), audioStream, filesStream, degraded);
     }
 
     public async ValueTask DisposeAsync()
@@ -133,6 +153,7 @@ public sealed class VETransportLanSession : IAsyncDisposable
         await _video.DisposeAsync().ConfigureAwait(false);
         await _control.DisposeAsync().ConfigureAwait(false);
         if (_audio is not null) await _audio.DisposeAsync().ConfigureAwait(false);
+        await _files.DisposeAsync().ConfigureAwait(false);
         _stop.Dispose();
     }
 }

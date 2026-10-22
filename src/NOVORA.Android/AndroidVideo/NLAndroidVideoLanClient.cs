@@ -7,11 +7,12 @@ using NOVORA.Control;
 
 namespace NOVORA.AndroidVideo;
 
-internal sealed record NLAndroidVideoLanStreams(Stream Video, Stream Control, Stream? Audio) : IAsyncDisposable
+internal sealed record NLAndroidVideoLanStreams(Stream Video, Stream Control, Stream? Audio, Stream? Files) : IAsyncDisposable
 {
     public async ValueTask DisposeAsync()
     {
         await DisposeOneAsync(Audio).ConfigureAwait(false);
+        await DisposeOneAsync(Files).ConfigureAwait(false);
         await DisposeOneAsync(Control).ConfigureAwait(false);
         await DisposeOneAsync(Video).ConfigureAwait(false);
     }
@@ -28,20 +29,24 @@ internal sealed record NLAndroidVideoLanStreams(Stream Video, Stream Control, St
 internal sealed class NLAndroidVideoLanClient
 {
     private readonly bool _allowLoopback;
+    internal string? FilesConnectionError { get; private set; }
 
     internal NLAndroidVideoLanClient(bool allowLoopback = false) => _allowLoopback = allowLoopback;
 
     internal async Task<NLAndroidVideoLanStreams> ConnectAsync(
         NLControlVeLanOffer offer,
+        bool connectFiles,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(offer);
         offer.Validate(DateTimeOffset.UtcNow, _allowLoopback);
+        FilesConnectionError = null;
         IPAddress address = IPAddress.Parse(offer.Host);
         byte[] fingerprint = Convert.FromHexString(offer.Fingerprint);
         Stream? video = null;
         Stream? control = null;
         Stream? audio = null;
+        Stream? files = null;
         try
         {
             video = await ConnectChannelAsync(
@@ -51,16 +56,35 @@ internal sealed class NLAndroidVideoLanClient
             if (offer.Audio is not null)
                 audio = await ConnectChannelAsync(
                     address, fingerprint, offer, offer.Audio, cancellationToken).ConfigureAwait(false);
-            return new NLAndroidVideoLanStreams(video, control, audio);
+            if (connectFiles && offer.Files is not null)
+            {
+                using var filesDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                filesDeadline.CancelAfter(TimeSpan.FromSeconds(5));
+                try
+                {
+                    files = await ConnectChannelAsync(
+                        address, fingerprint, offer, offer.Files, filesDeadline.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (!cancellationToken.IsCancellationRequested &&
+                    ex is IOException or SocketException or AuthenticationException or OperationCanceledException)
+                {
+                    // Optional FILES remains absent. The mandatory pinned video/control streams stay live.
+                    FilesConnectionError = ex.Message;
+                }
+            }
+            return new NLAndroidVideoLanStreams(video, control, audio, files);
         }
         catch
         {
             await DisposeOneAsync(audio).ConfigureAwait(false);
+            await DisposeOneAsync(files).ConfigureAwait(false);
             await DisposeOneAsync(control).ConfigureAwait(false);
             await DisposeOneAsync(video).ConfigureAwait(false);
             throw;
         }
     }
+
+    private const int VideoSendBufferBytes = 128 * 1024;
 
     private static async Task<Stream> ConnectChannelAsync(
         IPAddress address,
@@ -70,6 +94,10 @@ internal sealed class NLAndroidVideoLanClient
         CancellationToken cancellationToken)
     {
         var socket = new TcpClient(AddressFamily.InterNetwork) { NoDelay = true };
+        // Kernel autotuning can grow the send buffer to megabytes: WriteAsync then returns
+        // while hundreds of ms of video wait unseen by the packet queue's age guard. 128 KiB
+        // still carries ~100 Mbps at a 10 ms Wi-Fi RTT.
+        if (ReferenceEquals(endpoint, offer.Video)) socket.SendBufferSize = VideoSendBufferBytes;
         SslStream? tls = null;
         try
         {

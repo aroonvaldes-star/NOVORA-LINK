@@ -287,49 +287,43 @@ public partial class NLUIWindowMain
                 LERuntimeState.Running &&
             session.SessionHealthy)
         {
-            return
-                $"HEALTHY - HEARTBEAT #{session.HeartbeatSequence} - " +
-                $"RECOVERIES {session.RecoverySuccessCount}";
+            return "La conexión está lista para usar Internet USB.";
         }
 
         if (session.State ==
             LERuntimeState.Degraded)
         {
-            return
-                $"RECOVERING - " +
-                $"{FormatRecoveryStateLE(session.RecoveryState)} - " +
-                session.Message;
+            return "La conexión se interrumpió; NOVORA está intentando recuperarla.";
         }
 
         return session.State switch
         {
             LERuntimeState.Starting =>
-                "STARTING - inicializando LinkEngine...",
+                "Preparando la conexión...",
 
             LERuntimeState.ConnectingDevice =>
-                "STARTING - conectando LEDeviceManager...",
+                "Buscando el teléfono...",
 
             LERuntimeState.OpeningTransport =>
-                "STARTING - abriendo LETransportManager...",
+                "Preparando la comunicación con el teléfono...",
 
             LERuntimeState.WaitingForAndroid =>
-                "WAITING - esperando Android HELLO/ACK...",
+                "Esperando respuesta del teléfono...",
 
             LERuntimeState.StartingRecoveryMonitor =>
-                "STARTING - iniciando LERecoveryMonitor...",
+                "Comprobando que la conexión siga activa...",
 
             LERuntimeState.Stopping =>
-                "STOPPING - cerrando LERuntimeManager...",
+                "Cerrando la conexión...",
 
             LERuntimeState.Failed =>
-                $"FAILED - {session.LastError ?? session.Message}",
+                "No se pudo conectar. Revisa el cable o la conexión Wi-Fi y vuelve a intentarlo.",
 
             LERuntimeState.Stopped =>
-                "STOPPED - LinkEngine Runtime detenido.",
+                "Conecta el teléfono por USB o prepara una conexión Wi-Fi.",
 
             _ =>
-                $"{session.State.ToString().ToUpperInvariant()} - " +
-                session.Message
+                "Preparando la conexión con el teléfono."
         };
     }
 
@@ -388,13 +382,13 @@ public partial class NLUIWindowMain
 
         LinkEngineTestButton.Content =
             running
-                ? "VER ESTADO DE LINKENGINE"
-                : "INICIAR DESDE ANDROID";
+                ? "VER ESTADO DE INTERNET USB"
+                : "CÓMO ACTIVAR INTERNET USB";
 
         LinkEngineTestButton.ToolTip =
             running
-                ? "LinkEngine ya está activo. Revisa aquí el estado confirmado del túnel."
-                : "Por seguridad, Internet USB se inicia desde NOVORA Android después de autorizar USB y aceptar el permiso VPN.";
+                ? "Internet USB está activo; consulta aquí su estado."
+                : "Internet USB se activa desde NOVORA-LINK Android después de autorizar USB y aceptar el permiso VPN.";
     }
 
     /*
@@ -423,7 +417,7 @@ public partial class NLUIWindowMain
             "NOVORA-LINK/1 - Client ID: - - Heartbeat: 0";
 
         LinkEngineResultStatus.Text =
-            "Inicia Internet USB desde NOVORA Android con el control USB autorizado.";
+            "Conecta el teléfono y activa Internet USB desde NOVORA-LINK Android.";
 
         LinkEngineFriendlyConnectionStatus.Text =
             "Detenida";
@@ -457,7 +451,7 @@ public partial class NLUIWindowMain
         }
 
         LinkEngineResultStatus.Text =
-            $"FAILED - {message}";
+            "No se pudo conectar. Revisa el cable, las autorizaciones y vuelve a intentarlo.";
 
         LinkEngineFriendlyConnectionStatus.Text =
             "No se pudo conectar";
