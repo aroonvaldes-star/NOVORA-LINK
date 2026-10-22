@@ -145,6 +145,7 @@ public partial class NLUIWindowMain
             _ = Dispatcher.BeginInvoke(new Action(AndroidEngineStateChanged));
             return;
         }
+        UpdateHomeLanConnectionButton();
         SyncLinkMeasurementsLE();
         NLControlEngines current = CaptureAndroidEngines();
         VisionLiveTelemetryText14.Text = current.VisionTelemetry is { } telemetry

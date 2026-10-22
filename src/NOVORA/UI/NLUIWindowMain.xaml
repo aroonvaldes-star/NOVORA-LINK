@@ -423,14 +423,21 @@
                                                 Width="156"
                                                 Height="42"
                                                 ToolTip="Mostrar la pantalla del teléfono"/>
-                                        <Button x:Name="HomeLanConnectionButton"
-                                                Content="CONECTAR POR LAN"
+                                        <Button x:Name="HomeConnectionTypeButton"
+                                                Content="TIPO DE CONEXIÓN ▾"
                                                 Style="{StaticResource NvFlatButtonStyle}"
-                                                Click="HomeLanConnectionButton_Click"
-                                                Width="164"
+                                                Click="HomeConnectionTypeButton_Click"
+                                                Width="190"
                                                 Height="42"
                                                 Margin="10,0,0,0"
-                                                ToolTip="Conectar el teléfono por Wi-Fi"/>
+                                                ToolTip="Elige USB por cable o LAN por Wi-Fi para preparar la conexión">
+                                            <Button.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem x:Name="HomeConnectionUsbOption" Header="USB · cable" IsCheckable="True" Click="HomeConnectionUsb_Click"/>
+                                                    <MenuItem x:Name="HomeConnectionLanOption" Header="LAN · Wi-Fi" IsCheckable="True" Click="HomeConnectionLan_Click"/>
+                                                </ContextMenu>
+                                            </Button.ContextMenu>
+                                        </Button>
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -708,16 +715,16 @@
                                 </Border>
                                 <Expander Grid.Column="2" Header="Preparar conexión" IsExpanded="False">
                                     <StackPanel>
+                                        <Button x:Name="LinkEngineTestButton"
+                                                Content="VER PASOS PARA ACTIVAR INTERNET"
+                                                ToolTip="Abre una guía para iniciar LinkEngine desde LINK CONTROL"
+                                                Style="{StaticResource NvPrimaryButtonStyle}"
+                                                Click="LinkEngineTestButton_Click"
+                                                Height="38" Margin="0,0,0,10"/>
                                         <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,10">
                                             <StackPanel>
                                                 <TextBlock Text="Por USB" Style="{StaticResource NvSectionTitleStyle}"/>
                                                 <TextBlock Text="Conecta el cable y activa LinkEngine desde AppControl." Style="{StaticResource NvCaptionStyle}" Margin="0,5,0,10" TextWrapping="Wrap"/>
-                                                <Button x:Name="LinkEngineTestButton"
-                                                    Content="CÓMO ACTIVAR INTERNET USB"
-                                                    ToolTip="Muestra los pasos para activar Internet USB desde NOVORA-LINK Android"
-                                                    Style="{StaticResource NvPrimaryButtonStyle}"
-                                                    Click="LinkEngineTestButton_Click"
-                                                    Height="38"/>
                                             </StackPanel>
                                         </Border>
                                         <Border Style="{StaticResource NvCardStyle}">

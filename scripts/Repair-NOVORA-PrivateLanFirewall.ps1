@@ -12,7 +12,8 @@ $AppPath = [IO.Path]::GetFullPath($AppPath)
 if (-not $Undo -and -not (Test-Path -LiteralPath $AppPath -PathType Leaf)) { throw "No existe el ejecutable: $AppPath" }
 if ($Apply -and $Undo) { throw 'Elige Apply o Undo.' }
 if ([string]::IsNullOrWhiteSpace($BackupPath)) {
-    $BackupPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'artifacts\ve-startup-20261012\firewall-before.clixml'
+    $versionsRoot = if ($env:NOVORA_VERSIONES_DIR) { $env:NOVORA_VERSIONES_DIR } else { Join-Path $PSScriptRoot '..\..\..\Versiones' }
+    $BackupPath = Join-Path $versionsRoot 'Generados\NOVORA-LINK\ve-startup-20261012\firewall-before.clixml'
 }
 $BackupPath = [IO.Path]::GetFullPath($BackupPath)
 $hashAlgorithm = [Security.Cryptography.SHA256]::Create()

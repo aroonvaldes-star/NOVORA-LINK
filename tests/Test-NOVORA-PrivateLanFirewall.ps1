@@ -2,7 +2,8 @@
 # This test does not read or change the Windows firewall.
 $ErrorActionPreference = 'Stop'
 $repairScript = Join-Path $PSScriptRoot '..\scripts\Repair-NOVORA-PrivateLanFirewall.ps1'
-$testRoot = Join-Path $PSScriptRoot ('..\artifacts\ve-startup-20261012\firewall-tests-' + [Guid]::NewGuid().ToString('N'))
+$versionsRoot = if ($env:NOVORA_VERSIONES_DIR) { $env:NOVORA_VERSIONES_DIR } else { Join-Path $PSScriptRoot '..\..\..\Versiones' }
+$testRoot = Join-Path $versionsRoot ('Generados\NOVORA-LINK\ve-startup-20261012\firewall-tests-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
 $appPath = [IO.Path]::GetFullPath((Join-Path $testRoot 'NOVORA.exe'))
 Set-Content -LiteralPath $appPath -Value 'test fixture only'

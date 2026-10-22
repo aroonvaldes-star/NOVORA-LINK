@@ -33,7 +33,8 @@ $NovoraRelay = Join-Path $RepoPath 'src\NOVORA\LinkEngine\Network\Native\NovoraR
 $CargoManifest = Join-Path $NovoraRelay 'Cargo.toml'
 $ProtocolPath = Join-Path $RepoPath 'src\NOVORA\Control\NLControlProtocol.cs'
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
-    $OutputRoot = Join-Path $RepoPath ('artifacts\verification\' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+    $versionsRoot = if ($env:NOVORA_VERSIONES_DIR) { $env:NOVORA_VERSIONES_DIR } else { Join-Path $RepoPath '..\..\Versiones' }
+    $OutputRoot = Join-Path $versionsRoot ('Generados\NOVORA-LINK\verification\' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 }
 $OutputRoot = [IO.Path]::GetFullPath($OutputRoot)
 

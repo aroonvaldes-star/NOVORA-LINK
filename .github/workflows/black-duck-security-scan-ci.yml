@@ -46,4 +46,4 @@ jobs:
           blackducksca_upload_sarif_report: true
           github_token: ${{ github.token }}
           project_directory: .
-          project_source_excludes: "**/bin/**,**/obj/**,**/artifacts/**,**/Installer/output/**,**/src/NOVORA/Tools/**"
+          project_source_excludes: "**/bin/**,**/obj/**,**/Versiones/**,**/Installer/output/**,**/src/NOVORA/Tools/**"

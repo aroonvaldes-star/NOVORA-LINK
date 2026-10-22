@@ -3,11 +3,16 @@ param(
     [Parameter(Mandatory)]
     [string]$PublishDir,
 
-    [string]$OutputDir = (Join-Path $PSScriptRoot "..\artifacts\compliance")
+    [string]$OutputDir = ''
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
+if ([string]::IsNullOrWhiteSpace($OutputDir)) {
+    $versionsRoot = if ($env:NOVORA_VERSIONES_DIR) { $env:NOVORA_VERSIONES_DIR } else { Join-Path $PSScriptRoot '..\..\..\Versiones' }
+    $OutputDir = Join-Path $versionsRoot 'Generados\NOVORA-LINK\compliance'
+}
 
 function Get-VerifiedFile {
     param(
