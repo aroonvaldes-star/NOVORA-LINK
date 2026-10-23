@@ -44,6 +44,7 @@
 		<None Remove="UI\Emblema NOVORA blanco sobre fondo transparente - copia.png" />
         <Resource Include="Asset\Emblema NOVORA blanco sobre fondo transparente.png" />
 		<Resource Include="Asset\Emblema NOVORA blanco sobre fondo transparente - copia.png" />
+		<Resource Include="Asset\NLAssetExInXboxCalibration.png" />
 		<Resource Include="Asset\NLAssetExInDualShock4FrontSideMatte.png" />
 		<Resource Include="Asset\NLAssetExInXboxFrontSideMatte.png" />
 		<Resource Include="UI\Emblema NOVORA blanco sobre fondo transparente - copia.png" />
