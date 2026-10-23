@@ -1031,6 +1031,17 @@
 <Button x:Name="AndroidDownloadCopyButton14" Content="Copiar enlace directo" Click="CopyAndroidDownloadLink_Click" IsEnabled="False" Style="{StaticResource NvFlatButtonStyle}" Margin="0,0,0,12"/></WrapPanel>
 <Border x:Name="AndroidDownloadQrFrame14" Visibility="Collapsed" Background="White" Padding="12" HorizontalAlignment="Left"><Image x:Name="AndroidDownloadQrImage14" Width="220" Height="220" Stretch="Uniform" AutomationProperties.Name="QR de descarga privada de LINK Control" RenderOptions.BitmapScalingMode="NearestNeighbor"/></Border>
 </StackPanel></Border>
+                            <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,18">
+                                <StackPanel>
+                                    <TextBlock Text="Instalación local · LINK Control" Style="{StaticResource NvSectionTitleStyle}"/>
+                                    <TextBlock x:Name="AndroidPackageTitle" Text="LINK Control · paquete local" Style="{StaticResource NvCaptionStyle}" Margin="0,8,0,0"/>
+                                    <TextBlock x:Name="AndroidInstallStatus" Text="Conecta un teléfono Android autorizado para comprobar o instalar el paquete local." Style="{StaticResource NvCaptionStyle}" TextWrapping="Wrap" Margin="0,8,0,12"/>
+                                    <WrapPanel>
+                                        <Button x:Name="AndroidInstallRefreshButton" Content="COMPROBAR APP" Click="RefreshAndroidInstallation_Click" Style="{StaticResource NvFlatButtonStyle}" Margin="0,0,12,12"/>
+                                        <Button x:Name="AndroidInstallButton" Content="INSTALAR NOVORA EN ANDROID" Click="InstallAndroidApp_Click" IsEnabled="False" Style="{StaticResource NvPrimaryButtonStyle}" Margin="0,0,0,12"/>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
 </StackPanel>
                     </ScrollViewer>
             </Grid>

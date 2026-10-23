@@ -30,7 +30,7 @@ public sealed class VEExchangeSessionBinder
 
     public Task<VEExchangeSession> BindNativeLanAsync(
         long generation,
-        IVEExchangeLanFiles files,
+        IVEExchangeLanFiles? files,
         VEExchangeCapabilities capabilities,
         Func<bool>? canExchangeFiles = null,
         VEControlManager? control = null)

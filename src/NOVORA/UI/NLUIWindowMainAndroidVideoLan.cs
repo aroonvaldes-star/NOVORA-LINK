@@ -125,7 +125,19 @@ public partial class NLUIWindowMain
                 if (_experimentalFilesV2 is not null)
                     await BindLanExchangeVEAsync(_experimentalFilesV2);
             }
-            else _veLanFilesExchangeVE=streams.Files is null ? null : new VEExchangeLanFileSender(streams.Files,TimeSpan.FromSeconds(30),PaceExperimentalFilesAsync);
+            else
+            {
+                _veLanFilesExchangeVE = streams.Files is null
+                    ? null
+                    : new VEExchangeLanFileSender(streams.Files, TimeSpan.FromSeconds(30), PaceExperimentalFilesAsync);
+                VEExchangeCapabilities capabilities = ExchangeCapabilitiesVE() with
+                {
+                    ReceiveFiles = false,
+                    ReceiveFolder = false,
+                    InstallApk = false
+                };
+                await BindLanExchangeVEAsync(_veLanFilesExchangeVE, capabilities);
+            }
             _veLanDegradedVE = streams.Degraded;
             SetVeLanPhase("Connecting", "Canales VE LAN autenticados; iniciando VisionEngine.");
             _activeVisionSerialVE = "LAN:" + offer.Host;

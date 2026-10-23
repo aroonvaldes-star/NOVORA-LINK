@@ -13,7 +13,8 @@ public partial class NLUIWindowMain
     {
         if(generation<=0 || _experimentalFilesV2 is not null)throw new InvalidOperationException("La sesión FILES binaria no está disponible.");
         _experimentalFileLeases=new(generation);
-        _experimentalFilesV2=new(stream,generation,_experimentalFileLeases,PaceExperimentalFilesAsync);
+        _experimentalFilesV2=new(stream,generation,_experimentalFileLeases,PaceExperimentalFilesAsync,
+            canReceiveFiles: CanReceiveFilesFromAndroidVE);
         return Task.CompletedTask;
     }
     private async Task StopExperimentalFilesV2Async()

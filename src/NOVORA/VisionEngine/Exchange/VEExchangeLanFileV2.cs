@@ -18,12 +18,14 @@ internal sealed class VEExchangeLanFileV2 : IVEExchangeLanFiles
     public event Action<NLFileTransferResultV2>? Received;
 
     internal VEExchangeLanFileV2(Stream stream, long generation, NLControlFileLeaseCoordinatorV2 coordinator,
-        Func<int, CancellationToken, ValueTask>? pacer = null, string? receiveRoot = null)
+        Func<int, CancellationToken, ValueTask>? pacer = null, string? receiveRoot = null,
+        Func<bool>? canReceiveFiles = null)
     {
         if (coordinator.Generation != generation) throw new InvalidDataException("FILES coordinator generation mismatch.");
         _leases = coordinator;
         _engine = new(stream, new NLControlFileStorageV2(receiveRoot ?? NLControlFileStorage.PcRoot), generation,
-            pacer: pacer, receiveAuthorization: coordinator.ConfirmIncomingBegin);
+            pacer: pacer, receiveAuthorization: (id, currentGeneration) =>
+                (canReceiveFiles?.Invoke() ?? true) && coordinator.ConfirmIncomingBegin(id, currentGeneration));
         _engine.BeginSending += coordinator.ConfirmLocalBegin;
         _engine.TerminalReceived += Terminal;
         _engine.TerminalSent += Terminal;

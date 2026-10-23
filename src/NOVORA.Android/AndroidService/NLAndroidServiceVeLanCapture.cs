@@ -171,6 +171,8 @@ internal sealed class NLAndroidServiceVeLanCapture : Service
             bool canReceiveLanFiles = NLAndroidLanFileReceiver.TryCreate(this,
                 out NLAndroidLanFileReceiver? fileReceiver);
             var lanClient = new NLAndroidVideoLanClient();
+            if (offer.FilesWireVersion == 2)
+                NLAndroidServiceFilesV2.MarkV2Negotiated(offer.CaptureGeneration);
             _streams = await lanClient.ConnectAsync(
                 effectiveOffer, canReceiveLanFiles || offer.FilesWireVersion == 2, lifetime.Token)
                 .ConfigureAwait(false);
@@ -240,6 +242,7 @@ internal sealed class NLAndroidServiceVeLanCapture : Service
         NLControlVeLanOffer activeOffer = offer;
         while (!cancellationToken.IsCancellationRequested)
         {
+            int baseRotation = GetDisplayRotationDegrees();
             var encoderFailure = new TaskCompletionSource<Exception>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             NLControlVideoSize encodedSize = await ConfigureVideoPipelineAsync(
@@ -287,7 +290,7 @@ internal sealed class NLAndroidServiceVeLanCapture : Service
                     while (_displayChanges.Reader.TryRead(out _)) { }
                     displayChanged = _displayChanges.Reader.WaitToReadAsync(cancellationToken).AsTask();
                     NLControlVideoSize next = GetCaptureSize(activeOffer.MaxSize);
-                    int rotation = GetDisplayRotationDegrees();
+                    int rotation = (GetDisplayRotationDegrees() - baseRotation + 360) % 360;
                     await _compositor!.UpdateSourceAsync(
                         next.Width, next.Height, rotation, cancellationToken).ConfigureAwait(false);
                     var metrics = Resources?.DisplayMetrics
@@ -492,6 +495,7 @@ internal sealed class NLAndroidServiceVeLanCapture : Service
             Interlocked.Exchange(ref _capturePolicySession, null)?.Close();
             try { await NLAndroidServiceFilesV2.DetachAsync(_captureGeneration).ConfigureAwait(false); }
             catch (Exception ex) { Android.Util.Log.Warn("NOVORA-VE-LAN", "Cierre FILES v2: " + ex.Message); }
+            finally { NLAndroidServiceFilesV2.ClearV2Negotiated(_captureGeneration); }
             try { _display?.Release(); } catch { }
             _display = null;
             if (_compositor is not null) await _compositor.DisposeAsync().ConfigureAwait(false);

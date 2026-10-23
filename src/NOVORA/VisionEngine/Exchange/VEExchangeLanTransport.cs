@@ -9,19 +9,19 @@ namespace NOVORA.VisionEngine.Exchange;
 /// </summary>
 public sealed class VEExchangeLanTransport : IVEExchangeTransport
 {
-    private readonly IVEExchangeLanFiles _files;
+    private readonly IVEExchangeLanFiles? _files;
     private readonly Func<bool>? _canExchangeFiles;
     private int _disposed;
 
     public VEExchangeLanTransport(
-        IVEExchangeLanFiles files,
+        IVEExchangeLanFiles? files,
         VEExchangeCapabilities capabilities,
         Func<bool>? canExchangeFiles = null)
     {
-        _files = files ?? throw new ArgumentNullException(nameof(files));
+        _files = files;
         Capabilities = capabilities ?? throw new ArgumentNullException(nameof(capabilities));
         _canExchangeFiles = canExchangeFiles;
-        _files.Received += OnReceived;
+        if (_files is not null) _files.Received += OnReceived;
     }
 
     /// <summary>Recepciones confirmadas del teléfono, expresadas como resultado Exchange.</summary>
@@ -36,6 +36,7 @@ public sealed class VEExchangeLanTransport : IVEExchangeTransport
         ArgumentNullException.ThrowIfNull(paths);
         if (!PrivacyAllowsFiles()) return Blocked();
         if (!Capabilities.SendFiles) return VEExchangeResult.FailVE("El envío de archivos no está habilitado.");
+        if (_files is null) return VEExchangeResult.FailVE("El canal FILES LAN no está disponible.");
         if (paths.Count == 0) return VEExchangeResult.FailVE("No hay elementos para enviar.");
 
         try
@@ -70,13 +71,13 @@ public sealed class VEExchangeLanTransport : IVEExchangeTransport
     public ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return ValueTask.CompletedTask;
-        _files.Received -= OnReceived;
+        if (_files is not null) _files.Received -= OnReceived;
         return ValueTask.CompletedTask;
     }
 
     private void OnReceived(NLFileTransferResultV2 result)
     {
-        if (!Capabilities.ReceiveFiles || Volatile.Read(ref _disposed) != 0) return;
+        if (!Capabilities.ReceiveFiles || !PrivacyAllowsFiles() || Volatile.Read(ref _disposed) != 0) return;
         ReceivedVE?.Invoke(VEExchangeResult.OkVE(
             "Archivo recibido desde Android.",
             destination: result.Destination,

@@ -10,9 +10,16 @@ public static class NLControlCommands
         if (request.Action == "update.chunk")
             return state.AppUpdate is not null && request.Value is { Length: > 0 and <= 48 }
                 ? null : "No hay una actualización verificada disponible.";
-        if (request.Action is "network.capabilities" or "network.policy" or "files.acquire" or "files.cancelLease")
+        if (request.Action is "network.capabilities" or "network.policy" or "files.cancelLease")
             return state.Capabilities?.Version == 1 && request.Value is { Length: <= 8192 }
                 ? null : "La función experimental no está disponible.";
+        if (request.Action == "files.acquire")
+            return state.Capabilities?.Version == 1 &&
+                state.Capabilities.FilesWireVersions?.Contains(2) == true &&
+                request.Value is { Length: <= 8192 } && state.FileSharing
+                ? null : state.FileSharing
+                    ? "La función experimental no está disponible."
+                    : "La transferencia de archivos está desactivada en esta PC.";
         if (request.Action is "file.begin" or "file.chunk" or "file.end" or "file.cancel")
             return state.FileSharing ? null : "Esta PC no admite transferencia de archivos.";
         if (request.Action is not ("applyVideoSettings" or "bitrate" or "profile" or "audio" or "resolution" or "fps" or "capture" or "startRecording" or "stopRecording" or "restartVideo" or "startAppVideo" or "startVideoLan" or "stopVideo" or "startLink" or "stopLink" or "link.speedtest" or "exin.start" or "exin.mode" or "exin.synchronize"))

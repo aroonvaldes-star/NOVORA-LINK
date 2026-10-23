@@ -36,6 +36,9 @@ public partial class NLUIWindowMain
     private bool ExchangeFilesAllowedVE()
         => _integrationRuntime?.Privacy.CanExchangeFilesVE ?? false;
 
+    private bool CanReceiveFilesFromAndroidVE()
+        => _viewModel.IntegrationFileTransferEnabled && ExchangeFilesAllowedVE();
+
     private async Task BindUsbExchangeVEAsync(string serial)
     {
         EnsureExchangeBinderVE();
@@ -51,15 +54,27 @@ public partial class NLUIWindowMain
             control: _visionEngineVE?.RuntimeVE.ControlVE);
     }
 
-    private async Task BindLanExchangeVEAsync(IVEExchangeLanFiles files)
+    private async Task BindLanExchangeVEAsync(IVEExchangeLanFiles? files, VEExchangeCapabilities? capabilities = null)
     {
         EnsureExchangeBinderVE();
         long generation = NextExchangeGenerationVE();
         _veExchangeGenerationVE = generation;
+        VEExchangeCapabilities effectiveCapabilities = capabilities ?? ExchangeCapabilitiesVE();
+        if (files is null)
+        {
+            effectiveCapabilities = effectiveCapabilities with
+            {
+                SendFiles = false,
+                ReceiveFiles = false,
+                ReceiveFolder = false,
+                DragDrop = false,
+                InstallApk = false
+            };
+        }
         await _veExchangeBinderVE!.BindNativeLanAsync(
             generation,
             files,
-            ExchangeCapabilitiesVE(),
+            effectiveCapabilities,
             ExchangeFilesAllowedVE,
             control: _visionEngineVE?.RuntimeVE.ControlVE);
         if (ActiveExchangeTransportVE() is VEExchangeLanTransport lan)

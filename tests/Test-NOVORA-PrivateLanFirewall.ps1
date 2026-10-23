@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 $repairScript = Join-Path $PSScriptRoot '..\scripts\Repair-NOVORA-PrivateLanFirewall.ps1'
 $testRoot = Join-Path $PSScriptRoot ('..\artifacts\ve-startup-20261012\firewall-tests-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
-$appPath = [IO.Path]::GetFullPath((Join-Path $testRoot 'NOVORA.exe'))
+$appPath = [IO.Path]::GetFullPath((Join-Path $testRoot 'NOVORA-LINK.exe'))
 Set-Content -LiteralPath $appPath -Value 'test fixture only'
 $backupPath = Join-Path $testRoot 'before.clixml'
 $global:novoraTestRules = @{}
@@ -104,4 +104,3 @@ Require $rejected 'An unowned existing allow-rule name must be rejected.'
 Require ($global:novoraTestRules[$existingName].Profile -eq 6 -and $global:novoraTestRules[$existingName].Enabled -eq 'False' -and
     $global:novoraTestRules['initial'].Profile -eq 6) 'Rejecting an unowned rule must not modify it or existing blocks.'
 Write-Output 'PASS: firewall preview, private scope, repeated Apply/Undo, and unowned-rule rejection.'
-

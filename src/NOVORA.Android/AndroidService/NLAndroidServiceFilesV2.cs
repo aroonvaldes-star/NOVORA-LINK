@@ -19,7 +19,18 @@ internal static class NLAndroidServiceFilesV2
     }
     private static readonly object Gate = new();
     private static Attachment? _current;
+    private static long _negotiatedGeneration;
     internal static Attachment? Current { get { lock (Gate) return _current; } }
+    internal static long NegotiatedGeneration => Volatile.Read(ref _negotiatedGeneration);
+
+    internal static void MarkV2Negotiated(long generation)
+    {
+        if (generation <= 0) throw new InvalidDataException("Generación FILES v2 inválida.");
+        Interlocked.Exchange(ref _negotiatedGeneration, generation);
+    }
+
+    internal static void ClearV2Negotiated(long generation)
+        => Interlocked.CompareExchange(ref _negotiatedGeneration, 0, generation);
 
     internal static async Task AttachAsync(Context context, Stream authenticatedFiles, long generation, CancellationToken captureCt)
     {
@@ -74,10 +85,16 @@ public sealed partial class NLAndroidServiceControl
         if (control.Phase != NLControlSessionPhase.Connected) throw new IOException("Conecta la PC antes de enviar.");
         var endpoint = NLAndroidServiceFilesV2.Current;
         if (endpoint is null)
+        {
+            if (NLAndroidServiceFilesV2.NegotiatedGeneration != 0)
+                throw new IOException("FILES v2 fue negociado, pero su canal no está disponible. Inicia una sesión de captura nueva.");
             return await NLControlFileSender.SendAsync(source, name, length, (action, value) =>
             {
                 EnsureSession(); return Session.SendAsync(action, value);
             }, progress, ct).ConfigureAwait(false);
+        }
+        if (NLAndroidServiceFilesV2.NegotiatedGeneration != endpoint.Generation)
+            throw new IOException("El canal FILES v2 no pertenece a la sesión negociada.");
         if (endpoint.Engine.IsClosed) throw new IOException("El canal de archivos se cerró. Inicia una sesión de captura nueva.");
         Guid id = Guid.NewGuid(); bool granted = false;
         var request = new NLFileLeaseRequestV2(id, endpoint.Generation, NLFileTransferDirectionV2.AndroidToPc);

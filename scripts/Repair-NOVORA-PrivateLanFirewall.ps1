@@ -1,7 +1,7 @@
 #requires -Version 5.1
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
-    [string]$AppPath = 'C:\Program Files\NOVORA\NOVORA.exe',
+    [string]$AppPath = 'C:\Program Files\NOVORA\NOVORA-LINK.exe',
     [switch]$Apply,
     [switch]$Undo,
     [string]$BackupPath = ''

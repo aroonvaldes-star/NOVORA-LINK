@@ -23,6 +23,13 @@ Check("Supported bitrate", Request("bitrate", "8M"), true);
 Check("Unsupported bitrate", Request("bitrate", "invalid"), false);
 Check("Files disabled", Request("file.begin"), false);
 Check("Files enabled", Request("file.begin"), true, state with { FileSharing = true });
+var fileCapabilities = new NLControlNetworkCapabilities(FilesWireVersions: [1, 2]);
+Check("Files acquire requires v2", Request("files.acquire", "{}"), false,
+    state with { FileSharing = true, Capabilities = new NLControlNetworkCapabilities() });
+Check("Files acquire requires sharing enabled", Request("files.acquire", "{}"), false,
+    state with { Capabilities = fileCapabilities });
+Check("Files acquire with v2 and sharing enabled", Request("files.acquire", "{}"), true,
+    state with { FileSharing = true, Capabilities = fileCapabilities });
 Check("Restart requires running video", Request("restartVideo"), false);
 Check("Restart running video", Request("restartVideo"), true, state with { VideoRunning = true });
 Console.WriteLine($"{passed} control validation checks passed.");

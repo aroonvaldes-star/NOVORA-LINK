@@ -372,6 +372,8 @@ public sealed class NLControlFileTransferV2 : IAsyncDisposable
         }
         else if (frame.Kind == NLFileFrameKindV2.Commit)
         {
+            if (_receiveAuthorization is not null && !_receiveAuthorization(frame.TransferId, _generation))
+                throw new InvalidDataException("FILES Commit is no longer authorized.");
             if (frame.Offset != current.Metadata.Length || current.Written != current.Metadata.Length || current.QueuedBytes != 0)
                 throw new InvalidDataException("FILES Commit arrived before all Data were acknowledged.");
         }

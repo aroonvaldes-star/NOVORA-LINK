@@ -3,7 +3,7 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::{
     atomic::{AtomicU64, Ordering},
-    Arc,
+    Arc, OnceLock,
 };
 use std::time::{Duration, Instant};
 
@@ -32,6 +32,19 @@ const PORT: u16 = 27184;
 const MTU: usize = 1500;
 const UDP_IDLE: Duration = Duration::from_secs(60);
 const SPEED_TEST_PORT: u16 = 28085;
+
+fn udp_activity_millis() -> u64 {
+    static ORIGIN: OnceLock<Instant> = OnceLock::new();
+    ORIGIN
+        .get_or_init(Instant::now)
+        .elapsed()
+        .as_millis()
+        .min(u64::MAX as u128) as u64
+}
+
+fn udp_flow_is_idle(last_activity_ms: u64, now_ms: u64) -> bool {
+    now_ms.saturating_sub(last_activity_ms) >= UDP_IDLE.as_millis() as u64
+}
 
 #[derive(Default)]
 struct Traffic {
@@ -465,7 +478,7 @@ async fn relay_udp(
     let mut tasks = tokio::task::JoinSet::new();
     let mut flows: HashMap<
         (SocketAddr, SocketAddr),
-        (mpsc::Sender<UdpPayload>, Instant, Arc<Semaphore>),
+        (mpsc::Sender<UdpPayload>, Arc<AtomicU64>, Arc<Semaphore>),
     > = HashMap::new();
     let mut packet = [0_u8; 65535];
     loop {
@@ -474,9 +487,9 @@ async fn relay_udp(
         if !is_forwardable(destination) {
             continue;
         }
-        let now = Instant::now();
+        let now_ms = udp_activity_millis();
         flows.retain(|_, (sender, last, _)| {
-            !sender.is_closed() && now.duration_since(*last) < UDP_IDLE
+            !sender.is_closed() && !udp_flow_is_idle(last.load(Ordering::Relaxed), now_ms)
         });
         let key = (source, destination);
         if !flows.contains_key(&key) {
@@ -495,6 +508,8 @@ async fn relay_udp(
             upstream.connect(destination).await?;
             let (sender, mut receiver) = mpsc::channel::<UdpPayload>(64);
             let flow_memory = Arc::new(Semaphore::new(flow_scheduler::MAX_FLOW_BYTES));
+            let last_activity = Arc::new(AtomicU64::new(now_ms));
+            let incoming_activity = last_activity.clone();
             let replies = socket.clone();
             let flow_policy = policy.clone();
             let flow_telemetry = telemetry.clone();
@@ -584,6 +599,7 @@ async fn relay_udp(
                         {
                             break;
                         }
+                        incoming_activity.store(udp_activity_millis(), Ordering::Relaxed);
                         flow_telemetry.record_bytes(
                             Domain::Internet,
                             Direction::ToAndroid,
@@ -595,10 +611,10 @@ async fn relay_udp(
                 // Waiting for upload quota must not stop reading independent download replies.
                 tokio::select! { _ = outgoing => {}, _ = incoming => {} }
             });
-            flows.insert(key, (sender, now, flow_memory));
+            flows.insert(key, (sender, last_activity, flow_memory));
         }
         if let Some((sender, last, flow_memory)) = flows.get_mut(&key) {
-            *last = now;
+            last.store(udp_activity_millis(), Ordering::Relaxed);
             let permit = memory.clone().try_acquire_many_owned(count as u32);
             let flow_permit = flow_memory.clone().try_acquire_many_owned(count as u32);
             if let (Ok(permit), Ok(flow_permit)) = (permit, flow_permit) {
@@ -649,6 +665,13 @@ fn tcp_upstream(destination: SocketAddr) -> SocketAddr {
 mod tests {
     use super::*;
     use tokio::time::timeout;
+
+    #[test]
+    fn udp_download_activity_prevents_idle_expiry() {
+        assert!(udp_flow_is_idle(100, 60_100));
+        assert!(!udp_flow_is_idle(50_000, 60_100));
+        assert!(udp_flow_is_idle(50_000, 110_000));
+    }
 
     #[test]
     fn only_speed_test_gateway_maps_to_pc_loopback() {

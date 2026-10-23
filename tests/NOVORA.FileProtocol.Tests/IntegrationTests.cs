@@ -8,6 +8,7 @@ static class IntegrationTests
     {
         await DiskPublicationAndCleanup(check);
         await PcWrapperAndRemoteArbitration(check);
+        await CommitRechecksReceiveAuthorization(check);
         await CoordinatorExpiryAndIdentity(check);
     }
     private static async Task DiskPublicationAndCleanup(Action<bool, string> check)
@@ -86,6 +87,37 @@ static class IntegrationTests
         bool wrongDirection = false;
         try { coordinator.PollRemote(remote with { Direction = NLFileTransferDirectionV2.PcToAndroid }); } catch (InvalidDataException) { wrongDirection = true; }
         check(wrongDirection, "RemoteCannotAcquirePcSendingDirection");
+    }
+    private static async Task CommitRechecksReceiveAuthorization(Action<bool, string> check)
+    {
+        string fixtures = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "storage-fixtures"));
+        string root = Path.Combine(fixtures, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            int authorizationChecks = 0;
+            await using var pair = await TcpPair.CreateAsync();
+            using var coordinator = new NLControlFileLeaseCoordinatorV2(88);
+            var androidStore = new MemoryStorage();
+            await using var pc = new VEExchangeLanFileV2(pair.Left.GetStream(), 88, coordinator,
+                receiveRoot: Path.Combine(root, "received"),
+                canReceiveFiles: () => Interlocked.Increment(ref authorizationChecks) == 1);
+            await using var android = new NLControlFileTransferV2(pair.Right.GetStream(), androidStore, 88);
+            await android.StartAsync();
+            Guid id = Guid.NewGuid();
+            check(coordinator.PollRemote(new(id, 88, NLFileTransferDirectionV2.AndroidToPc)).Granted,
+                "ReceiveLeaseGrantedBeforePolicyChange");
+            bool rejected = false;
+            try
+            {
+                await android.SendAsync(id, new("policy-change.bin", 3), new MemoryStream([1, 2, 3]))
+                    .WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (IOException) { rejected = true; }
+            check(rejected && !File.Exists(Path.Combine(root, "received", "Otros", "policy-change.bin")),
+                "ReceivePolicyRecheckedBeforeCommitPublication");
+        }
+        finally { DeleteFixture(root, fixtures); }
     }
     private static void DeleteFixture(string root, string fixtures)
     {

@@ -109,7 +109,7 @@ public partial class NLUIWindowMain
             _viewModel.Monitors.Select(m => new NLControlOption(m.DeviceName, m.DisplayLabel)).ToArray(), true,
             _viewModel.VideoPresentationMode,
             _viewModel.VideoPresentationModeOptions.Select(o => new NLControlOption(o.Value, o.Label)).ToArray()),
-        CaptureAndroidMedia(), true, CaptureAndroidExIn(), CaptureAndroidAcceleration(),
+        CaptureAndroidMedia(), _viewModel.IntegrationFileTransferEnabled, CaptureAndroidExIn(), CaptureAndroidAcceleration(),
         Capabilities: new NLControlNetworkCapabilities(StabilityTelemetry: true,
             LiveVideoBitrate: true, CaptureFramePacing: true, FilesWireVersions: [1,2]),
         AppUpdate: CaptureAndroidAppUpdate());

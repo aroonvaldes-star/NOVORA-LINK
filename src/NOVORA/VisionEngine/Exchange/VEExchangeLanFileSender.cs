@@ -4,7 +4,7 @@ using System.IO;
 namespace NOVORA.VisionEngine.Exchange;
 
 /// <summary>Streams PC files through the authenticated VE LAN FILES channel.</summary>
-internal sealed class VEExchangeLanFileSender : IAsyncDisposable
+internal sealed class VEExchangeLanFileSender : IVEExchangeLanFiles
 {
     private readonly Stream _stream;
     private readonly TimeSpan _requestTimeout;
@@ -13,6 +13,7 @@ internal sealed class VEExchangeLanFileSender : IAsyncDisposable
     private long _nextRequestId;
     private bool _disposed;
     private readonly Func<int,CancellationToken,ValueTask>? _pacer;
+    event Action<NLFileTransferResultV2>? IVEExchangeLanFiles.Received { add { } remove { } }
 
     internal VEExchangeLanFileSender(Stream stream) : this(stream, TimeSpan.FromSeconds(30)) { }
 
@@ -28,7 +29,8 @@ internal sealed class VEExchangeLanFileSender : IAsyncDisposable
         _pacer=pacer;
     }
 
-    internal async Task<int> SendPathsAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+    internal async Task<int> SendPathsAsync(
+        IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(paths);
@@ -71,6 +73,10 @@ internal sealed class VEExchangeLanFileSender : IAsyncDisposable
         }
         finally { _sendGate.Release(); }
     }
+
+    Task<int> IVEExchangeLanFiles.SendPathsAsync(
+        IReadOnlyList<string> paths, CancellationToken cancellationToken)
+        => SendPathsAsync(paths, cancellationToken);
 
     private async Task SendFileAsync(string path, string relativePath, CancellationToken cancellationToken)
     {
