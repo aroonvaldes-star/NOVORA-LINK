@@ -9,6 +9,7 @@ static class IntegrationTests
         await DiskPublicationAndCleanup(check);
         await PcWrapperAndRemoteArbitration(check);
         await CommitRechecksReceiveAuthorization(check);
+        await PrivacyDeniesRemoteAcquireWithoutClosingChannel(check);
         await CoordinatorExpiryAndIdentity(check);
     }
     private static async Task DiskPublicationAndCleanup(Action<bool, string> check)
@@ -54,7 +55,7 @@ static class IntegrationTests
             string selected = Path.Combine(root, "source.bin"); byte[] bytes = new byte[65537]; Random.Shared.NextBytes(bytes); await File.WriteAllBytesAsync(selected, bytes);
             await using var pair = await TcpPair.CreateAsync(); using var coordinator = new NLControlFileLeaseCoordinatorV2(77);
             var androidStore = new MemoryStorage();
-            await using var pc = new VEExchangeLanFileV2(pair.Left.GetStream(), 77, coordinator, receiveRoot: Path.Combine(root, "received"));
+            await using var pc = new VEExchangeLanFileV2(pair.Left.GetStream(), 77, coordinator, () => true, receiveRoot: Path.Combine(root, "received"));
             await using var android = new NLControlFileTransferV2(pair.Right.GetStream(), androidStore, 77);
             await android.StartAsync();
             check(await pc.SendPathsAsync(new[] { selected }) == 1 && androidStore.Published.Values.Single().SequenceEqual(bytes), "PcWrapperStreamsSelectedPathWithCentralLease");
@@ -100,8 +101,7 @@ static class IntegrationTests
             using var coordinator = new NLControlFileLeaseCoordinatorV2(88);
             var androidStore = new MemoryStorage();
             await using var pc = new VEExchangeLanFileV2(pair.Left.GetStream(), 88, coordinator,
-                receiveRoot: Path.Combine(root, "received"),
-                canReceiveFiles: () => Interlocked.Increment(ref authorizationChecks) == 1);
+                () => Interlocked.Increment(ref authorizationChecks) == 1, receiveRoot: Path.Combine(root, "received"));
             await using var android = new NLControlFileTransferV2(pair.Right.GetStream(), androidStore, 88);
             await android.StartAsync();
             Guid id = Guid.NewGuid();
@@ -116,6 +116,50 @@ static class IntegrationTests
             catch (IOException) { rejected = true; }
             check(rejected && !File.Exists(Path.Combine(root, "received", "Otros", "policy-change.bin")),
                 "ReceivePolicyRecheckedBeforeCommitPublication");
+        }
+        finally { DeleteFixture(root, fixtures); }
+    }
+    private static async Task PrivacyDeniesRemoteAcquireWithoutClosingChannel(Action<bool, string> check)
+    {
+        string fixtures = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "storage-fixtures"));
+        string root = Path.Combine(fixtures, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            bool receiveAllowed = false;
+            int allowedChecks = int.MaxValue;
+            await using var pair = await TcpPair.CreateAsync();
+            using var coordinator = new NLControlFileLeaseCoordinatorV2(89);
+            var androidStore = new MemoryStorage();
+            await using var pc = new VEExchangeLanFileV2(pair.Left.GetStream(), 89, coordinator,
+                () => Volatile.Read(ref receiveAllowed) && Interlocked.Decrement(ref allowedChecks) >= 0,
+                receiveRoot: Path.Combine(root, "received"));
+            await using var android = new NLControlFileTransferV2(pair.Right.GetStream(), androidStore, 89);
+            await android.StartAsync();
+            var blocked = new NLFileLeaseRequestV2(Guid.NewGuid(), 89, NLFileTransferDirectionV2.AndroidToPc);
+            check(pc.PollRemote(blocked) is null, "PrivacyDeniesRemoteAcquire");
+            string selected = Path.Combine(root, "while-blocked.bin");
+            await File.WriteAllBytesAsync(selected, [7, 8, 9]);
+            check(await pc.SendPathsAsync(new[] { selected }).WaitAsync(TimeSpan.FromSeconds(5)) == 1 && !pc.Completion.IsCompleted,
+                "DeniedAcquireLeavesChannelAndLeaseFree");
+            Volatile.Write(ref receiveAllowed, true);
+            Guid id = Guid.NewGuid();
+            check(pc.PollRemote(new(id, 89, NLFileTransferDirectionV2.AndroidToPc)) is { Granted: true },
+                "RemoteAcquireGrantedAfterPrivacyAllows");
+            await android.SendAsync(id, new("allowed.bin", 3), new MemoryStream([1, 2, 3])).WaitAsync(TimeSpan.FromSeconds(5));
+            check(File.Exists(Path.Combine(root, "received", "Otros", "allowed.bin")), "ReceiveAllowedAfterPrivacyLifted");
+            Guid midId = Guid.NewGuid();
+            check(pc.PollRemote(new(midId, 89, NLFileTransferDirectionV2.AndroidToPc)) is { Granted: true }, "MidTransferLeaseGranted");
+            // Begin and the first Data block pass; PrivacyVE turns on before the second block.
+            Volatile.Write(ref allowedChecks, 2);
+            byte[] large = new byte[NLControlFileProtocolV2.ChunkBytes * 4];
+            bool stopped = false;
+            try { await android.SendAsync(midId, new("mid-transfer.bin", large.Length), new MemoryStream(large)).WaitAsync(TimeSpan.FromSeconds(5)); }
+            catch (IOException) { stopped = true; }
+            // The refusal closes the channel; wait for its receiver cleanup before inspecting the disk.
+            if (stopped) await pc.Completion.ContinueWith(_ => { }).WaitAsync(TimeSpan.FromSeconds(5));
+            check(stopped && !File.Exists(Path.Combine(root, "received", "Otros", "mid-transfer.bin")) &&
+                !Directory.EnumerateFiles(root, "*.partial", SearchOption.AllDirectories).Any(), "PrivacyStopsReceiveMidTransferAndCleansPartial");
         }
         finally { DeleteFixture(root, fixtures); }
     }

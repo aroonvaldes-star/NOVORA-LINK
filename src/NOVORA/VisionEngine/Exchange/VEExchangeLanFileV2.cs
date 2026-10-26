@@ -10,6 +10,7 @@ internal sealed class VEExchangeLanFileV2 : IVEExchangeLanFiles
     private readonly NLControlFileLeaseCoordinatorV2 _leases;
     private readonly SemaphoreSlim _sendGate = new(1, 1);
     private readonly CancellationTokenSource _stop = new();
+    private readonly Func<bool> _canReceiveFiles;
     private bool _disposed;
     internal long Generation => _leases.Generation;
     internal Task Completion => _engine.Completion;
@@ -17,15 +18,17 @@ internal sealed class VEExchangeLanFileV2 : IVEExchangeLanFiles
     internal long PeakInFlightBytes => _engine.PeakInFlightBytes;
     public event Action<NLFileTransferResultV2>? Received;
 
+    /// <param name="canReceiveFiles">Sharing setting and PrivacyVE. Required so a missing policy can never allow receives.</param>
     internal VEExchangeLanFileV2(Stream stream, long generation, NLControlFileLeaseCoordinatorV2 coordinator,
-        Func<int, CancellationToken, ValueTask>? pacer = null, string? receiveRoot = null,
-        Func<bool>? canReceiveFiles = null)
+        Func<bool> canReceiveFiles, Func<int, CancellationToken, ValueTask>? pacer = null, string? receiveRoot = null)
     {
         if (coordinator.Generation != generation) throw new InvalidDataException("FILES coordinator generation mismatch.");
+        ArgumentNullException.ThrowIfNull(canReceiveFiles);
         _leases = coordinator;
+        _canReceiveFiles = canReceiveFiles;
         _engine = new(stream, new NLControlFileStorageV2(receiveRoot ?? NLControlFileStorage.PcRoot), generation,
             pacer: pacer, receiveAuthorization: (id, currentGeneration) =>
-                (canReceiveFiles?.Invoke() ?? true) && coordinator.ConfirmIncomingBegin(id, currentGeneration));
+                canReceiveFiles() && coordinator.ConfirmIncomingBegin(id, currentGeneration));
         _engine.BeginSending += coordinator.ConfirmLocalBegin;
         _engine.TerminalReceived += Terminal;
         _engine.TerminalSent += Terminal;
@@ -36,6 +39,20 @@ internal sealed class VEExchangeLanFileV2 : IVEExchangeLanFiles
     }
 
     private void Terminal(Guid id, NLFileFrameKindV2 kind) => _leases.NotifyTerminal(id, kind);
+
+    /// <summary>
+    /// Android→PC turn. While sharing or PrivacyVE blocks receives no turn is granted and any queued one is
+    /// released, so Android gets a clear refusal and the channel stays open for PC sends. Null means denied.
+    /// </summary>
+    internal NLFileLeaseGrantV2? PollRemote(NLFileLeaseRequestV2 request)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_canReceiveFiles()) return _leases.PollRemote(request);
+        _leases.CancelRemote(request);
+        return null;
+    }
+
+    internal bool CancelRemote(NLFileLeaseRequestV2 request) => _leases.CancelRemote(request);
 
     public async Task<int> SendPathsAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
     {

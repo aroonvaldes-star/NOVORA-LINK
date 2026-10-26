@@ -13,8 +13,7 @@ public partial class NLUIWindowMain
     {
         if(generation<=0 || _experimentalFilesV2 is not null)throw new InvalidOperationException("La sesión FILES binaria no está disponible.");
         _experimentalFileLeases=new(generation);
-        _experimentalFilesV2=new(stream,generation,_experimentalFileLeases,PaceExperimentalFilesAsync,
-            canReceiveFiles: CanReceiveFilesFromAndroidVE);
+        _experimentalFilesV2=new(stream,generation,_experimentalFileLeases,CanReceiveFilesFromAndroidVE,PaceExperimentalFilesAsync);
         return Task.CompletedTask;
     }
     private async Task StopExperimentalFilesV2Async()
@@ -28,7 +27,7 @@ public partial class NLUIWindowMain
     private Task<NLControlReply> HandleExperimentalFilesControlAsync(NLControlRequest request,string transport)
     {
         NLControlReply Reply(bool success,string text,string?value=null)=>new(NLControlProtocol.Version,request.Id,success,text,Value:value);
-        if(transport!="LAN" || _experimentalFileLeases is not { } leases || _experimentalFilesV2 is null ||
+        if(transport!="LAN" || _experimentalFileLeases is not { } leases || _experimentalFilesV2 is not { } files ||
             ExperimentalPeer("LAN")?.FilesWireVersions?.Contains(2)!=true)
             return Task.FromResult(Reply(false,"Inicia una sesión VE LAN con FILES binario negociado."));
         var acquire=JsonSerializer.Deserialize<NLFileLeaseRequestV2>(request.Value!);
@@ -36,9 +35,10 @@ public partial class NLUIWindowMain
             return Task.FromResult(Reply(false,"La solicitud FILES pertenece a otra sesión."));
         if(request.Action=="files.acquire")
         {
-            var grant=leases.PollRemote(acquire);
+            if(files.PollRemote(acquire) is not { } grant)
+                return Task.FromResult(Reply(false,"La recepción de archivos está bloqueada por PrivacyVE o desactivada en esta PC."));
             return Task.FromResult(Reply(true,grant.Granted ? "Turno FILES concedido." : "Turno FILES en cola.",JsonSerializer.Serialize(grant)));
         }
-        return Task.FromResult(Reply(leases.CancelRemote(acquire),"Solicitud de turno FILES cancelada."));
+        return Task.FromResult(Reply(files.CancelRemote(acquire),"Solicitud de turno FILES cancelada."));
     }
 }

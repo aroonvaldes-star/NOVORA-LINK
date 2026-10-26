@@ -364,6 +364,9 @@ public sealed class NLControlFileTransferV2 : IAsyncDisposable
         }
         if (frame.Kind == NLFileFrameKindV2.Data)
         {
+            // A policy change mid-transfer stops writing at the next block, not only at Commit.
+            if (_receiveAuthorization is not null && !_receiveAuthorization(frame.TransferId, _generation))
+                throw new InvalidDataException("FILES Data is no longer authorized.");
             if (frame.Offset != current.Accepted || frame.Payload.Length > current.Metadata.Length - current.Accepted ||
                 frame.Payload.Length > _window - current.QueuedBytes)
                 throw new InvalidDataException("FILES Data exceeds sequence, declared length or receive credit.");

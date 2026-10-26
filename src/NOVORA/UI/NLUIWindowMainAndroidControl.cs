@@ -282,6 +282,12 @@ public partial class NLUIWindowMain
                 case "file.chunk":
                 case "file.end":
                 case "file.cancel":
+                    // Legacy CONTROL files obey the same receive policy as FILES v2; a block discards the partial.
+                    if (request.Action != "file.cancel" && !CanReceiveFilesFromAndroidVE())
+                    {
+                        ResetAndroidFileTransfer();
+                        return Reply(false, "La recepción de archivos está bloqueada por PrivacyVE o desactivada en esta PC.");
+                    }
                     if (_androidFileReceiver is null)
                     {
                         _androidFileReceiver = new NLControlFileReceiver(NLControlFileStorage.PcRoot);
