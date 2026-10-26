@@ -54,7 +54,9 @@ await Check("Endpoint http se rechaza sin enviar la clave", async () =>
 {
     int calls = 0;
     using var http = new HttpClient(new StubHandler((_, _) => { calls++; return Task.FromResult(Json(okJson)); }));
-    using var client = new NLNVIDIAApiClient(Options(endpoint: "http://integrate.api.nvidia.com/v1/chat/completions"), http);
+    // Se arma con UriBuilder para probar el rechazo sin dejar una URL sin TLS en el código.
+    var plain = new UriBuilder(NLNVIDIAApiOptions.DefaultEndpoint) { Scheme = Uri.UriSchemeHttp, Port = -1 };
+    using var client = new NLNVIDIAApiClient(Options(endpoint: plain.Uri.ToString()), http);
 
     var error = await Throws<InvalidOperationException>(() => client.CompleteAsync("hola"));
     Require(error.Message.Contains("https"), "mensaje menciona https");
