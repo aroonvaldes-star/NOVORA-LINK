@@ -1,0 +1,7 @@
+<Project>
+  <!-- Permite restaurar los proyectos de Windows (WPF) en runners Linux, como el envío
+       automático de dependencias de GitHub. Compilarlos sigue requiriendo Windows. -->
+  <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+</Project>
