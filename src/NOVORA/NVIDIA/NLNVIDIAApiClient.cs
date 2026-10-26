@@ -66,30 +66,66 @@ public sealed class NLNVIDIAApiClient : IDisposable
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        using HttpResponseMessage response =
-            await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token)
-                .ConfigureAwait(false);
-
-        string body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
-
-        if (!response.IsSuccessStatusCode)
+        HttpResponseMessage response;
+        string body;
+        try
         {
-            throw new HttpRequestException(
-                $"NVIDIA API respondió {(int)response.StatusCode} ({response.ReasonPhrase}). " +
-                $"Detalle: {TrimError(body)}",
-                null,
-                response.StatusCode);
+            response = await _httpClient
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException(
+                $"NVIDIA API no respondió en {_options.Timeout.TotalSeconds:0} s.");
         }
 
-        using JsonDocument document = JsonDocument.Parse(body);
-        if (document.RootElement.TryGetProperty("choices", out JsonElement choices) &&
-            choices.ValueKind == JsonValueKind.Array &&
-            choices.GetArrayLength() > 0 &&
-            choices[0].TryGetProperty("message", out JsonElement message) &&
-            message.TryGetProperty("content", out JsonElement content) &&
-            content.ValueKind == JsonValueKind.String)
+        using (response)
         {
-            return content.GetString() ?? string.Empty;
+            try
+            {
+                body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException(
+                    $"NVIDIA API no terminó de responder en {_options.Timeout.TotalSeconds:0} s.");
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException(
+                    $"NVIDIA API respondió {(int)response.StatusCode} ({response.ReasonPhrase}). " +
+                    $"Detalle: {TrimError(body)}",
+                    null,
+                    response.StatusCode);
+            }
+        }
+
+        JsonDocument document;
+        try
+        {
+            document = JsonDocument.Parse(body);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException("La respuesta de NVIDIA no es JSON válido.", ex);
+        }
+
+        using (document)
+        {
+            if (document.RootElement.ValueKind == JsonValueKind.Object &&
+                document.RootElement.TryGetProperty("choices", out JsonElement choices) &&
+                choices.ValueKind == JsonValueKind.Array &&
+                choices.GetArrayLength() > 0 &&
+                choices[0].ValueKind == JsonValueKind.Object &&
+                choices[0].TryGetProperty("message", out JsonElement message) &&
+                message.ValueKind == JsonValueKind.Object &&
+                message.TryGetProperty("content", out JsonElement content) &&
+                content.ValueKind == JsonValueKind.String)
+            {
+                return content.GetString() ?? string.Empty;
+            }
         }
 
         throw new InvalidOperationException("La respuesta de NVIDIA no contiene choices[0].message.content.");

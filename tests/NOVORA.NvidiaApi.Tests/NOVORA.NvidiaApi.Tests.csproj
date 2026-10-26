@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/NOVORA/NVIDIA/NLNVIDIAApiClient.cs" Link="Production/NLNVIDIAApiClient.cs" />
+    <Compile Include="../../src/NOVORA/NVIDIA/NLNVIDIAApiOptions.cs" Link="Production/NLNVIDIAApiOptions.cs" />
+  </ItemGroup>
+</Project>

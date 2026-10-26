@@ -37,8 +37,9 @@ public sealed record NLNVIDIAApiOptions(
             throw new InvalidOperationException(
                 $"Falta {ModelEnvironmentVariable}. Configura el identificador del modelo NVIDIA NIM.");
 
-        if (!Endpoint.IsAbsoluteUri)
-            throw new InvalidOperationException("El endpoint de NVIDIA debe ser una URI absoluta.");
+        if (!Endpoint.IsAbsoluteUri || Endpoint.Scheme != Uri.UriSchemeHttps)
+            throw new InvalidOperationException(
+                $"{EndpointEnvironmentVariable} debe ser una URI https absoluta; la API key no se envía por otro esquema.");
 
         if (Timeout <= TimeSpan.Zero)
             throw new InvalidOperationException("El timeout de NVIDIA debe ser mayor que cero.");
