@@ -1,0 +1,188 @@
+# ============================================================
+# NOVORA-LINK
+# .gitignore
+# ============================================================
+
+# Visual Studio / IDE
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# .NET / C# build
+**/bin/
+**/obj/
+artifacts/
+TestResults/
+*.pdb
+*.cache
+*.ilk
+*.exp
+*.lib
+
+# Rust
+**/target/
+
+# Android / .NET Android
+**/.gradle/
+**/build/
+*.apk
+*.apk.idsig
+*.aab
+
+# Temporary / backup files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*~
+~$*
+*.swp
+*.swo
+
+# NOVORA temporary backups
+**/Backups/
+**/Backup/
+**/backups/
+**/backup/
+**/_backup_*/
+**/*-backup-*/
+**/*_backup_*/
+**/Temp/
+**/temp/
+**/Tmp/
+**/tmp/
+
+# Logs / diagnostics
+*.log
+*.trace
+**/Logs/
+**/logs/
+**/Diagnostics/
+**/diagnostics/
+NOVORA-*-DIAGNOSTIC*.txt
+NOVORA-*-POSTCHECK*.txt
+NOVORA-*-RUNTIME*.txt
+NOVORA-*-AUDIT*.txt
+
+# Crash / dump files
+*.dmp
+*.dump
+*.mdmp
+
+# Benchmark / temporary measurements
+**/BenchmarkResults/
+**/PerformanceResults/
+**/StressResults/
+*.etl
+
+# OS generated
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Node / tooling
+node_modules/
+.superpowers/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# Local publish output
+output/
+**/publish/
+**/Publish/
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+
+# Installer generated output
+Installer/Output/
+installer/Output/
+**/InstallerOutput/
+**/SetupOutput/
+
+# Certificates / private signing material
+*.pfx
+*.p12
+*.jks
+*.keystore
+*.pem
+*.key
+*.cer.private
+*.crt.private
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+secrets.json
+secrets.*.json
+appsettings.Local.json
+appsettings.Development.local.json
+
+# Local authentication / pairing material
+**/TrustedDevices.local.json
+**/TrustedPCs.local.json
+**/Pairing.local.json
+**/Certificates/Private/
+
+# GitHub / local generated artifacts
+*.sha256.tmp
+*.hash.tmp
+
+# PowerShell temporary output
+*.ps1.log
+
+# NOVORA generated snapshots / ZIPs
+NOVORA-LINK-SNAPSHOT-*.zip
+NOVORA-LINK-FINAL-LIMPIO-*.zip
+NL2-CODIGO.zip
+src/NOVORA.Android.zip
+
+# Important files that MUST remain trackable
+!README.md
+!ACKNOWLEDGEMENTS.md
+!LICENSE
+!LICENSE.*
+!NOTICE
+!NOTICE.*
+!THIRD-PARTY*
+!ThirdParty/**
+!*.cs
+!*.xaml
+!*.csproj
+!*.sln
+!*.rs
+!Cargo.toml
+!Cargo.lock
+!Documentation/**
+!Tool/**

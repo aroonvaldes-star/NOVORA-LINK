@@ -1,0 +1,122 @@
+name: NOVORA Release
+'on':
+  push:
+    tags:
+    - v*.*
+  workflow_dispatch:
+    inputs:
+      version:
+        description: New Windows version (for example 1.4.1)
+        required: true
+        type: string
+      android_release_tag:
+        description: Existing signed LINK Control release tag
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  build-release:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Setup .NET 8 and 10
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+      with:
+        dotnet-version: |
+          8.0.x
+          10.0.x
+    - name: Resolve version and signed Android release
+      shell: pwsh
+      run: |
+        $version = $env:REQUESTED_VERSION
+        if ($env:GITHUB_REF_TYPE -eq 'tag') { $version = $env:GITHUB_REF_NAME.Substring(1) }
+        if ($version -notmatch '^\d+\.\d+(?:\.\d+)?(?:-(?<preview>[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*))?$') {
+            throw 'Provide a numeric Windows version with an optional experimental prerelease suffix.'
+        }
+        $isPrerelease = $Matches.ContainsKey('preview')
+        $tag = $env:ANDROID_RELEASE_TAG
+        if ([string]::IsNullOrWhiteSpace($tag)) { throw 'Set LINK_CONTROL_RELEASE_TAG or provide android_release_tag.' }
+        if ($tag -notmatch '^v\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$') { throw 'Invalid LINK Control release tag.' }
+        "VERSION=$version" >> $env:GITHUB_ENV
+        "IS_PRERELEASE=$($isPrerelease.ToString().ToLowerInvariant())" >> $env:GITHUB_ENV
+        "ANDROID_TAG=$tag" >> $env:GITHUB_ENV
+      env:
+        REQUESTED_VERSION: ${{ inputs.version }}
+        ANDROID_RELEASE_TAG: ${{ inputs.android_release_tag || vars.LINK_CONTROL_RELEASE_TAG }}
+    - name: Download existing signed LINK Control package
+      shell: pwsh
+      run: |
+        if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
+            throw 'Configure APPCONTROL_RELEASE_TOKEN with read access to the private NOVORA-AppControl repository.'
+        }
+        $destination = 'src/NOVORA/Android'
+        gh release download $env:ANDROID_TAG --repo aroonvaldes-star/NOVORA-AppControl --dir $destination --clobber --pattern LinkControl.apk --pattern NLAndroidRelease.json
+        if ($LASTEXITCODE -ne 0) { throw 'Signed Android release download failed.' }
+        $descriptor = Get-Content "$destination/NLAndroidRelease.json" -Raw | ConvertFrom-Json
+        $hash = (Get-FileHash "$destination/LinkControl.apk" -Algorithm SHA256).Hash
+        if ($descriptor.PackageId -ne 'com.linkcontrol.novora' -or $hash -ne $descriptor.Sha256) {
+            throw 'The downloaded signed APK does not match its descriptor.'
+        }
+        "$($hash.ToLowerInvariant())  LinkControl.apk" | Set-Content "$destination/SHA256SUMS.txt" -Encoding ascii
+      env:
+        GH_TOKEN: ${{ secrets.APPCONTROL_RELEASE_TOKEN }}
+    - name: Verify tools
+      shell: pwsh
+      run: ./scripts/Setup-Tools.ps1
+    - name: Build canonical relay
+      shell: pwsh
+      run: ./scripts/Build-LinkEngine-Relay.ps1
+    - name: Publish Windows
+      shell: pwsh
+      run: |-
+        dotnet publish src/NOVORA/NLProjectDesktop.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -o artifacts/publish/win-x64
+        if ($LASTEXITCODE -ne 0) { throw 'Windows publish failed.' }
+        if (-not (Test-Path artifacts/publish/win-x64/NOVORA-LINK.exe)) { throw 'NOVORA-LINK.exe was not produced.' }
+    - name: Prepare compliance
+      shell: pwsh
+      run: ./scripts/Prepare-ThirdPartyCompliance.ps1 -PublishDir artifacts/publish/win-x64 -OutputDir artifacts/compliance
+    - name: Ensure Inno Setup
+      shell: pwsh
+      run: |-
+        $iscc = Get-ChildItem "${env:ProgramFiles(x86)}/Inno Setup */ISCC.exe" -ErrorAction SilentlyContinue
+        if (-not $iscc) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed.' }
+        }
+    - name: Build unified installer
+      shell: pwsh
+      run: ./scripts/Build-UnifiedInstaller.ps1 -PublishDir artifacts/publish/win-x64 -ComplianceDir artifacts/compliance
+        -Version $env:VERSION
+    - name: Upload Windows and LINK Control artifacts
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: NOVORA-LINK-${{ env.VERSION }}
+        path: |-
+          Installer/output/*.exe
+          Installer/output/*.sha256
+          src/NOVORA/Android/LinkControl.apk
+          src/NOVORA/Android/NLAndroidRelease.json
+          src/NOVORA/Android/SHA256SUMS.txt
+        if-no-files-found: error
+    - name: Publish tagged Windows and LINK Control release
+      if: github.ref_type == 'tag'
+      uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
+      with:
+        tag_name: ${{ github.ref_name }}
+        target_commitish: ${{ github.sha }}
+        generate_release_notes: true
+        fail_on_unmatched_files: true
+        files: |-
+          Installer/output/*.exe
+          Installer/output/*.sha256
+          src/NOVORA/Android/LinkControl.apk
+          src/NOVORA/Android/NLAndroidRelease.json
+          src/NOVORA/Android/SHA256SUMS.txt
+        prerelease: ${{ env.IS_PRERELEASE == 'true' }}

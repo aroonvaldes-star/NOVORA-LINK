@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/NOVORA/Control/NLControlCapturePolicy.cs" Link="Production/NLControlCapturePolicy.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlNetworkPolicy.cs" Link="Production/NLControlNetworkPolicy.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlProtocol.cs" Link="Production/NLControlProtocol.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlInputLoop.cs" Link="Production/NLControlInputLoop.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlLanInvitation.cs" Link="Production/NLControlLanInvitation.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlTrustedPc.cs" Link="Production/NLControlTrustedPc.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlLanDiscovery.cs" Link="Production/NLControlLanDiscovery.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlLanPeerGuard.cs" Link="Production/NLControlLanPeerGuard.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlVeLanProtocol.cs" Link="Production/NLControlVeLanProtocol.cs" />
+    <Compile Include="../../src/NOVORA.Android/AndroidVideo/NLAndroidVideoLanClient.cs" Link="Production/NLAndroidVideoLanClient.cs" />
+  </ItemGroup>
+</Project>

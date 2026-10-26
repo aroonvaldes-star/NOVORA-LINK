@@ -1,0 +1,29 @@
+namespace NOVORA.VisionEngine.Protocol;
+
+/// <summary>
+/// Metadatos de una sesión de video. App Control puede volver a enviar
+/// este header cuando cambia el tamaño del stream.
+/// </summary>
+public sealed record VEProtocolSession(
+    int Width,
+    int Height,
+    bool ClientResized,
+    int RotationDegrees = 0,
+    int MaxPacketLength = VEProtocolConstants.MaxPacketLengthVE)
+{
+    public void ValidateVE()
+    {
+        if (Width <= 0 || Height <= 0)
+        {
+            throw new InvalidDataException(
+                $"Tamaño de sesión VisionEngine inválido: {Width}x{Height}.");
+        }
+        if (RotationDegrees is not (0 or 90 or 180 or 270))
+            throw new InvalidDataException(
+                $"Rotación VisionEngine inválida: {RotationDegrees}.");
+        if (MaxPacketLength is < VEProtocolConstants.MinimumSessionPacketLengthVE or
+            > VEProtocolConstants.MaxPacketLengthVE)
+            throw new InvalidDataException(
+                $"Límite de paquete VisionEngine inválido: {MaxPacketLength}.");
+    }
+}

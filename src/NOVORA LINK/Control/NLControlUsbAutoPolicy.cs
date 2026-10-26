@@ -1,0 +1,113 @@
+// NOVORA_AUTOUSB_V1 - pure event policy; no IO, timers, threads or polling.
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace NOVORA.Control
+{
+    public sealed record NLControlUsbCandidate(
+        string Serial,
+        bool Connected,
+        bool Wifi);
+
+    public sealed class NLControlUsbAutoPolicy
+    {
+        private string _serial = String.Empty;
+        private string _transportIdentity = String.Empty;
+        private bool _attempted;
+        private bool _paused;
+        public string Serial { get { return _serial; } }
+        public long Epoch { get; private set; }
+
+        // Call on the UI thread for each device event, even during preparation.
+        public bool Observe(string serial, bool connected, bool wifi, bool adbOnline)
+            => Observe(serial, connected, wifi, adbOnline, String.Empty);
+
+        public bool Observe(
+            string serial,
+            bool connected,
+            bool wifi,
+            bool adbOnline,
+            string transportIdentity,
+            bool allowWifi = false)
+        {
+            string next = connected && (!wifi || allowWifi) && adbOnline && !String.IsNullOrWhiteSpace(serial)
+                ? serial.Trim() : String.Empty;
+            string nextTransportIdentity = next.Length == 0
+                ? String.Empty
+                : (transportIdentity ?? String.Empty).Trim();
+            if (String.Equals(next, _serial, StringComparison.Ordinal) &&
+                String.Equals(nextTransportIdentity, _transportIdentity, StringComparison.Ordinal)) return false;
+            _serial = next;
+            _transportIdentity = nextTransportIdentity;
+            Epoch++;
+            _attempted = false;
+            _paused = false;
+            return true;
+        }
+
+        public bool TryBegin(bool blocked)
+        {
+            if (blocked || _serial.Length == 0 || _paused || _attempted) return false;
+            _attempted = true;
+            return true;
+        }
+
+        public bool IsCurrent(string serial, long epoch)
+        {
+            return !_paused && _serial.Length != 0 && epoch == Epoch &&
+                String.Equals(serial, _serial, StringComparison.Ordinal);
+        }
+
+        public void Pause() { _paused = true; Epoch++; }
+        public void Retry() { _paused = false; _attempted = false; Epoch++; }
+
+        public static string SelectPhysicalSerial(
+            IEnumerable<NLControlUsbCandidate> candidates,
+            IReadOnlySet<string>? online,
+            string? selectedSerial)
+        {
+            ArgumentNullException.ThrowIfNull(candidates);
+
+            NLControlUsbCandidate[] physical = candidates
+                .Where(candidate =>
+                    candidate.Connected &&
+                    !candidate.Wifi &&
+                    !String.IsNullOrWhiteSpace(candidate.Serial) &&
+                    (online is null || online.Contains(candidate.Serial)))
+                .ToArray();
+
+            NLControlUsbCandidate? selected = physical.FirstOrDefault(candidate =>
+                String.Equals(candidate.Serial, selectedSerial, StringComparison.OrdinalIgnoreCase));
+
+            return (selected ?? physical.FirstOrDefault())?.Serial.Trim() ?? String.Empty;
+        }
+
+        public static HashSet<string> ParseOnline(string snapshot)
+        {
+            var online = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string line in (snapshot ?? String.Empty).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string[] columns = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (columns.Length >= 2 && columns[1] == "device") online.Add(columns[0]);
+            }
+            return online;
+        }
+
+        public static string ParseTransportIdentity(string snapshot, string serial)
+        {
+            if (String.IsNullOrWhiteSpace(serial)) return String.Empty;
+            foreach (string line in (snapshot ?? String.Empty).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string[] columns = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (columns.Length < 2 || columns[1] != "device" ||
+                    !String.Equals(columns[0], serial, StringComparison.Ordinal)) continue;
+                string transport = columns.FirstOrDefault(column =>
+                    column.StartsWith("transport_id:", StringComparison.Ordinal)) ?? String.Empty;
+                return transport.Length == 0 ? String.Empty : columns[0] + "|" + transport;
+            }
+            return String.Empty;
+        }
+    }
+}

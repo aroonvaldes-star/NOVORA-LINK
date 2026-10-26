@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>30</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>NOVORA.AndroidApp</RootNamespace>
+    <ApplicationId>com.linkcontrol.novora</ApplicationId>
+    <ApplicationVersion>120</ApplicationVersion>
+    <ApplicationDisplayVersion>1.4.120</ApplicationDisplayVersion>
+    <ApplicationTitle>LINK Control</ApplicationTitle>
+    <AndroidManifest>Properties\NLPropertiesAndroidManifest.xml</AndroidManifest>
+    <AndroidPackageFormats>apk</AndroidPackageFormats>
+    <AndroidBuildApplicationPackage>false</AndroidBuildApplicationPackage>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <NovoraPackage Condition="'$(Configuration)' == 'Debug'">true</NovoraPackage>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- Production APK targets the physical ARM64 phone; Debug remains universal for emulators. -->
+    <RuntimeIdentifier>android-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+  <ItemGroup>
+
+    <Compile Include="..\NOVORA LINK\Control\NLControlProtocol.cs" Link="Control\NLControlProtocol.cs" />
+    <Compile Include="..\NOVORA LINK\Control\NLControlCapturePolicy.cs" Link="Control\NLControlCapturePolicy.cs" />
+    <Compile Include="..\NOVORA LINK\Control\NLControlNetworkPolicy.cs" Link="Control\NLControlNetworkPolicy.cs" />
+    <Compile Include="..\NOVORA LINK\Control\NLControlNetworkAllocation.cs" Link="Control\NLControlNetworkAllocation.cs" />
+    <Compile Include="..\NOVORA LINK\Network\NLNetworkBudget.cs" Link="Network\NLNetworkBudget.cs" />
+    <Compile Include="..\NOVORA LINK\Network\NLNetworkPacer.cs" Link="Network\NLNetworkPacer.cs" />
+    <Compile Include="..\NOVORA LINK\Network\NLNetworkStabilityController.cs" Link="Network\NLNetworkStabilityController.cs" />
+    <Compile Include="..\NOVORA LINK\Control\NLControlInputLoop.cs" Link="Control\NLControlInputLoop.cs" />
+    <Compile Include="..\NOVORA LINK\Control\NLControlAndroidInput.cs" Link="Control\NLControlAndroidInput.cs" />
+    <Compile Include="..\NOVORA LINK\Control\NLControlVideoSize.cs" Link="Control\NLControlVideoSize.cs" />
+    <Compile Include="..\NOVORA LINK\Control\NLControlPointerGeometry.cs" Link="Control\NLControlPointerGeometry.cs" />
+    <Compile Include="..\NOVORA LINK\Control\NLControlClient.cs" Link="Control\NLControlClient.cs" />
+    <Compile Include="..\NOVORA LINK\VisionEngine\Protocol\VEProtocolCodec.cs" Link="VisionEngine\Protocol\VEProtocolCodec.cs" />
+    <Compile Include="..\NOVORA LINK\VisionEngine\Protocol\VEProtocolConstants.cs" Link="VisionEngine\Protocol\VEProtocolConstants.cs" />
+    <Compile Include="..\NOVORA LINK\VisionEngine\Protocol\VEProtocolExtensions.cs" Link="VisionEngine\Protocol\VEProtocolExtensions.cs" />
+    <Compile Include="..\NOVORA LINK\VisionEngine\Protocol\VEProtocolSession.cs" Link="VisionEngine\Protocol\VEProtocolSession.cs" />
+    <Compile Include="..\NOVORA LINK\VisionEngine\Protocol\VEProtocolWriter.cs" Link="VisionEngine\Protocol\VEProtocolWriter.cs" />
+    <AndroidResource Include="..\NOVORA LINK\Asset\NLAssetNovoraLogo.png" Link="Resources\drawable\novora_logo.png" />
+    <AndroidResource Include="..\NOVORA LINK\Asset\NLAssetNOVORABRAND.png" Link="Resources\drawable\novora_brand.png" />
+    <AndroidResource Include="AndroidResource\NLAndroidResourceAccessibility.xml" Link="Resources\xml\novora_accessibility.xml" />
+  </ItemGroup>
+  <Target Name="NovoraRequireExplicitPackaging" BeforeTargets="_CreateBaseApk;_BuildApkEmbed;_BuildApkFastDev;SignAndroidPackage">
+  </Target>
+  <Target Name="LinkControlNameSignedApk" AfterTargets="SignAndroidPackage" Condition="Exists('$(ApkFileSigned)')">
+    <Copy SourceFiles="$(ApkFileSigned)" DestinationFiles="$(OutDir)LinkControl.apk" />
+  </Target>
+  <ItemGroup><Compile Include="..\NOVORA LINK\Control\NLControlLanInvitation.cs" Link="Control\NLControlLanInvitation.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA LINK\Control\NLControlLanDiscovery.cs" Link="Control\NLControlLanDiscovery.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA LINK\Control\NLControlLanPeerGuard.cs" Link="Control\NLControlLanPeerGuard.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA LINK\Control\NLControlLanCodeHandoff.cs" Link="Control\NLControlLanCodeHandoff.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA LINK\Control\NLControlSession.cs" Link="Control\NLControlSession.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\NOVORA LINK\Control\NLControlVeLanProtocol.cs" Link="Control\NLControlVeLanProtocol.cs" />
+  </ItemGroup>
+  <ItemGroup><AndroidResource Include="AndroidResource\NLAndroidResourceNotification.xml" Link="Resources\drawable\novora_notification.xml" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA LINK\Control\NLControlTrustedPc.cs" Link="Control\NLControlTrustedPc.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA LINK\Control\NLControlVpnProtocol.cs" Link="Control\NLControlVpnProtocol.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA LINK\Control\NLControlFile*.cs" Link="Control\%(Filename)%(Extension)" /></ItemGroup>
+</Project>

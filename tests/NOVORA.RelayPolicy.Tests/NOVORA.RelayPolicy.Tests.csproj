@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/NOVORA/Control/NLControlNetworkPolicy.cs" Link="Production/NLControlNetworkPolicy.cs" />
+    <Compile Include="../../src/NOVORA/LinkEngine/Network/LERelayPolicyProtocol.cs" Link="Production/LERelayPolicyProtocol.cs" />
+  </ItemGroup>
+  <ItemGroup><Compile Include="../../src/NOVORA/LinkEngine/Network/LERelayPolicySession.cs" Link="LERelayPolicySession.cs" /></ItemGroup>
+</Project>

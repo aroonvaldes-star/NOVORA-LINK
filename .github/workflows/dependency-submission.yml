@@ -1,0 +1,63 @@
+# Envía el grafo de dependencias NuGet a GitHub.
+# Reemplaza el workflow dinámico "Automatic Dependency Submission (NuGet)".
+# Desactiva esa opción en Settings > Code security para evitar ejecuciones
+# duplicadas y el fallo NETSDK1100 del runner Ubuntu.
+
+name: Dependency Submission (NuGet)
+
+on:
+  push:
+    branches:
+      - NOVORA-LINK
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: dependency-submission-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  submit-nuget:
+    name: Submit NuGet dependency snapshot
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET 8 and 10
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Install Android workload
+        shell: pwsh
+        run: |
+          dotnet workload restore src/NOVORA.Android/NLProjectAndroid.csproj
+          if ($LASTEXITCODE -ne 0) { throw "Android workload restore failed." }
+
+      - name: Restore solution and tests
+        shell: pwsh
+        run: |
+          dotnet restore NOVORA.sln
+          if ($LASTEXITCODE -ne 0) { throw "Solution restore failed." }
+
+          Get-ChildItem tests -Recurse -Filter *.csproj |
+            Where-Object { $_.FullName -notmatch '\\(obj|bin)\\' } |
+            ForEach-Object {
+              dotnet restore $_.FullName
+              if ($LASTEXITCODE -ne 0) { throw "Restore failed: $($_.FullName)" }
+            }
+
+      - name: Submit NuGet dependency snapshot
+        uses: advanced-security/component-detection-dependency-submission-action@a02aeda7a175ad4dd38a13c4d3ff2df9da8f2cf0 # v0.2.0
+        with:
+          detectorsCategories: NuGet
+          fail-on-empty: 'true'

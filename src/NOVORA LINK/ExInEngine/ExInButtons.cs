@@ -1,0 +1,27 @@
+namespace NOVORA.ExInEngine;
+
+[Flags]
+public enum ExInButtons : uint
+{
+    None = 0,
+    South = 0x0001,
+    East = 0x0002,
+    West = 0x0008,
+    North = 0x0010,
+    LeftShoulder = 0x0040,
+    RightShoulder = 0x0080,
+    Back = 0x0400,
+    Start = 0x0800,
+    Guide = 0x1000,
+    LeftStick = 0x2000,
+    RightStick = 0x4000,
+    DPadUp = 0x0001_0000,
+    DPadDown = 0x0002_0000,
+    DPadLeft = 0x0004_0000,
+    DPadRight = 0x0008_0000,
+    Touchpad = 0x0010_0000,
+    P1 = 0x0020_0000,
+    P2 = 0x0040_0000,
+    P3 = 0x0080_0000,
+    P4 = 0x0100_0000
+}
