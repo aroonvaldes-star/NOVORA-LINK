@@ -726,7 +726,7 @@ $AndroidBin
     $NovoraExe =
         Join-Path `
             $RepoPath `
-            'src\NOVORA\bin\Release\net8.0-windows10.0.26100.0\NOVORA.exe'
+            'src\NOVORA\bin\Release\net8.0-windows10.0.26100.0\NOVORA-LINK.exe'
 
     if (
         Test-Path `
@@ -743,7 +743,7 @@ $AndroidBin
         Write-Host '[OK] NOVORA PC iniciado.' -ForegroundColor Green
     }
     else {
-        Write-Host '[WARN] Build correcto, pero no encontré NOVORA.exe para reiniciarlo.' -ForegroundColor Yellow
+        Write-Host '[WARN] Build correcto, pero no encontré NOVORA-LINK.exe para reiniciarlo.' -ForegroundColor Yellow
     }
 
     # =====================================================================
