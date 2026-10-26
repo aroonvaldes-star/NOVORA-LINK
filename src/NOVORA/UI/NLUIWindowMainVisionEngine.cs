@@ -8,7 +8,6 @@ using NOVORA.VisionEngine.Integration;
 using NOVORA.VisionEngine.Performance;
 using NOVORA.NVIDIA;
 using NOVORA.VisionEngine.Renderer;
-using NOVORA.VisionEngine.Server;
 using NOVORA.Service;
 using System.ComponentModel;
 using System.Globalization;
@@ -30,6 +29,12 @@ public partial class NLUIWindowMain
     private VERendererWindow? _visionPresentationWindowVE;
     private VEControlRouter? _visionInputRouterVE;
     private VEExchangeTransfer? _visionTransferExchangeVE;
+    private long _integrationFilesSentCountVE;
+    private long _integrationFilesSentBytesVE;
+    private long _integrationFilesReceivedCountVE;
+    private long _integrationFilesReceivedBytesVE;
+    private readonly List<string> _integrationSentNamesVE = new();
+    private readonly List<string> _integrationReceivedNamesVE = new();
 
     private VECoreStates? _lastVisionStateVE;
 
@@ -42,12 +47,12 @@ public partial class NLUIWindowMain
 
     private bool _lastRendererEnabledVE;
     private bool _closingPresentationVE;
+    private bool _dynamicVePresentationEnabledVE = false;
+    private bool _dynamicVeLatencyOptimizationEnabledVE = true;
     private bool _visionAudioOutputWatcherAttachedVE;
-    private bool _visionRecoveryRunningVE;
-    private int _visionRecoveryAttemptsVE;
+    private bool _externalVisionWaitingForDeviceVE;
+    private VEExternalSourceKind _externalVisionWaitingSourceVE;
 
-    private const int MaxVisionRecoveryAttemptsVE =
-        2;
 
     internal static string? ResolvePreparedVisionLanSerialVE(
         IEnumerable<NLControlUsbCandidate> candidates,
@@ -83,13 +88,7 @@ public partial class NLUIWindowMain
         if (string.IsNullOrWhiteSpace(usbSerial) ||
             usbSerial.Contains(':', StringComparison.Ordinal))
         {
-            if (!automatic)
-            {
-                ShowTopMessage14(
-                    "Conecta el teléfono por USB para preparar el failover LAN.",
-                    NLUIMessageKind14.Warning);
-            }
-
+            if (!automatic) await ConnectWirelessDebuggingVEAsync();
             return;
         }
 
@@ -188,6 +187,65 @@ public partial class NLUIWindowMain
         }
     }
 
+    private async Task ConnectWirelessDebuggingVEAsync()
+    {
+        string? discoveredEndpoint = null;
+        try
+        {
+            using var discoveryTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+            var endpoints = await _adb.GetWirelessDebuggingEndpointsAsync(discoveryTimeout.Token);
+            if (endpoints.Count == 1) discoveredEndpoint = endpoints[0];
+        }
+        catch (Exception) { /* El destino también puede introducirse manualmente. */ }
+        var body = new System.Windows.Controls.StackPanel();
+        var instruction = new System.Windows.Controls.TextBlock
+        {
+            Text = "Escribe la Dirección IP y puerto de la pantalla principal de Depuración inalámbrica del teléfono. El puerto de vinculación es diferente.",
+            TextWrapping = TextWrapping.Wrap
+        };
+        ApplyNovoraText(instruction);
+        body.Children.Add(instruction);
+        var input = new System.Windows.Controls.TextBox
+        {
+            Margin = new Thickness(0, 14, 0, 14),
+            FontSize = 16,
+            Text = discoveredEndpoint ?? string.Empty
+        };
+        input.SetResourceReference(System.Windows.Controls.Control.BackgroundProperty, "InputBackgroundBrush");
+        input.SetResourceReference(System.Windows.Controls.Control.ForegroundProperty, "InputForegroundBrush");
+        body.Children.Add(input);
+        var dialog = CreateNovoraDialog("ADB inalámbrico", 520, body);
+        var connect = new System.Windows.Controls.Button { Content = "CONECTAR ADB", Padding = new Thickness(12) };
+        ApplyNovoraActionButton(connect);
+        connect.Click += (_, _) => dialog.DialogResult = true;
+        body.Children.Add(connect);
+        if (dialog.ShowDialog() != true || _closing) return;
+
+        _visionLanPreparingVE = true;
+        WifiAdbButton.IsEnabled = false;
+        try
+        {
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            string serial = await _adb.ConnectWirelessDebuggingAsync(input.Text, deadline.Token);
+            await RefreshDevicesAsync(force: true);
+            var connected = _viewModel.Devices.FirstOrDefault(device =>
+                string.Equals(device.Serial, serial, StringComparison.OrdinalIgnoreCase));
+            if (connected is null) throw new InvalidOperationException("ADB conectó, pero NOVORA no pudo enumerar ese teléfono.");
+            _viewModel.Device = connected;
+            await EnsureExInStandaloneAsync();
+            ShowTopMessage14($"ADB inalámbrico conectado a {serial}.", NLUIMessageKind14.Success);
+        }
+        catch (Exception ex)
+        {
+            ShowTopMessage14("No se pudo conectar ADB inalámbrico: " + ex.Message, NLUIMessageKind14.Error);
+        }
+        finally
+        {
+            _visionLanPreparingVE = false;
+            UpdateRuntimeButtons();
+        }
+    }
+
     // ============================================================
     // INITIALIZATION
     // ============================================================
@@ -200,18 +258,22 @@ public partial class NLUIWindowMain
         }
 
         _exInEngine ??= new ExInCoreEngine(_paths);
-        int pointerSensitivity = Math.Clamp(new NLServiceSettings().Load().ExInPointerSensitivity, 25, 300);
+        int pointerSensitivity = Math.Clamp(new NLServiceSettings().Load().ExInPointerSensitivity, 10, 75);
         _exInEngine.Manager.SetPointerSensitivityVE(pointerSensitivity / 100d);
         _exInEngine.Manager.StatusChangedVE -= ShellGamepad_StatusChangedVE;
         _exInEngine.Manager.StatusChangedVE += ShellGamepad_StatusChangedVE;
+        _exInEngine.Manager.LiveSnapshotChangedVE -= ShellGamepad_LiveSnapshotChangedVE;
+        _exInEngine.Manager.LiveSnapshotChangedVE += ShellGamepad_LiveSnapshotChangedVE;
         _exInEngine.Manager.BatteryAlertVE -= ShellGamepad_BatteryAlertVE;
         _exInEngine.Manager.BatteryAlertVE += ShellGamepad_BatteryAlertVE;
-        _exInInitialization = _exInEngine.InitializeAsync();
+        _exInInitialization = InitializeExInEngineAsync();
         _exInControlSession ??= new ExInControlSession(_exInEngine, _paths, _adb);
         _visionEngineVE =
             new VECoreEngine(
                 _paths,
                 _adb);
+        ApplyVisionPresentationTimingVE();
+        ApplyVisionLatencyOptimizationVE();
         _integrationRuntime = new NLIntegrationRuntime(
             _adb,
             _visionEngineVE.RuntimeVE.ControlVE,
@@ -219,8 +281,6 @@ public partial class NLUIWindowMain
 
         _visionEngineVE.StatusChangedVE +=
             VisionEngine_StatusChangedVE;
-        _visionEngineVE.RuntimeVE.PrivacyVE.StatusChangedVE -= ShellPrivacy_StatusChangedVE;
-        _visionEngineVE.RuntimeVE.PrivacyVE.StatusChangedVE += ShellPrivacy_StatusChangedVE;
         _visionEngineVE.RuntimeVE.NvidiaVE.StatusChangedVE += ShellNvidia_StatusChangedVE;
 
         /*
@@ -280,10 +340,7 @@ public partial class NLUIWindowMain
         VECoreRuntime runtime =
             _visionEngineVE.RuntimeVE;
 
-        _exInEngine?.SetPrivacyProtected(_viewModel.PrivacyShieldEnabled);
-        runtime.PrivacyVE.SetManualShieldVE(
-            _viewModel.PrivacyShieldEnabled);
-
+        _exInEngine?.SetPrivacyProtected(false);
         _integrationRuntime.Capabilities.SetCapabilitiesVE(
             new VEIntegrationCapabilities(
                 Clipboard: _viewModel.IntegrationClipboardEnabled,
@@ -324,11 +381,24 @@ public partial class NLUIWindowMain
         UpdateAdvancedFeatureStatus14();
     }
 
+    private async Task InitializeExInEngineAsync()
+    {
+        try { await _exInEngine!.InitializeAsync().ConfigureAwait(true); }
+        catch (Exception ex)
+        {
+            // Initialization is retried by the core/session supervisors. A faulted
+            // one-time task must not permanently prevent registering the phone target.
+            System.Diagnostics.Debug.WriteLine("ExIn initial start will retry: " + ex.Message);
+        }
+    }
+
     private async Task ApplyExInRuntimeStateAsync(bool enabled)
     {
         try
         {
             if (_exInEngine is null) return;
+            if (!enabled && _exInControlSession is not null)
+                await _exInControlSession.StopAsync().ConfigureAwait(true);
             await _exInEngine.SetEnabledAsync(enabled).ConfigureAwait(true);
             await EnsureExInStandaloneAsync().ConfigureAwait(true);
         }
@@ -349,10 +419,6 @@ public partial class NLUIWindowMain
             return;
         }
 
-        string privacy =
-            _viewModel.PrivacyShieldEnabled
-                ? "Privacy ON"
-                : "Privacy OFF";
 
         bool integrationEnabled =
             _viewModel.IntegrationClipboardEnabled ||
@@ -373,7 +439,7 @@ public partial class NLUIWindowMain
             $"VE {_viewModel.VisionProfile}";
 
         EngineFeatureStatus14.Text =
-            $"NOVORA · {privacy} · {integration} · {gamepad} · {visionProfile}";
+            $"NOVORA · {integration} · {gamepad} · {visionProfile}";
 
         EngineFeatureStatus14.ToolTip =
             "Estado de funciones independientes y aceleración de VisionEngine. " +
@@ -401,7 +467,8 @@ public partial class NLUIWindowMain
 
         if (
             _closing ||
-            _visionEngineVE is null)
+            _visionEngineVE is null ||
+            !HasExchangeClipboardSessionVE())
         {
             return;
         }
@@ -564,6 +631,47 @@ public partial class NLUIWindowMain
     // RENDERER HOST
     // ============================================================
 
+    private void VisionDynamicPresentation_Changed14(
+        object sender,
+        RoutedEventArgs e)
+    {
+        _dynamicVePresentationEnabledVE =
+            (sender as System.Windows.Controls.CheckBox)?.IsChecked == true;
+        ApplyVisionPresentationTimingVE();
+        if (!_closing && _visionEngineVE is not null && _viewModel is not null &&
+            VisionLiveTelemetryText14 is not null)
+            AndroidEngineStateChanged();
+    }
+
+    private void VisionLatencyOptimization_Changed14(object sender, RoutedEventArgs e)
+    {
+        _dynamicVeLatencyOptimizationEnabledVE =
+            (sender as System.Windows.Controls.CheckBox)?.IsChecked == true;
+        ApplyVisionLatencyOptimizationVE();
+    }
+
+    private void ApplyVisionLatencyOptimizationVE()
+    {
+        if (!_closing && _visionEngineVE is not null)
+            _visionEngineVE.RuntimeVE.DynamicLatencyOptimizationEnabledVE =
+                _dynamicVeLatencyOptimizationEnabledVE;
+    }
+
+    private void ApplyVisionPresentationTimingVE()
+    {
+        if (_closing || _visionEngineVE is null || _viewModel is null)
+            return;
+
+        double refreshRateHz = _visionPresentationWindowVE?.MonitorVE.RefreshRateHz
+            ?? _viewModel.SelectedMonitor?.RefreshRateHz
+            ?? 60d;
+        if (!double.IsFinite(refreshRateHz) || refreshRateHz <= 0)
+            refreshRateHz = 60d;
+
+        _visionEngineVE.RuntimeVE.RendererVE.ConfigurePresentationTimingVE(
+            _dynamicVePresentationEnabledVE, refreshRateHz);
+    }
+
     private void AttachVisionRendererHostVE(
         VERendererHost host)
     {
@@ -576,6 +684,7 @@ public partial class NLUIWindowMain
                 _visionRendererHostVE,
                 host))
         {
+            ApplyVisionPresentationTimingVE();
             return;
         }
 
@@ -609,6 +718,7 @@ public partial class NLUIWindowMain
         _visionEngineVE!
             .AttachRendererHostVE(
                 host);
+        ApplyVisionPresentationTimingVE();
     }
 
     private async void VisionRendererHost_InputFocusGainedVE(
@@ -715,14 +825,23 @@ public partial class NLUIWindowMain
                 _viewModel.VideoPresentationMode,
                 ViewModel.NLViewModelMain.VideoPresentationModeFullscreen,
                 StringComparison.OrdinalIgnoreCase);
+        bool maximized =
+            string.Equals(
+                _viewModel.VideoPresentationMode,
+                ViewModel.NLViewModelMain.VideoPresentationModeMaximized,
+                StringComparison.OrdinalIgnoreCase);
 
         VERendererWindow presentation =
             new(
                 monitor,
-                fullscreen);
+                fullscreen,
+                maximized);
 
         presentation.CloseRequestedVE +=
             VisionPresentation_CloseRequestedVE;
+
+        presentation.ExitFullscreenRequestedVE +=
+            VisionPresentation_ExitFullscreenRequestedVE;
 
         /*
          * Drag & Drop de la ventana real de VisionEngine.
@@ -824,9 +943,16 @@ public partial class NLUIWindowMain
         if (_closing || _integrationRuntime is null || _visionTransferExchangeVE is null)
             return;
 
-        if (!_viewModel.IntegrationFileTransferEnabled || !_viewModel.IntegrationDragDropEnabled)
+        // Capacidades independientes: Drag & Drop solo gobierna el gesto; la transferencia depende de Archivos.
+        if (!_viewModel.IntegrationDragDropEnabled)
         {
-            _viewModel.ConnectionStatus = "Activa Archivos y Drag & Drop en Configuración.";
+            _viewModel.ConnectionStatus = "Activa Drag & Drop en Configuración.";
+            return;
+        }
+
+        if (!_viewModel.IntegrationFileTransferEnabled)
+        {
+            _viewModel.ConnectionStatus = "Activa Archivos en Configuración para enviar.";
             return;
         }
 
@@ -848,7 +974,7 @@ public partial class NLUIWindowMain
 
         try
         {
-            await _visionTransferExchangeVE.QueueAsync(serial, paths);
+            await QueueVisionExchangePathsAsync(serial, paths);
             _viewModel.ConnectionStatus = paths.Length == 1
                 ? "Archivo agregado a la transferencia."
                 : $"{paths.Length} elementos agregados a la transferencia.";
@@ -930,10 +1056,7 @@ public partial class NLUIWindowMain
              *
              * El adb push NO ocurre en el Dispatcher WPF.
              */
-            await _visionTransferExchangeVE
-                .QueueAsync(
-                    serial,
-                    e.PathsVE);
+            await QueueVisionExchangePathsAsync(serial, e.PathsVE);
         }
         catch (Exception ex)
         {
@@ -1029,6 +1152,9 @@ public partial class NLUIWindowMain
                                 0.001,
                                 e.ElapsedVE.TotalSeconds);
 
+                        RecordSentFilesVE(
+                            e.LocalPathVE);
+
                         _viewModel.ConnectionStatus =
                             $"{name} enviado a /sdcard/NOVORA/ en {seconds:0.00}s";
                     }));
@@ -1061,6 +1187,159 @@ public partial class NLUIWindowMain
                         _viewModel.ConnectionStatus =
                             $"Error enviando {name}: {e.ErrorVE}";
                     }));
+    }
+
+    private void RecordSentFilesVE(
+        string path)
+    {
+        (long count, long bytes) =
+            GetFileTransferStatsVE(
+                path);
+
+        if (count <= 0)
+        {
+            return;
+        }
+
+        _integrationFilesSentCountVE +=
+            count;
+
+        _integrationFilesSentBytesVE +=
+            bytes;
+
+        AddSessionFileNameVE(_integrationSentNamesVE, path);
+
+        UpdateFileTransferSummaryVE();
+    }
+
+    private void RecordReceivedFilesVE(
+        long count,
+        long bytes,
+        string? destination = null)
+    {
+        if (count <= 0)
+        {
+            return;
+        }
+
+        _integrationFilesReceivedCountVE +=
+            count;
+
+        _integrationFilesReceivedBytesVE +=
+            Math.Max(
+                0,
+                bytes);
+
+        if (!string.IsNullOrWhiteSpace(destination))
+            AddSessionFileNameVE(_integrationReceivedNamesVE, destination);
+
+        UpdateFileTransferSummaryVE();
+    }
+
+    private static void AddSessionFileNameVE(List<string> names, string path)
+    {
+        string name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        names.Insert(0, string.IsNullOrWhiteSpace(name) ? path : name);
+        if (names.Count > 20) names.RemoveAt(names.Count - 1);
+    }
+
+    private void UpdateFileTransferSummaryVE()
+    {
+        IntegrationFilesSentText14.Text =
+            FormatFileTransferSummaryVE(
+                _integrationFilesSentCountVE,
+                _integrationFilesSentBytesVE);
+
+        IntegrationFilesReceivedText14.Text =
+            FormatFileTransferSummaryVE(
+                _integrationFilesReceivedCountVE,
+                _integrationFilesReceivedBytesVE);
+        IntegrationFilesSentNames14.Text = _integrationSentNamesVE.Count == 0
+            ? "Aún no hay archivos enviados."
+            : string.Join("\n", _integrationSentNamesVE);
+        IntegrationFilesReceivedNames14.Text = _integrationReceivedNamesVE.Count == 0
+            ? "Aún no hay archivos recibidos."
+            : string.Join("\n", _integrationReceivedNamesVE);
+    }
+
+    private void ResetIntegrationTransferSummaryVE()
+    {
+        _integrationFilesSentCountVE = _integrationFilesSentBytesVE = 0;
+        _integrationFilesReceivedCountVE = _integrationFilesReceivedBytesVE = 0;
+        _integrationSentNamesVE.Clear();
+        _integrationReceivedNamesVE.Clear();
+        UpdateFileTransferSummaryVE();
+    }
+
+    private static (long Count, long Bytes) GetFileTransferStatsVE(
+        string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                return (
+                    1,
+                    new FileInfo(path).Length);
+            }
+
+            if (!Directory.Exists(path))
+            {
+                return (0, 0);
+            }
+
+            long count =
+                0;
+
+            long bytes =
+                0;
+
+            foreach (string file in Directory.EnumerateFiles(
+                         path,
+                         "*",
+                         SearchOption.AllDirectories))
+            {
+                count++;
+                bytes +=
+                    new FileInfo(file).Length;
+            }
+
+            return (count, bytes);
+        }
+        catch (Exception ex) when (
+            ex is IOException or UnauthorizedAccessException)
+        {
+            return (0, 0);
+        }
+    }
+
+    private static string FormatFileTransferSummaryVE(
+        long count,
+        long bytes)
+    {
+        string files =
+            count == 1
+                ? "1 archivo"
+                : $"{count:N0} archivos";
+
+        string size =
+            bytes switch
+            {
+                < 1024 =>
+                    $"{bytes:N0} B",
+
+                < 1024L * 1024L =>
+                    $"{bytes / 1024d:0.0} KB",
+
+                < 1024L * 1024L * 1024L =>
+                    $"{bytes / (1024d * 1024d):0.0} MB",
+
+                _ =>
+                    $"{bytes / (1024d * 1024d * 1024d):0.0} GB"
+            };
+
+        return
+            $"{files} · {size}";
     }
 
     // ============================================================
@@ -1140,6 +1419,13 @@ public partial class NLUIWindowMain
             return;
         }
 
+        if (!HasExchangeClipboardSessionVE())
+        {
+            _viewModel.ConnectionStatus =
+                "Portapapeles VE: no hay sesión Exchange con canal de control.";
+            return;
+        }
+
         if (_integrationRuntime.Privacy.IsProtectedVE)
         {
             _viewModel.ConnectionStatus =
@@ -1149,11 +1435,29 @@ public partial class NLUIWindowMain
 
         try
         {
-            int count =
-                await VEExchangeManager
-                    .PasteAsync(
-                        serial,
-                        _visionTransferExchangeVE);
+            IReadOnlyList<VEExchangeRequest> requests = VEExchangeClipboard.ReadVE();
+            var paths = new List<string>();
+            int count = 0;
+            foreach (VEExchangeRequest request in requests)
+            {
+                switch (request.KindVE)
+                {
+                    case VEExchangeKind.Text:
+                    case VEExchangeKind.Url:
+                        await _integrationRuntime.Clipboard.SetTextAsync(request.ValueVE, paste: true);
+                        count++;
+                        break;
+                    case VEExchangeKind.File:
+                    case VEExchangeKind.Directory:
+                    case VEExchangeKind.Apk:
+                        paths.Add(request.ValueVE);
+                        count++;
+                        break;
+                }
+            }
+
+            if (paths.Count > 0)
+                await QueueVisionExchangePathsAsync(serial, paths);
 
             if (count == 0)
             {
@@ -1189,17 +1493,6 @@ public partial class NLUIWindowMain
             return;
         }
 
-        string? serial =
-            _activeVisionSerialVE ?? _viewModel.Device?.Serial?.Trim();
-
-        if (string.IsNullOrWhiteSpace(serial))
-        {
-            _viewModel.ConnectionStatus =
-                "ExchangeVE: no hay dispositivo Android activo.";
-
-            return;
-        }
-
         if (_integrationRuntime.Privacy.IsProtectedVE)
         {
             _viewModel.ConnectionStatus =
@@ -1208,19 +1501,29 @@ public partial class NLUIWindowMain
             return;
         }
 
-        string destination = NOVORA.Control.NLControlFileStorage.PcRoot;
-
         _viewModel.ConnectionStatus =
             "ExchangeVE: recibiendo /sdcard/NOVORA desde Android...";
 
         try
         {
+            IVEExchangeTransport? transport = ActiveExchangeTransportVE();
+            if (transport is null)
+            {
+                _viewModel.ConnectionStatus =
+                    "ExchangeVE: no hay un transporte activo para la sesión actual.";
+
+                return;
+            }
+
             VEExchangeResult result =
-                await _integrationRuntime
-                    .Files
-                    .PullNovoraFolderAsync(
-                        serial,
-                        destination);
+                await transport.PullNovoraFolderAsync(CancellationToken.None);
+
+            if (result.Success)
+            {
+                RecordReceivedFilesVE(
+                    result.ItemCount,
+                    result.Bytes);
+            }
 
             _viewModel.ConnectionStatus =
                 result.Success
@@ -1253,14 +1556,16 @@ public partial class NLUIWindowMain
                 _visionEngineVE is not null &&
                 _visionEngineVE.IsRunningVE)
             {
-                VECoreResult stop =
-                    await _visionEngineVE
-                        .StopAsync();
-
-                if (!stop.Success)
+                if (_veLanSessionVE is not null ||
+                    _visionEngineVE.RuntimeVE.ExternalSourceKindVE == VEExternalSourceKind.NativeLan)
                 {
-                    _viewModel.ConnectionStatus =
-                        stop.Message;
+                    await StopVeLanVideoAsync();
+                }
+                else
+                {
+                    VECoreResult stop = await _visionEngineVE.StopAsync();
+                    if (!stop.Success)
+                        _viewModel.ConnectionStatus = stop.Message;
                 }
             }
         }
@@ -1283,6 +1588,21 @@ public partial class NLUIWindowMain
             _closingPresentationVE =
                 false;
         }
+    }
+
+    private void VisionPresentation_ExitFullscreenRequestedVE(
+        object? sender,
+        EventArgs e)
+    {
+        if (_closing || _closingPresentationVE ||
+            !ReferenceEquals(sender, _visionPresentationWindowVE))
+            return;
+
+        _viewModel.VideoPresentationMode =
+            ViewModel.NLViewModelMain.VideoPresentationModeMaximized;
+        SaveSettingsFromViewModel14();
+        CreateVisionPresentationVE();
+        AndroidEngineStateChanged();
     }
 
     // ============================================================
@@ -1311,6 +1631,9 @@ public partial class NLUIWindowMain
 
             presentation.CloseRequestedVE -=
                 VisionPresentation_CloseRequestedVE;
+
+            presentation.ExitFullscreenRequestedVE -=
+                VisionPresentation_ExitFullscreenRequestedVE;
 
             presentation.FilesDroppedVE -=
                 VisionPresentation_FilesDroppedVE;
@@ -1391,7 +1714,7 @@ public partial class NLUIWindowMain
 
     private async Task SetVisionEngineRunningVEAsync(bool running, Func<bool>? authorization = null)
     {
-        if (_visionCommandApplyingVE || _visionRecoveryRunningVE)
+        if (_visionCommandApplyingVE)
             throw new InvalidOperationException("VisionEngine está cambiando de estado.");
         _visionCommandApplyingVE = true;
         _viewModel.ConnectionStatus = running
@@ -1426,12 +1749,22 @@ public partial class NLUIWindowMain
         try
         {
             var device = _viewModel.Device;
-            string? serial = ResolveExInSerialVE(
+            // A phone chosen in the ExIn selector wins over automatic resolution and over the
+            // first target the session bound to.
+            string? manualSerial = _exInManualSerialVE;
+            string? serial = manualSerial ?? ResolveExInSerialVE(
                 device.Connected ? device.Serial : null,
                 AndroidControlAuthorized ? _androidControlSerial : null,
-                _activeVisionSerialVE);
+                _activeVisionSerialVE,
+                _exInControlSession.IsRunning ? _exInControlSession.Serial : null);
+            // USB keeps priority; LAN is the fallback through the phone's ADB Wi-Fi endpoint.
+            if (manualSerial is null && string.IsNullOrWhiteSpace(serial) && _androidLanControl is { IsAuthorized: true, PeerHost: { } lanHost })
+            {
+                using var lanTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                serial = await _adb.TryConnectLanEndpointAsync(lanHost, cancellationToken: lanTimeout.Token).ConfigureAwait(true);
+            }
             bool shouldRun = !_closing && _viewModel.ExInEnabled &&
-                !string.IsNullOrWhiteSpace(serial);
+                (!string.IsNullOrWhiteSpace(serial) || _exInControlSession.HasRequestedTarget);
             if (!shouldRun)
             {
                 await _exInControlSession.StopAsync().ConfigureAwait(true);
@@ -1439,15 +1772,16 @@ public partial class NLUIWindowMain
             }
             await _exInInitialization.ConfigureAwait(true);
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-            await _exInControlSession.StartAsync(serial!, timeout.Token).ConfigureAwait(true);
+            await _exInControlSession.StartAsync(
+                manualSerial ?? _exInControlSession.RequestedSerial ?? serial!, timeout.Token).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
-            _viewModel.ConnectionStatus = "ExInEngine no completó la sesión de control en 20 segundos.";
+            _viewModel.ConnectionStatus = "ExIn está intentando recuperar automáticamente la conexión del control.";
         }
         catch (Exception ex)
         {
-            _viewModel.ConnectionStatus = "ExInEngine: " + ex.Message;
+            _viewModel.ConnectionStatus = "ExIn intentará recuperar la conexión automáticamente: " + ex.Message;
         }
         finally
         {
@@ -1455,14 +1789,6 @@ public partial class NLUIWindowMain
             AndroidEngineStateChanged();
         }
     }
-
-    internal static string? ResolveExInSerialVE(
-        string? connectedDeviceSerial,
-        string? authorizedUsbSerial,
-        string? activeVisionSerial)
-        => new[] { connectedDeviceSerial, authorizedUsbSerial, activeVisionSerial }
-            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?
-            .Trim();
 
     internal static string ResolveVisionStartSerialVE(
         string selectedSerial,
@@ -1567,6 +1893,14 @@ public partial class NLUIWindowMain
 
         if (!running)
         {
+            if (_veLanSessionVE is not null ||
+                _visionEngineVE!.RuntimeVE.ExternalSourceKindVE == VEExternalSourceKind.NativeLan)
+            {
+                await StopVeLanVideoAsync();
+                await EnsureExInStandaloneAsync();
+                return;
+            }
+
             VECoreResult stop =
                 await _visionEngineVE!
                     .StopAsync();
@@ -1590,192 +1924,7 @@ public partial class NLUIWindowMain
             return;
         }
 
-        // ========================================================
-        // DEVICE
-        // ========================================================
-
-        var device =
-            _viewModel.Device;
-
-        if (
-            device is null ||
-            !device.Connected ||
-            string.IsNullOrWhiteSpace(
-                device.Serial))
-        {
-            throw new InvalidOperationException(
-                "Selecciona un dispositivo Android conectado.");
-        }
-
-        if (_viewModel.SelectedMonitor is null)
-        {
-            throw new InvalidOperationException(
-                "Selecciona un monitor de salida en Configuración.");
-        }
-
-        /*
-         * Guardamos el serial UNA VEZ.
-         *
-         * Este será el serial utilizado por ExchangeVE
-         * durante toda la sesión.
-         *
-         * Cero polling adicional.
-         */
-        _activeVisionSerialVE =
-            await ResolveVisionStartSerialVEAsync(device.Serial);
-
-        if (!_activeVisionSerialVE.Contains(':'))
-        {
-            _visionUsbSerialVE =
-                _activeVisionSerialVE;
-        }
-        else
-        {
-            _viewModel.ConnectionStatus =
-                "VisionEngine iniciando por LAN; LinkEngine conserva la ruta USB.";
-        }
-
-        UpdateOutputProfile();
-
-        var profile =
-            _viewModel.NLModelOutputProfile ??
-            throw new InvalidOperationException(
-                "No se pudo calcular el perfil de salida de VisionEngine.");
-
-        _ =
-            CreateVisionPresentationVE();
-
-        bool audioEnabled =
-            _viewModel.AudioEnabled &&
-            !string.Equals(
-                _viewModel.SelectedAudioOutput,
-                VisionEngine.Audio.VEAudioOutput.DisabledValueVE,
-                StringComparison.OrdinalIgnoreCase);
-
-            VEServerOptions options =
-            BuildVisionOptionsVE(
-                profile,
-                audioEnabled);
-
-        try
-        {
-            using CancellationTokenSource startupTimeout =
-                new(TimeSpan.FromSeconds(20));
-
-            VECoreResult start =
-                await _visionEngineVE!
-                    .StartAsync(
-                        _activeVisionSerialVE,
-                        options,
-                        startupTimeout.Token);
-
-            if (!start.Success)
-            {
-                _activeVisionSerialVE =
-                    null;
-
-                CloseVisionPresentationVE(
-                    restoreMainWindow: true,
-                    refreshInformation: true);
-
-                throw start.Exception ??
-                      new InvalidOperationException(
-                          start.Message);
-            }
-
-            if (_closing || authorization?.Invoke() == false)
-            {
-                await _visionEngineVE.StopAsync();
-                throw new InvalidOperationException("Inicio cancelado: la sesión o el dispositivo cambió.");
-            }
-
-            AttachVisionInputVE();
-
-            _visionRecoveryAttemptsVE =
-                0;
-
-            _visionPresentationWindowVE?
-                .HostVE
-                .FocusInputVE();
-        }
-        catch (OperationCanceledException)
-        {
-            try
-            {
-                await _visionEngineVE!
-                    .StopAsync()
-                    .WaitAsync(TimeSpan.FromSeconds(5));
-            }
-            catch
-            {
-            }
-
-            _activeVisionSerialVE =
-                null;
-
-            CloseVisionPresentationVE(
-                restoreMainWindow: true,
-                refreshInformation: true);
-
-            throw new TimeoutException(
-                "VisionEngine no completó el arranque en 20 segundos. Se limpió la sesión USB; vuelve a iniciar una vez.");
-        }
-        catch
-        {
-            try
-            {
-                await _visionEngineVE!
-                    .StopAsync()
-                    .WaitAsync(TimeSpan.FromSeconds(5));
-            }
-            catch
-            {
-            }
-
-            _activeVisionSerialVE =
-                null;
-
-            CloseVisionPresentationVE(
-                restoreMainWindow: true,
-                refreshInformation: true);
-
-            throw;
-        }
-    }
-
-    private VEServerOptions BuildVisionOptionsVE(
-        Model.NLModelOutputProfile profile,
-        bool audioEnabled)
-    {
-        VEServerOptions options =
-            VEServerOptions.CreateForProfileVE(
-                _visionEngineVE!.RuntimeVE.PerformanceVE.ProfileVE)
-            with
-            {
-                VideoBitRate =
-                    ParseVideoBitrateVE(
-                        profile.Bitrate),
-
-                MaxSize =
-                    profile.MaxSize,
-
-                MaxFps =
-                    profile.TargetFps,
-
-                AudioEnabled =
-                    audioEnabled,
-
-                AudioPlaybackEnabled =
-                    audioEnabled,
-
-                ControlEnabled =
-                    true
-            };
-
-        // El perfil de salida ya incorpora los límites del dispositivo.
-        // No reemplazar silenciosamente los FPS/bitrate elegidos por 45 FPS/4M.
-        options.ValidateVE();
-        return options;
+        await RequestAndroidVideoFromPcAsync();
     }
 
     // ============================================================
@@ -1847,11 +1996,10 @@ public partial class NLUIWindowMain
             _lastRendererEnabledVE !=
             status.RendererEnabled;
 
-        if (stateChanged || rendererChanged)
+        if (stateChanged || rendererChanged || ShouldPublishAndroidVisionTelemetry(status))
             _ = Dispatcher.BeginInvoke(new Action(() =>
             {
-                _androidControlRevision++;
-                QueueAndroidControlSnapshot();
+                AndroidEngineStateChanged();
             }));
 
         _lastVisionStateVE =
@@ -1936,10 +2084,10 @@ public partial class NLUIWindowMain
                             case VECoreStates.Stopped:
                             case VECoreStates.Ready:
 
-                                if (_visionRecoveryRunningVE)
+                                if (_externalVisionWaitingForDeviceVE)
                                 {
                                     SetVisionEngineStatus14(
-                                        "RECUPERANDO",
+                                        "ESPERANDO ANDROID",
                                         failed: false);
                                     break;
                                 }
@@ -1968,6 +2116,20 @@ public partial class NLUIWindowMain
     private bool TryStartVisionRecoveryVE(
         VECoreStatus status)
     {
+        bool nativeLan = _veLanSessionVE is not null ||
+            _visionEngineVE?.RuntimeVE.ExternalSourceKindVE == VEExternalSourceKind.NativeLan ||
+            _externalVisionWaitingForDeviceVE &&
+                _externalVisionWaitingSourceVE == VEExternalSourceKind.NativeLan;
+        if (nativeLan)
+        {
+            _ = StopVeLanVideoAsync(
+                "Android se desconectó. VisionEngine LAN se cerró.");
+            return false;
+        }
+
+        if (TrySuspendExternalVisionForDeviceReconnectVE(status))
+            return true;
+
         if (_visionEngineVE?.RuntimeVE.IsAppControlVideoActiveVE == true)
         {
             _activeVisionSerialVE = null;
@@ -1980,206 +2142,83 @@ public partial class NLUIWindowMain
             return false;
         }
 
-        if (
-            _visionRecoveryRunningVE ||
-            _visionRecoveryAttemptsVE >=
-                MaxVisionRecoveryAttemptsVE ||
-            string.IsNullOrWhiteSpace(
-                _activeVisionSerialVE) ||
-            _visionEngineVE is null ||
-            _closing)
-        {
-            _activeVisionSerialVE =
-                null;
-
-            return false;
-        }
-
-        _visionRecoveryRunningVE =
-            true;
-
-        _visionRecoveryAttemptsVE++;
-
-        SetVisionEngineStatus14(
-            "RECUPERANDO",
-            failed: false);
-
+        _activeVisionSerialVE = null;
         _viewModel.ConnectionStatus =
-            $"VisionEngine recovery {_visionRecoveryAttemptsVE}/{MaxVisionRecoveryAttemptsVE}: {status.LastError ?? status.Message}";
+            "La captura terminó. Inicia una sesión nueva desde App Control.";
+        return false;
+    }
 
-        _ =
-            RecoverVisionEngineVEAsync();
+    private bool TrySuspendExternalVisionForDeviceReconnectVE(VECoreStatus status)
+    {
+        if (_closing) return false;
+        if (_externalVisionWaitingForDeviceVE) return true;
 
+        VEExternalSourceKind source = _appControlVideoTransportVE is not null
+            ? VEExternalSourceKind.UsbAppControl
+            : VEExternalSourceKind.None;
+        if (source == VEExternalSourceKind.None) return false;
+
+        _externalVisionWaitingForDeviceVE = true;
+        _externalVisionWaitingSourceVE = source;
+        SetVisionEngineStatus14("ESPERANDO ANDROID", failed: false);
+        _viewModel.ConnectionStatus = source == VEExternalSourceKind.NativeLan
+            ? "Android dejó de transmitir por LAN. VisionEngine permanece abierto y espera su reconexión."
+            : "Android dejó de transmitir por USB. VisionEngine permanece abierto y espera su reconexión.";
+        _ = SuspendExternalVisionForDeviceReconnectAsync(source, status);
         return true;
     }
 
-    private async Task RecoverVisionEngineVEAsync()
+    private async Task SuspendExternalVisionForDeviceReconnectAsync(
+        VEExternalSourceKind source,
+        VECoreStatus status)
     {
-        string? serial =
-            _activeVisionSerialVE;
-
         try
         {
-            if (
-                string.IsNullOrWhiteSpace(serial) ||
-                _visionEngineVE is null)
+            if (_visionEngineVE?.IsRunningVE == true)
+                await _visionEngineVE.StopAsync(preserveRendererVE: true);
+
+            if (source == VEExternalSourceKind.NativeLan)
             {
-                return;
+                await DisposeVeLanTransportAsync();
+                SetVeLanPhase("WaitingForAndroid",
+                    "Android se desconectó. VisionEngine permanece abierto y espera la reconexión LAN.");
             }
-
-            string recoverySerial =
-                await ResolveVisionRecoverySerialVEAsync(serial)
-                    .ConfigureAwait(true);
-
-            VECoreResult stop =
-                await _visionEngineVE
-                    .StopAsync(
-                        preserveRendererVE: true)
-                    .ConfigureAwait(true);
-
-            if (!stop.Success)
+            else
             {
-                throw stop.Exception ??
-                      new InvalidOperationException(
-                          stop.Message);
+                await DisposeAppControlVideoTransportAsync();
             }
-
-            UpdateOutputProfile();
-
-            var profile =
-                _viewModel.NLModelOutputProfile ??
-                throw new InvalidOperationException(
-                    "No se pudo recalcular el perfil de salida para recovery.");
-
-            bool audioEnabled =
-                _viewModel.AudioEnabled &&
-                !string.Equals(
-                    _viewModel.SelectedAudioOutput,
-                    VisionEngine.Audio.VEAudioOutput.DisabledValueVE,
-                    StringComparison.OrdinalIgnoreCase);
-
-            VEServerOptions options =
-                BuildVisionOptionsVE(
-                    profile,
-                    audioEnabled);
-
-            VECoreResult start =
-                await _visionEngineVE
-                    .StartAsync(
-                        recoverySerial,
-                        options)
-                    .ConfigureAwait(true);
-
-            if (!start.Success)
-            {
-                throw start.Exception ??
-                      new InvalidOperationException(
-                          start.Message);
-            }
-
-            AttachVisionInputVE();
-
-            _activeVisionSerialVE =
-                recoverySerial;
-
-            _visionPresentationWindowVE?
-                .HostVE
-                .FocusInputVE();
-
-            _viewModel.ConnectionStatus =
-                string.Equals(
-                    recoverySerial,
-                    _visionLanSerialVE,
-                    StringComparison.OrdinalIgnoreCase)
-                    ? "VisionEngine continuó por LAN después de perder USB."
-                    : "VisionEngine recovery completado.";
         }
         catch (Exception ex)
         {
-            _activeVisionSerialVE =
-                null;
-
-            SetVisionEngineStatus14(
-                "ERROR",
-                failed: true);
-
-            CloseVisionPresentationVE(
-                restoreMainWindow: true,
-                refreshInformation: true);
-
             _viewModel.ConnectionStatus =
-                $"VisionEngine recovery falló: {ex.Message}";
+                "VisionEngine espera Android, pero no pudo limpiar el flujo anterior: " + ex.Message;
         }
         finally
         {
-            _visionRecoveryRunningVE =
-                false;
-
-            AndroidEngineStateChanged();
-            UpdateRuntimeButtons();
+            if (!_closing && _externalVisionWaitingForDeviceVE)
+            {
+                SetVisionEngineStatus14("ESPERANDO ANDROID", failed: false);
+                AndroidEngineStateChanged();
+                UpdateRuntimeButtons();
+            }
         }
     }
 
-    private async Task<string> ResolveVisionRecoverySerialVEAsync(
-        string failedSerial)
+    private void ClearExternalVisionWaitingForDeviceVE()
     {
-        List<string> candidates = [];
+        _externalVisionWaitingForDeviceVE = false;
+        _externalVisionWaitingSourceVE = VEExternalSourceKind.None;
+    }
 
-        void AddCandidate(string? value)
+    private void RequestWaitingExternalVisionFromAndroid()
+    {
+        if (!_externalVisionWaitingForDeviceVE || _closing) return;
+        try { _ = RequestAndroidVideoFromPcAsync(); }
+        catch (Exception ex)
         {
-            if (!string.IsNullOrWhiteSpace(value) &&
-                !candidates.Contains(
-                    value,
-                    StringComparer.OrdinalIgnoreCase))
-            {
-                candidates.Add(value);
-            }
+            _viewModel.ConnectionStatus =
+                "VisionEngine sigue esperando Android: " + ex.Message;
         }
-
-        bool failedOverLan =
-            failedSerial.Contains(':');
-
-        if (failedOverLan)
-        {
-            AddCandidate(_visionUsbSerialVE);
-            AddCandidate(_visionLanSerialVE);
-        }
-        else
-        {
-            AddCandidate(_visionLanSerialVE);
-            AddCandidate(_visionUsbSerialVE);
-        }
-
-        AddCandidate(failedSerial);
-
-        using CancellationTokenSource deadline =
-            new(TimeSpan.FromSeconds(5));
-
-        foreach (string candidate in candidates)
-        {
-            try
-            {
-                if (await _adb
-                        .IsDeviceOnlineAsync(
-                            candidate,
-                            deadline.Token)
-                        .ConfigureAwait(true))
-                {
-                    return candidate;
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch
-            {
-                // Recovery prueba sólo las rutas conocidas del teléfono activo.
-            }
-        }
-
-        throw new InvalidOperationException(
-            "VisionEngine perdió USB y no existe una ruta LAN preparada y online para el mismo teléfono.");
     }
 
     // ============================================================
@@ -2276,7 +2315,6 @@ public partial class NLUIWindowMain
 
             _visionEngineVE.StatusChangedVE -=
                 VisionEngine_StatusChangedVE;
-            _visionEngineVE.RuntimeVE.PrivacyVE.StatusChangedVE -= ShellPrivacy_StatusChangedVE;
             _visionEngineVE.RuntimeVE.NvidiaVE.StatusChangedVE -= ShellNvidia_StatusChangedVE;
 
             await _visionEngineVE

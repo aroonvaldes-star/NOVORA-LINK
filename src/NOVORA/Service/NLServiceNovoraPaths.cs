@@ -25,15 +25,6 @@ public sealed class NLServiceNovoraPaths
             ToolsDirectory,
             "AdbWinUsbApi.dll");
 
-    public string Scrcpy =>
-        Path.Combine(
-            ToolsDirectory,
-            "scrcpy.exe");
-
-    public string ScrcpyServer =>
-        Path.Combine(
-            ToolsDirectory,
-            "scrcpy-server");
 
     public NLServiceNovoraPaths(
         string? baseDirectory = null)
@@ -69,20 +60,6 @@ public sealed class NLServiceNovoraPaths
                 Adb,
                 AdbWinApi,
                 AdbWinUsbApi
-            },
-            defenderHint: true);
-    }
-
-    public void ValidateScreenMirroringTools()
-    {
-        ValidateAdbTools();
-
-        ValidateFiles(
-            "Screen Mirroring no esta disponible porque faltan componentes de NOVORA",
-            new[]
-            {
-                Scrcpy,
-                ScrcpyServer
             },
             defenderHint: true);
     }

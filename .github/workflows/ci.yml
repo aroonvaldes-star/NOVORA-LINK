@@ -1,81 +1,72 @@
 name: NOVORA CI
-
-on:
+'on':
   push:
     branches:
-      - "NOVORA-LINK"
-      - "restructure/**"
-      - "release/**"
-      - "audit/**"
-      - "policy/**"
+    - NOVORA-LINK
+    - restructure/**
+    - release/**
+    - audit/**
+    - policy/**
   pull_request:
     branches:
-      - "NOVORA-LINK"
-
+    - NOVORA-LINK
+  workflow_dispatch: null
 permissions:
   contents: read
-
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  build:
-    runs-on: windows-latest
+  relay:
+    name: NovoraRelay locked tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Test relay
+      run: cargo test --release --locked --manifest-path src/NOVORA/LinkEngine/Network/Native/NovoraRelay/Cargo.toml
+  build:
+    name: Windows and LINK Control Release checks
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Setup .NET 8 and 10
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        dotnet-version: '8.0.x
 
-      - name: Setup .NET 8 and 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
+          10.0.x
 
-      - name: Validate PowerShell scripts
-        shell: pwsh
-        run: |
-          $scripts = @(
-            ".\scripts\Setup-Tools.ps1",
-            ".\scripts\Prepare-ThirdPartyCompliance.ps1",
-            ".\scripts\Configure-GitHubRulesets.ps1"
-          )
+          '
+    - name: Verify source exclusions
+      shell: pwsh
+      run: ./scripts/Test-SourceContents.ps1
+    - name: Install Android workload
+      shell: pwsh
+      run: 'dotnet workload restore src/NOVORA.Android/NLProjectAndroid.csproj
 
-          foreach ($script in $scripts) {
-            $tokens = $null
-            $errors = $null
+        if ($LASTEXITCODE -ne 0) { throw "Android workload restore failed." }'
+    - name: Verify runtime tools
+      shell: pwsh
+      run: ./scripts/Setup-Tools.ps1
+    - name: Build Windows Release
+      shell: pwsh
+      run: 'dotnet build src/NOVORA/NLProjectDesktop.csproj -c Release --verbosity quiet
 
-            [System.Management.Automation.Language.Parser]::ParseFile(
-              (Resolve-Path $script),
-              [ref]$tokens,
-              [ref]$errors
-            ) | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Windows build failed." }'
+    - name: Compile LINK Control ARM64
+      shell: pwsh
+      run: 'dotnet build src/NOVORA.Android/NLProjectAndroid.csproj -c Release -r android-arm64 -t:Compile -p:AndroidBuildApplicationPackage=false
+        --verbosity quiet
 
-            if ($errors.Count -gt 0) {
-              $errors | ForEach-Object { Write-Error $_.Message }
-              throw "PowerShell inválido: $script"
-            }
-          }
-
-      - name: Restore verified runtime tools
-        shell: pwsh
-        run: .\scripts\Setup-Tools.ps1
-
-      - name: Restore Android workload
-        shell: pwsh
-        run: dotnet workload restore .\src\NOVORA.Android\NLProjectAndroid.csproj
-
-      - name: Restore
-        run: dotnet restore .\NOVORA.sln
-
-      - name: Build
-        shell: pwsh
-        run: |
-          dotnet build .\src\NOVORA\NLProjectDesktop.csproj -c Release --no-restore
-          if ($LASTEXITCODE -ne 0) { throw "Falló la compilación Release de NOVORA PC." }
-
-          dotnet build .\src\NOVORA.Android\NLProjectAndroid.csproj -c Release -t:Compile --no-restore
-          if ($LASTEXITCODE -ne 0) { throw "Falló la compilación de código Android." }
-
-          dotnet build .\tests\NOVORA.Tests\NLProjectTests.csproj -c Release --no-restore
-          if ($LASTEXITCODE -ne 0) { throw "Falló la compilación de pruebas." }
-
-      - name: Test
-        run: dotnet test .\tests\NOVORA.Tests\NLProjectTests.csproj -c Release --no-build
+        if ($LASTEXITCODE -ne 0) { throw "Android compile failed." }'
+    - name: Run current source test suites
+      shell: pwsh
+      run: ./scripts/Test-NOVORA-CI.ps1 -Configuration Release

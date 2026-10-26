@@ -3,50 +3,50 @@
 
 
     <!-- Tipografia global NOVORA -->
-    <FontFamily x:Key="NovoraFontFamily">Montserrat, Segoe UI</FontFamily>
+    <FontFamily x:Key="NovoraFontFamily">pack://application:,,,/NOVORA-LINK;component/Asset/Fonts/#Montserrat</FontFamily>
 
-    <!-- Azul especifico para texto legible en Dark/Light. -->
-    <SolidColorBrush x:Key="AccentTextBrush" Color="#35C4F5"/>
-    <!-- Default startup palette: NOVORA Dark matte -->
-    <SolidColorBrush x:Key="WindowBrush" Color="#151A20"/>
-    <SolidColorBrush x:Key="PanelBrush" Color="#1B2128"/>
-    <SolidColorBrush x:Key="PanelBrush2" Color="#222A33"/>
-    <SolidColorBrush x:Key="SectionHeaderBrush" Color="#202830"/>
-    <SolidColorBrush x:Key="BorderBrush" Color="#36414B"/>
-    <SolidColorBrush x:Key="WindowBorderBrush" Color="#40505E"/>
+    <!-- Default startup palette: Platinum Air Light -->
+    <SolidColorBrush x:Key="AccentTextBrush" Color="#304FFE"/>
+    <SolidColorBrush x:Key="WindowBrush" Color="#F4F6FB"/>
+    <SolidColorBrush x:Key="PanelBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="PanelBrush2" Color="#EDF1F8"/>
+    <SolidColorBrush x:Key="SectionHeaderBrush" Color="#F1F4F9"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#D7DDE8"/>
+    <SolidColorBrush x:Key="WindowBorderBrush" Color="#CBD3DE"/>
 
-    <SolidColorBrush x:Key="TextBrush" Color="#F2F5F7"/>
-    <SolidColorBrush x:Key="MutedBrush" Color="#A8B1B9"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#121722"/>
+    <SolidColorBrush x:Key="MutedBrush" Color="#657087"/>
 
-    <SolidColorBrush x:Key="BlueBrush" Color="#00AEEF"/>
-    <SolidColorBrush x:Key="BlueDarkBrush" Color="#35C4F5"/>
-    <SolidColorBrush x:Key="CyanBrush" Color="#39D4E5"/>
-    <SolidColorBrush x:Key="PurpleBrush" Color="#B5A0FF"/>
-    <SolidColorBrush x:Key="GreenBrush" Color="#16C784"/>
-    <SolidColorBrush x:Key="OrangeBrush" Color="#FFAD5A"/>
+    <SolidColorBrush x:Key="BlueBrush" Color="#304FFE"/>
+    <SolidColorBrush x:Key="BlueDarkBrush" Color="#5671FF"/>
+    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="CyanBrush" Color="#304FFE"/>
+    <SolidColorBrush x:Key="PurpleBrush" Color="#7257C8"/>
+    <SolidColorBrush x:Key="GreenBrush" Color="#16845B"/>
+    <SolidColorBrush x:Key="OrangeBrush" Color="#976C00"/>
 
-    <SolidColorBrush x:Key="TrackBrush" Color="#34404A"/>
-    <SolidColorBrush x:Key="BatteryTrackBrush" Color="#283139"/>
-    <SolidColorBrush x:Key="BatteryTextBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TrackBrush" Color="#D7DDE8"/>
+    <SolidColorBrush x:Key="BatteryTrackBrush" Color="#E1E6EF"/>
+    <SolidColorBrush x:Key="BatteryTextBrush" Color="#121722"/>
 
-    <SolidColorBrush x:Key="InputBackgroundBrush" Color="#111820"/>
-    <SolidColorBrush x:Key="InputForegroundBrush" Color="#F5F7F9"/>
-    <SolidColorBrush x:Key="InputBorderBrush" Color="#44515D"/>
-    <SolidColorBrush x:Key="InputHoverBorderBrush" Color="#00AEEF"/>
-    <SolidColorBrush x:Key="InputHoverBackgroundBrush" Color="#1B2A34"/>
-    <SolidColorBrush x:Key="InputSelectedBackgroundBrush" Color="#123C4E"/>
+    <SolidColorBrush x:Key="InputBackgroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="InputForegroundBrush" Color="#121722"/>
+    <SolidColorBrush x:Key="InputBorderBrush" Color="#D7DDE8"/>
+    <SolidColorBrush x:Key="InputHoverBorderBrush" Color="#304FFE"/>
+    <SolidColorBrush x:Key="InputHoverBackgroundBrush" Color="#F0F3FF"/>
+    <SolidColorBrush x:Key="InputSelectedBackgroundBrush" Color="#E6EBFF"/>
 
-    <SolidColorBrush x:Key="SuccessBackgroundBrush" Color="#123228"/>
-    <SolidColorBrush x:Key="SuccessBorderBrush" Color="#24684F"/>
-    <SolidColorBrush x:Key="SuccessTextBrush" Color="#7FE2BC"/>
+    <SolidColorBrush x:Key="SuccessBackgroundBrush" Color="#E9F6EF"/>
+    <SolidColorBrush x:Key="SuccessBorderBrush" Color="#ADD9C1"/>
+    <SolidColorBrush x:Key="SuccessTextBrush" Color="#176744"/>
 
-    <SolidColorBrush x:Key="InfoBackgroundBrush" Color="#102D3A"/>
-    <SolidColorBrush x:Key="InfoBorderBrush" Color="#1B5D76"/>
-    <SolidColorBrush x:Key="InfoTextBrush" Color="#7FDFFF"/>
+    <SolidColorBrush x:Key="InfoBackgroundBrush" Color="#EAF0FF"/>
+    <SolidColorBrush x:Key="InfoBorderBrush" Color="#C1CFFF"/>
+    <SolidColorBrush x:Key="InfoTextBrush" Color="#304FFE"/>
 
-    <SolidColorBrush x:Key="ConsoleBackgroundBrush" Color="#0C1116"/>
-    <SolidColorBrush x:Key="ConsoleForegroundBrush" Color="#DCE5EA"/>
-    <SolidColorBrush x:Key="TitleBarBrush" Color="#123A5A"/>
+    <SolidColorBrush x:Key="ConsoleBackgroundBrush" Color="#F8FAFD"/>
+    <SolidColorBrush x:Key="ConsoleForegroundBrush" Color="#273043"/>
+    <SolidColorBrush x:Key="TitleBarBrush" Color="#E9EDF4"/>
 
     <SolidColorBrush x:Key="DangerForegroundBrush" Color="#FF7B7B"/>
     <SolidColorBrush x:Key="DangerBorderBrush" Color="#7A3640"/>
@@ -54,7 +54,7 @@
 
     <Style TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{DynamicResource NovoraFontFamily}"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="15"/>
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
         <Setter Property="TextOptions.TextRenderingMode" Value="ClearType"/>
@@ -63,12 +63,12 @@
     <Style TargetType="CheckBox">
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         <Setter Property="FontFamily" Value="{DynamicResource NovoraFontFamily}"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="15"/>
     </Style>
 
     <Style TargetType="TextBox">
         <Setter Property="FontFamily" Value="{DynamicResource NovoraFontFamily}"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="15"/>
         <Setter Property="Foreground" Value="{DynamicResource InputForegroundBrush}"/>
         <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>

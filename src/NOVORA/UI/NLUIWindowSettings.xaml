@@ -421,7 +421,6 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <TextBlock
@@ -431,18 +430,8 @@
                     Foreground="{DynamicResource MutedBrush}"
                     VerticalAlignment="Center"/>
 
-                <CheckBox
-                    x:Name="StartWithWindowsCheckBox"
-                    Grid.Column="1"
-                    Margin="0,0,18,0"
-                    VerticalAlignment="Center"
-                    IsChecked="True"
-                    Content="Iniciar con Windows"
-                    Foreground="{DynamicResource TextBrush}"
-                    ToolTip="Iniciar NOVORA automáticamente 5 segundos después de entrar a Windows"/>
-
                 <Button
-                    Grid.Column="2"
+                    Grid.Column="1"
                     Content="Guardar cambios"
                     Width="150"
                     Height="44"

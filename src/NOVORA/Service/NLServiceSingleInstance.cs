@@ -2,7 +2,9 @@ namespace NOVORA.Service;
 
 public sealed class NLServiceSingleInstance : IDisposable
 {
-    public const string ApplicationNameNV = "Local\\NOVORA-LINK.App.Singleton.v1";
+    // La versión experimental debe poder convivir con la instalación normal para probar
+    // los motores sin que la instancia de producción cierre este ejecutable.
+    public const string ApplicationNameNV = "Local\\NOVORA-LINK.Experimental.App.Singleton.v1";
 
     private EventWaitHandle? _handleNV;
 

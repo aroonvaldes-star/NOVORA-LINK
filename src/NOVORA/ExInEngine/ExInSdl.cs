@@ -51,7 +51,6 @@ public sealed class ExInSdl : IDisposable
     private SdlGetGamepadTypeDelegate? _getTypeVE;
     private SdlGetGamepadStringDelegate? _getPathVE;
     private SdlGetGamepadStringDelegate? _getSerialVE;
-    private SdlGetGamepadMappingDelegate? _getMappingVE;
     private SdlGetGamepadPowerInfoDelegate? _getPowerInfoVE;
     private SdlGetGamepadAxisDelegate? _axisVE;
     private SdlGetGamepadButtonDelegate? _buttonVE;
@@ -74,7 +73,10 @@ public sealed class ExInSdl : IDisposable
         if (!File.Exists(path))
             throw new FileNotFoundException("VisionEngine no encuentra SDL3.dll.", path);
 
-        _libraryVE = NativeLibrary.Load(path);
+        // La biblioteca permanece cargada durante toda la vida del proceso: el bucle de eventos
+        // puede tener una llamada en curso aunque Dispose ya haya liberado SDL.
+        if (_libraryVE == IntPtr.Zero)
+            _libraryVE = NativeLibrary.Load(path);
 
         try
         {
@@ -92,7 +94,6 @@ public sealed class ExInSdl : IDisposable
             _getTypeVE = TryLoadVE<SdlGetGamepadTypeDelegate>("SDL_GetGamepadType");
             _getPathVE = TryLoadVE<SdlGetGamepadStringDelegate>("SDL_GetGamepadPath");
             _getSerialVE = TryLoadVE<SdlGetGamepadStringDelegate>("SDL_GetGamepadSerial");
-            _getMappingVE = TryLoadVE<SdlGetGamepadMappingDelegate>("SDL_GetGamepadMapping");
             _getPowerInfoVE = TryLoadVE<SdlGetGamepadPowerInfoDelegate>("SDL_GetGamepadPowerInfo");
             _axisVE = LoadVE<SdlGetGamepadAxisDelegate>("SDL_GetGamepadAxis");
             _buttonVE = LoadVE<SdlGetGamepadButtonDelegate>("SDL_GetGamepadButton");
@@ -152,12 +153,24 @@ public sealed class ExInSdl : IDisposable
 
         try
         {
-            while (!cancellationToken.IsCancellationRequested)
+            while (!cancellationToken.IsCancellationRequested && !_disposedVE && _initializedVE)
             {
-                bool received =
-                    _waitEventTimeoutVE!(
-                        eventBuffer,
-                        250);
+                // Vaciar primero la cola interna: con eventos continuos no debe esperar al siguiente timeout.
+                while (_eventsVE.Reader.TryRead(out ExInEvent queued))
+                {
+                    yield return queued;
+                }
+
+                // El cerrojo compartido impide que el renderer cierre el vídeo de SDL mientras se espera un evento.
+                bool received;
+                lock (SdlSharedGate.Gate)
+                {
+                    if (_disposedVE || !_initializedVE) break;
+                    received =
+                        _waitEventTimeoutVE!(
+                            eventBuffer,
+                            250);
+                }
 
                 if (received &&
                     TryReadEventVE(
@@ -166,12 +179,6 @@ public sealed class ExInSdl : IDisposable
                     message is not null)
                 {
                     yield return message.Value;
-                    continue;
-                }
-
-                while (_eventsVE.Reader.TryRead(out ExInEvent queued))
-                {
-                    yield return queued;
                 }
 
                 await Task.Yield();
@@ -225,18 +232,6 @@ public sealed class ExInSdl : IDisposable
         return _getTypeVE?.Invoke(gamepad);
     }
 
-    public string? GetMappingVE(IntPtr gamepad)
-    {
-        EnsureInitializedVE();
-        ArgumentOutOfRangeException.ThrowIfEqual(gamepad, IntPtr.Zero);
-        if (_getMappingVE is null) return null;
-
-        IntPtr value = _getMappingVE(gamepad);
-        if (value == IntPtr.Zero) return null;
-        try { return Marshal.PtrToStringUTF8(value); }
-        finally { _freeVE!(value); }
-    }
-
     public ExInBatteryStatus GetBatteryStatusVE(IntPtr gamepad, ExInControllerIdentity identity)
     {
         EnsureInitializedVE();
@@ -269,6 +264,11 @@ public sealed class ExInSdl : IDisposable
         if (_buttonVE!(gamepad, 12)) buttons |= ExInButtons.DPadDown;
         if (_buttonVE!(gamepad, 13)) buttons |= ExInButtons.DPadLeft;
         if (_buttonVE!(gamepad, 14)) buttons |= ExInButtons.DPadRight;
+        // SDL3: right paddle 1=16, left paddle 1=17, right paddle 2=18, left paddle 2=19.
+        if (_buttonVE!(gamepad, 17)) buttons |= ExInButtons.P1;
+        if (_buttonVE!(gamepad, 19)) buttons |= ExInButtons.P2;
+        if (_buttonVE!(gamepad, 16)) buttons |= ExInButtons.P3;
+        if (_buttonVE!(gamepad, 18)) buttons |= ExInButtons.P4;
         if (_buttonVE!(gamepad, 20)) buttons |= ExInButtons.Touchpad;
 
         return new ExInState(
@@ -358,7 +358,7 @@ public sealed class ExInSdl : IDisposable
                         ExInTypeEvent.Axis,
                         which,
                         Marshal.ReadByte(eventPointer, 20),
-                        Marshal.ReadInt16(eventPointer, 24),
+                        Marshal.ReadInt16(eventPointer, 22),
                         0,
                         false),
 
@@ -444,6 +444,8 @@ public sealed class ExInSdl : IDisposable
 
     private void EnsureInitializedVE()
     {
+        // Tras Dispose no se reinicia SDL: una llamada tardía debe fallar, no reabrir la biblioteca.
+        ThrowIfDisposedVE();
         if (!_initializedVE) InitializeVE();
     }
 
@@ -454,24 +456,22 @@ public sealed class ExInSdl : IDisposable
     {
         if (_initializedVE)
         {
-            try { _quitVE?.Invoke(SdlInitGamepadVE); } catch { }
+            lock (SdlSharedGate.Gate)
+            {
+                try { _quitVE?.Invoke(SdlInitGamepadVE); } catch { }
+            }
         }
 
         _initializedVE = false;
-
-        if (_libraryVE != IntPtr.Zero)
-        {
-            try { NativeLibrary.Free(_libraryVE); } catch { }
-            _libraryVE = IntPtr.Zero;
-        }
     }
 
     public void Dispose()
     {
         if (_disposedVE) return;
+        // Marcar antes de liberar SDL: el bucle de eventos no debe llamar a la biblioteca descargada.
+        _disposedVE = true;
         _eventsVE.Writer.TryComplete();
         CleanupVE();
-        _disposedVE = true;
     }
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -516,9 +516,6 @@ public sealed class ExInSdl : IDisposable
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate IntPtr SdlGetGamepadStringDelegate(IntPtr gamepad);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate IntPtr SdlGetGamepadMappingDelegate(IntPtr gamepad);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate int SdlGetGamepadPowerInfoDelegate(IntPtr gamepad, out int percent);

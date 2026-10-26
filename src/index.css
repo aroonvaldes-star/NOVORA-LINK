@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-background: #f6fafa;
+    --color-surface: #f6fafa;
+    --color-surface-container-lowest: #ffffff;
+    --color-surface-container-low: #f0f4f4;
+    --color-surface-container: #eaefee;
+    --color-surface-container-high: #e5e9e9;
+    --color-surface-container-highest: #dfe3e3;
+    --color-on-surface: #171c1d;
+    --color-on-surface-variant: #3e494a;
+    --color-outline: #6e797a;
+    --color-outline-variant: #bdc9ca;
+    --color-primary: #006970;
+    --color-on-primary: #ffffff;
+    --color-primary-container: #00828c;
+    --color-on-primary-container: #ffffff;
+    --color-secondary: #446467;
+    --color-secondary-container: #c4e6e9;
+    --color-on-secondary-container: #264c50;
+    --color-error: #ba1a1a;
+    --color-error-container: #ffdad6;
+    --color-on-error: #ffffff;
+  }
+
+  .dark {
+    --color-background: #090e10;
+    --color-surface: #0f1416;
+    --color-surface-container-lowest: #0a0f11;
+    --color-surface-container-low: #13181a;
+    --color-surface-container: #1b2022;
+    --color-surface-container-high: #24292b;
+    --color-surface-container-highest: #2d3335;
+    --color-on-surface: #dfe3e5;
+    --color-on-surface-variant: #94a3b8;
+    --color-outline: #64748b;
+    --color-outline-variant: #252f33;
+    --color-primary: #68d5f0;
+    --color-on-primary: #003641;
+    --color-primary-container: #1f9eb8;
+    --color-on-primary-container: #002e38;
+    --color-secondary: #a6cdd8;
+    --color-secondary-container: #1e3a42;
+    --color-on-secondary-container: #c2e9f4;
+    --color-error: #ffb4ab;
+    --color-error-container: #450a0a;
+    --color-on-error: #690005;
+  }
+}
+
+@theme {
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+  --color-surface-container-lowest: var(--color-surface-container-lowest);
+  --color-surface-container-low: var(--color-surface-container-low);
+  --color-surface-container: var(--color-surface-container);
+  --color-surface-container-high: var(--color-surface-container-high);
+  --color-surface-container-highest: var(--color-surface-container-highest);
+  --color-on-surface: var(--color-on-surface);
+  --color-on-surface-variant: var(--color-on-surface-variant);
+  --color-outline: var(--color-outline);
+  --color-outline-variant: var(--color-outline-variant);
+  --color-primary: var(--color-primary);
+  --color-on-primary: var(--color-on-primary);
+  --color-primary-container: var(--color-primary-container);
+  --color-on-primary-container: var(--color-on-primary-container);
+  --color-secondary: var(--color-secondary);
+  --color-secondary-container: var(--color-secondary-container);
+  --color-on-secondary-container: var(--color-on-secondary-container);
+  --color-error: var(--color-error);
+  --color-error-container: var(--color-error-container);
+  --color-on-error: var(--color-on-error);
+
+  --font-headline: "Montserrat", "Space Grotesk", sans-serif;
+  --font-body: "Montserrat", "Inter", sans-serif;
+  --font-label: "JetBrains Mono", monospace;
+}
+
+.cyber-grid-light {
+  background-image: linear-gradient(to right, rgba(0, 105, 112, 0.05) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(0, 105, 112, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.dark .cyber-grid-light {
+  background-image: linear-gradient(to right, rgba(104, 213, 240, 0.04) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(104, 213, 240, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}

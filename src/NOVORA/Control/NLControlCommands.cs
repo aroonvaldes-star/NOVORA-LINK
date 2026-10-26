@@ -7,18 +7,35 @@ public static class NLControlCommands
         if (request.Version != NLControlProtocol.Version || request.Id <= 0)
             return "Versión o solicitud no válida.";
         if (request.Action is "pair" or "get") return null;
+        if (request.Action == "update.chunk")
+            return state.AppUpdate is not null && request.Value is { Length: > 0 and <= 48 }
+                ? null : "No hay una actualización verificada disponible.";
+        if (request.Action is "network.capabilities" or "network.policy" or "files.cancelLease")
+            return state.Capabilities?.Version == 1 && request.Value is { Length: <= 8192 }
+                ? null : "La función experimental no está disponible.";
+        if (request.Action == "files.acquire")
+            return state.Capabilities?.Version == 1 &&
+                state.Capabilities.FilesWireVersions?.Contains(2) == true &&
+                request.Value is { Length: <= 8192 } && state.FileSharing
+                ? null : state.FileSharing
+                    ? "La función experimental no está disponible."
+                    : "La transferencia de archivos está desactivada en esta PC.";
         if (request.Action is "file.begin" or "file.chunk" or "file.end" or "file.cancel")
             return state.FileSharing ? null : "Esta PC no admite transferencia de archivos.";
-        if (request.Action is not ("applyVideoSettings" or "bitrate" or "profile" or "audio" or "resolution" or "fps" or "capture" or "startRecording" or "stopRecording" or "restartVideo" or "startVideo" or "startAppVideo" or "startVideoLan" or "stopVideo" or "startLink" or "stopLink" or "exin.mode" or "exin.reactivate" or "exin.synchronize"))
+        if (request.Action is not ("applyVideoSettings" or "bitrate" or "profile" or "audio" or "resolution" or "fps" or "capture" or "startRecording" or "stopRecording" or "restartVideo" or "startAppVideo" or "startVideoLan" or "stopVideo" or "startLink" or "stopLink" or "link.speedtest" or "exin.start" or "exin.mode" or "exin.synchronize"))
             return "Acción no disponible en este bloque.";
-        if (request.Revision != state.Revision)
+        // Capture permission belongs to the authorized screen/session. Status
+        // updates while Android displays consent must not invalidate that grant.
+        // Readiness and capture options are still checked against current state.
+        if (request.Revision != state.Revision && request.Action is not ("startAppVideo" or "startVideoLan"))
             return "Los ajustes cambiaron en PC. Revisa el estado actualizado y vuelve a aplicar.";
+        if (request.Action == "link.speedtest")
+            return request.Value is null && state.Engines?.LinkRunning == true
+                ? null : "Inicia LinkEngine antes de medir el túnel.";
         if (request.Action == "applyVideoSettings")
         {
             if (state.VideoSettings is not { CanApplyTogether: true } video) return "Actualiza NOVORA PC para aplicar los ajustes juntos.";
-            if (state.Media is { Recording: true } or { Starting: true }) return "Termina la grabación antes de aplicar y reiniciar VE.";
-            if (state.Engines is not { } engines || !(state.VideoRunning ? engines.VideoCanStop : engines.VideoCanStart))
-                return "VisionEngine no está disponible para aplicar los ajustes.";
+            if (state.Media is { Recording: true } or { Starting: true }) return "Termina la grabación antes de guardar los ajustes de VE.";
             NLControlVideoChanges? changes;
             try { changes = System.Text.Json.JsonSerializer.Deserialize<NLControlVideoChanges>(request.Value ?? "null"); }
             catch (System.Text.Json.JsonException) { return "Los ajustes recibidos no son válidos."; }
@@ -26,7 +43,8 @@ public static class NLControlCommands
             bool Has(NLControlOption[]? options, string value) => options?.Any(x => x.Value == value) == true;
             return Has(state.Profiles, changes.Profile) && Has(state.Bitrates, changes.Bitrate) &&
                 Has(video.Resolutions, changes.Resolution) && Has(video.FrameRates, changes.Fps) &&
-                Has(state.AudioOutputs, changes.Audio) && Has(video.Monitors, changes.Monitor)
+                Has(state.AudioOutputs, changes.Audio) && Has(video.Monitors, changes.Monitor) &&
+                Has(video.PresentationModes, changes.PresentationMode)
                 ? null : "Un ajuste o monitor ya no está disponible. Revisa los valores.";
         }
         if (request.Action is "capture" or "startRecording" or "stopRecording")
@@ -46,13 +64,9 @@ public static class NLControlCommands
             if (state.ExIn.Transitioning || !state.ExIn.CanSetMode) return "ExInEngine está cambiando de estado.";
             return request.Value is "Game" or "Ui" ? null : "Modo de control no válido.";
         }
-        if (request.Action == "exin.reactivate")
-        {
-            if (request.Value is not null) return "La reactivación no acepta valores adicionales.";
-            if (state.ExIn?.Detected != true) return "No hay un control físico para reactivar.";
-            if (state.ExIn.Transitioning || !state.ExIn.CanReactivate) return "ExInEngine está cambiando de estado.";
-            return null;
-        }
+        if (request.Action == "exin.start")
+            return request.Value is null && state.Engines?.ExInCanStart == true
+                ? null : "ExInEngine no está disponible para iniciar en este estado.";
         if (request.Action == "exin.synchronize")
         {
             if (request.Value is not null) return "La sincronización no acepta valores adicionales.";
@@ -60,14 +74,18 @@ public static class NLControlCommands
             if (state.ExIn.Transitioning) return "ExInEngine está cambiando de estado.";
             return null;
         }
-        if (request.Action is "startVideo" or "startAppVideo" or "startVideoLan" or "stopVideo" or "startLink" or "stopLink")
+        if (request.Action is "startAppVideo" or "startVideoLan" or "stopVideo" or "startLink" or "stopLink")
         {
-            if (request.Value is not null) return "La acción de motor no acepta valores adicionales.";
+            // startLink acepta la ruta explícita del bloque de AppControl ("USB" o "LAN").
+            bool routeValue = request.Action is "startLink" && request.Value is "USB" or "LAN";
+            if (request.Value is not null && !routeValue &&
+                (request.Action is not ("startAppVideo" or "startVideoLan") ||
+                 request.Value != NLControlProtocol.VideoOnlyCapture))
+                return "La acción de motor no acepta valores adicionales.";
             var engines = state.Engines;
             if (engines is null) return "Esta PC no anuncia control de motores. Actualiza al bloque 5.";
             bool ready = request.Action switch
             {
-                "startVideo" => engines.VideoCanStart,
                 "startAppVideo" => engines.VideoCanStart,
                 "startVideoLan" => engines.VideoCanStart,
                 "stopVideo" => engines.VideoCanStop,

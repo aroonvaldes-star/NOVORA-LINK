@@ -118,6 +118,11 @@ public sealed class LECoreEngine : IAsyncDisposable
             .WaitAsync(cancellationToken)
             .ConfigureAwait(false);
 
+        bool deviceInitialized = false;
+        bool transportInitialized = false;
+        bool networkInitialized = false;
+        bool recoveryInitialized = false;
+
         try
         {
             if (_initialized)
@@ -126,18 +131,22 @@ public sealed class LECoreEngine : IAsyncDisposable
                     "LECoreEngine ya estaba inicializado.");
             }
 
+            deviceInitialized = true;
             await Device
                 .InitializeAsync(cancellationToken)
                 .ConfigureAwait(false);
 
+            transportInitialized = true;
             await Transport
                 .InitializeAsync(cancellationToken)
                 .ConfigureAwait(false);
 
+            networkInitialized = true;
             await Network
                 .InitializeAsync(cancellationToken)
                 .ConfigureAwait(false);
 
+            recoveryInitialized = true;
             await Recovery
                 .InitializeAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -149,10 +158,24 @@ public sealed class LECoreEngine : IAsyncDisposable
         }
         catch (OperationCanceledException)
         {
+            await CleanupInitializationAsync(
+                    recoveryInitialized,
+                    networkInitialized,
+                    transportInitialized,
+                    deviceInitialized)
+                .ConfigureAwait(false);
+
             throw;
         }
         catch (Exception ex)
         {
+            await CleanupInitializationAsync(
+                    recoveryInitialized,
+                    networkInitialized,
+                    transportInitialized,
+                    deviceInitialized)
+                .ConfigureAwait(false);
+
             return LECoreResult.Fail(
                 "No fue posible inicializar LECoreEngine.",
                 ex);
@@ -208,19 +231,41 @@ public sealed class LECoreEngine : IAsyncDisposable
          * adb reverse porque LETransportManager recibiÃ³ el NLServiceADB
          * compartido durante CreateDefault().
          */
-        var transportResult =
-            await Transport
-                .OpenAsync(
-                    serial,
-                    cancellationToken)
+        LECoreResult transportResult;
+
+        try
+        {
+            transportResult =
+                await Transport
+                    .OpenAsync(
+                        serial,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            await CleanupConnectionAsync(serial)
                 .ConfigureAwait(false);
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            await CleanupConnectionAsync(serial)
+                .ConfigureAwait(false);
+
+            Metrics
+                .GetOrCreate(serial)
+                .SetState(LECoreStates.Failed);
+
+            return LECoreResult.Fail(
+                "No fue posible abrir el transporte de LINKENGINE.",
+                ex);
+        }
 
         if (!transportResult.Success)
         {
-            await Device
-                .DisconnectAsync(
-                    serial,
-                    cancellationToken)
+            await CleanupConnectionAsync(serial)
                 .ConfigureAwait(false);
 
             Metrics
@@ -230,11 +275,34 @@ public sealed class LECoreEngine : IAsyncDisposable
             return transportResult;
         }
 
-        await Recovery
-            .RegisterAsync(
-                serial,
-                cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            await Recovery
+                .RegisterAsync(
+                    serial,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            await CleanupConnectionAsync(serial)
+                .ConfigureAwait(false);
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            await CleanupConnectionAsync(serial)
+                .ConfigureAwait(false);
+
+            Metrics
+                .GetOrCreate(serial)
+                .SetState(LECoreStates.Failed);
+
+            return LECoreResult.Fail(
+                "No fue posible registrar la recuperación de LINKENGINE.",
+                ex);
+        }
 
         Metrics
             .GetOrCreate(serial)
@@ -299,7 +367,7 @@ public sealed class LECoreEngine : IAsyncDisposable
         /*
          * LE-006 Data Plane real:
          *
-         * LENetworkManager administra DATA por tcp:27184 y RelayCore
+         * LENetworkManager administra DATA por tcp:27184 y NovoraRelay
          * procesa TCP/UDP hacia Internet. CONTROL permanece separado
          * dentro de LETransportManager.
          */
@@ -469,5 +537,119 @@ public sealed class LECoreEngine : IAsyncDisposable
         ObjectDisposedException.ThrowIf(
             _disposed,
             this);
+    }
+
+    private async Task CleanupConnectionAsync(
+        string serial)
+    {
+        try
+        {
+            await Recovery
+                .UnregisterAsync(
+                    serial,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            // La limpieza debe continuar aunque una capa ya esté degradada.
+        }
+
+        try
+        {
+            await Network
+                .StopAsync(
+                    serial,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            await Transport
+                .CloseAsync(
+                    serial,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            await Device
+                .DisconnectAsync(
+                    serial,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task CleanupInitializationAsync(
+        bool recoveryInitialized,
+        bool networkInitialized,
+        bool transportInitialized,
+        bool deviceInitialized)
+    {
+        _initialized = false;
+
+        if (recoveryInitialized)
+        {
+            try
+            {
+                await Recovery
+                    .DisposeAsync()
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+        }
+
+        if (networkInitialized)
+        {
+            try
+            {
+                await Network
+                    .DisposeAsync()
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+        }
+
+        if (transportInitialized)
+        {
+            try
+            {
+                await Transport
+                    .DisposeAsync()
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+        }
+
+        if (deviceInitialized)
+        {
+            try
+            {
+                await Device
+                    .DisposeAsync()
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+        }
     }
 }

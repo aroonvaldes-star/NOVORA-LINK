@@ -276,28 +276,27 @@ public sealed class VERendererDevice : IDisposable
 
     private void DisposeNativeVE()
     {
-        if (_rendererVE != IntPtr.Zero)
+        // SDL3.dll es compartida con ExIn: el cierre del vídeo y los destructores van bajo el cerrojo
+        // común, y la biblioteca no se libera (ExIn puede seguir usando sus punteros de función).
+        lock (SdlSharedGate.Gate)
         {
-            _destroyRendererVE?.Invoke(_rendererVE);
-            _rendererVE = IntPtr.Zero;
-        }
+            if (_rendererVE != IntPtr.Zero)
+            {
+                _destroyRendererVE?.Invoke(_rendererVE);
+                _rendererVE = IntPtr.Zero;
+            }
 
-        if (_windowVE != IntPtr.Zero)
-        {
-            _destroyWindowVE?.Invoke(_windowVE);
-            _windowVE = IntPtr.Zero;
-        }
+            if (_windowVE != IntPtr.Zero)
+            {
+                _destroyWindowVE?.Invoke(_windowVE);
+                _windowVE = IntPtr.Zero;
+            }
 
-        if (_videoInitializedVE)
-        {
-            _quitSubSystemVE?.Invoke(SdlInitVideoVE);
-            _videoInitializedVE = false;
-        }
-
-        if (_libraryVE != IntPtr.Zero)
-        {
-            NativeLibrary.Free(_libraryVE);
-            _libraryVE = IntPtr.Zero;
+            if (_videoInitializedVE)
+            {
+                _quitSubSystemVE?.Invoke(SdlInitVideoVE);
+                _videoInitializedVE = false;
+            }
         }
 
         BackendVE = null;

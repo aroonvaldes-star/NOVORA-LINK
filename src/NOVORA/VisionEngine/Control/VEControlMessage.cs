@@ -2,7 +2,7 @@ namespace NOVORA.VisionEngine.Control;
 
 /// <summary>
 /// Mensaje de control inmutable. Los factories exponen sólo combinaciones
-/// válidas y VEControlSerializer realiza la codificación wire exacta.
+/// válidas y VEControlManager realiza la codificación del canal nativo.
 /// </summary>
 public sealed record VEControlMessage
 {
@@ -31,6 +31,9 @@ public sealed record VEControlMessage
     public byte[]? Data { get; init; }
     public ushort Width { get; init; }
     public ushort Height { get; init; }
+    public NOVORA.Control.NLControlCapturePolicy? CapturePolicy { get; init; }
+    public static VEControlMessage CapturePolicyVE(NOVORA.Control.NLControlCapturePolicy policy) =>
+        new(VEControlType.ApplyCapturePolicy) { CapturePolicy=policy };
 
     private VEControlMessage(VEControlType type)
     {

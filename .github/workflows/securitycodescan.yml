@@ -1,20 +1,17 @@
 name: SecurityCodeScan
-
-on:
+'on':
   push:
     branches:
-      - NOVORA-LINK
-      - "release/**"
+    - NOVORA-LINK
+    - release/**
   pull_request:
     branches:
-      - NOVORA-LINK
+    - NOVORA-LINK
   schedule:
-    - cron: "17 6 * * 3"
-  workflow_dispatch:
-
+  - cron: 17 6 * * 3
+  workflow_dispatch: null
 permissions:
   contents: read
-
 jobs:
   security-code-scan:
     name: SecurityCodeScan
@@ -22,115 +19,53 @@ jobs:
     permissions:
       contents: read
       security-events: write
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Setup .NET 8
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore verified runtime tools
+      shell: pwsh
+      run: .\scripts\Setup-Tools.ps1
+    - name: Add SecurityCodeScan analyzer to CI workspace
+      shell: pwsh
+      run: "$project = \".\\src\\NOVORA\\NLProjectDesktop.csproj\"\n$listed = dotnet list $project package\n\nif ($listed\
+        \ -notmatch \"SecurityCodeScan\\.VS2019\") {\n    dotnet add $project package SecurityCodeScan.VS2019 --version 5.6.7\n\
+        }\n"
+    - name: Restore
+      shell: pwsh
+      run: 'dotnet restore src/NOVORA/NLProjectDesktop.csproj
 
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
-
-      - name: Restore verified runtime tools
-        shell: pwsh
-        run: .\scripts\Setup-Tools.ps1
-
-      - name: Add SecurityCodeScan analyzer to CI workspace
-        shell: pwsh
-        run: |
-          $project = ".\src\NOVORA\NLProjectDesktop.csproj"
-          $listed = dotnet list $project package
-
-          if ($listed -notmatch "SecurityCodeScan\.VS2019") {
-              dotnet add $project package SecurityCodeScan.VS2019 --version 5.6.7
-          }
-
-      - name: Restore
-        shell: pwsh
-        run: dotnet restore .\NOVORA.sln
-
-      - name: Analyze and emit SARIF 2.1
-        shell: pwsh
-        run: |
-          $rawSarif = "${{ github.workspace }}\securitycodescan-raw.sarif"
-          $errorLogValue = "$rawSarif%2Cversion=2.1"
-
-          dotnet build .\src\NOVORA\NLProjectDesktop.csproj `
-            -c Release `
-            --no-restore `
-            "-p:ErrorLog=$errorLogValue"
-
-          if ($LASTEXITCODE -ne 0) {
-              throw "SecurityCodeScan build terminó con código $LASTEXITCODE."
-          }
-
-          if (-not (Test-Path -LiteralPath $rawSarif -PathType Leaf)) {
-              throw "SecurityCodeScan no generó el archivo SARIF."
-          }
-
-          $document = Get-Content -LiteralPath $rawSarif -Raw | ConvertFrom-Json
-
-          if ($document.version -ne "2.1.0") {
-              throw "SARIF inválido para GitHub Code Scanning. Esperado 2.1.0, obtenido: $($document.version)"
-          }
-
-      - name: Filter SecurityCodeScan findings
-        shell: pwsh
-        run: |
-          $rawSarif = "${{ github.workspace }}\securitycodescan-raw.sarif"
-          $filteredSarif = "${{ github.workspace }}\securitycodescan.sarif"
-          $document = Get-Content -LiteralPath $rawSarif -Raw | ConvertFrom-Json
-          $total = 0
-
-          foreach ($run in @($document.runs)) {
-              $securityResults = @(
-                  @($run.results) |
-                  Where-Object {
-                      -not [string]::IsNullOrWhiteSpace($_.ruleId) -and
-                      $_.ruleId -match '^SCS\d+$'
-                  }
-              )
-
-              $run.results = $securityResults
-              $total += $securityResults.Count
-
-              $referencedRuleIds = [System.Collections.Generic.HashSet[string]]::new(
-                  [System.StringComparer]::OrdinalIgnoreCase
-              )
-
-              foreach ($result in $securityResults) {
-                  [void]$referencedRuleIds.Add([string]$result.ruleId)
-              }
-
-              if ($null -ne $run.tool.driver.rules) {
-                  $run.tool.driver.rules = @(
-                      @($run.tool.driver.rules) |
-                      Where-Object {
-                          $referencedRuleIds.Contains([string]$_.id)
-                      }
-                  )
-              }
-          }
-
-          if ($total -gt 25000) {
-              throw "SecurityCodeScan produjo $total hallazgos SCS; excede el límite de 25,000 resultados de GitHub Code Scanning."
-          }
-
-          $document |
-              ConvertTo-Json -Depth 100 |
-              Set-Content -LiteralPath $filteredSarif -Encoding utf8
-
-          $validation = Get-Content -LiteralPath $filteredSarif -Raw | ConvertFrom-Json
-
-          if ($validation.version -ne "2.1.0") {
-              throw "El SARIF filtrado perdió la versión 2.1.0."
-          }
-
-          Write-Host "SecurityCodeScan: $total hallazgos SCS listos para GitHub Code Scanning."
-
-      - name: Upload SARIF
-        if: always() && hashFiles('securitycodescan.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: securitycodescan.sarif
+        if ($LASTEXITCODE -ne 0) { throw "Restore failed." }'
+    - name: Analyze and emit SARIF 2.1
+      shell: pwsh
+      run: "$rawSarif = \"${{ github.workspace }}\\securitycodescan-raw.sarif\"\n$errorLogValue = \"$rawSarif%2Cversion=2.1\"\
+        \n\ndotnet build .\\src\\NOVORA\\NLProjectDesktop.csproj `\n  -c Release `\n  --no-restore `\n  \"-p:ErrorLog=$errorLogValue\"\
+        \n\nif ($LASTEXITCODE -ne 0) {\n    throw \"SecurityCodeScan build terminÃƒÆ’Ã‚Â³ con cÃƒÆ’Ã‚Â³digo $LASTEXITCODE.\"\
+        \n}\n\nif (-not (Test-Path -LiteralPath $rawSarif -PathType Leaf)) {\n    throw \"SecurityCodeScan no generÃƒÆ’Ã‚Â³\
+        \ el archivo SARIF.\"\n}\n\n$document = Get-Content -LiteralPath $rawSarif -Raw | ConvertFrom-Json\n\nif ($document.version\
+        \ -ne \"2.1.0\") {\n    throw \"SARIF invÃƒÆ’Ã‚Â¡lido para GitHub Code Scanning. Esperado 2.1.0, obtenido: $($document.version)\"\
+        \n}\n"
+    - name: Filter SecurityCodeScan findings
+      shell: pwsh
+      run: "$rawSarif = \"${{ github.workspace }}\\securitycodescan-raw.sarif\"\n$filteredSarif = \"${{ github.workspace }}\\\
+        securitycodescan.sarif\"\n$document = Get-Content -LiteralPath $rawSarif -Raw | ConvertFrom-Json\n$total = 0\n\nforeach\
+        \ ($run in @($document.runs)) {\n    $securityResults = @(\n        @($run.results) |\n        Where-Object {\n  \
+        \          -not [string]::IsNullOrWhiteSpace($_.ruleId) -and\n            $_.ruleId -match '^SCS\\d+$'\n        }\n\
+        \    )\n\n    $run.results = $securityResults\n    $total += $securityResults.Count\n\n    $referencedRuleIds = [System.Collections.Generic.HashSet[string]]::new(\n\
+        \        [System.StringComparer]::OrdinalIgnoreCase\n    )\n\n    foreach ($result in $securityResults) {\n      \
+        \  [void]$referencedRuleIds.Add([string]$result.ruleId)\n    }\n\n    if ($null -ne $run.tool.driver.rules) {\n  \
+        \      $run.tool.driver.rules = @(\n            @($run.tool.driver.rules) |\n            Where-Object {\n        \
+        \        $referencedRuleIds.Contains([string]$_.id)\n            }\n        )\n    }\n}\n\nif ($total -gt 25000) {\n\
+        \    throw \"SecurityCodeScan produjo $total hallazgos SCS; excede el lÃƒÆ’Ã‚Â­mite de 25,000 resultados de GitHub\
+        \ Code Scanning.\"\n}\n\n$document |\n    ConvertTo-Json -Depth 100 |\n    Set-Content -LiteralPath $filteredSarif\
+        \ -Encoding utf8\n\n$validation = Get-Content -LiteralPath $filteredSarif -Raw | ConvertFrom-Json\n\nif ($validation.version\
+        \ -ne \"2.1.0\") {\n    throw \"El SARIF filtrado perdiÃƒÆ’Ã‚Â³ la versiÃƒÆ’Ã‚Â³n 2.1.0.\"\n}\n\nWrite-Host \"SecurityCodeScan:\
+        \ $total hallazgos SCS listos para GitHub Code Scanning.\"\n"
+    - name: Upload SARIF
+      if: always() && hashFiles('securitycodescan.sarif') != ''
+      uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+      with:
+        sarif_file: securitycodescan.sarif

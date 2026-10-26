@@ -6,15 +6,17 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<UseWPF>true</UseWPF>
-    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+		<EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
 		<UseWindowsForms>true</UseWindowsForms>
 		<RootNamespace>NOVORA</RootNamespace>
-		<AssemblyName>NOVORA</AssemblyName>
+		<AssemblyName>NOVORA-LINK</AssemblyName>
 		<Version>1.4.0</Version>
 		<InformationalVersion>1.4 Release</InformationalVersion>
 		<Platforms>AnyCPU</Platforms>
 		<PlatformTarget>AnyCPU</PlatformTarget>
-		<ApplicationIcon>Asset\NLAssetNOVORA11.ico</ApplicationIcon>
+		<ApplicationIcon>Asset\NOVORA_Win32.ico</ApplicationIcon>
+        <PackageIcon>Emblema NOVORA blanco sobre fondo transparente.png</PackageIcon>
+		<NuGetAudit>False</NuGetAudit>
 	</PropertyGroup>
 	<ItemGroup>
 		<Content Include="Tools\**\*">
@@ -26,37 +28,57 @@
 		</Content>
 	</ItemGroup>
 	<ItemGroup>
-		
+		<Compile Remove="LinkEngine\Network\Native\NovoraRelay\**\*.cs" />
 	</ItemGroup>
 	<ItemGroup>
+		<None Include="Asset\Emblema NOVORA blanco sobre fondo transparente.png">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
 		<None Update="Tools\LinkEngine\LENetworkRelay.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-		
 	</ItemGroup>
 	<ItemGroup>
-	</ItemGroup>
-	<ItemGroup>
-		<None Remove="Asset\NLAssetNOVORABRAND.png" />
-		<None Remove="Asset\NLAssetNOVORABRANDLIGHT.png" />
 		<Resource Include="Asset\NLAssetNOVORABRAND.png" />
 		<Resource Include="Asset\NLAssetNOVORABRANDLIGHT.png" />
+		<Resource Include="Asset\Fonts\*.ttf" />
+		<None Remove="UI\Emblema NOVORA blanco sobre fondo transparente - copia.png" />
+        <Resource Include="Asset\Emblema NOVORA blanco sobre fondo transparente.png" />
+		<Resource Include="Asset\Emblema NOVORA blanco sobre fondo transparente - copia.png" />
+		<Resource Include="Asset\NLAssetExInXboxCalibration.png" />
+		<Resource Include="Asset\NLAssetExInDualShock4FrontSideMatte.png" />
+		<Resource Include="Asset\NLAssetExInXboxFrontSideMatte.png" />
+		<Resource Include="UI\Emblema NOVORA blanco sobre fondo transparente - copia.png" />
+		<Resource Include="UI\Emblema NOVORA blanco sobre fondo transparente.png" />
 	</ItemGroup>
 
-  <ItemGroup>
-    
-  </ItemGroup>
+	<ItemGroup>
+		<Resource Include="UI\Logotipo NOVORA-LINK negro sobre transparente.png" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <None Update="Asset\NLAssetPDI2T.mp4"
-          CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" />
-  </ItemGroup>
-  <ItemGroup>
-    <ApplicationDefinition Include="Application\NLApplicationApp.xaml" />
-  </ItemGroup>
-  <ItemGroup><PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" /></ItemGroup>
-  <ItemGroup>
-    <Content Include="Android\NLAndroidApp.apk" Condition="Exists('Android\NLAndroidApp.apk')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="Android\NLAndroidRelease.json" Condition="Exists('Android\NLAndroidRelease.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-  </ItemGroup>
+	<ItemGroup>
+		<None Update="Asset\NLAssetPDI2T.mp4" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+	</ItemGroup>
+	<ItemGroup>
+		<ApplicationDefinition Include="Application\NLApplicationApp.xaml" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+		<PackageReference Include="QRCoder" Version="1.8.1" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+	</ItemGroup>
+	<ItemGroup>
+		<Content Include="Android\LinkControl.apk" Condition="Exists('Android\LinkControl.apk')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+		<Content Include="Android\NLAndroidRelease.json" Condition="Exists('Android\NLAndroidRelease.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+		<Resource Include="Asset\NOVORA_Win32.ico" />
+		<Content Include="Asset\NLAssetNOVORA11.ico" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Resource Include="Asset\NLAssetBienvenido.png" />
+		<Resource Include="Asset\NLAssetNovoraLogo.png" />
+		<Resource Include="Asset\NOVORA-LINK en blanco sobre transparencia.png" />
+		<Resource Include="Asset\NOVORA-LINK.png" />
+		<Resource Include="Asset\Logotipo NOVORA-LINK negro sobre transparente.png" />
+	</ItemGroup>
 
 </Project>

@@ -9,7 +9,7 @@ using Android.Provider;
 
 namespace NOVORA.AndroidVideo;
 
-[Service(Name = "com.novora.appcontrol.ControlAccessibilityService", Exported = true,
+[Service(Name = "com.linkcontrol.novora.ControlAccessibilityService", Exported = true,
     Permission = "android.permission.BIND_ACCESSIBILITY_SERVICE")]
 [IntentFilter(["android.accessibilityservice.AccessibilityService"])]
 [MetaData("android.accessibilityservice", Resource = "@xml/novora_accessibility")]
@@ -195,7 +195,7 @@ public sealed class NLAndroidControlAccessibilityService : AccessibilityService
                 completion.SetResult();
                 return;
             default:
-                throw new NotSupportedException($"La orden de control {command.Type} no está disponible en AppControl.");
+                throw new NotSupportedException($"La orden de control {command.Type} no está disponible en LINK Control.");
         }
     }
 

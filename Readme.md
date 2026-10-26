@@ -7,16 +7,16 @@
 
 NOVORA-LINK conecta un teléfono Android con una PC Windows para mostrar su pantalla, transportar datos y permitir la interacción autorizada. VisionEngine (VE) se ocupa de video y audio, LinkEngine (LE) del enlace y de la ruta de Internet por VPN, y Experience Input Engine (ExInEngine) de las entradas. Cada resultado depende del dispositivo, el transporte, los permisos y el estado de la sesión.
 
-Esta descripción corresponde al árbol local de código revisado el 10 de octubre de 2026. App Control declara `versionCode 91` y `versionName 1.4.91`; el proyecto de escritorio declara la serie `1.4.0`. Estos datos de fuente no confirman la versión instalada en un teléfono, el contenido de un instalador ni los activos publicados.
+Esta descripción corresponde al árbol local de código revisado el 21 de octubre de 2026. LINK Control declara `versionCode 116` y `versionName 1.4.116`; el proyecto de escritorio declara la serie `1.4.0`. Estos datos de fuente no confirman la versión instalada en un teléfono, el contenido de un instalador ni los activos publicados.
 
-En Android, App Control presenta dos pestañas: **Principal** y **Configuración**. Principal reúne la conexión USB/LAN, la elección de modo Juego, Video o Internet, el inicio de motores y los estados de VE, LE y ExIn. Configuración agrupa el estado de LE, los ajustes de VE y audio, y el estado de ExIn. Las páginas auxiliares que pueda conservar el código no son pestañas de navegación.
+En Android, LINK Control incluye un flujo de bienvenida y selección de conexión USB o LAN. Una pantalla de motores presenta acciones para VisionEngine, LinkEngine y ExInEngine según la sesión y las capacidades disponibles. El código también conserva páginas de ajustes y diagnóstico; su disponibilidad depende del flujo de la interfaz. La presencia de estos controles en el código no acredita una prueba en el teléfono.
 
 **Funciones que destacan en la versión de código revisada:**
 
 - **Pantalla y audio del teléfono en Windows:** App Control captura con autorización de Android; VisionEngine recibe, decodifica y presenta la sesión por la ruta USB o LAN disponible.
 - **Control desde la PC:** la ventana de VisionEngine envía acciones de puntero y teclado admitidas por el servicio de accesibilidad. ExInEngine administra por separado los mandos en Windows.
 - **Portapapeles de texto en ambos sentidos:** permite copiar desde Android a Windows y enviar texto desde Windows al teléfono durante una sesión VisionEngine autorizada.
-- **Archivos y carpetas:** la PC puede enviarlos mediante arrastrar y soltar o el portapapeles; también puede solicitar la carpeta NOVORA del teléfono cuando el canal de archivos esté disponible.
+- **Archivos y carpetas:** la PC puede enviarlos mediante arrastrar y soltar o el portapapeles. Para recibir la carpeta NOVORA, USB dispone de una solicitud desde la PC; por LAN el envío debe iniciarse desde Android.
 - **Capturas y grabación en la PC:** la interfaz habilita estas acciones según el estado del video, audio y formato de la sesión.
 - **Privacidad y confianza:** el emparejamiento LAN verifica la identidad de la PC y PrivacyVE puede bloquear contenido y operaciones de intercambio sin cerrar necesariamente la conexión.
 
@@ -43,7 +43,7 @@ La presentación de VisionEngine integra controles de entrada, portapapeles y ar
 
 LinkEngine administra la conexión Android-PC mediante USB o LAN y las funciones de transporte disponibles en esa sesión. La ruta de Internet mediante VPN es distinta del enlace Android-PC: una conexión o transferencia correcta no demuestra velocidad, continuidad ni baja latencia de Internet.
 
-En Android, **Conectar USB** y **Conectar LAN** preparan la ruta correspondiente. El flujo LAN puede buscar una PC, introducir un código y recordar una PC autorizada. **Desconectar** cierra la conexión activa. La pantalla Principal muestra el transporte y el estado de los motores; Configuración muestra el estado de LE y las PC guardadas cuando están disponibles. Al iniciar LE, Android puede solicitar permiso VPN.
+En Android, los controles de USB y LAN preparan la ruta correspondiente. El flujo LAN puede buscar una PC, introducir un código y recordar una PC autorizada. La interfaz muestra el transporte y el estado de los motores según la sesión; las páginas de ajustes y diagnóstico conservadas en el código muestran información adicional cuando están disponibles. Al iniciar LE, Android puede solicitar permiso VPN.
 
 **Acciones visibles según estado:**
 
@@ -52,13 +52,13 @@ En Android, **Conectar USB** y **Conectar LAN** preparan la ruta correspondiente
 - **Iniciar / Detener LinkEngine:** depende de la sesión y de las capacidades que publique la PC; puede requerir tomar una sesión activa.
 - **Desconectar y consultar estado:** cierra la sesión o muestra transporte, PC vinculada y errores observados.
 
-**Propiedades:** PC vinculada, transporte, confianza y estado de sesión. La latencia, pérdida de paquetes y tasas TX/RX sólo deben mostrarse si hay mediciones reales, recientes y con origen identificado. El protocolo define telemetría LE, pero en el flujo revisado no se encontró un productor efectivo para presentar un SpeedTest o monitor en vivo como función validada. Las mediciones del túnel Android-PC y de Internet por VPN deben permanecer separadas.
+**Propiedades:** PC vinculada, transporte, confianza y estado de sesión. La latencia, pérdida de paquetes y tasas TX/RX sólo deben mostrarse si hay mediciones reales, recientes y con origen identificado. El código de Windows incluye acciones de SpeedTest y un monitor de sesión; su presencia no demuestra mediciones válidas en un dispositivo físico. Las mediciones del túnel Android-PC y de Internet por VPN deben permanecer separadas.
 
 ## 3. Experience Input Engine (ExInEngine)
 
 ExInEngine coordina en la PC las entradas admitidas por la sesión Android. La PC gestiona la detección del mando, perfiles, asignación, sensibilidad, modos y calibración. La disponibilidad de un periférico no demuestra que sus entradas lleguen al teléfono; eso requiere una prueba durante una sesión activa.
 
-App Control muestra **sólo el estado de ExInEngine**. No ofrece en sus dos pestañas controles de calibración, cambio de modo ni gestión del mando. Los controles correspondientes están en NOVORA PC. Que el código conserve páginas o métodos internos de ExIn no significa que formen parte de la navegación visible en Android.
+LINK Control incluye en el flujo de motores una tarjeta de ExInEngine con una acción que envía la solicitud `exin.start`. La PC gestiona los controles de mando, perfiles y calibración. Que la acción esté presente no demuestra que el mando entregue entradas al teléfono; esto requiere validación de la sesión y del dispositivo.
 
 **Acciones en Windows, sujetas a la capacidad del mando y la sesión:**
 
@@ -73,7 +73,7 @@ App Control muestra **sólo el estado de ExInEngine**. No ofrece en sus dos pest
 
 **Portapapeles.** VisionEngine dispone de un canal de control para consultar o establecer texto en Android. Con la presentación activa, `Ctrl+C` solicita al teléfono copiar la selección enfocada y devuelve el texto a Windows; `Ctrl+V` lee el portapapeles de Windows y envía texto o URL para pegar en Android. Los cambios Android → Windows se procesan como eventos; el código revisado no consulta continuamente el portapapeles del teléfono. El contenido copiado no se muestra ni se registra en el mensaje de estado. La función necesita el control autorizado, la capacidad de portapapeles y que PrivacyVE permita usarla; la app que tenga el foco en Android también puede limitar el resultado de copiar o pegar.
 
-**Archivos y carpetas.** En Windows se pueden soltar rutas sobre la zona Archivos / Share o la ventana de VisionEngine. `Ctrl+V` también reconoce archivos, carpetas y APK presentes en el portapapeles de Windows y los encamina como transferencias, en vez de tratarlos como texto. El destino Android es la carpeta NOVORA. La PC ofrece además una acción para recibir la carpeta NOVORA del teléfono. La transferencia exige una sesión y un canal de archivos disponibles; por LAN, Android debe conceder acceso a esa carpeta. La interfaz muestra el resultado de cada operación y los totales de archivos completados; esos totales no miden la velocidad del túnel ni de Internet.
+**Archivos y carpetas.** En Windows se pueden soltar rutas sobre la zona Archivos / Share o la ventana de VisionEngine. `Ctrl+V` también reconoce archivos, carpetas y APK presentes en el portapapeles de Windows y los encamina como transferencias, en vez de tratarlos como texto. El destino Android es la carpeta NOVORA. La PC ofrece una acción para recibir la carpeta NOVORA: en USB solicita la copia; en LAN indica que el envío debe iniciarse desde Android. La transferencia exige una sesión y un canal de archivos disponibles; por LAN, Android debe conceder acceso a esa carpeta. La interfaz muestra el resultado de cada operación y los totales de archivos completados; esos totales no miden la velocidad del túnel ni de Internet.
 
 **PrivacyVE.** El escudo de privacidad puede proteger el contenido de video y audio y bloquear control, mando, portapapeles o transferencias según su estado. Antes de copiar, pegar o transferir se vuelve a comprobar la política. La protección no demuestra que el contenido anterior se haya borrado de otros programas o del historial del sistema.
 
@@ -90,3 +90,20 @@ Los indicadores de estado deben distinguir dato confirmado, dato caducado y ause
 La fiabilidad se evalúa por motor y por ruta: enlace USB/LAN, VPN e Internet, video, audio y entradas. Registrar versión realmente instalada, transporte, permisos, estado de cada motor y error observado permite reproducir fallos intermitentes. La calidad del video, la velocidad de Internet y la entrega de entradas requieren mediciones propias durante una sesión PC-Android.
 
 La auditoría estática local del 10 de octubre identificó riesgos pendientes en el relay LE, el saludo DATA LAN y la recepción de archivos por VE LAN. También dejó sin validar el rendimiento y la fiabilidad de extremo a extremo en un teléfono físico. Por ello, las afirmaciones de baja latencia, estabilidad y recuperación automática siguen siendo objetivos sujetos a pruebas reproducibles, no resultados confirmados por este documento.
+
+## 7. Licencia y avisos legales
+
+NOVORA-LINK se distribuye bajo la **NOVORA-LINK PROPRIETARY LICENSE (NLPL) v1.1**. El código fuente puede descargarse, estudiarse y modificarse localmente; la redistribución de versiones modificadas y la explotación comercial requieren autorización escrita.
+
+- [LICENSE](LICENSE) — licencia completa en español (versión prevalente).
+- [LICENSE.en.md](LICENSE.en.md) — traducción de referencia al inglés.
+- [NOTICE](NOTICE) — atribuciones y avisos de terceros.
+- [PRIVACY.md](PRIVACY.md) — aviso de privacidad.
+- [SECURITY.md](SECURITY.md) — reporte de vulnerabilidades.
+- [TRADEMARKS.md](TRADEMARKS.md) — uso de marcas e identidad visual.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contribuciones y licencia de aportes.
+- [Legal/NLLegalThirdPartyNotices.md](Legal/NLLegalThirdPartyNotices.md) — inventario de terceros.
+- [Legal/NLLegalEULA.txt](Legal/NLLegalEULA.txt) — contrato de usuario final.
+- [Legal/LICENSES/](Legal/LICENSES/) — textos íntegros de licencias de terceros.
+
+El instalador incluye el EULA, la licencia y la carpeta `Legal/` completa. Los componentes de terceros conservan sus propias licencias; consulte el inventario para el detalle de versiones y atribuciones.

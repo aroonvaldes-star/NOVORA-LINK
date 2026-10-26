@@ -67,7 +67,7 @@ fidelidad del flujo real PC-Android.
 
 - [Arquitectura NVIDIA](NLNVIDIAArquitectura.md): dependencias opcionales y conexiones.
 - [Contexto previo](NLNVIDIAContexto.md): catálogo, Video Codec SDK y Jetson.
-- LinkEngine/RelayCore: posible interés metodológico de benchmarks; no se cambió
+- LinkEngine/NovoraRelay: posible interés metodológico de benchmarks; no se cambió
   transporte ni se añadió DOCA, instrumentación o polling.
 - VisionEngine: el buscador puede orientar futuras consultas específicas de video;
   ninguna de las cuatro skills evaluadas implementa el decodificador nativo pendiente.

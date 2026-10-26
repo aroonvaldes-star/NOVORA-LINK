@@ -31,8 +31,15 @@ public sealed record VEProfileOptions(
         _ => VEProfile.Automatic
     };
 
-    public NLNVIDIAProfile ToLegacyNvidiaVE() =>
-        AccelerationRequest.Backend == VEAccelerationBackend.Software
-            ? NLNVIDIAProfile.Disabled
-            : NLNVIDIAProfile.Automatic;
+    public NLNVIDIAProfile ToLegacyNvidiaVE() => Profile switch
+    {
+        VEProfile.Automatic => NLNVIDIAProfile.Automatic,
+        VEProfile.Competitive => NLNVIDIAProfile.Competitive,
+        VEProfile.Balanced => NLNVIDIAProfile.Balanced,
+        VEProfile.Quality => NLNVIDIAProfile.VisionPlus,
+        VEProfile.Smooth => NLNVIDIAProfile.Smooth,
+        VEProfile.Streaming => NLNVIDIAProfile.Stream,
+        VEProfile.Software => NLNVIDIAProfile.Disabled,
+        _ => throw new ArgumentOutOfRangeException(nameof(Profile))
+    };
 }

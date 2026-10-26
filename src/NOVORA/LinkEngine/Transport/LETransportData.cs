@@ -9,7 +9,7 @@ using NOVORA.Service;
 namespace NOVORA.LinkEngine.Transport;
 
 public sealed class LETransportData :
-    IAsyncDisposable
+    ILETransportData
 {
     public const int DevicePortLE =
         27184;
@@ -48,6 +48,9 @@ public sealed class LETransportData :
         serial =
             serial.Trim();
 
+        bool reverseConfigured =
+            false;
+
         try
         {
             await _adb
@@ -68,6 +71,9 @@ public sealed class LETransportData :
                     cancellationToken)
                 .ConfigureAwait(false);
 
+            reverseConfigured =
+                true;
+
             bool verified =
                 await VerifyAsync(
                         serial,
@@ -76,6 +82,11 @@ public sealed class LETransportData :
 
             if (!verified)
             {
+                await StopAsync(
+                        serial,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+
                 return LECoreResult.Fail(
                     $"DATA adb reverse tcp:{DevicePortLE} no pudo verificarse.");
             }
@@ -88,10 +99,26 @@ public sealed class LETransportData :
         }
         catch (OperationCanceledException)
         {
+            if (reverseConfigured)
+            {
+                await StopAsync(
+                        serial,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+
             throw;
         }
         catch (Exception ex)
         {
+            if (reverseConfigured)
+            {
+                await StopAsync(
+                        serial,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+
             _configured.TryRemove(
                 serial,
                 out _);

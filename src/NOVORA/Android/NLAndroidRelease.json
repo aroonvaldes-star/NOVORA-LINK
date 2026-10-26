@@ -1,10 +1,10 @@
 {
   "SchemaVersion": 1,
-  "PackageId": "com.novora.appcontrol",
-  "VersionCode": 61,
-  "VersionName": "1.4.61",
-  "MinSdk": 26,
+  "PackageId": "com.linkcontrol.novora",
+  "VersionCode": 116,
+  "VersionName": "1.4.116",
+  "MinSdk": 30,
   "ControlProtocol": 1,
   "PcSeries": "1.4",
-  "Sha256": "485695F645A35B4D3C15005769749D8ECB4DF4799BDC55AEBAD0BA281CBE0B42"
+  "Sha256": "83DA0E50A2F4DCA4B2F9F62C6ED67E088A39D00BC7B5D70578F3E34092D341B2"
 }

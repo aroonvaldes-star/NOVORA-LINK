@@ -47,7 +47,6 @@ Fuentes oficiales:
 - https://developer.nvidia.com/nsight-systems
 - https://developer.nvidia.com/video-codec-sdk
 - https://www.ffmpeg.org/ffmpeg.html
-- https://github.com/Genymobile/scrcpy/blob/master/doc/video.md
 
 ## Integración propuesta, por orden
 

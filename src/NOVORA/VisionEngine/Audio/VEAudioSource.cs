@@ -1,7 +1,7 @@
 namespace NOVORA.VisionEngine.Audio;
 
 /// <summary>
-/// Fuentes de audio expuestas por el servidor Android de scrcpy 4.1.
+/// Fuentes de audio disponibles para la captura Android.
 /// </summary>
 public enum VEAudioSource
 {

@@ -44,7 +44,7 @@ public sealed class NLAndroidStorageTrustedPcs(Context context)
                 try
                 {
                     var peers = JsonSerializer.Deserialize<NLControlTrustedPc[]>(plain) ?? throw new InvalidDataException();
-                    if (peers.Length > 16 || peers.Select(p => p.Fingerprint).Distinct().Count() != peers.Length) throw new InvalidDataException();
+                    if (peers.Select(p => p.Fingerprint).Distinct().Count() != peers.Length) throw new InvalidDataException();
                     foreach (var peer in peers) peer.Validate();
                     return peers;
                 }
@@ -60,7 +60,6 @@ public sealed class NLAndroidStorageTrustedPcs(Context context)
         lock (_gate)
         {
             var peers = Read().Where(p => p.Fingerprint != peer.Fingerprint).Append(peer).ToArray();
-            if (peers.Length > 16) throw new InvalidOperationException("Máximo de 16 PC guardadas. Olvida una antes de agregar otra.");
             Write(peers);
         }
     }

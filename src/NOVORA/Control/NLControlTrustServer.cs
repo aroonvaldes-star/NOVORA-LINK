@@ -30,6 +30,8 @@ public sealed class NLControlTrustServer : IAsyncDisposable
     public NLControlLanInvitation Invitation { get; private set; } = null!;
     public int Port => ((IPEndPoint)_listener.LocalEndpoint).Port;
     public bool IsAuthorized => _authorized;
+    /// <summary>IP del teléfono autorizado en este canal LAN; null si no hay sesión autorizada.</summary>
+    public string? PeerHost { get; private set; }
     public bool IsClosed { get; private set; }
     public bool IsInvitationOpen => _started && !IsClosed && _allowPairing && Volatile.Read(ref _consumed) == 0 && DateTimeOffset.UtcNow.ToUnixTimeSeconds() < Invitation.ExpiresUnix;
     public string PairingCode => _allowPairing ? _pairingCode : string.Empty;
@@ -119,6 +121,7 @@ public sealed class NLControlTrustServer : IAsyncDisposable
         bool enrollmentUsed = false;
         var channel = Channel.CreateBounded<NLControlReply>(32);
         _outgoing = channel; _authorized = true;
+        PeerHost = (client.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString();
         StatusChanged?.Invoke(this, resumed ? $"Android de confianza conectado por {Transport}." : $"Android autorizado por {Transport}.");
         Task writer = WriteAsync(client, stream, channel);
         try
@@ -154,7 +157,7 @@ public sealed class NLControlTrustServer : IAsyncDisposable
         catch (Exception ex) when (ex is IOException or AuthenticationException or InvalidDataException or OperationCanceledException or SocketException or ObjectDisposedException or System.Text.Json.JsonException or ChannelClosedException) { }
         finally
         {
-            _authorized = false; channel.Writer.TryComplete(); client.Dispose();
+            _authorized = false; PeerHost = null; channel.Writer.TryComplete(); client.Dispose();
             try { await writer; } catch (Exception ex) when (ex is IOException or OperationCanceledException or SocketException or ObjectDisposedException or ChannelClosedException) { }
         }
         return true;

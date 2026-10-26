@@ -19,5 +19,9 @@ public enum ExInButtons : uint
     DPadDown = 0x0002_0000,
     DPadLeft = 0x0004_0000,
     DPadRight = 0x0008_0000,
-    Touchpad = 0x0010_0000
+    Touchpad = 0x0010_0000,
+    P1 = 0x0020_0000,
+    P2 = 0x0040_0000,
+    P3 = 0x0080_0000,
+    P4 = 0x0100_0000
 }

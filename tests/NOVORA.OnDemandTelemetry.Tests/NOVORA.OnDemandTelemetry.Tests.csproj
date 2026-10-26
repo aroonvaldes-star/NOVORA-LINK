@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/NOVORA/VisionEngine/Metrics/VEOnDemandTelemetry.cs" Link="Production/VEOnDemandTelemetry.cs" Condition="Exists('../../src/NOVORA/VisionEngine/Metrics/VEOnDemandTelemetry.cs')" />
+    <Compile Include="../../src/NOVORA.Android/AndroidService/NLAndroidNotificationPolicy.cs" Link="Production/NLAndroidNotificationPolicy.cs" Condition="Exists('../../src/NOVORA.Android/AndroidService/NLAndroidNotificationPolicy.cs')" />
+  </ItemGroup>
+</Project>

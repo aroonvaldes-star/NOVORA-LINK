@@ -1,7 +1,7 @@
 namespace NOVORA.VisionEngine.Protocol;
 
 /// <summary>
-/// Identificadores de codec enviados por el servidor de scrcpy 4.1 en big-endian.
+/// Identificadores de codec enviados por App Control en big-endian.
 /// Los valores corresponden a las etiquetas ASCII del protocolo multimedia.
 /// </summary>
 public enum VEProtocolCodec : uint

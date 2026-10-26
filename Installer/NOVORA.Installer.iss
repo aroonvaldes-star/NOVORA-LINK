@@ -11,10 +11,19 @@
   #define VersionInfoVersion "1.4.0.0"
 #endif
 #define Publisher "Aaron Yair Galarza Valdes"
-#define ExeName "NOVORA.exe"
+#define ExeName "NOVORA-LINK.exe"
 
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish\win-x64"
+#endif
+#ifndef ComplianceDir
+  #define ComplianceDir "..\artifacts\compliance"
+#endif
+#ifndef LegalDir
+  #define LegalDir "..\Legal"
+#endif
+#ifndef SetupBaseFilename
+  #define SetupBaseFilename "NOVORA-Setup-" + AppVersion
 #endif
 
 [Setup]
@@ -25,13 +34,14 @@ AppPublisher={#Publisher}
 DefaultDirName={autopf}\NOVORA
 DefaultGroupName=NOVORA
 OutputDir=output
-OutputBaseFilename=NOVORA-Setup-{#AppVersion}
+OutputBaseFilename={#SetupBaseFilename}
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
 PrivilegesRequired=admin
+LicenseFile={#LegalDir}\NLLegalEULA.txt
 CloseApplications=yes
 RestartApplications=no
 Uninstallable=yes
@@ -41,10 +51,26 @@ VersionInfoCompany={#Publisher}
 VersionInfoDescription=NOVORA Installer
 VersionInfoCopyright=Copyright (C) 2026 Aaron Yair Galarza Valdes
 VersionInfoProductName=NOVORA
-VersionInfoProductVersion={#AppVersion}
+VersionInfoProductVersion={#VersionInfoVersion}
+
+[InstallDelete]
+; Hasta 1.4 el ejecutable se llamaba NOVORA.exe. Al actualizar se borra para que
+; accesos directos viejos o el actualizador no abran la version anterior.
+Type: files; Name: "{app}\NOVORA.exe"
+Type: files; Name: "{app}\NOVORA.dll"
+Type: files; Name: "{app}\NOVORA.deps.json"
+Type: files; Name: "{app}\NOVORA.runtimeconfig.json"
+Type: files; Name: "{app}\NOVORA.pdb"
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,*.xml"
+Source: "{#LegalDir}\*"; DestDir: "{app}\Legal"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "README.md"
+Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\LICENSE.en.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\NOTICE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\PRIVACY.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\TRADEMARKS.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#ComplianceDir}\ffmpeg-8.1.2.tar.xz"; DestDir: "{app}\Tools\Legal\Sources"; Flags: ignoreversion
 
 [Tasks]
 Name: "desktopicon"; Description: "Crear acceso directo en el escritorio"; GroupDescription: "Accesos directos:"; Flags: unchecked

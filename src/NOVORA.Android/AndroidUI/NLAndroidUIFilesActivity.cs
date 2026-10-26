@@ -5,17 +5,17 @@ using Android.Provider;
 using Android.Widget;
 using Android.Graphics;
 using NOVORA.AndroidService;
+using NOVORA.AndroidStorage;
 using Uri = Android.Net.Uri;
 
 namespace NOVORA.AndroidUI;
 
 /// <summary>User grants access to the visible NOVORA directory; no all-files permission.</summary>
-[Activity(Name = "com.novora.appcontrol.FilesActivity", Label = "Archivos NOVORA", Exported = false,
+[Activity(Name = "com.linkcontrol.novora.FilesActivity", Label = "Archivos LINK Control", Exported = false,
     Theme = "@android:style/Theme.Material.NoActionBar")]
 public sealed class NLAndroidUIFilesActivity : Activity
 {
     private TextView _status = null!;
-    private const string Key = "novora_public_tree";
     private FilesConnection? _connection;
     private NLAndroidServiceControl? _service;
     private bool _bound, _started;
@@ -87,10 +87,7 @@ public sealed class NLAndroidUIFilesActivity : Activity
         try
         {
             // Require the same shared root used by the existing ADB exchange.
-            if (tree.Authority != "com.android.externalstorage.documents" || DocumentsContract.GetTreeDocumentId(tree) != "primary:NOVORA")
-                throw new InvalidOperationException("Selecciona NOVORA directamente dentro del almacenamiento interno, no otra carpeta.");
-            ContentResolver!.TakePersistableUriPermission(tree, data.Flags & (ActivityFlags.GrantReadUriPermission | ActivityFlags.GrantWriteUriPermission));
-            GetSharedPreferences("novora_files", FileCreationMode.Private)!.Edit()!.PutString(Key, tree.ToString())!.Apply();
+            NLAndroidStorageNovoraFolder.Save(this, tree, data.Flags);
             _status.Text = "Carpeta NOVORA vinculada. Las categorías se crean al abrirlas o recibir contenido.";
         }
         catch (Exception ex) { _status.Text = ex.Message; }
@@ -99,9 +96,8 @@ public sealed class NLAndroidUIFilesActivity : Activity
     {
         try
         {
-            string? saved = GetSharedPreferences("novora_files", FileCreationMode.Private)!.GetString(Key, null);
-            if (saved is null) throw new InvalidOperationException("Primero elige la carpeta NOVORA.");
-            var tree = Uri.Parse(saved)!;
+            if (!NLAndroidStorageNovoraFolder.TryGet(this, out Uri tree))
+                throw new InvalidOperationException("Primero elige la carpeta NOVORA.");
             string parentId = DocumentsContract.GetTreeDocumentId(tree)!;
             var parent = DocumentsContract.BuildDocumentUriUsingTree(tree, parentId)!;
             var children = DocumentsContract.BuildChildDocumentsUriUsingTree(tree, parentId)!;
