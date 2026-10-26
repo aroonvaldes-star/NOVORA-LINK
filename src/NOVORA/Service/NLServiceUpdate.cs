@@ -684,12 +684,12 @@ try {
             (
                 Join-Path `
                     $env:ProgramFiles `
-                    'NOVORA\NOVORA.exe'
+                    'NOVORA\NOVORA-LINK.exe'
             ),
             (
                 Join-Path `
                     $env:LOCALAPPDATA `
-                    'Programs\NOVORA\NOVORA.exe'
+                    'Programs\NOVORA\NOVORA-LINK.exe'
             )
         )
 
@@ -723,7 +723,7 @@ try {
 
             Add-Content `
                 -LiteralPath $errorLog `
-                -Value 'NOVORA.exe no fue encontrado después de la instalación.'
+                -Value 'NOVORA-LINK.exe no fue encontrado después de la instalación.'
         }
     }
 }
