@@ -53,6 +53,15 @@ VersionInfoCopyright=Copyright (C) 2026 Aaron Yair Galarza Valdes
 VersionInfoProductName=NOVORA
 VersionInfoProductVersion={#VersionInfoVersion}
 
+[InstallDelete]
+; Hasta 1.4 el ejecutable se llamaba NOVORA.exe. Al actualizar se borra para que
+; accesos directos viejos o el actualizador no abran la version anterior.
+Type: files; Name: "{app}\NOVORA.exe"
+Type: files; Name: "{app}\NOVORA.dll"
+Type: files; Name: "{app}\NOVORA.deps.json"
+Type: files; Name: "{app}\NOVORA.runtimeconfig.json"
+Type: files; Name: "{app}\NOVORA.pdb"
+
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,*.xml"
 Source: "{#LegalDir}\*"; DestDir: "{app}\Legal"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "README.md"
