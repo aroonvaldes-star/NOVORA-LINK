@@ -1,7 +1,7 @@
 namespace NOVORA.VisionEngine.Protocol;
 
 /// <summary>
-/// Metadatos de una sesión de video. scrcpy 4.1 puede volver a enviar
+/// Metadatos de una sesión de video. App Control puede volver a enviar
 /// este header cuando cambia el tamaño del stream.
 /// </summary>
 public sealed record VEProtocolSession(

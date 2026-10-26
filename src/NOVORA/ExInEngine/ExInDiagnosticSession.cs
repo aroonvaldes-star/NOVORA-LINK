@@ -68,76 +68,95 @@ public sealed class ExInDiagnosticSession
         ObserveButtonsVE(raw.Buttons);
     }
 
+    /// <summary>
+    /// Completa la sesión de diagnóstico y retorna el estado.
+    /// ⭐ FIJO: Ahora la fase se marca como Complete DESPUÉS de procesamiento exitoso
+    /// </summary>
     public ExInDiagnosticStatus CompleteVE(TimeSpan timestamp)
     {
         if (PhaseVE == ExInDiagnosticPhase.Complete)
             throw new InvalidOperationException("La sesión de diagnóstico ya terminó.");
-        PhaseVE = ExInDiagnosticPhase.Complete;
 
-        List<string> affected = [];
-        ExInHealth classification = ExInHealth.Healthy;
-        string explanation = "Control dentro de parámetros normales.";
-        bool correctable = false;
-
-        TimeSpan restDuration = (_travelStartedAtVE ?? timestamp) - (_startedAtVE ?? timestamp);
-        TimeSpan travelDuration = (_travelEndedAtVE ?? _travelStartedAtVE ?? timestamp) - (_travelStartedAtVE ?? timestamp);
-        if (IsExpiredVE(timestamp) || RestSamplesVE == 0 || restDuration < MinimumRestDurationVE ||
-            TravelSamplesVE < MinimumTravelSamplesVE || travelDuration < MinimumTravelDurationVE)
+        try
         {
-            classification = ExInHealth.CalibrationIncomplete;
-            explanation = "Faltan muestras de reposo o recorrido para completar el diagnóstico.";
+            List<string> affected = [];
+            ExInHealth classification = ExInHealth.Healthy;
+            string explanation = "Control dentro de parámetros normales.";
+            bool correctable = false;
+
+            TimeSpan restDuration = (_travelStartedAtVE ?? timestamp) - (_startedAtVE ?? timestamp);
+            TimeSpan travelDuration = (_travelEndedAtVE ?? _travelStartedAtVE ?? timestamp) - (_travelStartedAtVE ?? timestamp);
+            
+            if (IsExpiredVE(timestamp) || RestSamplesVE == 0 || restDuration < MinimumRestDurationVE ||
+                TravelSamplesVE < MinimumTravelSamplesVE || travelDuration < MinimumTravelDurationVE)
+            {
+                classification = ExInHealth.CalibrationIncomplete;
+                explanation = "Faltan muestras de reposo o recorrido para completar el diagnóstico.";
+            }
+            else
+            {
+                string[] axisNames = ["LeftX", "LeftY", "RightX", "RightY"];
+                for (int index = 0; index < 4; index++)
+                {
+                    AxisWindowVE rest = _restVE[index];
+                    AxisWindowVE travel = _travelVE[index];
+                    if (rest.StandardDeviation >= 2600 && rest.JumpCount > Math.Max(2, rest.Count / 8))
+                        PromoteVE(ExInHealth.ProbableHardwareFault, axisNames[index], "Ruido o saltos persistentes fuera del rango corregible.", false,
+                            ref classification, affected, ref explanation, ref correctable);
+                    else if (Math.Abs(rest.Mean) >= 7000)
+                        PromoteVE(ExInHealth.ProbableHardwareFault, axisNames[index], "Drift de reposo demasiado alto para una corrección confiable.", false,
+                            ref classification, affected, ref explanation, ref correctable);
+                    else if (Math.Abs(rest.Mean) >= 1800)
+                        PromoteVE(ExInHealth.CorrectableByCalibration, axisNames[index], "Drift estable corregible mediante calibración.", true,
+                            ref classification, affected, ref explanation, ref correctable);
+
+                    int negative = (int)Math.Round(rest.Mean) - travel.Minimum;
+                    int positive = travel.Maximum - (int)Math.Round(rest.Mean);
+                    if (negative < 8192 || positive < 8192)
+                        PromoteVE(ExInHealth.ReviewRecommended, axisNames[index], "Recorrido insuficiente o severamente asimétrico.", false,
+                            ref classification, affected, ref explanation, ref correctable);
+                }
+
+                string[] triggerNames = ["LeftTrigger", "RightTrigger"];
+                for (int index = 4; index < 6; index++)
+                {
+                    AxisWindowVE rest = _restVE[index];
+                    AxisWindowVE travel = _travelVE[index];
+                    if (rest.Mean > 1000)
+                        PromoteVE(ExInHealth.CorrectableByCalibration, triggerNames[index - 4], "El gatillo presenta offset estable en reposo.", true,
+                            ref classification, affected, ref explanation, ref correctable);
+                    if (travel.Maximum - rest.Mean < 8192)
+                        PromoteVE(ExInHealth.ReviewRecommended, triggerNames[index - 4], "El gatillo no alcanza un recorrido utilizable.", false,
+                            ref classification, affected, ref explanation, ref correctable);
+                }
+
+                ExInButtons stuckButtons = _buttonsAtStartVE & ~_buttonsReleasedVE & _lastRawVE.Buttons;
+                for (int index = 0; index < 15; index++)
+                {
+                    ExInButtons flag = (ExInButtons)(1 << index);
+                    if (!stuckButtons.HasFlag(flag)) continue;
+                    PromoteVE(ExInHealth.ProbableHardwareFault, ((ExInButtons)(1 << index)).ToString(), "El botón no se liberó durante la prueba guiada.", false,
+                        ref classification, affected, ref explanation, ref correctable);
+                }
+            }
+
+            int severity = SeverityVE(classification);
+            if (classification is ExInHealth.ProbableHardwareFault or ExInHealth.ReviewRecommended) 
+                correctable = false;
+
+            var status = new ExInDiagnosticStatus(_profileKeyVE, classification, affected.Distinct().ToArray(), _lastRawVE, _lastCorrectedVE,
+                severity, explanation, correctable, DateTimeOffset.UtcNow);
+
+            // ⭐ FIJO: Solo marca como Complete DESPUÉS de procesar exitosamente
+            PhaseVE = ExInDiagnosticPhase.Complete;
+            
+            return status;
         }
-        else
+        catch
         {
-            string[] axisNames = ["LeftX", "LeftY", "RightX", "RightY"];
-            for (int index = 0; index < 4; index++)
-            {
-                AxisWindowVE rest = _restVE[index];
-                AxisWindowVE travel = _travelVE[index];
-                if (rest.StandardDeviation >= 2600 && rest.JumpCount > Math.Max(2, rest.Count / 8))
-                    PromoteVE(ExInHealth.ProbableHardwareFault, axisNames[index], "Ruido o saltos persistentes fuera del rango corregible.", false,
-                        ref classification, affected, ref explanation, ref correctable);
-                else if (Math.Abs(rest.Mean) >= 7000)
-                    PromoteVE(ExInHealth.ProbableHardwareFault, axisNames[index], "Drift de reposo demasiado alto para una corrección confiable.", false,
-                        ref classification, affected, ref explanation, ref correctable);
-                else if (Math.Abs(rest.Mean) >= 1800)
-                    PromoteVE(ExInHealth.CorrectableByCalibration, axisNames[index], "Drift estable corregible mediante calibración.", true,
-                        ref classification, affected, ref explanation, ref correctable);
-
-                int negative = (int)Math.Round(rest.Mean) - travel.Minimum;
-                int positive = travel.Maximum - (int)Math.Round(rest.Mean);
-                if (negative < 8192 || positive < 8192)
-                    PromoteVE(ExInHealth.ReviewRecommended, axisNames[index], "Recorrido insuficiente o severamente asimétrico.", false,
-                        ref classification, affected, ref explanation, ref correctable);
-            }
-
-            string[] triggerNames = ["LeftTrigger", "RightTrigger"];
-            for (int index = 4; index < 6; index++)
-            {
-                AxisWindowVE rest = _restVE[index];
-                AxisWindowVE travel = _travelVE[index];
-                if (rest.Mean > 1000)
-                    PromoteVE(ExInHealth.CorrectableByCalibration, triggerNames[index - 4], "El gatillo presenta offset estable en reposo.", true,
-                        ref classification, affected, ref explanation, ref correctable);
-                if (travel.Maximum - rest.Mean < 8192)
-                    PromoteVE(ExInHealth.ReviewRecommended, triggerNames[index - 4], "El gatillo no alcanza un recorrido utilizable.", false,
-                        ref classification, affected, ref explanation, ref correctable);
-            }
-
-            ExInButtons stuckButtons = _buttonsAtStartVE & ~_buttonsReleasedVE & _lastRawVE.Buttons;
-            for (int index = 0; index < 15; index++)
-            {
-                ExInButtons flag = (ExInButtons)(1 << index);
-                if (!stuckButtons.HasFlag(flag)) continue;
-                PromoteVE(ExInHealth.ProbableHardwareFault, ((ExInButtons)(1 << index)).ToString(), "El botón no se liberó durante la prueba guiada.", false,
-                    ref classification, affected, ref explanation, ref correctable);
-            }
+            // ⭐ FIJO: Si falla, la sesión NO se marca como completa
+            throw;
         }
-
-        int severity = SeverityVE(classification);
-        if (classification is ExInHealth.ProbableHardwareFault or ExInHealth.ReviewRecommended) correctable = false;
-        return new(_profileKeyVE, classification, affected.Distinct().ToArray(), _lastRawVE, _lastCorrectedVE,
-            severity, explanation, correctable, DateTimeOffset.UtcNow);
     }
 
     private void ObserveButtonsVE(ExInButtons buttons)

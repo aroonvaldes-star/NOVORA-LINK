@@ -47,6 +47,9 @@ public partial class NLUIWindowMain
         if (IsVisionEngineRunningVE() || !_appControlVideoTaskVE.IsCompleted)
             return Reply(false, "VisionEngine ya tiene una sesión activa o en preparación.");
 
+        if (_externalVisionWaitingSourceVE == VEExternalSourceKind.UsbAppControl)
+            ClearExternalVisionWaitingForDeviceVE();
+
         InitializeVisionEngineRuntimeVE();
         if (!_visionEngineVE!.StatusVE.IsInitialized)
         {
@@ -57,8 +60,8 @@ public partial class NLUIWindowMain
         await DisposeAppControlVideoTransportAsync();
         var videoTransport = new VETransportAppControl();
         var controlTransport = VETransportAppControl.CreateControlVE();
-        bool audioEnabled = _viewModel.SelectedAudioOutput !=
-            VisionEngine.Audio.VEAudioOutput.DisabledValueVE;
+        bool audioEnabled = request.Value != NLControlProtocol.VideoOnlyCapture &&
+            _viewModel.SelectedAudioOutput != VisionEngine.Audio.VEAudioOutput.DisabledValueVE;
         VETransportAppControl? audioTransport = audioEnabled
             ? VETransportAppControl.CreateAudioVE()
             : null;
@@ -88,12 +91,16 @@ public partial class NLUIWindowMain
         _appControlVideoCancellationVE = cancellation;
         _appControlVideoTaskVE = AcceptAppControlVideoAsync(videoTransport, videoOffer,
             controlTransport, controlOffer, audioTransport, audioOffer, cancellation, serial, generation);
+        long captureGeneration=NewExperimentalCaptureGeneration("USB");
+        SetExperimentalVisionSession(captureGeneration,"VE:USB:"+serial,ParseVideoBitrateVE(_viewModel.Bitrate),_viewModel.TargetFps);
         var sourceOffer = new NLControlVideoSourceOffer(VETransportAppControl.DevicePortVE, videoOffer.Token,
             ParseVideoBitrateVE(_viewModel.Bitrate), _viewModel.MaxSize, _viewModel.TargetFps,
             VETransportAppControl.ControlPortVE, controlOffer.Token,
             audioEnabled ? VETransportAppControl.AudioPortVE : 0, audioOffer?.Token ?? string.Empty,
             MuteDeviceAudio: audioEnabled,
-            AudioEnabled: audioEnabled);
+            AudioEnabled: audioEnabled,
+            CaptureGeneration:captureGeneration,
+            CaptureCapabilities:captureGeneration>0 ? ExperimentalPeer("USB") : null);
         return Reply(true, "VisionEngine está esperando el flujo de pantalla autorizado.",
             JsonSerializer.Serialize(sourceOffer));
     }
@@ -125,6 +132,7 @@ public partial class NLUIWindowMain
 
             _activeVisionSerialVE = serial;
             _ = CreateVisionPresentationVE();
+            await BindUsbExchangeVEAsync(serial);
             VECoreResult result = await _visionEngineVE!.StartAppControlAsync(
                 serial, videoStream, controlStream, audioStream,
                 audioEnabled: audioStream is not null,
@@ -187,13 +195,19 @@ public partial class NLUIWindowMain
 
     private async Task StopAppControlVideoSourceAsync()
     {
+        Task pendingVideo = _appControlVideoTaskVE;
         bool ownsVideo = _appControlVideoTransportVE is not null ||
-            _visionEngineVE?.RuntimeVE.IsAppControlVideoActiveVE == true;
+            _visionEngineVE?.RuntimeVE.ExternalSourceKindVE == VEExternalSourceKind.UsbAppControl ||
+            _externalVisionWaitingForDeviceVE &&
+                _externalVisionWaitingSourceVE == VEExternalSourceKind.UsbAppControl;
         if (!ownsVideo) return;
         _appControlVideoCancellationVE?.Cancel();
-        if (_visionEngineVE?.RuntimeVE.IsAppControlVideoActiveVE == true)
+        if (_visionEngineVE?.RuntimeVE.ExternalSourceKindVE == VEExternalSourceKind.UsbAppControl)
             await _visionEngineVE.StopAsync();
         await DisposeAppControlVideoTransportAsync();
+        ClearExternalVisionWaitingForDeviceVE();
+        try { await pendingVideo.ConfigureAwait(true); }
+        catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException) { }
         _activeVisionSerialVE = null;
         CloseVisionPresentationVE(restoreMainWindow: true, refreshInformation: true);
         AndroidEngineStateChanged();
@@ -201,6 +215,7 @@ public partial class NLUIWindowMain
 
     private async Task DisposeAppControlVideoTransportAsync()
     {
+        await ReleaseExchangeVEAsync(NOVORA.VisionEngine.Exchange.VEExchangeRoute.UsbAppControl);
         VETransportAppControl? transport = _appControlVideoTransportVE;
         VETransportAppControl? controlTransport = _appControlControlTransportVE;
         VETransportAppControl? audioTransport = _appControlAudioTransportVE;

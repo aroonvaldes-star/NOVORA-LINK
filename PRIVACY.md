@@ -1,108 +1,192 @@
-# NOVORA-LINK — Política de Privacidad / Privacy Policy
+# Aviso de Privacidad de NOVORA-LINK
 
-> **Español (principal) · English below**
+**Responsable:** Aaron Yair Galarza Valdes  
+**Producto:** NOVORA-LINK (escritorio Windows) y LINK Control (Android)  
+**Versión del aviso:** 1.0  
+**Vigente desde:** 21 de octubre de 2026
 
-**Última actualización / Last updated: 5 de septiembre de 2026 / September 5, 2026**
+Este aviso se emite en términos de la Ley Federal de Protección de Datos
+Personales en Posesión de los Particulares (LFPDPPP) de México y su
+Reglamento.
 
-## Español
+## 1. Identidad y domicilio del responsable
 
-NOVORA-LINK está diseñado para operar principalmente de forma local entre una PC con Windows y dispositivos Android autorizados por el usuario.
+El responsable del tratamiento es Aaron Yair Galarza Valdes, con domicilio
+en los Estados Unidos Mexicanos. El domicilio exacto para efectos de
+notificaciones puede solicitarse al correo **aroonvaldes@gmail.com**.
 
-### Principios
+NOVORA-LINK es una aplicación local de conexión entre un equipo Windows y
+un teléfono Android. **No requiere cuenta, no opera un servicio en la nube
+propio y no vende datos personales.**
 
-NOVORA-LINK no debe utilizarse intencionalmente para:
+## 2. Datos que se tratan
 
-- recolectar contraseñas o credenciales;
-- realizar seguimiento publicitario oculto;
-- vender información personal;
-- enviar contenido de pantalla, audio, portapapeles o archivos a terceros sin una función explícita que lo requiera;
-- conservar permanentemente contenido sensible sin una acción clara del usuario.
+NOVORA-LINK trata únicamente los datos necesarios para establecer la
+conexión y ejecutar las funciones que el usuario solicita:
 
-### Datos almacenados localmente
+### 2.1 Datos de dispositivo y conexión
 
-NOVORA-LINK puede almacenar preferencias locales, por ejemplo en:
+- Nombre y modelo del dispositivo Android.
+- Versión de Android, versión de LINK Control y versión de NOVORA-LINK.
+- Tipo de transporte (USB o LAN), dirección IP local, puertos efímeros y
+  estado de la sesión.
+- Identificadores de sesión y tokens de emparejamiento, almacenados de
+  forma protegida.
+- Huellas de certificados y de PCs de confianza.
 
-`%LocalAppData%\NOVORA\settings.json`
+### 2.2 Contenido generado por el usuario
 
-Estas preferencias pueden incluir configuración de audio, monitor, dispositivo seleccionado, identificadores técnicos, bitrate, FPS, resolución, tema y nombres personalizados.
+- **Pantalla y audio del dispositivo:** se capturan únicamente después de
+  que el usuario concede el permiso de captura en Android y mientras la
+  sesión de VisionEngine está activa.
+- **Portapapeles:** se consulta o establece solo cuando el usuario ejecuta
+  una acción de copiar o pegar.
+- **Archivos y carpetas:** se transfieren solo cuando el usuario los
+  arrastra, los pega o solicita la carpeta NOVORA del teléfono.
+- **Entradas de mando y teclado/ratón:** se procesan para controlar el
+  dispositivo durante una sesión autorizada.
 
-### Comunicación con Android
+### 2.3 Diagnóstico
 
-Cuando el usuario conecta y autoriza un dispositivo, NOVORA-LINK puede procesar la información técnica necesaria para:
+- Registros locales de errores, estado de motores, versiones y eventos de
+  conexión.
+- Los mensajes de estado no incluyen el contenido del portapapeles.
 
-- detectar el dispositivo;
-- iniciar sesiones ADB;
-- instalar o actualizar componentes Android requeridos;
-- proporcionar conectividad mediante LinkEngine;
-- transmitir pantalla, audio y eventos de entrada mediante VisionEngine o mecanismos de compatibilidad;
-- intercambiar portapapeles o archivos cuando el usuario activa esas funciones.
+**NOVORA-LINK no recopila** nombre, correo, teléfono, contactos, ubicación,
+identificador de publicidad ni datos biométricos. La captura de pantalla
+puede incluir el contenido visible de otras aplicaciones, pero se transmite
+únicamente a la PC del usuario durante la sesión y no se envía al Titular.
 
-El contenido procesado por estas funciones debe permanecer dentro de la sesión necesaria para ejecutarlas, salvo que el usuario lo envíe deliberadamente mediante un servicio externo.
+## 3. Finalidades del tratamiento
 
-### LinkEngine y tráfico de red
+### 3.1 Finalidades primarias
 
-Cuando el usuario activa reverse tethering, VPN o conectividad mediante LinkEngine, el tráfico del dispositivo puede utilizar la conexión de Windows para acceder a Internet. Los sitios, aplicaciones y proveedores utilizados por el dispositivo podrán observar la información normal asociada a esas conexiones.
+1. Establecer, autenticar y mantener la conexión entre el teléfono y la PC.
+2. Transmitir video, audio y entradas durante una sesión autorizada.
+3. Ejecutar transferencias de archivos y operaciones de portapapeles
+   solicitadas por el usuario.
+4. Proporcionar la ruta de Internet por VPN cuando el usuario la active.
+5. Verificar actualizaciones y compatibilidad de versiones.
+6. Prevenir accesos no autorizados y diagnosticar fallos.
+7. Atender solicitudes de soporte cuando el usuario las envíe.
 
-El tráfico transportado por LinkEngine no debe considerarse telemetría de NOVORA únicamente por atravesar el motor.
+### 3.2 Finalidades secundarias
 
-### VisionEngine
+NOVORA-LINK **no realiza** mercadotecnia, perfilamiento publicitario,
+venta de datos ni cesión a terceros con fines comerciales.
 
-VisionEngine puede procesar frames de pantalla, audio, eventos de entrada, portapapeles y datos de intercambio para ejecutar las funciones solicitadas por el usuario. NOVORA-LINK no debe conservar estos contenidos por defecto más allá de lo técnicamente necesario para la sesión, salvo una acción explícita como guardar, transferir o grabar.
+## 4. Consentimiento
 
-### GitHub y actualizaciones
+El tratamiento se basa en:
 
-NOVORA-LINK puede comunicarse con GitHub mediante HTTPS para consultar releases, descargar componentes o verificar actualizaciones. GitHub puede recibir la información normal de una petición de red conforme a sus propias políticas.
+- El consentimiento del usuario al instalar y utilizar la aplicación.
+- La ejecución de las funciones solicitadas por el propio usuario.
+- El cumplimiento de obligaciones legales aplicables.
+- El interés legítimo en la seguridad del Software, cuando resulte
+  aplicable.
 
-### Telemetría
+La captura de pantalla y audio requiere una autorización específica del
+sistema Android. El permiso de accesibilidad, el permiso VPN y el acceso a
+archivos se solicitan por separado y pueden revocarse en cualquier
+momento desde los ajustes del teléfono.
 
-La línea 1.3 no incorpora un backend propio de analítica publicitaria o perfiles de usuario. Si una versión futura introduce cuentas, telemetría remota, sincronización en la nube o recolección adicional, esta política deberá actualizarse antes de su publicación y la interfaz deberá explicar qué datos se recopilan y para qué.
+## 5. Transferencias y encargados
 
-### Eliminación de datos locales
+NOVORA-LINK no vende ni renta datos personales. Para funcionar realiza
+comunicaciones limitadas con:
 
-El usuario puede cerrar NOVORA-LINK y eliminar `%LocalAppData%\NOVORA\settings.json` para borrar preferencias locales. Los archivos temporales de `%TEMP%\NOVORA\` pueden eliminarse cuando no exista una operación en curso.
+| Destino | Momento | Datos | Finalidad |
+|---|---|---|---|
+| GitHub (`api.github.com`, `github.com`) | Al buscar o descargar actualizaciones | IP, agente de usuario, versión instalada | Entrega de releases y metadatos |
+| Google (`www.google.com/generate_204`) | Solo al ejecutar la prueba de Internet | IP, agente de usuario | Comprobar conectividad |
+| Cloudflare (`speed.cloudflare.com`) | Solo al ejecutar el speed test | IP, agente de usuario, 8 MB de datos de prueba | Medir velocidad de Internet |
+| PC y teléfono del usuario | Durante la sesión | Video, audio, entradas, archivos, portapapeles | Funciones solicitadas |
 
-### Terceros
+Estos servicios se rigen por sus propias políticas de privacidad. NOVORA-LINK
+no controla sus prácticas.
 
-NOVORA-LINK integra o utiliza software de terceros sujeto a sus propias licencias y políticas. Consulta `THIRD-PARTY-NOTICES.md` y `ACKNOWLEDGEMENTS.md`.
+Cuando la VPN de LinkEngine está activa, el tráfico de Internet del
+teléfono se encamina a través de la PC. El operador de esa PC puede
+observar metadatos de red. NOVORA-LINK no está diseñado para registrar ni
+inspeccionar el contenido del tráfico más allá de lo necesario para
+reenviar paquetes.
 
----
+## 6. Limitación del uso y divulgación
 
-## English
+Los datos se utilizan exclusivamente para las finalidades descritas. No se
+divulgan a terceros salvo:
 
-NOVORA-LINK is designed to operate primarily locally between a Windows PC and Android devices authorized by the user.
+- Por obligación legal o requerimiento de autoridad competente.
+- Para proteger derechos del Titular o de terceros.
+- Con el consentimiento expreso del usuario.
 
-### Principles
+## 7. Derechos ARCO y otros derechos
 
-NOVORA-LINK must not intentionally collect passwords or credentials, perform hidden advertising tracking, sell personal information, transmit screen/audio/clipboard/file content to unrelated third parties without an explicit feature requiring it, or permanently retain sensitive content without clear user action.
+El usuario puede ejercer sus derechos de **Acceso, Rectificación,
+Cancelación y Oposición (ARCO)**, así como revocar su consentimiento,
+enviando una solicitud a **aroonvaldes@gmail.com** con:
 
-### Locally stored data
+- Nombre y medio de contacto.
+- Descripción clara de la solicitud.
+- Documentos que acrediten su identidad o representación.
 
-NOVORA-LINK may store local preferences, for example in `%LocalAppData%\NOVORA\settings.json`. These may include audio, monitor, selected-device, technical identifier, bitrate, FPS, resolution, theme and custom-name settings.
+El Titular responderá en un plazo máximo de **20 días hábiles** conforme a
+la LFPDPPP. Si la solicitud resulta procedente, se hará efectiva dentro de
+los **15 días hábiles** siguientes.
 
-### Android communication
+El usuario también puede presentar una queja ante el Instituto Nacional de
+Transparencia, Acceso a la Información y Protección de Datos Personales
+(INAI).
 
-After the user connects and authorizes a device, NOVORA-LINK may process technical information needed for device discovery, ADB sessions, Android component provisioning, LinkEngine connectivity, VisionEngine screen/audio/input operation, clipboard exchange and file transfer.
+## 8. Conservación
 
-### LinkEngine and network traffic
+Los datos se conservan localmente en el equipo o teléfono del usuario:
 
-When reverse tethering, VPN or LinkEngine connectivity is enabled, Android traffic may access the Internet through the Windows connection. Network destinations and providers may observe normal connection metadata. Traffic carried by LinkEngine is not NOVORA analytics merely because it passes through the engine.
+- Ajustes y preferencias: hasta que el usuario los elimine o desinstale la
+  aplicación.
+- PCs y dispositivos de confianza: hasta que el usuario los elimine.
+- Registros de diagnóstico: hasta que el usuario los elimine o desinstale.
+- Contenido de sesión (video, audio, portapapeles, archivos temporales): no
+  se conserva por NOVORA-LINK; los archivos transferidos permanecen en la
+  carpeta NOVORA del dispositivo de destino hasta que el usuario los
+  elimine.
 
-### VisionEngine
+## 9. Medidas de seguridad
 
-VisionEngine may process screen frames, audio, input events, clipboard information and exchange data to perform user-requested features. Such content should not be retained by default beyond what is technically required for the session unless the user explicitly saves, transfers or records it.
+NOVORA-LINK aplica medidas técnicas razonables, entre ellas:
 
-### GitHub and updates
+- TLS con validación de huella (pinning) en las conexiones LAN.
+- Almacenamiento de credenciales de Windows mediante DPAPI.
+- Almacenamiento de secretos en Android mediante AndroidKeyStore con
+  AES‑GCM.
+- Tokens de emparejamiento y límites de sesión.
+- Ausencia de telemetría remota y de recopilación centralizada.
 
-NOVORA-LINK may communicate with GitHub over HTTPS for releases, downloads or updates. GitHub may receive normal network-request information under its own policies.
+Ninguna medida es infalible. El usuario debe mantener actualizados el
+sistema operativo, la aplicación y sus dispositivos.
 
-### Telemetry
+## 10. Menores de edad
 
-The 1.3 line does not include a NOVORA-owned advertising analytics or user-profiling backend. If future versions introduce accounts, remote telemetry, cloud synchronization or additional collection, this policy must be updated before release and the interface must explain what is collected and why.
+NOVORA-LINK no está dirigido a menores de 14 años. Si el Titular detecta
+datos de un menor obtenidos sin el consentimiento de quien ejerce la
+patria potestad, procederá a su eliminación.
 
-### Local-data deletion
+## 11. Cambios al aviso
 
-Users may close NOVORA-LINK and delete `%LocalAppData%\NOVORA\settings.json` to remove local preferences. Temporary `%TEMP%\NOVORA\` files may be removed when no operation is running.
+Cualquier cambio se publicará en el repositorio oficial con la fecha de
+actualización. El uso continuado después de la publicación implica la
+aceptación del aviso vigente.
 
-### Third parties
+Repositorio: https://github.com/aroonvaldes-star/NOVORA-LINK
 
-NOVORA-LINK integrates or uses third-party software subject to its own licenses and policies. See `THIRD-PARTY-NOTICES.md` and `ACKNOWLEDGEMENTS.md`.
+## 12. Cookies y tecnologías similares
+
+NOVORA-LINK es una aplicación de escritorio y móvil; no utiliza cookies de
+seguimiento ni tecnologías publicitarias. El scaffold web presente en el
+repositorio no forma parte del producto distribuido.
+
+## 13. Contacto
+
+- Responsable: Aaron Yair Galarza Valdes
+- Correo: aroonvaldes@gmail.com
+- Asunto sugerido: "Privacidad NOVORA-LINK"

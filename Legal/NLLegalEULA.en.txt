@@ -1,0 +1,218 @@
+NOVORA-LINK — END USER LICENSE AGREEMENT (EULA)
+Version 1.0 — October 21, 2026
+
+Copyright (c) 2026 Aaron Yair Galarza Valdes.
+All rights reserved.
+
+IMPORTANT: READ THIS AGREEMENT BEFORE INSTALLING OR USING THE SOFTWARE.
+BY INSTALLING, COPYING OR USING NOVORA-LINK YOU ACCEPT THESE TERMS.
+IF YOU DO NOT AGREE, DO NOT INSTALL OR USE THE SOFTWARE.
+
+This English text is a translation provided for convenience only. In case
+of discrepancy, the Spanish version in `Legal/NLLegalEULA.txt` prevails.
+
+======================================================================
+1. PARTIES AND PURPOSE
+======================================================================
+
+1.1 This agreement is entered into between you ("User") and Aaron Yair
+    Galarza Valdes ("Licensor") regarding NOVORA-LINK, its desktop
+    components, installer and accompanying documentation (the "Software").
+
+1.2 The Software includes the NOVORA-LINK Windows application and may
+    interoperate with the LINK Control Android application, which is
+    governed by its own terms.
+
+1.3 This EULA supplements the NOVORA-LINK PROPRIETARY LICENSE (NLPL)
+    v1.1. For the installed Software, this EULA prevails; for the source
+    code, the NLPL prevails.
+
+======================================================================
+2. LICENSE GRANT
+======================================================================
+
+2.1 The Licensor grants the User a limited, revocable, personal,
+    non-exclusive and non-transferable license to install and run the
+    Software on devices owned or controlled by the User, for personal,
+    educational, research or evaluation purposes.
+
+2.2 The User may keep one backup copy of the installer while the license
+    remains in force.
+
+2.3 Commercial use, redistribution, sale, rental, sublicensing or
+    exploitation of the Software require prior written authorization from
+    the Licensor.
+
+======================================================================
+3. RESTRICTIONS
+======================================================================
+
+Unless authorized in writing, the User may not:
+
+a) Redistribute, publish or make the Software or its binaries available.
+
+b) Sell, rent, sublicense or commercialize the Software or access to it.
+
+c) Modify, translate or create derivative works and distribute them.
+
+d) Remove, conceal or alter copyright, license or trademark notices.
+
+e) Use the NOVORA-LINK trademarks or visual identity outside the uses
+   permitted in `TRADEMARKS.md`.
+
+f) Circumvent technical, licensing or security restrictions.
+
+g) Use the Software for unlawful activities or to infringe third-party
+   rights.
+
+h) Present unofficial builds as official versions.
+
+Study and local modification of the source code are governed by the NLPL
+v1.1, not by this EULA.
+
+======================================================================
+4. REQUIREMENTS AND PERMISSIONS
+======================================================================
+
+4.1 The Software requires a compatible Windows system, administrator
+    permissions for installation and, depending on the feature, a USB or
+    LAN connection to an Android device.
+
+4.2 On Android, LINK Control requests separate permissions for screen
+    capture, accessibility, VPN, notifications and file access. The User
+    may revoke them at any time in system settings; some features will
+    stop working.
+
+4.3 The Software may check for updates on GitHub. The User decides whether
+    to download and install an update.
+
+======================================================================
+5. PRIVACY
+======================================================================
+
+5.1 The processing of personal data is described in `PRIVACY.md`, which is
+    incorporated into this agreement by reference.
+
+5.2 The Software requires no account, operates no proprietary cloud
+    service and sends no telemetry to the Licensor's servers.
+
+5.3 Screen capture, audio, clipboard, file transfer and VPN features run
+    only when requested by the User and with the corresponding permissions.
+
+======================================================================
+6. THIRD-PARTY COMPONENTS
+======================================================================
+
+6.1 The Software includes third-party components under their own licenses,
+    identified in `Legal/NLLegalThirdPartyNotices.md` and `NOTICE`.
+
+6.2 This EULA does not modify or replace those licenses. The Licensor
+    grants no rights over third-party components beyond those permitted by
+    their licenses.
+
+6.3 Third-party licenses grant no rights over the Licensor's trademarks or
+    the original Software.
+
+======================================================================
+7. UPDATES AND CHANGES
+======================================================================
+
+7.1 The Licensor may publish updates, fixes or new versions and is not
+    obligated to maintain previous versions.
+
+7.2 Updates may change features, requirements or compatibility. The User
+    is responsible for reviewing release notes before updating.
+
+7.3 The Licensor may suspend or withdraw distribution of the Software
+    without any right to compensation.
+
+======================================================================
+8. INTELLECTUAL PROPERTY
+======================================================================
+
+8.1 The Software is the exclusive property of the Licensor and is
+    protected by applicable Mexican and international law.
+
+8.2 This EULA does not transfer ownership of the Software. The User
+    receives only the rights expressly granted.
+
+8.3 The "NOVORA", "NOVORA-LINK" and "LINK Control" trademarks are
+    distinctive signs of the Licensor. Their use is governed by
+    `TRADEMARKS.md`.
+
+======================================================================
+9. NO WARRANTY
+======================================================================
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, ERROR-FREE OPERATION, SECURITY OR
+NON-INFRINGEMENT.
+
+THE LICENSOR DOES NOT WARRANT THAT THE SOFTWARE WILL WORK WITH ANY
+PARTICULAR DEVICE, APPLICATION OR NETWORK, OR THAT IT WILL MEET
+THIRD-PARTY REQUIREMENTS.
+
+======================================================================
+10. LIMITATION OF LIABILITY
+======================================================================
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE LICENSOR SHALL NOT BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, PUNITIVE OR CONSEQUENTIAL
+DAMAGES, INCLUDING LOSS OF DATA, PROFITS OR BUSINESS, ARISING FROM THE USE
+OR INABILITY TO USE THE SOFTWARE.
+
+NOTHING IN THIS AGREEMENT EXCLUDES LIABILITY THAT CANNOT BE EXCLUDED UNDER
+MANDATORY APPLICABLE LAW.
+
+======================================================================
+11. TERMINATION
+======================================================================
+
+11.1 This agreement terminates automatically if the User breaches its
+     terms.
+
+11.2 Upon termination, the User must uninstall the Software and destroy
+     any remaining copies, unless retention is legally required.
+
+11.3 Sections 3, 6, 8, 9, 10 and 12 survive termination.
+
+======================================================================
+12. GOVERNING LAW AND JURISDICTION
+======================================================================
+
+12.1 This agreement is governed by the laws of the United Mexican States.
+
+12.2 The parties submit to the competent courts of the United Mexican
+     States, without prejudice to mandatory consumer protection rules that
+     may apply.
+
+======================================================================
+13. GENERAL PROVISIONS
+======================================================================
+
+13.1 If any clause is held invalid, the remaining clauses remain in force.
+
+13.2 Failure to exercise a right does not constitute a waiver.
+
+13.3 This agreement, the NLPL v1.1, `PRIVACY.md`, `TRADEMARKS.md` and the
+     third-party notices constitute the entire agreement regarding the
+     Software.
+
+13.4 The Spanish version prevails over any translation.
+
+======================================================================
+14. CONTACT
+======================================================================
+
+Licensor: Aaron Yair Galarza Valdes
+Email: aroonvaldes@gmail.com
+Repository: https://github.com/aroonvaldes-star/NOVORA-LINK
+
+For commercial licenses, authorizations or questions about this agreement,
+use the email above with the subject "EULA".
+
+======================================================================
+
+Copyright (c) 2026 Aaron Yair Galarza Valdes.
+NOVORA-LINK. All rights reserved.

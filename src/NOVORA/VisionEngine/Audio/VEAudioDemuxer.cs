@@ -1,9 +1,10 @@
 using NOVORA.VisionEngine.Protocol;
+using System.IO;
 
 namespace NOVORA.VisionEngine.Audio;
 
 /// <summary>
-/// Lee el stream de audio MediaCodec de scrcpy 4.1. Audio contiene codec id
+/// Lee el flujo de audio MediaCodec de App Control. Audio contiene codec id
 /// y luego paquetes con metadata de 12 bytes, sin session header de video.
 /// </summary>
 public sealed class VEAudioDemuxer

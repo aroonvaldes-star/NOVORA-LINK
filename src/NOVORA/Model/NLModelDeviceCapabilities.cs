@@ -32,7 +32,7 @@ public sealed record NLModelDeviceCapabilities
     /// <summary>
     /// Tope seleccionable para --max-fps.
     ///
-    /// scrcpy puede limitar la captura a un valor menor,
+    /// App Control puede limitar la captura a un valor menor,
     /// pero NOVORA no ofrecerá un valor superior a la
     /// frecuencia máxima detectada del panel.
     /// </summary>

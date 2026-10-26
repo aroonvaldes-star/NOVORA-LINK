@@ -8,7 +8,7 @@ namespace NOVORA.VisionEngine.Audio;
 /// <summary>
 /// Decoder FFmpeg de audio para VisionEngine. Convierte los formatos de
 /// muestra comunes de FFmpeg a PCM16LE estéreo sin lanzar procesos externos.
-/// El servidor scrcpy usa 48 kHz / 2 canales para el canal de audio.
+/// App Control usa 48 kHz / 2 canales para el canal de audio.
 /// </summary>
 public sealed class VEAudioDecoder : IDisposable
 {

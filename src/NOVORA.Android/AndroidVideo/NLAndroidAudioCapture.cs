@@ -28,6 +28,7 @@ public sealed class NLAndroidAudioCapture : IAsyncDisposable
         using var captureBuilder = new AudioPlaybackCaptureConfiguration.Builder(projection);
         captureBuilder.AddMatchingUsage(AudioUsageKind.Media);
         captureBuilder.AddMatchingUsage(AudioUsageKind.Game);
+        captureBuilder.AddMatchingUsage(AudioUsageKind.Unknown);
         using AudioPlaybackCaptureConfiguration capture = captureBuilder.Build()
             ?? throw new InvalidOperationException("Android no creó la configuración de audio.");
         using var formatBuilder = new AudioFormat.Builder();

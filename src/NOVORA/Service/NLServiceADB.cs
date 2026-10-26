@@ -2,6 +2,8 @@ using NOVORA.Model;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -92,6 +94,15 @@ public sealed class NLServiceADB
         {
             _deviceGate.Release();
         }
+    }
+
+    public async Task<string> GetHardwareSerialAsync(string adbSerial, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(adbSerial);
+        string value = (await RunAsync(
+            ["-s", adbSerial, "shell", "getprop", "ro.serialno"], cancellationToken)
+            .ConfigureAwait(false)).Trim();
+        return value is "" or "unknown" ? string.Empty : value;
     }
 
     public async Task StartServerAsync(
@@ -250,6 +261,98 @@ public sealed class NLServiceADB
         throw new InvalidOperationException(
             $"ADB no pudo conectar por Wi-Fi a {endpoint}. " +
             $"{lastOutput.Trim()}");
+    }
+
+    public async Task<string> ConnectWirelessDebuggingAsync(
+        string endpoint,
+        CancellationToken cancellationToken = default)
+    {
+        string[] parts = (endpoint ?? string.Empty).Trim().Split(':');
+        if (parts.Length != 2 || !IPAddress.TryParse(parts[0], out var address) ||
+            address.AddressFamily != AddressFamily.InterNetwork ||
+            !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out int port) ||
+            port is < 1 or > 65535)
+            throw new ArgumentException("Escribe la dirección IP y puerto de Depuración inalámbrica, por ejemplo 10.0.0.28:37123.", nameof(endpoint));
+
+        string serial = $"{address}:{port}";
+        await StartServerAsync(cancellationToken);
+        string output = await RunAsync(new[] { "connect", serial }, cancellationToken);
+        if (!output.Contains("connected to", StringComparison.OrdinalIgnoreCase) &&
+            !output.Contains("already connected", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"ADB no conectó con {serial}: {output.Trim()}");
+
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            if (await IsDeviceOnlineAsync(serial, cancellationToken))
+            {
+                InvalidateDeviceCache();
+                return serial;
+            }
+            await Task.Delay(500, cancellationToken);
+        }
+        throw new InvalidOperationException("ADB alcanzó el teléfono, pero aún no está autorizado. Vincúlalo en Depuración inalámbrica y vuelve a intentar.");
+    }
+
+    /// <summary>
+    /// Intenta alcanzar ADB por Wi-Fi (<c>adb connect host:5555</c>) para un teléfono visto por LAN.
+    /// Devuelve el serial ADB si responde; null si no está disponible (p. ej. tcpip no activado).
+    /// </summary>
+    public async Task<string?> TryConnectLanEndpointAsync(
+        string host,
+        int port = 5555,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IPAddress.TryParse(host, out var address) ||
+            address.AddressFamily != AddressFamily.InterNetwork ||
+            port is < 1 or > 65535)
+            return null;
+
+        string serial = $"{address}:{port}";
+        try
+        {
+            await StartServerAsync(cancellationToken);
+            string output = await RunAsync(new[] { "connect", serial }, cancellationToken);
+            if (!output.Contains("connected to", StringComparison.OrdinalIgnoreCase) &&
+                !output.Contains("already connected", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            if (!await IsDeviceOnlineAsync(serial, cancellationToken)) return null;
+            InvalidateDeviceCache();
+            return serial;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<string>> GetWirelessDebuggingEndpointsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await StartServerAsync(cancellationToken);
+        string output = await RunAsync(new[] { "mdns", "services" }, cancellationToken);
+        return ParseWirelessDebuggingEndpoints(output);
+    }
+
+    public static IReadOnlyList<string> ParseWirelessDebuggingEndpoints(string output)
+    {
+        return Regex.Matches(output, @"^\S+\s+_adb-tls-connect\._tcp\s+((?:\d{1,3}\.){3}\d{1,3}):([0-9]{1,5})\s*$",
+                RegexOptions.Multiline)
+            .Select(match =>
+            {
+                string host = match.Groups[1].Value;
+                string portText = match.Groups[2].Value;
+                return IPAddress.TryParse(host, out var address) &&
+                       address.AddressFamily == AddressFamily.InterNetwork &&
+                       int.TryParse(portText, NumberStyles.None, CultureInfo.InvariantCulture, out int port) &&
+                       port is >= 1 and <= 65535
+                    ? $"{address}:{port}"
+                    : null;
+            })
+            .Where(endpoint => endpoint is not null)
+            .Select(endpoint => endpoint!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     public async Task StopServerIfNoOtherDevicesAsync(

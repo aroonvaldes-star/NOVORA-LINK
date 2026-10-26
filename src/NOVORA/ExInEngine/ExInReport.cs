@@ -3,7 +3,7 @@ using System.Buffers.Binary;
 namespace NOVORA.ExInEngine;
 
 /// <summary>
-/// Genera el report UHID de 15 bytes usado por VisionEngine/scrcpy.
+/// Genera el reporte UHID de 15 bytes usado por ExInEngine.
 /// </summary>
 public static class ExInReport
 {

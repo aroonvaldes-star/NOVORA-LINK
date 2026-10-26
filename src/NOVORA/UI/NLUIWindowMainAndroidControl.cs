@@ -2,6 +2,7 @@ using NOVORA.Control;
 using NOVORA.Service;
 using NOVORA.ViewModel;
 using NOVORA.VisionEngine.Performance;
+using NOVORA.VisionEngine.Video;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -23,6 +24,11 @@ public partial class NLUIWindowMain
     private bool _androidControlPublishing;
     private bool _androidControlPreparing;
     private bool _androidControlApplying;
+    private string? _androidAppUpdateCacheKey;
+    private NLControlAppUpdate? _androidAppUpdateCache;
+    private NLControlAppUpdate? _repositoryAppUpdate;
+    private string? _repositoryAppUpdateApkPath;
+    private string? _localAppUpdateApkPath;
     private bool _androidControlReverseOwned;
     private long _androidControlGeneration;
     private NOVORA.ExInEngine.ExInBatteryAlert? _androidExInBatteryAlert;
@@ -38,6 +44,7 @@ public partial class NLUIWindowMain
     {
         // NOVORA_AUTOUSB_V1
         InitializeAutomaticUsb();
+        InitializeAndroidUpdateLINK();
         _viewModel.PropertyChanged += AndroidControlPropertyChanged;
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += AndroidMonitorsChanged;
         Closed += (_, _) => Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= AndroidMonitorsChanged;
@@ -58,6 +65,9 @@ public partial class NLUIWindowMain
             AndroidEngineStateChanged();
         if (e.PropertyName == nameof(NLViewModelMain.Device)) QueueAutomaticUsb();
         if (e.PropertyName == nameof(NLViewModelMain.Device)) _ = EnsureExInStandaloneAsync();
+        if (e.PropertyName == nameof(NLViewModelMain.Devices) && _exInEngine is not null &&
+            Dispatcher.CheckAccess())
+            ApplyGamepadShell14(_exInEngine.Status);
         if (e.PropertyName is nameof(NLViewModelMain.Bitrate) or nameof(NLViewModelMain.TargetFps) or
             nameof(NLViewModelMain.SelectedMonitor) or nameof(NLViewModelMain.Monitors) or
             nameof(NLViewModelMain.MaxSize) or nameof(NLViewModelMain.SelectedAudioOutput) or nameof(NLViewModelMain.AudioOutputOptions))
@@ -85,20 +95,64 @@ public partial class NLUIWindowMain
 
     private NLControlSnapshot CaptureAndroidControlSnapshot() => new(
         _androidControlRevision, Environment.MachineName, "1.4.0", _viewModel.Bitrate,
-        (_visionEngineVE?.RuntimeVE.PerformanceVE.ProfileVE ?? VEPerformanceProfile.Gaming).ToString(),
+        _viewModel.VisionProfile,
         _viewModel.SelectedAudioOutput, GetAndroidControlAudioStatus(),
         IsVisionEngineRunningVE(),
         _viewModel.BitrateOptions.Select(o => new NLControlOption(o.Value, o.Label)).ToArray(),
-        new[] { new NLControlOption("Gaming", "Juegos"), new NLControlOption("Balanced", "Equilibrado"),
-            new NLControlOption("Video", "Video"), new NLControlOption("Battery", "Ahorro") },
+        _viewModel.VisionProfileOptions.Select(o => new NLControlOption(o.Value, o.Label)).ToArray(),
         _viewModel.AudioOutputOptions.Select(o => new NLControlOption(o.Value, o.Label)).ToArray(),
         CaptureAndroidEngines(),
         new NLControlVideoSettings(_viewModel.MaxSize.ToString(), _viewModel.TargetFps.ToString(),
-            new[] { 480, 720, 960, 1080, 1280, 1440, 1600, 1920, 2160, _viewModel.MaxSize }.Distinct().Order().Select(v => new NLControlOption(v.ToString(), v + " px · lado mayor")).ToArray(),
+            new[] { 480, 720, 960, 1080, 1280, 1440, 1600, 1920, 2160, _viewModel.MaxSize }.Distinct().Order().Select(v => new NLControlOption(v.ToString(), v + " px (lado mayor)")).ToArray(),
             new[] { 15, 24, 30, 45, 60, _viewModel.TargetFps }.Distinct().Order().Select(v => new NLControlOption(v.ToString(), v + " FPS")).ToArray(),
             _viewModel.SelectedMonitor?.DeviceName ?? "",
-            _viewModel.Monitors.Select(m => new NLControlOption(m.DeviceName, m.DisplayLabel)).ToArray(), true),
-        CaptureAndroidMedia(), true, CaptureAndroidExIn());
+            _viewModel.Monitors.Select(m => new NLControlOption(m.DeviceName, m.DisplayLabel)).ToArray(), true,
+            _viewModel.VideoPresentationMode,
+            _viewModel.VideoPresentationModeOptions.Select(o => new NLControlOption(o.Value, o.Label)).ToArray()),
+        CaptureAndroidMedia(), _viewModel.IntegrationFileTransferEnabled, CaptureAndroidExIn(), CaptureAndroidAcceleration(),
+        Capabilities: new NLControlNetworkCapabilities(StabilityTelemetry: true,
+            LiveVideoBitrate: true, CaptureFramePacing: true, FilesWireVersions: [1,2]),
+        AppUpdate: CaptureAndroidAppUpdate());
+
+    private NLControlAppUpdate? CaptureAndroidAppUpdate()
+    {
+        try
+        {
+            string directory = System.IO.Path.Combine(_paths.BaseDirectory, "Android");
+            var apk = new System.IO.FileInfo(System.IO.Path.Combine(directory, NOVORA.Service.NLServiceAndroidPackage.ApkFileName));
+            var descriptor = new System.IO.FileInfo(System.IO.Path.Combine(directory, NOVORA.Service.NLServiceAndroidPackage.ReleaseFileName));
+            string key = $"{apk.Length}:{apk.LastWriteTimeUtc.Ticks}:{descriptor.Length}:{descriptor.LastWriteTimeUtc.Ticks}";
+            if (key != _androidAppUpdateCacheKey)
+            {
+                var package = NOVORA.Service.NLServiceAndroidPackage.Load(directory);
+                _androidAppUpdateCache = new NLControlAppUpdate(package.PackageId, package.VersionCode,
+                    package.VersionName, package.Sha256,
+                    "https://github.com/aroonvaldes-star/NOVORA-AppControl/releases/tag/v" + package.VersionName,
+                    apk.Length);
+                _localAppUpdateApkPath = package.ApkPath;
+                _androidAppUpdateCacheKey = key;
+            }
+            return _repositoryAppUpdate is { } latest &&
+                latest.VersionCode > (_androidAppUpdateCache?.VersionCode ?? 0)
+                ? latest : _androidAppUpdateCache;
+        }
+        catch (System.IO.IOException) { return _repositoryAppUpdate; }
+        catch (UnauthorizedAccessException) { return _repositoryAppUpdate; }
+        catch (System.Text.Json.JsonException) { return _repositoryAppUpdate; }
+    }
+
+    private NLControlAcceleration CaptureAndroidAcceleration()
+    {
+        var state = _visionEngineVE?.RuntimeVE.VideoVE.StatusVE.Acceleration;
+        var fallback = _visionEngineVE?.RuntimeVE.VideoVE.StatusVE.DecoderFallbackReason;
+        string requested = Enum.TryParse(_viewModel.VisionProfile, true, out VEProfile profile)
+            ? VEProfileOptions.CreateVE(profile).AccelerationRequest.Backend.ToString()
+            : VEAccelerationBackend.Automatic.ToString();
+        if (state is null)
+            return new(requested, "None", "None", false, "Sin decoder abierto.");
+        return new(requested, state.Backend.ToString(), state.Active ? state.Backend.ToString() : "None",
+            state.Active, state.Evidence, fallback);
+    }
 
     private NLControlExIn CaptureAndroidExIn()
     {
@@ -111,16 +165,19 @@ public partial class NLUIWindowMain
         var status = _exInEngine?.Status;
         var diagnostic = profileKey is null ? null : status?.Diagnostics.FirstOrDefault(value => value.ProfileKey == profileKey);
         var battery = profileKey is null ? null : status?.Batteries.FirstOrDefault(value => value.ProfileKey == profileKey);
+        var progress = live?.CalibrationProgress;
+        bool calibrating = live?.Calibrating == true;
+        bool transitioning = _androidControlApplying || _exInUiApplyingVE || calibrating;
         static int Axis(short value) => (int)Math.Round(value / 32767d * 100);
         static int Trigger(short value) => (int)Math.Round(Math.Max(0, (int)value) / 32767d * 100);
         string[] buttons = Enum.GetValues<NOVORA.ExInEngine.ExInButtons>()
             .Where(button => button != 0 && state.Buttons.HasFlag(button)).Select(button => button.ToString()).ToArray();
         return new(device is not null, live?.DeviceName ?? "Sin control físico", device is null ? "---- : ----" : $"{device.VendorId:X4} : {device.ProductId:X4}",
             Axis(state.LeftX), Axis(state.LeftY), Axis(state.RightX), Axis(state.RightY), Trigger(state.LeftTrigger), Trigger(state.RightTrigger),
-            buttons, live?.Calibrating == true, live?.Calibrated == true, live?.Deadzone ?? 0.05, live?.Message ?? "ExInEngine no está iniciado.",
-            device?.Identity?.Family.ToString() ?? "Unknown", _exInEngine?.Manager.ModeVE.ToString() ?? "Game", _androidControlApplying || _exInUiApplyingVE,
-            device is not null && !_androidControlApplying && !_exInUiApplyingVE,
-            device is not null && !_androidControlApplying && !_exInUiApplyingVE,
+            buttons, calibrating, live?.Calibrated == true, live?.Deadzone ?? 0.05, live?.Message ?? "ExInEngine no está iniciado.",
+            device?.Identity?.Family.ToString() ?? "Unknown", _exInEngine?.Manager.ModeVE.ToString() ?? "Game", transitioning,
+            device is not null && !transitioning,
+            false,
             Axis(corrected.LeftX), Axis(corrected.LeftY), Axis(corrected.RightX), Axis(corrected.RightY),
             Trigger(corrected.LeftTrigger), Trigger(corrected.RightTrigger),
             diagnostic?.Classification.ToString() ?? "Unknown", diagnostic?.CalibrationCanCorrect == true,
@@ -128,8 +185,16 @@ public partial class NLUIWindowMain
             device?.Identity?.ProfileKey ?? "", calibration?.ConnectionType ?? "Unknown",
             device is not null, device is not null,
             device?.Identity?.Family == NOVORA.ExInEngine.ExInControllerFamily.DualShock4,
-            device is not null, false, "",
-            _androidExInBatteryAlert?.Kind.ToString() ?? "", _androidExInBatteryAlertSequence);
+            device is not null, device is not null,
+            calibration is null ? "" : $"Perfil {calibration.ProfileId} · {calibration.ConnectionType}",
+            _androidExInBatteryAlert?.Kind.ToString() ?? "", _androidExInBatteryAlertSequence,
+            live?.SampledAtUtc is { } sampledAt ? new NLControlExInTelemetry(
+                live.Sequence, sampledAt, live.PollingHz, live.PcProcessingMs, live.JitterMs) : null,
+            progress is null ? null : new NLControlExInCalibration(
+                progress.LeftStick, progress.RightStick, progress.LeftTrigger, progress.RightTrigger,
+                progress.Overall, progress.Complete,
+                progress.LeftStick < 90 ? "LeftStick" : progress.RightStick < 90 ? "RightStick" :
+                progress.LeftTrigger < 90 ? "LeftTrigger" : progress.RightTrigger < 90 ? "RightTrigger" : "Complete"));
     }
 
     private string GetAndroidControlAudioStatus()
@@ -141,12 +206,10 @@ public partial class NLUIWindowMain
 
     private Task<NLControlReply> HandleAndroidControlAsync(NLControlRequest request, long generation, string transport) =>
         Dispatcher.InvokeAsync(() => generation == _androidControlGeneration && AndroidControlSessionOpen &&
-            (transport == "USB" || _androidControl?.IsAuthorized != true)
+            (transport == "USB" ? _androidControl?.IsAuthorized == true : _androidLanControl?.IsAuthorized == true)
             ? ApplyAndroidControlAsync(request, transport)
             : Task.FromResult(new NLControlReply(NLControlProtocol.Version, request.Id, false,
-                transport == "LAN" && _androidControl?.IsAuthorized == true
-                    ? "La sesión cambió a USB; LAN permanece disponible como respaldo."
-                    : "Sesión revocada."))).Task.Unwrap();
+                "Sesión revocada."))).Task.Unwrap();
 
     private async Task StopAutomaticUsbAsync()
     {
@@ -199,6 +262,8 @@ public partial class NLUIWindowMain
         NLControlReply Reply(bool success, string message) => new(NLControlProtocol.Version, request.Id,
             success, message, CaptureAndroidControlSnapshot());
         if (_closing || !AndroidControlSessionOpen) return Reply(false, "Sesión cerrada.");
+        if (request.Action is "network.capabilities" or "network.policy" or "files.acquire" or "files.cancelLease")
+            return await HandleExperimentalNetworkControlAsync(request, transport);
         if (_androidControlApplying) return Reply(false, "Hay un cambio en curso.");
         string? error = NLControlCommands.Validate(request, CaptureAndroidControlSnapshot());
         if (error is not null) return Reply(false, error);
@@ -207,17 +272,30 @@ public partial class NLUIWindowMain
         {
             switch (request.Action)
             {
+                case "update.chunk":
+                    return await ReadAndroidUpdateChunkAsync(request);
+                case "link.speedtest":
+                    return StartLinkTunnelTest(request, transport);
                 case "applyVideoSettings":
                     return await ApplyAndroidVideoSettingsAsync(request);
                 case "file.begin":
                 case "file.chunk":
                 case "file.end":
                 case "file.cancel":
-                    _androidFileReceiver ??= new NLControlFileReceiver(NLControlFileStorage.PcRoot);
+                    if (_androidFileReceiver is null)
+                    {
+                        _androidFileReceiver = new NLControlFileReceiver(NLControlFileStorage.PcRoot);
+                        _androidFileReceiver.Received += (destination, bytes) =>
+                            Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                if (!_closing) RecordReceivedFilesVE(1, bytes, destination);
+                            }));
+                    }
                     var receiver = _androidFileReceiver;
                     return Reply(true, await Task.Run(() => receiver.HandleAsync(request.Action, request.Value, CancellationToken.None)));
                 case "pair":
                     ResetAndroidFileTransfer();
+                    ResetIntegrationTransferSummaryVE();
                     await FinishAndroidRecordingAsync();
                     goto case "get";
                 case "get":
@@ -236,9 +314,11 @@ public partial class NLUIWindowMain
                 case "stopRecording":
                     return await ApplyAndroidMediaAsync(request);
                 case "profile":
-                    var profile = Enum.Parse<VEPerformanceProfile>(request.Value!);
+                    var profile = Enum.Parse<VEProfile>(request.Value!);
+                    var unified = VEProfileOptions.CreateVE(profile);
                     NLServiceVideoProfile.ApplyVE(_viewModel, profile);
-                    _visionEngineVE!.RuntimeVE.PerformanceVE.SetProfileVE(profile);
+                    _visionEngineVE!.RuntimeVE.PerformanceVE.SetProfileVE(unified.PerformanceProfile);
+                    _visionEngineVE.RuntimeVE.NvidiaVE.SetProfileVE(unified.ToLegacyNvidiaVE());
                     _androidControlRevision++;
                     break;
                 case "audio":
@@ -256,6 +336,7 @@ public partial class NLUIWindowMain
                         : "Salida aceptada por AudioVE; consulta la salida activa mostrada abajo.");
                 case "startVideo":
                 case "startAppVideo":
+                case "startVideoLan":
                 case "stopVideo":
                 case "restartVideo":
                 case "startLink":
@@ -267,11 +348,14 @@ public partial class NLUIWindowMain
                     var modeResult = await _exInEngine.Manager.SetModeAsync(mode);
                     if (modeResult.Success) _androidControlRevision++;
                     return Reply(modeResult.Success, modeResult.Message);
-                case "exin.reactivate":
-                    if (_exInControlSession is null) return Reply(false, "La sesión ExIn no está iniciada.");
-                    var recoveryResult = await _exInControlSession.ReactivateAsync();
-                    if (recoveryResult.Success) _androidControlRevision++;
-                    return Reply(recoveryResult.Success, recoveryResult.Message);
+                case "exin.start":
+                    if (_exInEngine is null) return Reply(false, "ExInEngine no está disponible.");
+                    _viewModel.ExInEnabled = true;
+                    await ApplyExInRuntimeStateAsync(true);
+                    SaveSettingsFromViewModel14();
+                    AndroidEngineStateChanged();
+                    return Reply(_exInEngine.Status.State != NOVORA.ExInEngine.ExInStates.Failed,
+                        _exInEngine.Status.Message);
                 case "exin.synchronize":
                     if (_exInEngine is null) return Reply(false, "ExInEngine no está iniciado.");
                     await _exInEngine.Manager.ResyncConnectedDevicesVEAsync();
@@ -309,6 +393,7 @@ public partial class NLUIWindowMain
     {
         _androidControlGeneration++;
         await StopAppControlVideoSourceAsync();
+        await StopVeLanVideoAsync();
         ResetAndroidFileTransfer();
         Task finishRecording = FinishAndroidRecordingAsync();
         Task stopOwnedLink = StopAndroidOwnedLinkAsync();

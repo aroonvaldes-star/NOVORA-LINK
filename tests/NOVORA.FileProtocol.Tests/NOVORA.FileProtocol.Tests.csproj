@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Benchmark/**/*.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlFileStorage.cs" Link="Production/NLControlFileStorage.cs" />
+    <Compile Include="../../src/NOVORA/VisionEngine/Exchange/VEExchangeLanFileV2.cs" Link="Production/VEExchangeLanFileV2.cs" />
+    <Compile Include="../../src/NOVORA/VisionEngine/Exchange/IVEExchangeLanFiles.cs" Link="Production/IVEExchangeLanFiles.cs" />
+    <Compile Include="../../src/NOVORA/Control/NLControlFile*V2.cs" Link="Production/%(Filename)%(Extension)" />
+    <Compile Include="../../src/NOVORA/Control/NLControlFileTransferLease.cs" Link="Production/NLControlFileTransferLease.cs" Condition="Exists('../../src/NOVORA/Control/NLControlFileTransferLease.cs')" />
+  </ItemGroup>
+</Project>

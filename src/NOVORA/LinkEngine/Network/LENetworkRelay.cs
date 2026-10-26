@@ -8,11 +8,12 @@ using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using NOVORA.Control;
 
 namespace NOVORA.LinkEngine.Network;
 
 public sealed class LENetworkRelay :
-    IAsyncDisposable
+    ILENetworkRelay
 {
     public const int PortLE =
         27184;
@@ -30,6 +31,31 @@ public sealed class LENetworkRelay :
         new();
 
     private Process? _process;
+    private readonly LERelayPolicySession _policySession = new();
+    private LERelayQosSnapshot? _qosSnapshot;
+    public bool SupportsPolicyLE => _policySession.IsReady;
+    public event Action<LERelayQosSnapshot>? QosSampleLE;
+    public LERelayQosSnapshot? GetQosSnapshotLE() => Volatile.Read(ref _qosSnapshot);
+
+    public async Task<bool> ApplyPolicyAsync(IReadOnlyList<NLNetworkPolicy> policies,
+        IReadOnlyList<NLNetworkGrant> grants, CancellationToken cancellationToken = default)
+    {
+        string configuration = LERelayPolicyProtocol.BuildConfiguration(policies, grants);
+        Process? process = _process;
+        if (process is null || process.HasExited) return false;
+        try
+        {
+            return await _policySession.ApplyAsync(configuration, async (line, ct) =>
+            {
+                if (!ReferenceEquals(process, _process) || process.HasExited)
+                    throw new IOException("El relay cambió de sesión.");
+                await process.StandardInput.WriteLineAsync(line.AsMemory(), ct).ConfigureAwait(false);
+                await process.StandardInput.FlushAsync(ct).ConfigureAwait(false);
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (IOException) { return false; }
+        catch (InvalidOperationException) { return false; }
+    }
 
     private long _totalLogLines;
     private long _warningCount;
@@ -37,6 +63,7 @@ public sealed class LENetworkRelay :
 
     private long _clientBufferFullCount;
     private long _udpDropCount;
+    private LERelayTrafficSnapshot? _trafficSnapshot;
 
     private DateTimeOffset? _startedAtUtc;
     private DateTimeOffset? _lastWarningAtUtc;
@@ -128,6 +155,7 @@ public sealed class LENetworkRelay :
 
                     RedirectStandardError =
                         true,
+                    RedirectStandardInput = true,
 
                     StandardOutputEncoding =
                         Encoding.UTF8,
@@ -251,6 +279,9 @@ public sealed class LENetworkRelay :
             _lastWarning);
     }
 
+    public LERelayTrafficSnapshot? GetTrafficSnapshotLE() =>
+        Volatile.Read(ref _trafficSnapshot);
+
     public IReadOnlyList<string>
         GetRecentWarningsLE()
     {
@@ -305,7 +336,7 @@ public sealed class LENetworkRelay :
         object sender,
         DataReceivedEventArgs args)
     {
-        if (string.IsNullOrWhiteSpace(
+        if (!ReferenceEquals(sender, _process) || string.IsNullOrWhiteSpace(
                 args.Data))
         {
             return;
@@ -337,6 +368,37 @@ public sealed class LENetworkRelay :
         string line,
         bool forceError)
     {
+        if (_policySession.HandleLine(line)) return;
+        if (line.StartsWith("LE_QOS ", StringComparison.Ordinal))
+        {
+            if (LERelayPolicyProtocol.TryReadQos(line, TimeProvider.System.GetTimestamp(), out var sample))
+            {
+                var old = Volatile.Read(ref _qosSnapshot);
+                if (old is null || old.Generation != sample!.Generation || old.LinkKey != sample.LinkKey || sample.Sequence > old.Sequence)
+                {
+                    Volatile.Write(ref _qosSnapshot, sample);
+                    QosSampleLE?.Invoke(sample!);
+                }
+            }
+            return;
+        }
+        if (line.StartsWith("LE_METRIC ", StringComparison.Ordinal))
+        {
+            string[] fields = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (fields.Length == 5 &&
+                fields[1].StartsWith("tx=", StringComparison.Ordinal) &&
+                fields[2].StartsWith("rx=", StringComparison.Ordinal) &&
+                fields[3].StartsWith("txp=", StringComparison.Ordinal) &&
+                fields[4].StartsWith("rxp=", StringComparison.Ordinal) &&
+                long.TryParse(fields[1][3..], out long tx) &&
+                long.TryParse(fields[2][3..], out long rx) &&
+                long.TryParse(fields[3][4..], out long txPackets) &&
+                long.TryParse(fields[4][4..], out long rxPackets) &&
+                tx >= 0 && rx >= 0 && txPackets >= 0 && rxPackets >= 0)
+                Volatile.Write(ref _trafficSnapshot,
+                    new LERelayTrafficSnapshot(DateTimeOffset.UtcNow, tx, rx, txPackets, rxPackets));
+            return;
+        }
         Interlocked.Increment(
             ref _totalLogLines);
 
@@ -418,6 +480,9 @@ public sealed class LENetworkRelay :
 
     private void ResetDiagnosticsLE()
     {
+        _policySession.Reset();
+        Volatile.Write(ref _qosSnapshot, null);
+        Volatile.Write(ref _trafficSnapshot, null);
         while (_warningLines.TryDequeue(
                    out _))
         {
@@ -617,6 +682,8 @@ public sealed class LENetworkRelay :
 
     private void StopProcessLE()
     {
+        _policySession.Reset();
+        Volatile.Write(ref _qosSnapshot, null);
         Process? process =
             _process;
 
@@ -756,6 +823,9 @@ public sealed class LENetworkRelay :
         _gate.Dispose();
     }
 }
+
+public sealed record LERelayTrafficSnapshot(DateTimeOffset SampledAtUtc,
+    long TxBytes, long RxBytes, long TxPackets, long RxPackets);
 
 public sealed record LENetworkRelayDiagnosticsSnapshot(
     bool IsRunning,

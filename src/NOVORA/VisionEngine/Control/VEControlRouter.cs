@@ -6,7 +6,7 @@ namespace NOVORA.VisionEngine.Control;
 
 /// <summary>
 /// Enruta input de la superficie Win32 de VisionEngine hacia el control
-/// protocol compatible con scrcpy 4.1.
+/// protocolo de entrada de App Control.
 ///
 /// El mouse se transforma desde el viewport con letterboxing a coordenadas
 /// reales del frame Android. Los movimientos se limitan a 125 Hz para no
@@ -32,6 +32,13 @@ public sealed class VEControlRouter : IDisposable
     private long _lastMouseMoveAtVE;
     private VEControlPosition? _lastPositionVE;
     private bool _disposedVE;
+    // Mouse moves are coalesced: one queued send carries the newest position, so a slow
+    // control write never builds a backlog of stale moves. Any other input starts a new
+    // epoch, keeping moves ordered with the clicks and keys around them.
+    private long _inputEpochVE;
+    private long _queuedMoveEpochVE = -1;
+    private (VEControlActionMotion Action, VEControlPosition Position, uint Buttons, long Epoch)? _pendingMoveVE;
+    private bool _trailingMoveArmedVE;
 
     public VEControlRouter(
         VEControlManager control,
@@ -222,12 +229,7 @@ public sealed class VEControlRouter : IDisposable
             Interlocked.Read(
                 ref _lastMouseMoveAtVE);
 
-        if (previous != 0 &&
-            now - previous <
-                MouseMoveIntervalMsVE)
-        {
-            return;
-        }
+        bool throttled = previous != 0 && now - previous < MouseMoveIntervalMsVE;
 
         uint buttons;
 
@@ -246,32 +248,78 @@ public sealed class VEControlRouter : IDisposable
             return;
         }
 
-        Interlocked.Exchange(
-            ref _lastMouseMoveAtVE,
-            now);
-
-        lock (_stateGateVE)
-        {
-            _lastPositionVE =
-                position;
-        }
-
         VEControlActionMotion action =
             buttons == 0
                 ? VEControlActionMotion.HoverMove
                 : VEControlActionMotion.Move;
 
-        EnqueueVE(
-            cancellationToken =>
-                _mouseVE.PointerAsync(
-                    action,
-                    position.X,
-                    position.Y,
-                    position.ScreenWidth,
-                    position.ScreenHeight,
-                    actionButton: 0,
-                    buttons: buttons,
-                    cancellationToken: cancellationToken));
+        lock (_stateGateVE)
+        {
+            _lastPositionVE =
+                position;
+            _pendingMoveVE = (action, position, buttons, _inputEpochVE);
+        }
+
+        if (throttled)
+        {
+            // The last position of a gesture must still arrive after the throttle window.
+            ArmTrailingMoveVE(MouseMoveIntervalMsVE - (now - previous));
+            return;
+        }
+
+        Interlocked.Exchange(
+            ref _lastMouseMoveAtVE,
+            now);
+        QueuePendingMoveVE();
+    }
+
+    private void ArmTrailingMoveVE(long delayMs)
+    {
+        lock (_stateGateVE)
+        {
+            if (_trailingMoveArmedVE) return;
+            _trailingMoveArmedVE = true;
+        }
+        _ = Task.Delay(TimeSpan.FromMilliseconds(Math.Max(1, delayMs)), _disposeCtsVE.Token)
+            .ContinueWith(task =>
+            {
+                lock (_stateGateVE) _trailingMoveArmedVE = false;
+                if (task.IsCanceled) return;
+                Interlocked.Exchange(ref _lastMouseMoveAtVE, Environment.TickCount64);
+                QueuePendingMoveVE();
+            }, TaskScheduler.Default);
+    }
+
+    private void QueuePendingMoveVE()
+    {
+        long epoch;
+        lock (_stateGateVE)
+        {
+            if (_pendingMoveVE is null || _queuedMoveEpochVE == _inputEpochVE) return;
+            epoch = _queuedMoveEpochVE = _inputEpochVE;
+        }
+        EnqueueVE(cancellationToken => SendPendingMoveVE(epoch, cancellationToken), move: true);
+    }
+
+    private Task SendPendingMoveVE(long epoch, CancellationToken cancellationToken)
+    {
+        (VEControlActionMotion Action, VEControlPosition Position, uint Buttons, long Epoch) move;
+        lock (_stateGateVE)
+        {
+            if (_queuedMoveEpochVE == epoch) _queuedMoveEpochVE = -1;
+            if (_pendingMoveVE is not { } pending || pending.Epoch != epoch) return Task.CompletedTask;
+            move = pending;
+            _pendingMoveVE = null;
+        }
+        return _mouseVE.PointerAsync(
+            move.Action,
+            move.Position.X,
+            move.Position.Y,
+            move.Position.ScreenWidth,
+            move.Position.ScreenHeight,
+            actionButton: 0,
+            buttons: move.Buttons,
+            cancellationToken: cancellationToken);
     }
 
     private void Host_MouseUpVE(
@@ -635,12 +683,18 @@ public sealed class VEControlRouter : IDisposable
     }
 
     private void EnqueueVE(
-        Func<CancellationToken, Task> action)
+        Func<CancellationToken, Task> action,
+        bool move = false)
     {
         if (_disposedVE ||
             _disposeCtsVE.IsCancellationRequested)
         {
             return;
+        }
+
+        if (!move)
+        {
+            lock (_stateGateVE) _inputEpochVE++;
         }
 
         lock (_queueGateVE)

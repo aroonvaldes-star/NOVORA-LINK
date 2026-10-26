@@ -6,7 +6,6 @@ using NOVORA.LinkEngine.Metrics;
 using NOVORA.VisionEngine.Metrics;
 using NOVORA.VisionEngine.Integration;
 using NOVORA.NVIDIA;
-using NOVORA.VisionEngine.Privacy;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -15,9 +14,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using ComboBox = System.Windows.Controls.ComboBox;
 
 namespace NOVORA;
 
@@ -46,8 +48,38 @@ public partial class NLUIWindowMain : Window
     private bool _shellInitialized14;
     private bool _informationalPollingSuspended14;
     private string _selectedPage14 = "Home";
+    private string? _pendingTheme14;
     private CancellationTokenSource? _refreshCts14;
     private bool _exInUiApplyingVE;
+    private bool _exInPaddleMappingsApplyingVE;
+    private ExInLiveSnapshot? _pendingExInLiveSnapshotVE;
+    private int _exInLiveUpdateQueuedVE;
+
+    private sealed record ExInPaddleTargetOption(ExInButtons Button, string Label)
+    {
+        public override string ToString() => Label;
+    }
+
+    private static readonly ExInPaddleTargetOption[] ExInPaddleTargetsVE =
+    [
+        new(ExInButtons.None, "Sin asignar"),
+        new(ExInButtons.South, "A / Sur"),
+        new(ExInButtons.East, "B / Este"),
+        new(ExInButtons.West, "X / Oeste"),
+        new(ExInButtons.North, "Y / Norte"),
+        new(ExInButtons.LeftShoulder, "LB"),
+        new(ExInButtons.RightShoulder, "RB"),
+        new(ExInButtons.LeftStick, "Clic stick izquierdo"),
+        new(ExInButtons.RightStick, "Clic stick derecho"),
+        new(ExInButtons.DPadUp, "Cruceta arriba"),
+        new(ExInButtons.DPadDown, "Cruceta abajo"),
+        new(ExInButtons.DPadLeft, "Cruceta izquierda"),
+        new(ExInButtons.DPadRight, "Cruceta derecha"),
+        new(ExInButtons.Back, "Vista / Atrás"),
+        new(ExInButtons.Start, "Menú / Inicio"),
+        new(ExInButtons.Guide, "Guía"),
+        new(ExInButtons.Touchpad, "Touchpad")
+    ];
 
     public NLUIWindowMain()
     {
@@ -56,6 +88,7 @@ public partial class NLUIWindowMain : Window
         _metricsService = new NLServiceDeviceMetrics(_adb);
 
         InitializeComponent();
+        InitializeExInPaddleMappingControlsVE();
 
 
         DataContext = _viewModel;
@@ -65,7 +98,12 @@ public partial class NLUIWindowMain : Window
         InitializeLinkEngineRuntimeLE();
         InitializeVisionEngineRuntimeVE();
         InitializeAndroidControl();
-        InitializeAndroidInstallation();
+    }
+
+    private void InitializeExInPaddleMappingControlsVE()
+    {
+        foreach (ComboBox comboBox in ExInPaddleMappingControlsVE())
+            comboBox.ItemsSource = ExInPaddleTargetsVE;
     }
 
     private async void Window_Loaded(
@@ -74,10 +112,12 @@ public partial class NLUIWindowMain : Window
     {
         try
         {
-            _shellInitialized14 = true;
             _ = CheckOfficialReleaseOnce14Async();
 
             LoadSettingsToViewModel14();
+            // SelectionChanged fires while bindings are restored. Do not persist
+            // partially loaded defaults over the user's saved configuration.
+            _shellInitialized14 = true;
             ApplyTheme14(_viewModel.Theme);
             UpdateRuntimeButtons();
             ShowPage14(_selectedPage14);
@@ -93,7 +133,6 @@ public partial class NLUIWindowMain : Window
 
             await StartDiscoveryLifecycleNVAsync();
             await RestoreAndroidTrustAsync();
-            await RefreshAndroidInstallationAsync();
         }
         catch (Exception ex)
         {
@@ -121,8 +160,10 @@ public partial class NLUIWindowMain : Window
         }
 
         _closing = true;
+        _androidVisionTelemetry.SetRequested(false);
+        StopAndroidLanNetworkWatch();
         _officialReleaseCts14.Cancel();
-        CloseAndroidInstallation();
+        CloseAndroidDownload();
         _refreshCts14?.Cancel();
 
         _viewModel.PropertyChanged -=
@@ -187,6 +228,7 @@ public partial class NLUIWindowMain : Window
         if (_exInEngine is { } exInEngine14)
         {
             exInEngine14.Manager.StatusChangedVE -= ShellGamepad_StatusChangedVE;
+            exInEngine14.Manager.LiveSnapshotChangedVE -= ShellGamepad_LiveSnapshotChangedVE;
             exInEngine14.Manager.BatteryAlertVE -= ShellGamepad_BatteryAlertVE;
 
             await RunCloseStep14Async(
@@ -220,6 +262,7 @@ public partial class NLUIWindowMain : Window
     {
         Closed -= ShellWindow_Closed14;
         _officialReleaseCts14.Dispose();
+        System.Windows.Application.Current.Shutdown();
     }
 
     private void ShellRoot_Loaded(
@@ -255,7 +298,49 @@ public partial class NLUIWindowMain : Window
     private void Minimize_Click(
         object sender,
         RoutedEventArgs e)
-        => WindowState = WindowState.Minimized;
+    {
+        ShowInTaskbar =
+            false;
+
+        Hide();
+    }
+
+    private void MaximizeRestore_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        WindowState =
+            WindowState == WindowState.Maximized
+                ? WindowState.Normal
+                : WindowState.Maximized;
+    }
+
+    private void Window_StateChanged(
+        object? sender,
+        EventArgs e)
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+        ApplyVisionTelemetryRequest14();
+
+        MaximizeRestoreButton14.Content =
+            WindowState == WindowState.Maximized
+                ? "❐"
+                : "□";
+
+        AutomationProperties.SetName(
+            MaximizeRestoreButton14,
+            WindowState == WindowState.Maximized
+                ? "Restaurar NOVORA"
+                : "Maximizar NOVORA");
+
+        MaximizeRestoreButton14.ToolTip =
+            WindowState == WindowState.Maximized
+                ? "Restaurar"
+                : "Maximizar";
+    }
 
     private void Close_Click(
         object sender,
@@ -302,8 +387,41 @@ public partial class NLUIWindowMain : Window
         RoutedEventArgs e)
     {
         ShowTopMessage14(
-            "Internet USB se autoriza desde NOVORA Android: Conectar por USB, abrir Inicio o Engines y tocar Iniciar Internet.",
+            "Conecta el teléfono por USB, abre NOVORA-LINK en Android y toca Iniciar Internet.",
             NLUIMessageKind14.Info);
+    }
+
+    private async void OpenLinkMeasurementsButton_Click(object sender, RoutedEventArgs e)
+    {
+        string? serial = _viewModel.Device.Serial;
+        if (string.IsNullOrWhiteSpace(serial))
+        {
+            LinkTunnelMeasurementsStatus.Text = "Abre Configuración → LinkEngine en el teléfono. La apertura desde PC requiere ADB conectado.";
+            return;
+        }
+
+        OpenLinkMeasurementsButton.IsEnabled = false;
+        try
+        {
+            string output = await _adb.ExecuteRawAsync(new[]
+            {
+                "-s", serial, "shell", "am", "start", "--user", "0", "-n",
+                "com.linkcontrol.novora/com.linkcontrol.novora.MainActivity",
+                "--es", "novora.page", "settings"
+            });
+            if (output.Contains("Error:", StringComparison.OrdinalIgnoreCase) ||
+                output.Contains("Permission Denial", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(output.Trim());
+            LinkTunnelMeasurementsStatus.Text = "Configuración de LE abierta en Android. Inicia la medición en el teléfono.";
+        }
+        catch (Exception)
+        {
+            LinkTunnelMeasurementsStatus.Text = "No se pudo abrir Android por ADB. Abre Configuración → LinkEngine directamente en el teléfono.";
+        }
+        finally
+        {
+            OpenLinkMeasurementsButton.IsEnabled = true;
+        }
     }
 
     private void Configuration_Click(
@@ -347,9 +465,7 @@ public partial class NLUIWindowMain : Window
             return;
         }
 
-        RecalculateOutputProfile14();
-        ApplyAdvancedVisionSettingsVE();
-        QueueSaveSelection14();
+        QueueVisionOutputSettingsSave14(applyAdvancedSettings: true);
     }
 
     private void ShellMonitor_SelectionChanged(
@@ -361,8 +477,7 @@ public partial class NLUIWindowMain : Window
             return;
         }
 
-        RecalculateOutputProfile14();
-        QueueSaveSelection14();
+        QueueVisionOutputSettingsSave14(applyAdvancedSettings: false);
     }
 
     private void SaveShellSettings_Click(
@@ -421,26 +536,28 @@ public partial class NLUIWindowMain : Window
         }
     }
 
-    private void VideoProfile_SelectionChanged14(object sender, SelectionChangedEventArgs e)
+    private void VisionProfile_SelectionChanged14(object sender, SelectionChangedEventArgs e)
     {
-        if (!_shellInitialized14 || VideoProfileCombo14.SelectedItem is not ComboBoxItem item ||
-            item.Tag is not string selected ||
-            !Enum.TryParse<VisionEngine.Performance.VEPerformanceProfile>(selected, out var profile)) return;
+        if (!_shellInitialized14) return;
+        if (VisionProfileCombo14.SelectedValue is not string selected ||
+            !Enum.TryParse<VisionEngine.Performance.VEProfile>(selected, out var profile)) return;
+        var unified = VisionEngine.Performance.VEProfileOptions.CreateVE(profile);
         NLServiceVideoProfile.ApplyVE(_viewModel, profile);
-        _visionEngineVE?.RuntimeVE.PerformanceVE.SetProfileVE(profile);
+        _visionEngineVE?.RuntimeVE.PerformanceVE.SetProfileVE(unified.PerformanceProfile);
+        _visionEngineVE?.RuntimeVE.NvidiaVE.SetProfileVE(unified.ToLegacyNvidiaVE());
         RecalculateOutputProfile14();
-        QueueSaveSelection14();
+        if (_shellInitialized14) QueueSaveSelection14();
         _androidControlRevision++;
         QueueAndroidControlSnapshot();
-        VideoProfileCombo14.SelectedIndex = -1;
-        ShowTopMessage14("Perfil de video preparado. Se aplica al iniciar o reconectar la transmisión.", NLUIMessageKind14.Info);
+        if (_shellInitialized14)
+            ShowTopMessage14("Perfil de VisionEngine preparado. Se aplica al iniciar o reconectar la transmisión.", NLUIMessageKind14.Info);
     }
 
-    private void InstallUpdateBanner_Click(
+    private async void InstallUpdateBanner_Click(
         object sender,
         RoutedEventArgs e)
     {
-        OpenOfficialRelease14();
+        await InstallOfficialRelease14Async();
     }
 
     private void ShellViewModel_PropertyChanged14(
@@ -484,6 +601,7 @@ public partial class NLUIWindowMain : Window
             _viewModel.Devices =
                 devices;
 
+            string? savedSerial = _settingsService.Load().SelectedDeviceSerial;
             NLModelDeviceInfo? selected =
                 devices.FirstOrDefault(
                     device =>
@@ -492,9 +610,12 @@ public partial class NLUIWindowMain : Window
                             _viewModel.Device.Serial,
                             StringComparison.OrdinalIgnoreCase));
 
+            selected ??= devices.FirstOrDefault(device =>
+                string.Equals(device.Serial, savedSerial, StringComparison.OrdinalIgnoreCase));
+
+            // Sin dispositivo predeterminado: si no coincide el seleccionado ni el guardado, no se elige otro teléfono.
             _viewModel.Device =
                 selected ??
-                devices.FirstOrDefault() ??
                 new NLModelDeviceInfo();
 
             _viewModel.RefreshOutputCapabilityOptions();
@@ -556,13 +677,25 @@ public partial class NLUIWindowMain : Window
     private void QueueSaveSelection14()
         => SaveSettingsFromViewModel14();
 
+    private void QueueVisionOutputSettingsSave14(bool applyAdvancedSettings)
+    {
+        _ = Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.DataBind,
+            new Action(() =>
+            {
+                if (!_shellInitialized14 || _closing) return;
+                RecalculateOutputProfile14();
+                if (applyAdvancedSettings) ApplyAdvancedVisionSettingsVE();
+                SaveSettingsFromViewModel14();
+            }));
+    }
+
     private void LoadSettingsToViewModel14()
     {
         NLServiceNovoraSettings settings =
             _settingsService.Load();
 
-        _viewModel.Theme =
-            settings.Theme;
+        _viewModel.Theme = NLServiceTheme.Light;
         _viewModel.VideoPresentationMode =
             settings.VideoPresentationMode;
         _viewModel.Bitrate =
@@ -575,8 +708,6 @@ public partial class NLUIWindowMain : Window
             settings.SelectedAudioOutput;
         _viewModel.AudioEnabled =
             settings.AudioEnabled;
-        _viewModel.PrivacyShieldEnabled =
-            settings.PrivacyShieldEnabled;
         _viewModel.IntegrationClipboardEnabled =
             settings.IntegrationClipboardEnabled;
         _viewModel.IntegrationFileTransferEnabled =
@@ -590,8 +721,8 @@ public partial class NLUIWindowMain : Window
         _viewModel.IntegrationDynamicResizeEnabled =
             settings.IntegrationDynamicResizeEnabled;
         _viewModel.ExInEnabled = settings.ExInEnabled;
-        _viewModel.NvidiaProfile =
-            settings.NvidiaProfile;
+        _viewModel.VisionProfile =
+            settings.VisionProfile;
         ApplyAdvancedVisionSettingsVE();
 
         _viewModel.Monitors =
@@ -614,29 +745,27 @@ public partial class NLUIWindowMain : Window
 
     private void SaveSettingsFromViewModel14()
     {
-        _settingsService.Save(
-            new NLServiceNovoraSettings
-            {
-                Theme = _viewModel.Theme,
-                VideoPresentationMode = _viewModel.VideoPresentationMode,
-                Bitrate = _viewModel.Bitrate,
-                TargetFps = _viewModel.TargetFps,
-                MaxSize = _viewModel.MaxSize,
-                SelectedAudioOutput = _viewModel.SelectedAudioOutput,
-                AudioEnabled = _viewModel.AudioEnabled,
-                SelectedMonitorLabel = _viewModel.SelectedMonitor?.DisplayLabel,
-                SelectedMonitorDeviceName = _viewModel.SelectedMonitor?.DeviceName,
-                SelectedDeviceSerial = _viewModel.Device.Serial,
-                PrivacyShieldEnabled = _viewModel.PrivacyShieldEnabled,
-                IntegrationClipboardEnabled = _viewModel.IntegrationClipboardEnabled,
-                IntegrationFileTransferEnabled = _viewModel.IntegrationFileTransferEnabled,
-                IntegrationDragDropEnabled = _viewModel.IntegrationDragDropEnabled,
-                IntegrationApplicationsEnabled = _viewModel.IntegrationApplicationsEnabled,
-                IntegrationNotificationsEnabled = _viewModel.IntegrationNotificationsEnabled,
-                IntegrationDynamicResizeEnabled = _viewModel.IntegrationDynamicResizeEnabled,
-                ExInEnabled = _viewModel.ExInEnabled,
-                NvidiaProfile = _viewModel.NvidiaProfile
-            });
+        NLServiceNovoraSettings settings = _settingsService.Load();
+        settings.Theme = _viewModel.Theme;
+        settings.VideoPresentationMode = _viewModel.VideoPresentationMode;
+        settings.Bitrate = _viewModel.Bitrate;
+        settings.TargetFps = _viewModel.TargetFps;
+        settings.MaxSize = _viewModel.MaxSize;
+        settings.SelectedAudioOutput = _viewModel.SelectedAudioOutput;
+        settings.AudioEnabled = _viewModel.AudioEnabled;
+        settings.SelectedMonitorLabel = _viewModel.SelectedMonitor?.DisplayLabel;
+        settings.SelectedMonitorDeviceName = _viewModel.SelectedMonitor?.DeviceName;
+        if (!string.IsNullOrWhiteSpace(_viewModel.Device.Serial))
+            settings.SelectedDeviceSerial = _viewModel.Device.Serial;
+        settings.IntegrationClipboardEnabled = _viewModel.IntegrationClipboardEnabled;
+        settings.IntegrationFileTransferEnabled = _viewModel.IntegrationFileTransferEnabled;
+        settings.IntegrationDragDropEnabled = _viewModel.IntegrationDragDropEnabled;
+        settings.IntegrationApplicationsEnabled = _viewModel.IntegrationApplicationsEnabled;
+        settings.IntegrationNotificationsEnabled = _viewModel.IntegrationNotificationsEnabled;
+        settings.IntegrationDynamicResizeEnabled = _viewModel.IntegrationDynamicResizeEnabled;
+        settings.ExInEnabled = _viewModel.ExInEnabled;
+        settings.VisionProfile = _viewModel.VisionProfile;
+        _settingsService.Save(settings);
     }
 
     private void RecalculateOutputProfile14()
@@ -668,7 +797,43 @@ public partial class NLUIWindowMain : Window
 
     private void ApplyTheme14(
         string? theme)
-        => NLServiceTheme.Apply(theme);
+    {
+        string selected = string.Equals(theme, NLServiceTheme.Light, StringComparison.OrdinalIgnoreCase)
+            ? NLServiceTheme.Light
+            : NLServiceTheme.Dark;
+        if (string.Equals(_pendingTheme14, selected, StringComparison.Ordinal))
+            return;
+        if (!IsLoaded || string.Equals(NLServiceTheme.CurrentTheme, selected, StringComparison.Ordinal))
+        {
+            _pendingTheme14 = null;
+            NLServiceTheme.Apply(selected);
+            return;
+        }
+
+        _pendingTheme14 = selected;
+        TitleBar14.BeginAnimation(OpacityProperty, null);
+        TopNavigationBorder14.BeginAnimation(OpacityProperty, null);
+        var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(75));
+        fadeOut.Completed += (_, _) =>
+        {
+            if (!string.Equals(_pendingTheme14, selected, StringComparison.Ordinal))
+                return;
+            NLServiceTheme.Apply(selected);
+            var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(75));
+            fadeIn.Completed += (_, _) =>
+            {
+                TitleBar14.BeginAnimation(OpacityProperty, null);
+                TopNavigationBorder14.BeginAnimation(OpacityProperty, null);
+                _pendingTheme14 = null;
+            };
+            TitleBar14.BeginAnimation(OpacityProperty, fadeIn);
+            TopNavigationBorder14.BeginAnimation(OpacityProperty,
+                new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(75)));
+        };
+        TitleBar14.BeginAnimation(OpacityProperty, fadeOut);
+        TopNavigationBorder14.BeginAnimation(OpacityProperty,
+            new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(75)));
+    }
 
     private void ShowTopMessage14(
         string message,
@@ -694,12 +859,7 @@ public partial class NLUIWindowMain : Window
             };
     }
 
-    private void ApplyPrivacyShell14(
-        VEPrivacyStatus status)
-    {
-        PrivacyStatusText14.Text =
-            $"{status.State} - {status.Classification}\n{status.Message}";
-    }
+
 
     private void ApplyGamepadShell14(
         ExInStatus status)
@@ -721,33 +881,25 @@ public partial class NLUIWindowMain : Window
             ? null : status.Diagnostics.FirstOrDefault(value => value.ProfileKey == profileKey);
         ExInBatteryStatus? battery = profileKey is null
             ? null : status.Batteries.FirstOrDefault(value => value.ProfileKey == profileKey);
+        ExInDynamicCalibrationView14.UpdateBatteryVE(battery);
         ExInInputMode mode = _exInEngine?.Manager.ModeVE ?? ExInInputMode.Game;
         bool available = device is not null && !_exInUiApplyingVE && !_androidControlApplying;
+        bool calibrating = live?.Calibrating == true;
         bool canCalibrate = available && _exInEngine?.Manager.IsPrivacyProtectedVE != true;
 
         ExInIdentityText14.Text = device is null
             ? "Sin control físico"
-            : $"{device.Identity?.Family ?? ExInControllerFamily.Generic} · {device.Name} · {device.VendorId:X4}:{device.ProductId:X4} · {live?.Calibration?.ConnectionType ?? "Conexión no reportada"}\n" +
+            : $"{device.Identity?.Family ?? ExInControllerFamily.Generic} · {device.Name}\n" +
+              $"{live?.Calibration?.ConnectionType ?? "Conexión no reportada"} · " +
               (device.Identity?.Family == ExInControllerFamily.DualShock4
                   ? "Juego · puntero · navegación · touchpad"
                   : "Juego · puntero · navegación");
-        ExInCalibrationText14.Text = live?.Calibrating == true
-            ? "Capturando recorrido. Gira ambos sticks por el borde y presiona ambos gatillos hasta el fondo."
-            : live?.Calibration is { } profile
-                ? $"Perfil {profile.ProfileId} · DZ {profile.Deadzone.LeftX:P0}/{profile.Deadzone.LeftY:P0}/{profile.Deadzone.RightX:P0}/{profile.Deadzone.RightY:P0}\n" +
-                  $"LX {profile.Minimum.LeftX}:{profile.Maximum.LeftX} · LY {profile.Minimum.LeftY}:{profile.Maximum.LeftY} · RX {profile.Minimum.RightX}:{profile.Maximum.RightX} · RY {profile.Minimum.RightY}:{profile.Maximum.RightY}\n" +
-                  $"LT {profile.Minimum.LeftTrigger}:{profile.Maximum.LeftTrigger} · RT {profile.Minimum.RightTrigger}:{profile.Maximum.RightTrigger}"
-                : "Sin perfil activo";
         ApplyExInCalibrationProgressVE(live);
         static int AxisVE(short value) => (int)Math.Round(value / 32767d * 100);
         static int TriggerVE(short value) => (int)Math.Round(Math.Max(0, (int)value) / 32767d * 100);
         ExInAxesText14.Text =
-            $"RAW  L {AxisVE(raw.LeftX),4}/{AxisVE(raw.LeftY),4}  R {AxisVE(raw.RightX),4}/{AxisVE(raw.RightY),4}  T {TriggerVE(raw.LeftTrigger),3}/{TriggerVE(raw.RightTrigger),3}\n" +
-            $"CAL  L {AxisVE(corrected.LeftX),4}/{AxisVE(corrected.LeftY),4}  R {AxisVE(corrected.RightX),4}/{AxisVE(corrected.RightY),4}  T {TriggerVE(corrected.LeftTrigger),3}/{TriggerVE(corrected.RightTrigger),3}";
-        ExInMappingText14.Text = string.IsNullOrWhiteSpace(live?.SdlMapping)
-            ? "Mapping SDL no disponible"
-            : $"SDL: {live.SdlMapping}";
-        ExInTranslationText14.Text = live?.TranslationTrace ?? "Sin eventos traducidos";
+            $"ENTRADA   L {AxisVE(raw.LeftX),4}/{AxisVE(raw.LeftY),4}  R {AxisVE(raw.RightX),4}/{AxisVE(raw.RightY),4}  T {TriggerVE(raw.LeftTrigger),3}/{TriggerVE(raw.RightTrigger),3}\n" +
+            $"APLICADO  L {AxisVE(corrected.LeftX),4}/{AxisVE(corrected.LeftY),4}  R {AxisVE(corrected.RightX),4}/{AxisVE(corrected.RightY),4}  T {TriggerVE(corrected.LeftTrigger),3}/{TriggerVE(corrected.RightTrigger),3}";
         ExInHealthText14.Text = diagnostic is null
             ? "Diagnóstico no ejecutado"
             : $"{diagnostic.Classification} · {diagnostic.Explanation}";
@@ -755,39 +907,118 @@ public partial class NLUIWindowMain : Window
             ? "Batería no reportada"
             : battery.Percent is int percent ? $"{battery.State} · {percent}%" : battery.State.ToString();
 
-        ExInGameModeButton14.IsEnabled = available && mode != ExInInputMode.Game;
-        ExInUiModeButton14.IsEnabled = available && mode != ExInInputMode.Ui;
-        ExInReactivateButton14.IsEnabled = available;
-        ExInCalibrationStartButton14.IsEnabled = canCalibrate && live?.Calibrating != true;
-        ExInCalibrationFinishButton14.IsEnabled = canCalibrate && live?.Calibrating == true && live.CalibrationProgress?.Complete == true;
-        ExInCalibrationResetButton14.IsEnabled = canCalibrate && (live?.Calibrated == true || live?.Calibrating == true);
+        // The active mode stays enabled: a disabled button renders at 45% opacity, which made
+        // the selected mode look faded instead of highlighted. Clicking it again is a no-op.
+        ExInGameModeButton14.IsEnabled = available && !calibrating;
+        ExInUiModeButton14.IsEnabled = available && !calibrating;
+        int pointerSensitivity = (int)Math.Round((_exInEngine?.Manager.PointerSensitivityVE ?? .5d) * 100d);
+        if (Math.Abs(ExInPointerSensitivitySlider14.Value - pointerSensitivity) >= .5)
+            ExInPointerSensitivitySlider14.Value = pointerSensitivity;
+        ExInPointerSensitivityText14.Text = $"{pointerSensitivity}% · UI";
+        ExInPointerSensitivitySlider14.IsEnabled = available && !calibrating;
+        ExInWindowsCalibrationButton14.IsEnabled = available && !calibrating;
+        ExInCalibrationStartButton14.IsEnabled = canCalibrate && !calibrating;
+        ExInCalibrationFinishButton14.IsEnabled = canCalibrate && calibrating && live?.CalibrationProgress?.Complete == true;
+        ExInCalibrationResetButton14.IsEnabled = canCalibrate && (live?.Calibrated == true || calibrating);
+        ExInCalibrationResetButton14.Content = calibrating ? "CANCELAR" : "RESTABLECER";
         ExInGameModeButton14.SetResourceReference(System.Windows.Controls.Control.BackgroundProperty,
             mode == ExInInputMode.Game ? "InputSelectedBackgroundBrush" : "PanelBrush2");
         ExInUiModeButton14.SetResourceReference(System.Windows.Controls.Control.BackgroundProperty,
             mode == ExInInputMode.Ui ? "InputSelectedBackgroundBrush" : "PanelBrush2");
+        ExInGameModeButton14.SetResourceReference(System.Windows.Controls.Control.BorderBrushProperty,
+            mode == ExInInputMode.Game ? "BlueBrush" : "BorderBrush");
+        ExInUiModeButton14.SetResourceReference(System.Windows.Controls.Control.BorderBrushProperty,
+            mode == ExInInputMode.Ui ? "BlueBrush" : "BorderBrush");
+        ApplyExInPaddleMappingsUiVE(available && !calibrating);
+        ApplyExInSelectionUiVE(!_exInUiApplyingVE && !_androidControlApplying, calibrating);
+    }
+
+    private IEnumerable<ComboBox> ExInPaddleMappingControlsVE()
+    {
+        yield return ExInP1MappingComboBox14;
+        yield return ExInP2MappingComboBox14;
+        yield return ExInP3MappingComboBox14;
+        yield return ExInP4MappingComboBox14;
+    }
+
+    private void ApplyExInPaddleMappingsUiVE(bool enabled)
+    {
+        ExInPaddleMappings mappings = _exInEngine?.Manager.PaddleMappingsVE ?? ExInPaddleMappings.DefaultVE;
+        _exInPaddleMappingsApplyingVE = true;
+        try
+        {
+            foreach (ComboBox comboBox in ExInPaddleMappingControlsVE())
+            {
+                comboBox.IsEnabled = enabled;
+                if (comboBox.Tag is not string tag || !Enum.TryParse(tag, out ExInPaddle paddle)) continue;
+                comboBox.SelectedItem = ExInPaddleTargetsVE.FirstOrDefault(option => option.Button == mappings.GetVE(paddle))
+                    ?? ExInPaddleTargetsVE[0];
+            }
+        }
+        finally
+        {
+            _exInPaddleMappingsApplyingVE = false;
+        }
+
+        ExInPaddleSupportText14.Text = enabled
+            ? "P1–P4 se repiten como el botón seleccionado. Puedes elegir el mismo botón para varios paddles."
+            : "Conecta un mando compatible y termina la calibración para configurar P1–P4.";
+    }
+
+    private void ExInPaddleMapping_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_exInPaddleMappingsApplyingVE || sender is not ComboBox comboBox ||
+            comboBox.Tag is not string tag || !Enum.TryParse(tag, out ExInPaddle paddle) ||
+            comboBox.SelectedItem is not ExInPaddleTargetOption option)
+            return;
+
+        if (_exInEngine?.Manager.TrySetPaddleMappingVE(paddle, option.Button) == true)
+        {
+            _androidControlRevision++;
+            ShowTopMessage14($"{paddle} ahora repite {option.Label}.", NLUIMessageKind14.Success);
+            if (_exInEngine is not null) ApplyGamepadShell14(_exInEngine.Status);
+            QueueAndroidControlSnapshot();
+            return;
+        }
+
+        ShowTopMessage14("No se pudo guardar la asignación del paddle.", NLUIMessageKind14.Error);
+        if (_exInEngine is not null) ApplyGamepadShell14(_exInEngine.Status);
     }
 
     private void ApplyExInCalibrationProgressVE(ExInLiveSnapshot? live)
     {
         ExInCalibrationProgress progress = live?.CalibrationProgress ??
             (live?.Calibrated == true ? new(100, 100, 100, 100) : new(0, 0, 0, 0));
+        ExInDynamicCalibrationView14.UpdateVE(live);
         ExInCalibrationOverallProgress14.Value = progress.Overall;
+        ExInCalibrationOverallText14.Text = $"{progress.Overall}%";
         ExInCalibrationLeftProgress14.Value = progress.LeftStick;
         ExInCalibrationRightProgress14.Value = progress.RightStick;
         ExInCalibrationLeftTriggerProgress14.Value = progress.LeftTrigger;
         ExInCalibrationRightTriggerProgress14.Value = progress.RightTrigger;
-        ExInCalibrationLeftText14.Text = $"Stick izquierdo · {progress.LeftStick}%";
-        ExInCalibrationRightText14.Text = $"Stick derecho · {progress.RightStick}%";
-        ExInCalibrationLeftTriggerText14.Text = $"Gatillo izquierdo · {progress.LeftTrigger}%";
-        ExInCalibrationRightTriggerText14.Text = $"Gatillo derecho · {progress.RightTrigger}%";
+        ExInCalibrationLeftText14.Text = $"{progress.LeftStick}%";
+        ExInCalibrationRightText14.Text = $"{progress.RightStick}%";
+        ExInCalibrationLeftTriggerText14.Text = $"{progress.LeftTrigger}%";
+        ExInCalibrationRightTriggerText14.Text = $"{progress.RightTrigger}%";
         ExInCalibrationGuideText14.Text = live?.Calibrating == true
             ? progress.Complete
-                ? "Recorrido completo. Suelta el mando y pulsa GUARDAR."
-                : "Gira ambos sticks por todo el borde y presiona los gatillos hasta el fondo."
+                ? "Recorrido completo. Las aplicaciones siguen bloqueadas: suelta el mando y pulsa GUARDAR."
+                : NextExInCalibrationStepVE(progress) + " Las aplicaciones están bloqueadas."
             : live?.Calibrated == true
                 ? "Perfil activo para este mando. Puedes repetirlo o restablecerlo."
                 : "Deja sticks y gatillos en reposo y pulsa INICIAR.";
+        if (live?.Calibrating == true)
+        {
+            ExInCalibrationFinishButton14.IsEnabled = CanApplyExInCalibrationVE() && progress.Complete;
+            ExInCalibrationResetButton14.IsEnabled = CanApplyExInCalibrationVE();
+        }
     }
+
+    private static string NextExInCalibrationStepVE(ExInCalibrationProgress progress)
+        => progress.LeftStick < 90 ? "Paso 1 de 4: gira el stick izquierdo por todo el borde." :
+           progress.RightStick < 90 ? "Paso 2 de 4: gira el stick derecho por todo el borde." :
+           progress.LeftTrigger < 90 ? "Paso 3 de 4: presiona y suelta el gatillo izquierdo." :
+           "Paso 4 de 4: presiona y suelta el gatillo derecho.";
 
     private async void ExInGameMode_Click(object sender, RoutedEventArgs e)
         => await SetExInModeFromUiVEAsync(ExInInputMode.Game);
@@ -804,7 +1035,7 @@ public partial class NLUIWindowMain : Window
         NLServiceNovoraSettings snapshot = settings.Load();
         snapshot.ExInPointerSensitivity = (int)Math.Round(e.NewValue);
         settings.Save(snapshot);
-        ExInPointerSensitivityText14.Text = $"{e.NewValue:0}%";
+        ExInPointerSensitivityText14.Text = $"{e.NewValue:0}% · UI";
     }
 
     private void ExInWindowsCalibration_Click(object sender, RoutedEventArgs e)
@@ -822,6 +1053,7 @@ public partial class NLUIWindowMain : Window
     private async Task SetExInModeFromUiVEAsync(ExInInputMode mode)
     {
         if (_exInEngine is null || _exInUiApplyingVE || _androidControlApplying) return;
+        if (_exInEngine.Manager.ModeVE == mode) return;
         _exInUiApplyingVE = true;
         ApplyGamepadShell14(_exInEngine.Status);
         try
@@ -839,26 +1071,6 @@ public partial class NLUIWindowMain : Window
         }
     }
 
-    private async void ExInReactivate_Click(object sender, RoutedEventArgs e)
-    {
-        if (_exInControlSession is null || _exInUiApplyingVE || _androidControlApplying) return;
-        _exInUiApplyingVE = true;
-        if (_exInEngine is not null) ApplyGamepadShell14(_exInEngine.Status);
-        try
-        {
-            ExInModeResult result = await _exInControlSession.ReactivateAsync();
-            if (result.Success) _androidControlRevision++;
-            _viewModel.ConnectionStatus = result.Message;
-        }
-        catch (Exception ex) { _viewModel.ConnectionStatus = "ExInEngine: " + ex.Message; }
-        finally
-        {
-            _exInUiApplyingVE = false;
-            if (_exInEngine is not null) ApplyGamepadShell14(_exInEngine.Status);
-            QueueAndroidControlSnapshot();
-        }
-    }
-
     private void ExInCalibrationStart_Click(object sender, RoutedEventArgs e)
         => ApplyExInCalibrationUiVE(CanApplyExInCalibrationVE() && _exInEngine?.Manager.BeginCalibrationVE() == true, "No se pudo iniciar la calibración.", incrementRevision: true);
 
@@ -868,10 +1080,18 @@ public partial class NLUIWindowMain : Window
     private void ExInCalibrationReset_Click(object sender, RoutedEventArgs e)
     {
         if (!CanApplyExInCalibrationVE()) return;
+        if (MessageBox.Show(this,
+                "Se eliminará la calibración actual del control. ¿Quieres restablecerla?",
+                "Restablecer calibración",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
         _exInEngine?.Manager.ResetCalibrationVE();
         _androidControlRevision++;
         if (_exInEngine is not null) ApplyGamepadShell14(_exInEngine.Status);
         QueueAndroidControlSnapshot();
+        ShowTopMessage14("Calibración restablecida.", NLUIMessageKind14.Success);
     }
 
     private bool CanApplyExInCalibrationVE()
@@ -938,27 +1158,8 @@ public partial class NLUIWindowMain : Window
             "Zero-copy, NVENC, RTX Video y FRUC no implementados.";
     }
 
-    private void ManualPrivacy_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
-        _viewModel.PrivacyShieldEnabled =
-            !_viewModel.PrivacyShieldEnabled;
 
-        ApplyAdvancedVisionSettingsVE();
-        QueueSaveSelection14();
-    }
 
-    private void ShellPrivacy_StatusChangedVE(
-        object? sender,
-        VEPrivacyStatus status)
-        => Dispatcher.Invoke(() =>
-        {
-            ApplyPrivacyShell14(status);
-            if (_exInEngine is not null) ApplyGamepadShell14(_exInEngine.Status);
-            _androidControlRevision++;
-            QueueAndroidControlSnapshot();
-        });
 
     private void ShellGamepad_StatusChangedVE(
         object? sender,
@@ -969,6 +1170,32 @@ public partial class NLUIWindowMain : Window
             AndroidEngineStateChanged();
             QueueAndroidControlSnapshot();
         });
+
+    private void ShellGamepad_LiveSnapshotChangedVE(object? sender, ExInLiveSnapshot snapshot)
+    {
+        if (_closing) return;
+        Interlocked.Exchange(ref _pendingExInLiveSnapshotVE, snapshot);
+        QueueExInLiveFrameVE();
+    }
+
+    private void QueueExInLiveFrameVE()
+    {
+        if (Interlocked.CompareExchange(ref _exInLiveUpdateQueuedVE, 1, 0) != 0) return;
+        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Render, new Action(() =>
+        {
+            try
+            {
+                ExInLiveSnapshot? latest = Interlocked.Exchange(ref _pendingExInLiveSnapshotVE, null);
+                if (!_closing && latest is not null) ApplyExInCalibrationProgressVE(latest);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _exInLiveUpdateQueuedVE, 0);
+                if (!_closing && Volatile.Read(ref _pendingExInLiveSnapshotVE) is not null)
+                    QueueExInLiveFrameVE();
+            }
+        }));
+    }
 
     private void ShellGamepad_BatteryAlertVE(
         object? sender,
@@ -994,22 +1221,6 @@ public partial class NLUIWindowMain : Window
         => Dispatcher.Invoke(
             () =>
                 ApplyNvidiaShell14(status));
-
-    private void NvidiaProfile_SelectionChanged14(
-        object sender,
-        SelectionChangedEventArgs e)
-    {
-        if (NvidiaProfileCombo14.SelectedItem is ComboBoxItem item && item.Tag is string selected)
-            _viewModel.NvidiaProfile = selected;
-
-        ApplyAdvancedVisionSettingsVE();
-        if (!_shellInitialized14)
-        {
-            return;
-        }
-
-        QueueSaveSelection14();
-    }
 
     private async void WifiAdb_Click(
         object sender,

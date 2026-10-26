@@ -39,6 +39,34 @@ public partial class NLUIWindowMain
             .StartAsync()
             .ConfigureAwait(true);
         QueueAutomaticUsb();
+        StartAdbWatchdogNV();
+    }
+
+    // Red de seguridad: si el teléfono aparece cuando el rastreo de ADB no emitió evento
+    // (reconexión USB), la lista se refresca cada 5 s mientras no haya dispositivo conectado.
+    private System.Windows.Threading.DispatcherTimer? _adbWatchdogNV;
+
+    private void StartAdbWatchdogNV()
+    {
+        if (_adbWatchdogNV is not null)
+        {
+            return;
+        }
+
+        _adbWatchdogNV = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(5)
+        };
+        _adbWatchdogNV.Tick += (_, _) =>
+        {
+            if (_closing || _viewModel.Device.Connected)
+            {
+                return;
+            }
+
+            _ = RefreshFromAdbDiscoveryNVAsync();
+        };
+        _adbWatchdogNV.Start();
     }
 
     private void AdbDiscovery_DevicesChangedNV(

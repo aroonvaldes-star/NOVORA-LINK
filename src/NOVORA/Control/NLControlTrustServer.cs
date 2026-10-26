@@ -26,11 +26,12 @@ public sealed class NLControlTrustServer : IAsyncDisposable
     private Task _run = Task.CompletedTask;
     private bool _started;
     private int _consumed, _disposed;
-    private int _pairingCodeFailures;
     private volatile bool _authorized;
     public NLControlLanInvitation Invitation { get; private set; } = null!;
     public int Port => ((IPEndPoint)_listener.LocalEndpoint).Port;
     public bool IsAuthorized => _authorized;
+    /// <summary>IP del teléfono autorizado en este canal LAN; null si no hay sesión autorizada.</summary>
+    public string? PeerHost { get; private set; }
     public bool IsClosed { get; private set; }
     public bool IsInvitationOpen => _started && !IsClosed && _allowPairing && Volatile.Read(ref _consumed) == 0 && DateTimeOffset.UtcNow.ToUnixTimeSeconds() < Invitation.ExpiresUnix;
     public string PairingCode => _allowPairing ? _pairingCode : string.Empty;
@@ -53,15 +54,6 @@ public sealed class NLControlTrustServer : IAsyncDisposable
         _run = RunAsync();
     }
     public void CancelInvitation() { Interlocked.Exchange(ref _consumed, 1); _expiry?.Change(Timeout.Infinite, Timeout.Infinite); }
-    public NLControlLanInvitation? ResolvePairingCode(string code)
-    {
-        if (!IsInvitationOpen || code is not { Length: 6 } || !code.All(char.IsAsciiDigit)) return null;
-        bool matches = CryptographicOperations.FixedTimeEquals(
-            Encoding.ASCII.GetBytes(code), Encoding.ASCII.GetBytes(_pairingCode));
-        if (matches) return Invitation;
-        if (Interlocked.Increment(ref _pairingCodeFailures) >= 5) CancelInvitation();
-        return null;
-    }
     public void Publish(NLControlSnapshot snapshot)
     {
         if (_authorized && _outgoing is { } channel && !channel.Writer.TryWrite(new(1, 0, true, "Estado actualizado.", snapshot))) _client?.Dispose();
@@ -112,8 +104,15 @@ public sealed class NLControlTrustServer : IAsyncDisposable
         await stream.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
         { ServerCertificate = _store.Certificate, EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13 }, timeout.Token);
         var hello = await NLControlProtocol.ReadAsync<NLControlRequest>(stream, timeout.Token);
-        bool paired = hello.Action == "pair" && IsInvitationOpen && hello.Code is { Length:64 } &&
-            CryptographicOperations.FixedTimeEquals(SHA256.HashData(Encoding.UTF8.GetBytes(hello.Code)), SHA256.HashData(Encoding.UTF8.GetBytes(_secret)));
+        bool pairedByLanCode = hello.Action == "pair.lan" && IsInvitationOpen &&
+            hello.Code is { Length: 6 } && hello.Code.All(char.IsAsciiDigit) &&
+            CryptographicOperations.FixedTimeEquals(
+                Encoding.ASCII.GetBytes(hello.Code), Encoding.ASCII.GetBytes(_pairingCode));
+        bool pairedByPinnedInvitation = hello.Action == "pair" && IsInvitationOpen &&
+            hello.Code is { Length: 64 } && CryptographicOperations.FixedTimeEquals(
+                SHA256.HashData(Encoding.UTF8.GetBytes(hello.Code)),
+                SHA256.HashData(Encoding.UTF8.GetBytes(_secret)));
+        bool paired = pairedByLanCode || pairedByPinnedInvitation;
         bool resumed = hello.Action == "resume" && _store.Authenticate(hello.Value, hello.Code);
         if (hello.Version != 1 || hello.Id <= 0 || string.IsNullOrEmpty(hello.Action) || !(paired || resumed))
         { await NLControlProtocol.WriteAsync(stream, new NLControlReply(1, hello.Id, false, "Autorización rechazada. Prepara un enlace nuevo en PC."), timeout.Token); return false; }
@@ -122,6 +121,7 @@ public sealed class NLControlTrustServer : IAsyncDisposable
         bool enrollmentUsed = false;
         var channel = Channel.CreateBounded<NLControlReply>(32);
         _outgoing = channel; _authorized = true;
+        PeerHost = (client.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString();
         StatusChanged?.Invoke(this, resumed ? $"Android de confianza conectado por {Transport}." : $"Android autorizado por {Transport}.");
         Task writer = WriteAsync(client, stream, channel);
         try
@@ -149,7 +149,7 @@ public sealed class NLControlTrustServer : IAsyncDisposable
                         catch (InvalidDataException ex) { reply = new(1, request.Id, false, ex.Message); }
                     }
                 }
-                else if (request.Action is "pair" or "resume" || request.Action.StartsWith("trust.", StringComparison.Ordinal)) reply = new(1, request.Id, false, "Acción de confianza no permitida.");
+                else if (request.Action is "pair" or "pair.lan" or "resume" || request.Action.StartsWith("trust.", StringComparison.Ordinal)) reply = new(1, request.Id, false, "Acción de confianza no permitida.");
                 else reply = await _handler(request);
                 await channel.Writer.WriteAsync(reply, _stop.Token);
             }
@@ -157,7 +157,7 @@ public sealed class NLControlTrustServer : IAsyncDisposable
         catch (Exception ex) when (ex is IOException or AuthenticationException or InvalidDataException or OperationCanceledException or SocketException or ObjectDisposedException or System.Text.Json.JsonException or ChannelClosedException) { }
         finally
         {
-            _authorized = false; channel.Writer.TryComplete(); client.Dispose();
+            _authorized = false; PeerHost = null; channel.Writer.TryComplete(); client.Dispose();
             try { await writer; } catch (Exception ex) when (ex is IOException or OperationCanceledException or SocketException or ObjectDisposedException or ChannelClosedException) { }
         }
         return true;

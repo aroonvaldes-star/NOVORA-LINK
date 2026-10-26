@@ -16,7 +16,7 @@ public static class NLServiceTheme
     public const string Dark = "Dark";
     public const string Light = "Light";
 
-    public static string CurrentTheme { get; private set; } = Dark;
+    public static string CurrentTheme { get; private set; } = Light;
 
     public static void Apply(string? theme)
     {
@@ -39,95 +39,96 @@ public static class NLServiceTheme
             selected == Dark;
 
         // ============================================================
-        // SUPERFICIES MATTE
+        // PLATINUM AIR / DARK CARBON
         // ============================================================
 
-        SetBrush(resources, "WindowBrush", dark ? "#151A20" : "#E8ECEF");
-        SetBrush(resources, "PanelBrush", dark ? "#1B2128" : "#F4F6F7");
-        SetBrush(resources, "PanelBrush2", dark ? "#222A33" : "#EEF2F4");
-        SetBrush(resources, "SectionHeaderBrush", dark ? "#202830" : "#DDE3E7");
-        SetBrush(resources, "BorderBrush", dark ? "#36414B" : "#C7D0D7");
-        SetBrush(resources, "WindowBorderBrush", dark ? "#40505E" : "#BFC8CF");
+        SetBrush(resources, "WindowBrush", dark ? "#0A0F11" : "#F4F6FB");
+        SetBrush(resources, "PanelBrush", dark ? "#171C1E" : "#FFFFFF");
+        SetBrush(resources, "PanelBrush2", dark ? "#1F2629" : "#EDF1F8");
+        SetBrush(resources, "SectionHeaderBrush", dark ? "#1B2325" : "#F1F4F9");
+        SetBrush(resources, "BorderBrush", dark ? "#354044" : "#D7DDE8");
+        SetBrush(resources, "WindowBorderBrush", dark ? "#455257" : "#CBD3DE");
 
         // ============================================================
         // TEXTO GENERAL
         // ============================================================
 
-        SetBrush(resources, "TextBrush", dark ? "#F2F5F7" : "#101923");
-        SetBrush(resources, "MutedBrush", dark ? "#A8B1B9" : "#5F6A74");
+        SetBrush(resources, "TextBrush", dark ? "#F2F5F7" : "#121722");
+        SetBrush(resources, "MutedBrush", dark ? "#AAB5B8" : "#657087");
 
         // ============================================================
         // IDENTIDAD NOVORA
         // ============================================================
 
-        SetBrush(resources, "BlueBrush", "#00AEEF");
+        SetBrush(resources, "BlueBrush", dark ? "#35D7E9" : "#304FFE");
 
         // Texto azul: mas brillante en Dark y mas oscuro en Light
         // para mantener contraste legible.
-        SetBrush(resources, "AccentTextBrush", dark ? "#35C4F5" : "#006B95");
-        SetBrush(resources, "BlueDarkBrush", dark ? "#35C4F5" : "#008FCA");
-        SetBrush(resources, "CyanBrush", dark ? "#39D4E5" : "#00AFC5");
+        SetBrush(resources, "AccentTextBrush", dark ? "#51DFEF" : "#304FFE");
+        SetBrush(resources, "BlueDarkBrush", dark ? "#6EE9F5" : "#5671FF");
+        SetBrush(resources, "PrimaryTextBrush", "#FFFFFF");
+        SetBrush(resources, "CyanBrush", dark ? "#35D7E9" : "#304FFE");
         SetBrush(resources, "PurpleBrush", dark ? "#B5A0FF" : "#7257C8");
 
         // ============================================================
         // ESTADOS
         // ============================================================
 
-        SetBrush(resources, "GreenBrush", "#16C784");
-        SetBrush(resources, "OrangeBrush", dark ? "#FFAD5A" : "#C66A12");
-        SetBrush(resources, "TrackBrush", dark ? "#34404A" : "#D2DAE0");
-        SetBrush(resources, "BatteryTrackBrush", dark ? "#283139" : "#DCE3E7");
-        SetBrush(resources, "BatteryTextBrush", dark ? "#FFFFFF" : "#101923");
+        SetBrush(resources, "GreenBrush", dark ? "#26C587" : "#16845B");
+        SetBrush(resources, "OrangeBrush", dark ? "#FFBE55" : "#976C00");
+        SetBrush(resources, "TrackBrush", dark ? "#303B3F" : "#D7DDE8");
+        SetBrush(resources, "BatteryTrackBrush", dark ? "#273034" : "#E1E6EF");
+        SetBrush(resources, "BatteryTextBrush", dark ? "#FFFFFF" : "#121722");
 
         // ============================================================
         // ENTRADAS Y COMBOBOX
         // ============================================================
 
-        SetBrush(resources, "InputBackgroundBrush", dark ? "#111820" : "#FFFFFF");
-        SetBrush(resources, "InputForegroundBrush", dark ? "#F5F7F9" : "#101923");
-        SetBrush(resources, "InputBorderBrush", dark ? "#44515D" : "#B8C2CA");
-        SetBrush(resources, "InputHoverBorderBrush", "#00AEEF");
-        SetBrush(resources, "InputHoverBackgroundBrush", dark ? "#1B2A34" : "#E5F6FC");
-        SetBrush(resources, "InputSelectedBackgroundBrush", dark ? "#123C4E" : "#CDEFFB");
+        SetBrush(resources, "InputBackgroundBrush", dark ? "#121719" : "#FFFFFF");
+        SetBrush(resources, "InputForegroundBrush", dark ? "#F2F5F7" : "#121722");
+        SetBrush(resources, "InputBorderBrush", dark ? "#3D494D" : "#D7DDE8");
+        SetBrush(resources, "InputHoverBorderBrush", dark ? "#35D7E9" : "#304FFE");
+        SetBrush(resources, "InputHoverBackgroundBrush", dark ? "#1B292D" : "#F0F3FF");
+        SetBrush(resources, "InputSelectedBackgroundBrush", dark ? "#20363B" : "#E6EBFF");
 
         // ============================================================
         // TARJETAS DE INFORMACION / ESTADO
         // ============================================================
 
-        SetBrush(resources, "SuccessBackgroundBrush", dark ? "#123228" : "#E4F5EE");
-        SetBrush(resources, "SuccessBorderBrush", dark ? "#24684F" : "#A9DCC8");
-        SetBrush(resources, "SuccessTextBrush", dark ? "#7FE2BC" : "#0C6448");
+        SetBrush(resources, "SuccessBackgroundBrush", dark ? "#153328" : "#E9F6EF");
+        SetBrush(resources, "SuccessBorderBrush", dark ? "#2D644E" : "#ADD9C1");
+        SetBrush(resources, "SuccessTextBrush", dark ? "#83D8B0" : "#176744");
 
-        SetBrush(resources, "InfoBackgroundBrush", dark ? "#102D3A" : "#E2F3FB");
-        SetBrush(resources, "InfoBorderBrush", dark ? "#1B5D76" : "#B3DDEC");
-        SetBrush(resources, "InfoTextBrush", dark ? "#7FDFFF" : "#006D94");
+        SetBrush(resources, "InfoBackgroundBrush", dark ? "#122A31" : "#EAF0FF");
+        SetBrush(resources, "InfoBorderBrush", dark ? "#28525C" : "#C1CFFF");
+        SetBrush(resources, "InfoTextBrush", dark ? "#79D9E5" : "#304FFE");
 
         // ============================================================
         // BARRA SUPERIOR / SUPERFICIE AZUL
         // ============================================================
 
-        SetBrush(resources, "TitleBarBrush", "#123A5A");
+        SetBrush(resources, "TitleBarBrush", dark ? "#11181A" : "#E9EDF4");
 
         // Texto que va ENCIMA de las tarjetas azules del NLUIWindowSettings.
         // Lo dejamos bonito tanto en Dark como en Light.
         SetBrush(resources, "TitleSurfaceTextBrush", "#FFFFFF");
-        SetBrush(resources, "TitleSurfaceAccentBrush", dark ? "#8FE5C1" : "#97F0CC");
-        SetBrush(resources, "TitleSurfaceMutedBrush", dark ? "#CFE9DE" : "#D6F5E6");
+        SetBrush(resources, "TitleSurfaceAccentBrush", dark ? "#83D8B0" : "#16845B");
+        SetBrush(resources, "TitleSurfaceMutedBrush", dark ? "#D7E1DF" : "#657087");
 
         // ============================================================
         // CONSOLA
         // ============================================================
 
-        SetBrush(resources, "ConsoleBackgroundBrush", dark ? "#0C1116" : "#F7F9FA");
-        SetBrush(resources, "ConsoleForegroundBrush", dark ? "#DCE5EA" : "#26323A");
+        SetBrush(resources, "ConsoleBackgroundBrush", dark ? "#0A0F11" : "#F8FAFD");
+        SetBrush(resources, "ConsoleForegroundBrush", dark ? "#DCE5E7" : "#273043");
 
         // ============================================================
         // ERRORES
         // ============================================================
 
-        SetBrush(resources, "DangerForegroundBrush", dark ? "#FF7B7B" : "#B4232F");
-        SetBrush(resources, "DangerBorderBrush", dark ? "#7A3640" : "#E2A0A7");
-        SetBrush(resources, "DangerBackgroundBrush", dark ? "#2B181D" : "#FFF0F2");
+        SetBrush(resources, "DangerForegroundBrush", dark ? "#FF8585" : "#B3262E");
+        SetBrush(resources, "DangerBorderBrush", dark ? "#713940" : "#E6A7AD");
+        SetBrush(resources, "DangerBackgroundBrush", dark ? "#2A191D" : "#FFF0F1");
     }
 
     private static void SetBrush(

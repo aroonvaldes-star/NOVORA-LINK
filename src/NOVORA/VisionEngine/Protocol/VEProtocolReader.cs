@@ -1,7 +1,9 @@
+using System.IO;
+
 namespace NOVORA.VisionEngine.Protocol;
 
 /// <summary>
-/// Lector exacto del protocolo multimedia de scrcpy 4.1.
+/// Lector del protocolo multimedia de App Control.
 /// Sirve tanto para video como para audio y no crea superficies gráficas.
 /// </summary>
 public sealed class VEProtocolReader

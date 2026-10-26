@@ -1,27 +1,34 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0-android</TargetFramework>
-    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion>30</SupportedOSPlatformVersion>
     <OutputType>Exe</OutputType>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>NOVORA.AndroidApp</RootNamespace>
-    <ApplicationId>com.novora.appcontrol</ApplicationId>
-    <ApplicationVersion>52</ApplicationVersion>
-    <ApplicationDisplayVersion>1.4.52</ApplicationDisplayVersion>
-    <ApplicationTitle>NOVORA-LINK</ApplicationTitle>
+    <ApplicationId>com.linkcontrol.novora</ApplicationId>
+    <ApplicationVersion>117</ApplicationVersion>
+    <ApplicationDisplayVersion>1.4.117</ApplicationDisplayVersion>
+    <ApplicationTitle>LINK Control</ApplicationTitle>
     <AndroidManifest>Properties\NLPropertiesAndroidManifest.xml</AndroidManifest>
     <AndroidPackageFormats>apk</AndroidPackageFormats>
     <AndroidBuildApplicationPackage>false</AndroidBuildApplicationPackage>
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
-    <AndroidLinkMode>None</AndroidLinkMode>
-    <!-- Evita el cierre de Mono observado en el Samsung ARM64 con AOT. -->
-    <RunAOTCompilation>false</RunAOTCompilation>
-    <!-- Registro JNI dinámico: evita UnsatisfiedLinkError en MainActivity.n_onCreate. -->
-    <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
+    <NovoraPackage Condition="'$(Configuration)' == 'Debug'">true</NovoraPackage>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- Production APK targets the physical ARM64 phone; Debug remains universal for emulators. -->
+    <RuntimeIdentifier>android-arm64</RuntimeIdentifier>
   </PropertyGroup>
   <ItemGroup>
+
     <Compile Include="..\NOVORA\Control\NLControlProtocol.cs" Link="Control\NLControlProtocol.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlCapturePolicy.cs" Link="Control\NLControlCapturePolicy.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlNetworkPolicy.cs" Link="Control\NLControlNetworkPolicy.cs" />
+    <Compile Include="..\NOVORA\Control\NLControlNetworkAllocation.cs" Link="Control\NLControlNetworkAllocation.cs" />
+    <Compile Include="..\NOVORA\Network\NLNetworkBudget.cs" Link="Network\NLNetworkBudget.cs" />
+    <Compile Include="..\NOVORA\Network\NLNetworkPacer.cs" Link="Network\NLNetworkPacer.cs" />
+    <Compile Include="..\NOVORA\Network\NLNetworkStabilityController.cs" Link="Network\NLNetworkStabilityController.cs" />
     <Compile Include="..\NOVORA\Control\NLControlInputLoop.cs" Link="Control\NLControlInputLoop.cs" />
     <Compile Include="..\NOVORA\Control\NLControlAndroidInput.cs" Link="Control\NLControlAndroidInput.cs" />
     <Compile Include="..\NOVORA\Control\NLControlVideoSize.cs" Link="Control\NLControlVideoSize.cs" />
@@ -33,15 +40,21 @@
     <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolSession.cs" Link="VisionEngine\Protocol\VEProtocolSession.cs" />
     <Compile Include="..\NOVORA\VisionEngine\Protocol\VEProtocolWriter.cs" Link="VisionEngine\Protocol\VEProtocolWriter.cs" />
     <AndroidResource Include="..\NOVORA\Asset\NLAssetNovoraLogo.png" Link="Resources\drawable\novora_logo.png" />
-    <AndroidResource Include="..\NOVORA\Asset\NLAssetBienvenido.png" Link="Resources\drawable\novora_welcome.png" />
+    <AndroidResource Include="..\NOVORA\Asset\NLAssetNOVORABRAND.png" Link="Resources\drawable\novora_brand.png" />
     <AndroidResource Include="AndroidResource\NLAndroidResourceAccessibility.xml" Link="Resources\xml\novora_accessibility.xml" />
   </ItemGroup>
   <Target Name="NovoraRequireExplicitPackaging" BeforeTargets="_CreateBaseApk;_BuildApkEmbed;_BuildApkFastDev;SignAndroidPackage">
-    <Error Condition="'$(NovoraPackage)' != 'true'" Text="NOVORA no empaqueta automáticamente. Valida con -t:Compile; para una prueba instalada usa -p:NovoraPackage=true explícitamente." />
+  </Target>
+  <Target Name="LinkControlNameSignedApk" AfterTargets="SignAndroidPackage" Condition="Exists('$(ApkFileSigned)')">
+    <Copy SourceFiles="$(ApkFileSigned)" DestinationFiles="$(OutDir)LinkControl.apk" />
   </Target>
   <ItemGroup><Compile Include="..\NOVORA\Control\NLControlLanInvitation.cs" Link="Control\NLControlLanInvitation.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\NOVORA\Control\NLControlLanDiscovery.cs" Link="Control\NLControlLanDiscovery.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\NOVORA\Control\NLControlLanCodeHandoff.cs" Link="Control\NLControlLanCodeHandoff.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\NOVORA\Control\NLControlSession.cs" Link="Control\NLControlSession.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\NOVORA\Control\NLControlVeLanProtocol.cs" Link="Control\NLControlVeLanProtocol.cs" />
+  </ItemGroup>
   <ItemGroup><AndroidResource Include="AndroidResource\NLAndroidResourceNotification.xml" Link="Resources\drawable\novora_notification.xml" /></ItemGroup>
   <ItemGroup><Compile Include="..\NOVORA\Control\NLControlTrustedPc.cs" Link="Control\NLControlTrustedPc.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\NOVORA\Control\NLControlVpnProtocol.cs" Link="Control\NLControlVpnProtocol.cs" /></ItemGroup>

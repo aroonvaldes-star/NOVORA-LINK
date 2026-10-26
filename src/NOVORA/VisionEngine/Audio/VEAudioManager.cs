@@ -1,6 +1,7 @@
 using NOVORA.Service;
 using NOVORA.VisionEngine.Protocol;
 using NOVORA.VisionEngine.Transport;
+using System.IO;
 using System.Net.Sockets;
 
 namespace NOVORA.VisionEngine.Audio;
@@ -201,30 +202,6 @@ public sealed class VEAudioManager : IAsyncDisposable
 
             throw;
         }
-    }
-
-    public async Task StartAsync(
-        VETransportSession transport,
-        bool playbackEnabled,
-        CancellationToken cancellationToken = default)
-    {
-        ThrowIfDisposedVE();
-
-        ArgumentNullException.ThrowIfNull(
-            transport);
-
-        if (_taskVE is not null)
-        {
-            throw new InvalidOperationException(
-                "Audio VisionEngine ya está iniciado.");
-        }
-
-        NetworkStream stream =
-            transport.AudioStream ??
-            throw new InvalidOperationException(
-                "La sesión VisionEngine no contiene audio socket.");
-
-        await StartAsync(stream, playbackEnabled, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task StartAsync(

@@ -17,10 +17,9 @@ public sealed class LENetworkManager :
     private readonly NLServiceADB _adb;
     private readonly LEMetricsCollector _metrics;
 
-    private readonly LENetworkRelay _relay =
-        new();
+    private readonly ILENetworkRelay _relay;
 
-    private readonly LETransportData _data;
+    private readonly ILETransportData _data;
 
     private readonly ConcurrentDictionary<string, LENetworkSession> _sessions =
         new(StringComparer.OrdinalIgnoreCase);
@@ -34,6 +33,19 @@ public sealed class LENetworkManager :
     public LENetworkManager(
         NLServiceADB adb,
         LEMetricsCollector metrics)
+        : this(
+            adb,
+            metrics,
+            new LENetworkRelay(),
+            new LETransportData(adb))
+    {
+    }
+
+    internal LENetworkManager(
+        NLServiceADB adb,
+        LEMetricsCollector metrics,
+        ILENetworkRelay relay,
+        ILETransportData data)
     {
         _adb =
             adb ??
@@ -45,15 +57,25 @@ public sealed class LENetworkManager :
             throw new ArgumentNullException(
                 nameof(metrics));
 
+        _relay =
+            relay ??
+            throw new ArgumentNullException(
+                nameof(relay));
+
         _data =
-            new LETransportData(
-                _adb);
+            data ??
+            throw new ArgumentNullException(
+                nameof(data));
 
         _relay.ExitedLE +=
             Relay_ExitedLE;
     }
 
     public event EventHandler<LENetworkSession>? SessionChangedLE;
+
+    public LERelayTrafficSnapshot? GetTrafficSnapshotLE() =>
+        (_relay as LENetworkRelay)?.GetTrafficSnapshotLE();
+    public LENetworkRelay? PolicyRelayLE => _relay as LENetworkRelay;
 
     public async Task InitializeAsync(
         CancellationToken cancellationToken = default)
@@ -242,6 +264,15 @@ public sealed class LENetworkManager :
                 await _relay
                     .EnsureRunningAsync(CancellationToken.None)
                     .ConfigureAwait(false);
+
+                if (_disposed || _sessions.IsEmpty)
+                {
+                    await _relay
+                        .StopAsync(CancellationToken.None)
+                        .ConfigureAwait(false);
+
+                    return;
+                }
 
                 foreach (string serial in serials)
                 {

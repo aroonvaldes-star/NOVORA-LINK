@@ -48,18 +48,29 @@ public sealed class NLAndroidServiceControllerNotifications
             _ => ""
         };
         if (message.Length == 0) return;
+        string title = controller.BatteryAlert switch
+        {
+            "Low15" => "Batería del mando baja",
+            "Critical5" => "Batería del mando crítica",
+            _ => "Carga del mando completa"
+        };
+        var publicVersion = new Notification.Builder(_service, Channel)
+            .SetSmallIcon(Resource.Drawable.novora_notification)
+            .SetContentTitle(title).SetContentText($"Batería del mando: {Percent(controller)}")
+            .SetVisibility(NotificationVisibility.Public).Build();
 
         var open = PendingIntent.GetActivity(_service, NotificationId,
             new Intent(_service, typeof(AndroidUI.NLAndroidUIActivity)).AddFlags(ActivityFlags.SingleTop | ActivityFlags.ClearTop),
             PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable)!;
         var notification = new Notification.Builder(_service, Channel)
             .SetSmallIcon(Resource.Drawable.novora_notification)
-            .SetContentTitle("NOVORA · Control")
+            .SetContentTitle(title)
             .SetContentText(message)
             .SetStyle(new Notification.BigTextStyle().BigText(message))
             .SetContentIntent(open)
             .SetAutoCancel(true)
             .SetVisibility(NotificationVisibility.Private)
+            .SetPublicVersion(publicVersion)
             .Build();
         _manager.Notify(NotificationId, notification);
     }

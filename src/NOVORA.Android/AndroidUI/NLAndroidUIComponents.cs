@@ -10,27 +10,6 @@ internal enum NLAndroidUIStatusTone { Neutral, Accent, Success, Warning, Error }
 
 internal static class NLAndroidUIComponents
 {
-    internal static View AppBar(Context context, string version, string connection, string engines,
-        Action toggleTheme, Action openSettings)
-    {
-        NLAndroidUIPalette palette = NLAndroidUITheme.Current(context);
-        var bar = new LinearLayout(context) { Orientation = Orientation.Horizontal };
-        bar.SetGravity(GravityFlags.CenterVertical);
-        bar.SetPadding(Dp(context, 16), Dp(context, 8), Dp(context, 8), Dp(context, 8));
-        bar.SetBackgroundColor(Color.ParseColor(palette.Surface));
-        bar.SetMinimumHeight(Dp(context, 64));
-        bar.AddView(NLAndroidUIVisual.Logo(context, 40));
-
-        var identity = new LinearLayout(context) { Orientation = Orientation.Vertical };
-        identity.SetPadding(Dp(context, 10), 0, Dp(context, 8), 0);
-        identity.AddView(Text(context, "NOVORA-LINK", 17, palette.Text, true, 1));
-        identity.AddView(Text(context, $"{version}  |  {connection}  |  {engines}", 11, palette.Muted, false, 2));
-        bar.AddView(identity, new LinearLayout.LayoutParams(0, -2, 1));
-        bar.AddView(IconButton(context, Android.Resource.Drawable.IcMenuDay, "Cambiar tema", toggleTheme));
-        bar.AddView(IconButton(context, Android.Resource.Drawable.IcMenuPreferences, "Abrir ajustes", openSettings));
-        return bar;
-    }
-
     internal static TextView StatusChip(Context context, string text, NLAndroidUIStatusTone tone)
     {
         NLAndroidUIPalette palette = NLAndroidUITheme.Current(context);
@@ -48,39 +27,6 @@ internal static class NLAndroidUIComponents
         TextView title = Text(context, text, 15, NLAndroidUITheme.Current(context).Text, true, 2);
         title.SetPadding(0, Dp(context, 12), 0, Dp(context, 6));
         return title;
-    }
-
-    internal static View EngineRow(Context context, string name, string summary, string state,
-        NLAndroidUIStatusTone tone, Action? action)
-    {
-        NLAndroidUIPalette palette = NLAndroidUITheme.Current(context);
-        var row = new LinearLayout(context) { Orientation = Orientation.Horizontal };
-        row.SetGravity(GravityFlags.CenterVertical);
-        row.SetPadding(Dp(context, 12), Dp(context, 10), Dp(context, 10), Dp(context, 10));
-        row.SetMinimumHeight(Dp(context, 72));
-        row.Background = NLAndroidUIVisual.Surface(context, palette.Surface, palette.Border);
-        var copy = new LinearLayout(context) { Orientation = Orientation.Vertical };
-        copy.AddView(Text(context, name, 14, palette.Text, true, 1));
-        copy.AddView(Text(context, summary, 12, palette.Muted, false, 3));
-        row.AddView(copy, new LinearLayout.LayoutParams(0, -2, 1));
-        row.AddView(StatusChip(context, state, tone));
-        if (action is not null) {
-            row.Clickable = true; row.Focusable = true; row.ContentDescription = $"{name}: {state}";
-            row.Click += (_, _) => action();
-        }
-        return row;
-    }
-
-    internal static Button ActionTile(Context context, string title, string caption, int iconResource, Action action)
-    {
-        var button = new Button(context) { Text = $"{title}\n{caption}", ContentDescription = $"{title}. {caption}" };
-        button.SetCompoundDrawablesWithIntrinsicBounds(0, iconResource, 0, 0);
-        button.CompoundDrawablePadding = Dp(context, 6);
-        button.SetMaxLines(3); button.Ellipsize = TextUtils.TruncateAt.End;
-        button.Gravity = GravityFlags.Center; button.SetMinHeight(Dp(context, 112));
-        NLAndroidUIVisual.Button(button);
-        button.Click += (_, _) => action();
-        return button;
     }
 
     internal static Button CommandButton(Context context, string text, bool primary, Func<Task> action)
@@ -115,23 +61,16 @@ internal static class NLAndroidUIComponents
         NLAndroidUIPalette palette = NLAndroidUITheme.Current(context);
         var button = new Button(context) { Text = label, ContentDescription = label, Selected = selected };
         button.SetMaxLines(1);
-        button.SetCompoundDrawablesWithIntrinsicBounds(0, iconResource, 0, 0);
-        button.CompoundDrawablePadding = Dp(context, 2);
-        button.TextSize = 11; button.Gravity = GravityFlags.Center;
+        var drawable = context.GetDrawable(iconResource)!.Mutate();
+        drawable.SetBounds(0, 0, Dp(context, 20), Dp(context, 20));
+        drawable.SetTint(Color.ParseColor(selected ? palette.Accent : palette.Muted));
+        button.SetCompoundDrawables(null, drawable, null, null);
+        button.CompoundDrawablePadding = Dp(context, 1);
+        button.TextSize = 12; button.Gravity = GravityFlags.Center;
+        button.SetPadding(Dp(context, 2), Dp(context, 4), Dp(context, 2), Dp(context, 2));
         button.SetTextColor(Color.ParseColor(selected ? palette.Accent : palette.Muted));
         button.SetBackgroundColor(Color.Transparent);
-        button.SetMinHeight(Dp(context, 56));
-        button.Click += (_, _) => action();
-        return button;
-    }
-
-    private static Button IconButton(Context context, int icon, string description, Action action)
-    {
-        var button = new Button(context) { ContentDescription = description };
-        button.SetCompoundDrawablesWithIntrinsicBounds(0, icon, 0, 0);
-        button.SetBackgroundColor(Color.Transparent);
-        button.SetMinWidth(Dp(context, 48)); button.SetMinimumWidth(Dp(context, 48));
-        button.SetMinHeight(Dp(context, 48)); button.SetMinimumHeight(Dp(context, 48));
+        button.SetMinHeight(Dp(context, 56)); button.SetMinimumHeight(Dp(context, 56));
         button.Click += (_, _) => action();
         return button;
     }
@@ -155,4 +94,38 @@ internal static class NLAndroidUIComponents
     };
 
     private static int Dp(Context context, int value) => NLAndroidUIVisual.Dp(context, value);
+}
+
+internal sealed class NLAndroidUIOptionAdapter : ArrayAdapter<string>
+{
+    private readonly Context _context;
+
+    internal NLAndroidUIOptionAdapter(Context context, string[] labels)
+        : base(context, Android.Resource.Layout.SimpleSpinnerItem, labels)
+    {
+        _context = context;
+    }
+
+    public override View GetView(int position, View? convertView, ViewGroup parent) =>
+        OptionView(position, convertView, parent, false);
+
+    public override View GetDropDownView(int position, View? convertView, ViewGroup? parent) =>
+        OptionView(position, convertView, parent, true);
+
+    private View OptionView(int position, View? convertView, ViewGroup? parent, bool dropDown)
+    {
+        NLAndroidUIPalette palette = NLAndroidUITheme.Current(_context);
+        TextView view = convertView as TextView ?? new TextView(_context);
+        view.Text = GetItem(position) ?? string.Empty;
+        view.TextSize = 14;
+        view.Gravity = GravityFlags.CenterVertical;
+        view.SetSingleLine(false);
+        view.SetTextColor(Color.ParseColor(palette.Text));
+        view.SetBackgroundColor(Color.ParseColor(dropDown ? palette.SurfaceRaised : palette.Surface));
+        view.SetPadding(Dp(16), Dp(10), Dp(16), Dp(10));
+        view.SetMinHeight(Dp(48));
+        return view;
+    }
+
+    private int Dp(int value) => NLAndroidUIVisual.Dp(_context, value);
 }

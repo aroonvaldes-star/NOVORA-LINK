@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <style name="NovoraPage">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:orientation">vertical</item>
+    <item name="android:padding">@dimen/novora_page_padding</item>
+  </style>
+  <style name="NovoraSection">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:textColor">@color/novora_accent</item>
+    <item name="android:textSize">12sp</item>
+    <item name="android:textStyle">bold</item>
+    <item name="android:letterSpacing">0.08</item>
+    <item name="android:paddingTop">12dp</item>
+    <item name="android:paddingBottom">6dp</item>
+  </style>
+  <style name="NovoraCard">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:orientation">vertical</item>
+    <item name="android:background">@drawable/novora_card</item>
+    <item name="android:padding">14dp</item>
+    <item name="android:layout_marginBottom">8dp</item>
+  </style>
+  <style name="NovoraTitle">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:textColor">@color/novora_text</item>
+    <item name="android:textSize">20sp</item>
+    <item name="android:textStyle">bold</item>
+    <item name="android:paddingBottom">8dp</item>
+  </style>
+  <style name="NovoraLabel">
+    <item name="android:layout_width">0dp</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:layout_weight">1</item>
+    <item name="android:textColor">@color/novora_text</item>
+    <item name="android:textSize">13sp</item>
+    <item name="android:paddingTop">7dp</item>
+    <item name="android:paddingBottom">7dp</item>
+  </style>
+  <style name="NovoraValue" parent="NovoraLabel">
+    <item name="android:gravity">end</item>
+    <item name="android:textStyle">bold</item>
+  </style>
+  <style name="NovoraBody">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:textColor">@color/novora_muted</item>
+    <item name="android:textSize">13sp</item>
+    <item name="android:paddingTop">4dp</item>
+    <item name="android:paddingBottom">8dp</item>
+  </style>
+  <style name="NovoraButton">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:textAllCaps">false</item>
+    <item name="android:textSize">13sp</item>
+    <item name="android:minHeight">48dp</item>
+  </style>
+</resources>

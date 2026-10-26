@@ -1,4 +1,5 @@
 using NOVORA.VisionEngine.Protocol;
+using System.IO;
 
 namespace NOVORA.VisionEngine.Video;
 
@@ -81,7 +82,8 @@ public sealed class VEVideoDemuxer
                 PresentationTimeUs: header.PresentationTimeUs,
                 IsConfiguration: header.IsConfiguration,
                 IsKeyFrame: header.IsKeyFrame,
-                Data: payload);
+                Data: payload,
+                ReceivedTimestamp: System.Diagnostics.Stopwatch.GetTimestamp());
         }
     }
 }

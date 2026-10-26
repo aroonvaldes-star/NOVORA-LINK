@@ -1,4 +1,5 @@
 using Android.Content;
+using Android.Content.Res;
 
 namespace NOVORA.AndroidUI;
 
@@ -16,19 +17,27 @@ internal static class NLAndroidUITheme
     internal static readonly NLAndroidUIPalette Dark = new(
         "#0A0F11", "#171C1E", "#20282C", "#2B3A40",
         "#FFFFFF", "#91A2AA", "#00DCE8", "#071319",
-        "#0F1416", "#607178", "#20D982", "#F2B84B", "#FF6670",
+        "#0F1416", "#91A2AA", "#20D982", "#F2B84B", "#FF6670",
         8, 16, 48);
 
     internal static readonly NLAndroidUIPalette Light = new(
-        "#F6FAFA", "#FFFFFF", "#EDF3F4", "#D2DEE1",
-        "#191C1D", "#53646C", "#087F91", "#FFFFFF",
-        "#FFFFFF", "#839095", "#16845B", "#976C00", "#B3262E",
-        8, 16, 48);
+        "#F4F6FB", "#FFFFFF", "#EDF1F8", "#D7DDE8",
+        "#121722", "#657087", "#304FFE", "#FFFFFF",
+        "#FFFFFF", "#657087", "#16845B", "#976C00", "#B3262E",
+        12, 16, 48);
 
     internal static bool IsDark(Context context) =>
-        context.GetSharedPreferences(Preferences, FileCreationMode.Private)?.GetString(ThemeKey, "dark") != "light";
+        context.GetSharedPreferences(Preferences, FileCreationMode.Private)?.GetString(ThemeKey, "light") == "dark";
 
     internal static NLAndroidUIPalette Current(Context context) => IsDark(context) ? Dark : Light;
+
+    internal static Context ApplyTo(Context context)
+    {
+        var configuration = new Configuration(context.Resources!.Configuration);
+        configuration.UiMode = (configuration.UiMode & ~UiMode.NightMask) |
+            (IsDark(context) ? UiMode.NightYes : UiMode.NightNo);
+        return context.CreateConfigurationContext(configuration) ?? context;
+    }
 
     internal static void Toggle(Context context)
     {

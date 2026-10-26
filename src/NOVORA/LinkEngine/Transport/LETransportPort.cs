@@ -29,7 +29,7 @@ namespace NOVORA.LinkEngine.Transport;
 /// - sobrevivir a un 27183 ocupado por otro proceso;
 /// - soportar varios Android simultáneamente;
 /// - mantener el protocolo Android sin cambios;
-/// - reservar 27184 exclusivamente para DATA/RelayCore.
+/// - reservar 27184 exclusivamente para DATA/NovoraRelay.
 ///
 /// Esta clase NO hace polling.
 /// La comprobación de puerto ocurre únicamente al abrir una sesión.
@@ -49,7 +49,7 @@ public sealed class LETransportPort
         27283;
 
     /// <summary>
-    /// DATA / RelayCore.
+    /// DATA / NovoraRelay.
     ///
     /// CONTROL jamás debe utilizar este puerto como HostPort.
     /// </summary>
@@ -144,7 +144,7 @@ public sealed class LETransportPort
             port++)
         {
             /*
-             * 27184 pertenece a DATA/RelayCore.
+             * 27184 pertenece a DATA/NovoraRelay.
              */
             if (port == ReservedDataPortLE)
             {

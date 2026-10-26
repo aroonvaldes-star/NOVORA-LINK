@@ -1,6 +1,8 @@
-using NOVORA.Contracts.Input;
 using NOVORA.Control;
+using NOVORA.Contracts.Input;
+using NOVORA.Network;
 using NOVORA.VisionEngine.Transport;
+using System.IO;
 
 namespace NOVORA.VisionEngine.Control;
 
@@ -12,7 +14,6 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
     private readonly SemaphoreSlim _sendGateVE = new(1, 1);
     private readonly object _statusGateVE = new();
     private Stream? _streamVE;
-    private bool _nativeProtocolVE;
     private CancellationTokenSource? _readCtsVE;
     private Task? _readTaskVE;
     private VEControlStatus _statusVE = VEControlStatus.CreateInitialVE();
@@ -21,17 +22,159 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
     private long _receivedVE;
     private long _receivedBytesVE;
     private long _clipboardVE;
-    private long _uhidVE;
     private long _errorsVE;
     private long _lastStatusPublishMsVE;
     private Func<VEControlMessage, bool>? _canSendMessageVE;
     private Func<bool>? _canReceiveClipboardVE;
     private bool _disposedVE;
+    private readonly SemaphoreSlim _captureGateVE = new(1,1);
+    private readonly object _captureSyncVE = new();
+    private (long Generation,long Sequence,int Bitrate,TaskCompletionSource<NLControlCapturePolicyAck?> Completion)? _capturePendingVE;
+    private VECaptureTelemetrySnapshot? _captureTelemetryVE;
+    public VECaptureTelemetrySnapshot? CaptureTelemetrySnapshotVE => Volatile.Read(ref _captureTelemetryVE);
+    public NLControlCaptureTelemetry? CaptureTelemetryVE => CaptureTelemetrySnapshotVE?.Telemetry;
+    private readonly object _networkProbeSyncVE = new();
+    private NLNetworkControlProbe? _networkProbeVE;
+    private CancellationTokenSource? _networkProbeCancellationVE;
+    private Task? _networkProbeTaskVE;
+    private long _networkProbeSequenceVE;
+    public IReadOnlyList<NLNetworkSample> NetworkProbeSamplesVE
+    {
+        get { lock (_networkProbeSyncVE) return _networkProbeVE?.Samples ?? Array.Empty<NLNetworkSample>(); }
+    }
+    /// <summary>Phone monotonic clock minus PC Stopwatch clock (µs), when the echo reports it.</summary>
+    public long? DeviceClockOffsetUsVE
+    {
+        get { lock (_networkProbeSyncVE) return _networkProbeVE?.DeviceClockOffsetUs; }
+    }
+
+    public void ConfigureNetworkProbeVE(long generation, string linkKey, NLControlNetworkCapabilities? capabilities,
+        TimeProvider? clock = null)
+    {
+        lock (_networkProbeSyncVE)
+        {
+            if (!IsReadyVE || capabilities is not { Version: 1, StabilityTelemetry: true } || generation <= 0)
+            { StopNetworkProbeVE(); return; }
+            if (_networkProbeVE is { } current && current.Generation == generation && current.LinkKey == linkKey) return;
+            var source = linkKey.StartsWith("VE:LAN:", StringComparison.Ordinal) ? NLNetworkSampleSource.LanControl :
+                linkKey.StartsWith("VE:USB:", StringComparison.Ordinal) ? NLNetworkSampleSource.UsbControl :
+                throw new ArgumentException("El eco requiere una ruta VE USB o LAN autorizada.");
+            var probe = new NLNetworkControlProbe(generation, linkKey, source, clock);
+            StopNetworkProbeVE();
+            _networkProbeVE = probe;
+            var controlLifetime = _readCtsVE!.Token;
+            var cancellation = CancellationTokenSource.CreateLinkedTokenSource(controlLifetime);
+            _networkProbeCancellationVE = cancellation;
+            Task? previous = _networkProbeTaskVE;
+            _networkProbeTaskVE = Task.Run(async () =>
+            {
+                // A replaced producer releases its writer before the new route can send.
+                if (previous is not null) { try { await previous.ConfigureAwait(false); } catch { } }
+                await RunNetworkProbeVE(probe, cancellation, controlLifetime).ConfigureAwait(false);
+            });
+        }
+    }
+
+    public void StopNetworkProbeVE()
+    {
+        lock (_networkProbeSyncVE)
+        {
+            _networkProbeVE = null;
+            _networkProbeCancellationVE?.Cancel();
+            _networkProbeCancellationVE = null;
+        }
+    }
+
+    private async Task RunNetworkProbeVE(NLNetworkControlProbe probe, CancellationTokenSource cancellation, CancellationToken controlLifetime)
+    {
+        var ct = cancellation.Token;
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1), probe.Clock);
+            do
+            {
+                ct.ThrowIfCancellationRequested();
+                probe.Expire();
+                // Observation never queues ahead of input or keeps its writer while awaiting a reply.
+                if (!await _sendGateVE.WaitAsync(0, ct).ConfigureAwait(false)) continue;
+                try
+                {
+                    Stream? stream;
+                    ulong sequence = unchecked((ulong)Interlocked.Increment(ref _networkProbeSequenceVE));
+                    var message = VEControlMessage.SimpleVE(VEControlType.NetworkEcho) with { Sequence = sequence };
+                    if (_canSendMessageVE is not null && !_canSendMessageVE(message)) continue;
+                    lock (_networkProbeSyncVE)
+                    {
+                        stream = _streamVE;
+                        if (!ReferenceEquals(probe, _networkProbeVE) || !IsReadyVE || stream is null || !probe.TryBegin(sequence)) continue;
+                    }
+                    var command = new NLControlInputCommand((int)VEControlType.NetworkEcho, Sequence: sequence);
+                    // Disabling/reconfiguring observation must finish a started frame. A stalled
+                    // control write has its own deadline; uncertain framing closes that channel.
+                    using var writeDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(2), probe.Clock);
+                    using var writeLifetime = CancellationTokenSource.CreateLinkedTokenSource(controlLifetime, writeDeadline.Token);
+                    try { await NLControlProtocol.WriteAsync(stream, command, writeLifetime.Token).ConfigureAwait(false); }
+                    catch (Exception ex) when (!controlLifetime.IsCancellationRequested)
+                    {
+                        FailNetworkProbeWriteVE(stream, writeDeadline.IsCancellationRequested
+                            ? new TimeoutException("El eco no pudo completar su frame de control en 2 segundos.", ex) : ex);
+                        return;
+                    }
+                    Interlocked.Increment(ref _sentVE);
+                    Interlocked.Add(ref _sentBytesVE, System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(command).Length + 4);
+                }
+                finally { _sendGateVE.Release(); }
+            } while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested || controlLifetime.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            lock (_networkProbeSyncVE)
+                if (ReferenceEquals(probe, _networkProbeVE))
+                    PublishVE(VEControlStates.Failed, "Falló la escritura del eco de control VisionEngine.", ex.Message);
+        }
+        finally
+        {
+            lock (_networkProbeSyncVE)
+                if (ReferenceEquals(cancellation, _networkProbeCancellationVE))
+                { _networkProbeVE = null; _networkProbeCancellationVE = null; }
+            cancellation.Dispose();
+        }
+    }
+
+    private void FailNetworkProbeWriteVE(Stream stream, Exception exception)
+    {
+        lock (_networkProbeSyncVE)
+        {
+            if (!ReferenceEquals(stream, _streamVE)) return;
+            StopNetworkProbeVE();
+        }
+        Interlocked.Increment(ref _errorsVE);
+        PublishVE(VEControlStates.Failed, "Falló la escritura del eco de control VisionEngine; canal cerrado por encuadre incierto.", exception.Message);
+        try { stream.Dispose(); } catch { }
+    }
+
+    public async Task<NLControlCapturePolicyAck?> ApplyCapturePolicyAsync(NLControlCapturePolicy policy, CancellationToken ct=default)
+    {
+        await _captureGateVE.WaitAsync(ct).ConfigureAwait(false);
+        var pending=new TaskCompletionSource<NLControlCapturePolicyAck?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            lock(_captureSyncVE) _capturePendingVE=(policy.Generation,policy.Sequence,policy.TargetBitrate,pending);
+            await SendAsync(VEControlMessage.CapturePolicyVE(policy),ct).ConfigureAwait(false);
+            return await pending.Task.WaitAsync(TimeSpan.FromSeconds(2),ct).ConfigureAwait(false);
+        }
+        catch(TimeoutException) { return null; }
+        finally
+        {
+            lock(_captureSyncVE) if(_capturePendingVE?.Completion==pending) _capturePendingVE=null;
+            _captureGateVE.Release();
+        }
+    }
 
     public event EventHandler<VEControlStatus>? StatusChangedVE;
     public event EventHandler<string>? ClipboardChangedVE;
     public event EventHandler<ulong>? ClipboardAcknowledgedVE;
-    public event EventHandler<VEControlMessageDevice>? UhidOutputVE;
 
     public VEControlStatus StatusVE
     {
@@ -79,27 +222,6 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
         _canReceiveClipboardVE = canReceiveClipboard;
     }
 
-    public Task StartAsync(VETransportSession transport, CancellationToken cancellationToken = default)
-    {
-        ThrowIfDisposedVE();
-        ArgumentNullException.ThrowIfNull(transport);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (_streamVE is not null)
-        {
-            throw new InvalidOperationException("Control VisionEngine ya está iniciado.");
-        }
-
-        _streamVE = transport.ControlStream
-            ?? throw new InvalidOperationException("La sesión VisionEngine no contiene control socket.");
-
-        _readCtsVE = new CancellationTokenSource();
-        PublishVE(VEControlStates.Starting, "Iniciando canal de control VisionEngine.", null);
-        _readTaskVE = RunReaderVE(_streamVE, _readCtsVE.Token);
-        PublishVE(VEControlStates.Ready, "Control VisionEngine listo.", null);
-        return Task.CompletedTask;
-    }
-
     public Task StartNativeAsync(Stream stream, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposedVE();
@@ -111,7 +233,6 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
             throw new ArgumentException("El canal AppControl no permite escribir.", nameof(stream));
 
         _streamVE = stream;
-        _nativeProtocolVE = true;
         _readCtsVE = new CancellationTokenSource();
         _readTaskVE = RunNativeReaderVE(stream, _readCtsVE.Token);
         PublishVE(VEControlStates.Ready, "Control VisionEngine listo por AppControl.", null);
@@ -132,20 +253,8 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
         await _sendGateVE.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            int sentBytes;
-            if (_nativeProtocolVE)
-            {
-                NLControlInputCommand command = ToNativeCommandVE(message);
-                await NLControlProtocol.WriteAsync(stream, command, cancellationToken).ConfigureAwait(false);
-                sentBytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(command).Length + 4;
-            }
-            else
-            {
-                byte[] payload = VEControlSerializer.SerializeVE(message);
-                await stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
-                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
-                sentBytes = payload.Length;
-            }
+            NLControlInputCommand command = ToNativeCommandVE(message);
+            int sentBytes = await NLControlProtocol.WriteFrameAsync(stream, command, cancellationToken).ConfigureAwait(false);
             Interlocked.Increment(ref _sentVE);
             Interlocked.Add(ref _sentBytesVE, sentBytes);
             PublishSnapshotVE();
@@ -168,12 +277,15 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
+        Task? probeTask;
+        lock (_networkProbeSyncVE) { probeTask = _networkProbeTaskVE; StopNetworkProbeVE(); _networkProbeTaskVE = null; }
+        lock(_captureSyncVE) { _capturePendingVE?.Completion.TrySetResult(null); _capturePendingVE=null; }
+        Volatile.Write(ref _captureTelemetryVE,null);
         CancellationTokenSource? cts = _readCtsVE;
         Task? task = _readTaskVE;
         _readCtsVE = null;
         _readTaskVE = null;
         _streamVE = null;
-        _nativeProtocolVE = false;
 
         if (cts is not null)
         {
@@ -187,57 +299,9 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
             cts.Dispose();
         }
 
+        if (probeTask is not null) { try { await probeTask.WaitAsync(cancellationToken).ConfigureAwait(false); } catch (OperationCanceledException) { } }
+
         PublishVE(VEControlStates.Stopped, "Control VisionEngine detenido.", null);
-    }
-
-    private async Task RunReaderVE(Stream stream, CancellationToken cancellationToken)
-    {
-        VEControlReader reader = new(stream);
-        try
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                VEControlMessageDevice message = await reader.ReadAsync(cancellationToken).ConfigureAwait(false);
-                Interlocked.Increment(ref _receivedVE);
-
-                switch (message.Type)
-                {
-                    case VEControlTypeDevice.Clipboard:
-                        Interlocked.Increment(ref _clipboardVE);
-                        if (message.ClipboardText is string text)
-                        {
-                            Interlocked.Add(ref _receivedBytesVE, System.Text.Encoding.UTF8.GetByteCount(text) + 5);
-                            if (_canReceiveClipboardVE is null || _canReceiveClipboardVE())
-                                ClipboardChangedVE?.Invoke(this, text);
-                        }
-                        break;
-                    case VEControlTypeDevice.ClipboardAck:
-                        Interlocked.Add(ref _receivedBytesVE, 9);
-                        if (message.Sequence is ulong sequence)
-                        {
-                            ClipboardAcknowledgedVE?.Invoke(this, sequence);
-                        }
-                        break;
-                    case VEControlTypeDevice.UhidOutput:
-                        Interlocked.Increment(ref _uhidVE);
-                        Interlocked.Add(ref _receivedBytesVE, 5 + (message.Data?.Length ?? 0));
-                        UhidOutputVE?.Invoke(this, message);
-                        break;
-                }
-
-                PublishSnapshotVE();
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
-        catch (EndOfStreamException)
-        {
-            PublishVE(VEControlStates.EndOfStream, "Android cerró el canal de control VisionEngine.", null);
-        }
-        catch (Exception ex)
-        {
-            Interlocked.Increment(ref _errorsVE);
-            PublishVE(VEControlStates.Failed, "Falló el canal de control VisionEngine.", ex.Message);
-        }
     }
 
     private async Task RunNativeReaderVE(Stream stream, CancellationToken cancellationToken)
@@ -262,6 +326,22 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
                 {
                     ClipboardAcknowledgedVE?.Invoke(this, response.Sequence);
                 }
+                else if (response.Type == NLControlInputResponse.NetworkEchoType)
+                {
+                    lock (_networkProbeSyncVE) _networkProbeVE?.ObserveEcho(response.Sequence, response.DeviceClockUs);
+                }
+                else if(response.Type==NLControlInputResponse.CapturePolicyAckType && response.CapturePolicyAck is { } ack)
+                {
+                    lock(_captureSyncVE)
+                        if(_capturePendingVE is { } current && current.Generation==ack.Generation && current.Sequence==ack.Sequence && current.Bitrate==ack.RequestedBitrate)
+                            current.Completion.TrySetResult(ack);
+                }
+                else if(response.Type==NLControlInputResponse.CaptureTelemetryType && response.CaptureTelemetry is { } telemetry)
+                {
+                    var old=Volatile.Read(ref _captureTelemetryVE);
+                    if(old is null || old.Telemetry.Generation!=telemetry.Generation || telemetry.Sequence>old.Telemetry.Sequence)
+                        Volatile.Write(ref _captureTelemetryVE,new(telemetry,TimeProvider.System.GetTimestamp()));
+                }
                 PublishSnapshotVE();
             }
         }
@@ -274,6 +354,10 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
         {
             Interlocked.Increment(ref _errorsVE);
             PublishVE(VEControlStates.Failed, "Falló la respuesta del canal AppControl.", ex.Message);
+        }
+        finally
+        {
+            if (ReferenceEquals(stream, _streamVE)) StopNetworkProbeVE();
         }
     }
 
@@ -305,7 +389,8 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
         Name: message.Name,
         Data: message.Data,
         Width: message.Width,
-        Height: message.Height);
+        Height: message.Height,
+        CapturePolicy: message.CapturePolicy);
 
     private VEControlStats SnapshotVE()
         => new(
@@ -314,7 +399,7 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
             Interlocked.Read(ref _receivedVE),
             Interlocked.Read(ref _receivedBytesVE),
             Interlocked.Read(ref _clipboardVE),
-            Interlocked.Read(ref _uhidVE),
+            0,
             Interlocked.Read(ref _errorsVE));
 
     private void PublishSnapshotVE()
@@ -349,3 +434,4 @@ public sealed class VEControlManager : IAsyncDisposable, INLInputOutput, INLInpu
         _sendGateVE.Dispose();
     }
 }
+public sealed record VECaptureTelemetrySnapshot(NLControlCaptureTelemetry Telemetry,long ReceivedAtTicks);

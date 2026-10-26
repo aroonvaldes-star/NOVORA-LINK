@@ -47,6 +47,7 @@ public sealed class VERendererWindow : System.Windows.Window
 
     private readonly NLModelMonitorInfo _monitorVE;
     private readonly bool _fullscreenVE;
+    private readonly bool _maximizedVE;
 
     private int _targetLeftVE;
     private int _targetTopVE;
@@ -79,7 +80,8 @@ public sealed class VERendererWindow : System.Windows.Window
 
     public VERendererWindow(
         NLModelMonitorInfo monitor,
-        bool fullscreen)
+        bool fullscreen,
+        bool maximized = false)
     {
         ArgumentNullException.ThrowIfNull(
             monitor);
@@ -89,6 +91,9 @@ public sealed class VERendererWindow : System.Windows.Window
 
         _fullscreenVE =
             fullscreen;
+
+        _maximizedVE =
+            !fullscreen && maximized;
 
         HostVE =
             new VERendererHost
@@ -170,6 +175,9 @@ public sealed class VERendererWindow : System.Windows.Window
 
     public event EventHandler?
         CloseRequestedVE;
+
+    public event EventHandler?
+        ExitFullscreenRequestedVE;
 
     /// <summary>
     /// Archivos/carpetas soltados directamente sobre
@@ -378,6 +386,9 @@ public sealed class VERendererWindow : System.Windows.Window
     {
         ApplyBoundsVE();
 
+        if (_maximizedVE)
+            WindowState = System.Windows.WindowState.Maximized;
+
         Activate();
 
         HostVE.FocusInputVE();
@@ -452,6 +463,14 @@ public sealed class VERendererWindow : System.Windows.Window
         e.SuppressKeyPress =
             true;
 
+        if (_fullscreenVE)
+        {
+            ExitFullscreenRequestedVE?.Invoke(
+                this,
+                EventArgs.Empty);
+            return;
+        }
+
         CloseRequestedVE?.Invoke(
             this,
             EventArgs.Empty);
@@ -474,6 +493,14 @@ public sealed class VERendererWindow : System.Windows.Window
 
         e.Handled =
             true;
+
+        if (_fullscreenVE)
+        {
+            ExitFullscreenRequestedVE?.Invoke(
+                this,
+                EventArgs.Empty);
+            return;
+        }
 
         CloseRequestedVE?.Invoke(
             this,

@@ -33,7 +33,7 @@ public sealed class NLControlTrustStore : IDisposable
                 byte[] clear = ProtectedData.Unprotect(File.ReadAllBytes(_path), null, DataProtectionScope.CurrentUser);
                 try { _data = JsonSerializer.Deserialize<NLControlTrustData>(clear, new JsonSerializerOptions { MaxDepth = 8 }) ?? throw new InvalidDataException("Almacén vacío."); }
                 finally { CryptographicOperations.ZeroMemory(clear); }
-                if (_data.Version != 1 || _data.Pfx is null || _data.Entries is null || _data.Entries.Length > 16 ||
+                if (_data.Version != 1 || _data.Pfx is null || _data.Entries is null ||
                     _data.Entries.Any(e => e is null || !Guid.TryParseExact(e.DeviceId, "N", out _) || string.IsNullOrWhiteSpace(e.Name) || e.Name.Length > 64 || e.Hash is not { Length:64 } || !e.Hash.All(Uri.IsHexDigit)) ||
                     _data.Entries.Select(e => e.DeviceId).Distinct().Count() != _data.Entries.Length)
                     throw new InvalidDataException("Almacén de confianza dañado. Restaura su copia antes de vincular.");
@@ -73,7 +73,6 @@ public sealed class NLControlTrustStore : IDisposable
         if (string.IsNullOrWhiteSpace(name) || name.Length > 64 || name.Any(char.IsControl)) throw new InvalidDataException("Nombre de Android no válido.");
         lock (_gate)
         {
-            if (_data.Entries.Length >= 16) throw new InvalidDataException("Límite de 16 dispositivos. Revoca uno antes de agregar otro.");
             string id = Guid.NewGuid().ToString("N"), token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
             Commit(_data with { Entries = [.._data.Entries, new(id, name.Trim(), Hash(token))] });
             return (id, token);

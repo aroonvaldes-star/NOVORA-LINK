@@ -5,11 +5,13 @@ using System.Text.Json;
 namespace NOVORA.Control;
 
 public sealed record NLControlFileMessage(string Id, string? Name = null, long Length = 0,
-    string? Data = null, string? Sha256 = null, long Offset = 0);
+    string? Data = null, string? Sha256 = null, long Offset = 0,
+    string? RelativePath = null);
 
 /// <summary>Single streaming transfer owned by one authenticated control session.</summary>
 public sealed class NLControlFileReceiver(string root) : IDisposable
 {
+    public event Action<string, long>? Received;
     public const long MaxLength = 2L * 1024 * 1024 * 1024;
     // Hexadecimal payload is ASCII-safe through both JSON envelopes: 24 KiB becomes 48 KiB.
     public const int ChunkLength = 24 * 1024;
@@ -61,7 +63,9 @@ public sealed class NLControlFileReceiver(string root) : IDisposable
                     throw new InvalidDataException("El archivo está incompleto o no coincide su SHA-256.");
                 _stream.Flush(true); _stream.Dispose(); _stream = null;
                 string destination = NLControlFileStorage.Commit(_temporary!, root, _name!);
+                long completedLength = _length;
                 _temporary = null; Reset();
+                Received?.Invoke(destination, completedLength);
                 return Task.FromResult("Guardado en " + destination);
             }
             catch { Reset(); throw; }
@@ -79,7 +83,8 @@ public sealed class NLControlFileReceiver(string root) : IDisposable
 public static class NLControlFileSender
 {
     public static async Task<string> SendAsync(Stream source, string name, long length,
-        Func<string, string, Task<NLControlReply>> send, IProgress<long>? progress = null, CancellationToken ct = default)
+        Func<string, string, Task<NLControlReply>> send, IProgress<long>? progress = null,
+        CancellationToken ct = default, string? relativePath = null)
     {
         NLControlFileStorage.SafeName(name);
         if (length < 0 || length > NLControlFileReceiver.MaxLength) throw new InvalidDataException("Se requiere un tamaño conocido de hasta 2 GiB.");
@@ -93,7 +98,7 @@ public static class NLControlFileSender
         try
         {
             ct.ThrowIfCancellationRequested();
-            await Request("file.begin", new(id, name, length));
+            await Request("file.begin", new(id, name, length, RelativePath: relativePath));
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             byte[] buffer = new byte[NLControlFileReceiver.ChunkLength];
             long offset = 0;

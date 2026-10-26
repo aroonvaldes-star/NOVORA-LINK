@@ -12,10 +12,6 @@
       "sha256": "a011e84f2e7bc32a6e08578a768e5ba7a32db9f3af844d0b47a07c1a65c36fbf",
       "bytes": 90160640
     },
-    "avformat-62.dll": {
-      "sha256": "cf8b82b293f13b80e14f2e31ec28185a5cf2a24a9f591a7f028fa639ff6fa048",
-      "bytes": 22623232
-    },
     "avutil-60.dll": {
       "sha256": "a1378131fc1f3f1791ad5232c3d2006b5c5f39f520a9d2c7b50a7258d24f553b",
       "bytes": 3011584

@@ -9,7 +9,7 @@ namespace NOVORA.AndroidUI;
 
 // DUMP is held by Android shell/system, not ordinary third-party applications.
 // No runtime permission is granted to NOVORA by this declaration.
-[Activity(Name = "com.novora.appcontrol.UsbBootstrapActivity", Exported = true,
+[Activity(Name = "com.linkcontrol.novora.UsbBootstrapActivity", Exported = true,
     Permission = "android.permission.DUMP", NoHistory = true, ExcludeFromRecents = true,
     Theme = "@android:style/Theme.Translucent.NoTitleBar")]
 public sealed class NLAndroidUIUsbBootstrapActivity : Activity

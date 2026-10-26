@@ -3,5 +3,6 @@
         "**/_decompiled_/**": true,
         "{**/.c4z/.extsrcs/*.PROTSYM.cbl,**/.c4z/.extsrcs/*.PROTSYM.listing}": true
     },
-    "csharp-dev-tools.build.configuration": "Release"
+    "csharp-dev-tools.build.configuration": "Release",
+    "atlascode.bitbucket.enabled": false
 }

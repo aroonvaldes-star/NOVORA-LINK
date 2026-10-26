@@ -36,6 +36,18 @@ public sealed class VERendererManager : IAsyncDisposable
     private readonly object _gateVE =
         new();
 
+    private readonly VERendererPresentationTiming _presentationTimingVE =
+        new(Stopwatch.Frequency);
+    private DispatcherTimer? _presentationWatchdogVE;
+    private bool _hasPresentationSampleVE;
+    private long _lastPresentationTimestampVE;
+    private long _presentationWindowTimestampVE;
+    private long _presentationWindowFramesVE;
+    private double _presentedFpsVE;
+    private double _lastPresentIntervalMsVE;
+    private double _presentationJitterMsVE;
+    private long _compositionFallbacksVE;
+
     private VERendererStatus _statusVE =
         VERendererStatus.CreateInitialVE();
 
@@ -58,6 +70,9 @@ public sealed class VERendererManager : IAsyncDisposable
 
     private double _lastFrameAgeMsVE;
     private double _lastRenderLatencyMsVE;
+    private double _lastReceiveToPresentMsVE;
+    private long _lastPresentedSourcePtsUsVE;
+    private long _lastPresentedAtTimestampVE;
 
     /*
      * TickCount64 evita crear DateTime sólo para saber
@@ -113,6 +128,31 @@ public sealed class VERendererManager : IAsyncDisposable
     public bool IsPrivacyProtectedVE =>
         Volatile.Read(ref _privacyProtectedVE) != 0;
 
+    public void ConfigurePresentationTimingVE(bool enabled, double refreshRateHz)
+    {
+        ThrowIfDisposedVE();
+        _presentationTimingVE.ConfigureVE(enabled, refreshRateHz, Stopwatch.GetTimestamp());
+        ResetPresentationStatisticsVE();
+
+        VERendererSurface? surface = GetSurfaceVE();
+        if (surface is null)
+            return;
+
+        void ApplyOnUiVE()
+        {
+            if (_disposedVE || !ReferenceEquals(surface, GetSurfaceVE()))
+                return;
+            UpdatePresentationWatchdogOnUiVE();
+            if (_startedVE && !IsPrivacyProtectedVE && _queueVE.CountVE > 0)
+                ScheduleRenderVE();
+        }
+
+        if (surface.Dispatcher.CheckAccess())
+            ApplyOnUiVE();
+        else
+            _ = surface.Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(ApplyOnUiVE));
+    }
+
     public void SetPrivacyProtectedVE(bool protectedVE)
     {
         ThrowIfDisposedVE();
@@ -124,8 +164,18 @@ public sealed class VERendererManager : IAsyncDisposable
 
         if (!protectedVE)
         {
-            if (_queueVE.CountVE > 0)
-                ScheduleRenderVE();
+            VERendererSurface? resumeSurface = GetSurfaceVE();
+            if (resumeSurface is not null)
+                _ = resumeSurface.Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(() =>
+                {
+                    if (_disposedVE || !ReferenceEquals(resumeSurface, GetSurfaceVE()))
+                        return;
+                    _presentationTimingVE.ResetVE(Stopwatch.GetTimestamp());
+                    ResetPresentationStatisticsVE();
+                    UpdatePresentationWatchdogOnUiVE();
+                    if (_startedVE && !IsPrivacyProtectedVE && _queueVE.CountVE > 0)
+                        ScheduleRenderVE();
+                }));
             return;
         }
 
@@ -265,6 +315,10 @@ public sealed class VERendererManager : IAsyncDisposable
         _startedVE =
             true;
 
+        _presentationTimingVE.ResetVE(Stopwatch.GetTimestamp());
+        ResetPresentationStatisticsVE();
+        Interlocked.Exchange(ref _compositionFallbacksVE, 0);
+
         _lastMetricsPublishTickVE =
             Environment.TickCount64;
 
@@ -396,7 +450,8 @@ public sealed class VERendererManager : IAsyncDisposable
 
         if (
             surface is null ||
-            !_startedVE)
+            !_startedVE || IsPrivacyProtectedVE ||
+            !_presentationTimingVE.ShouldPresentOnArrivalVE(Stopwatch.GetTimestamp()))
         {
             return;
         }
@@ -418,14 +473,14 @@ public sealed class VERendererManager : IAsyncDisposable
                 .BeginInvoke(
                     DispatcherPriority.Render,
                     new Action(
-                        ProcessLatestOnUiVE));
+                        () => ProcessLatestOnUiVE()));
     }
 
     // ============================================================
     // UI PRESENTATION
     // ============================================================
 
-    private void ProcessLatestOnUiVE()
+    private void ProcessLatestOnUiVE(bool compositionDrivenVE = false)
     {
         lock (_gateVE)
         {
@@ -445,6 +500,12 @@ public sealed class VERendererManager : IAsyncDisposable
         {
             return;
         }
+
+        // Un callback encolado antes de un tick o cambio de modo no debe
+        // presentar de nuevo durante el mismo periodo de composición.
+        if (!compositionDrivenVE &&
+            !_presentationTimingVE.ShouldPresentOnArrivalVE(Stopwatch.GetTimestamp()))
+            return;
 
         try
         {
@@ -484,6 +545,7 @@ public sealed class VERendererManager : IAsyncDisposable
                     Volatile.Read(
                         ref _rotationDegreesVE);
 
+                long presentationStartedAt = Stopwatch.GetTimestamp();
                 var result =
                     _frameRendererVE!
                         .PresentVE(
@@ -492,6 +554,13 @@ public sealed class VERendererManager : IAsyncDisposable
 
                 Interlocked.Increment(
                     ref _framesPresentedVE);
+
+                if (_presentationTimingVE.EnabledVE && !compositionDrivenVE &&
+                    _hasPresentationSampleVE)
+                    Interlocked.Increment(ref _compositionFallbacksVE);
+                long presentedAt = Stopwatch.GetTimestamp();
+                _presentationTimingVE.RecordPresentationVE(presentationStartedAt, compositionDrivenVE);
+                RecordPresentationStatisticsVE(presentedAt);
 
                 _lastRenderLatencyMsVE =
                     result.RenderLatencyMs;
@@ -503,6 +572,15 @@ public sealed class VERendererManager : IAsyncDisposable
                             DateTimeOffset.UtcNow -
                             frame.DecodedAtUtc
                         ).TotalMilliseconds);
+
+                if (frame.ReceivedTimestamp > 0)
+                    _lastReceiveToPresentMsVE =
+                        Stopwatch.GetElapsedTime(frame.ReceivedTimestamp, presentedAt).TotalMilliseconds;
+                if (frame.SourcePresentationTimeUs is long sourcePts)
+                {
+                    Volatile.Write(ref _lastPresentedSourcePtsUsVE, sourcePts);
+                    Volatile.Write(ref _lastPresentedAtTimestampVE, presentedAt);
+                }
 
                 /*
                  * Guardamos atributos.
@@ -632,10 +710,13 @@ public sealed class VERendererManager : IAsyncDisposable
 
         CompositionTarget.Rendering += CompositionTarget_RenderingVE;
         _compositionHookedVE = true;
+        UpdatePresentationWatchdogOnUiVE();
     }
 
     private void UnhookCompositionEventsVE()
     {
+        StopPresentationWatchdogOnUiVE();
+        _presentationTimingVE.ResetVE(Stopwatch.GetTimestamp());
         if (!_compositionHookedVE)
             return;
 
@@ -648,6 +729,12 @@ public sealed class VERendererManager : IAsyncDisposable
         try
         {
             _deviceVE?.PumpEventsVE();
+            if (_startedVE && !IsPrivacyProtectedVE &&
+                e is RenderingEventArgs rendering &&
+                _presentationTimingVE.ShouldPresentOnCompositionVE(
+                    rendering.RenderingTime.Ticks, Stopwatch.GetTimestamp()) &&
+                _queueVE.CountVE > 0)
+                ProcessLatestOnUiVE(compositionDrivenVE: true);
         }
         catch
         {
@@ -655,10 +742,89 @@ public sealed class VERendererManager : IAsyncDisposable
         }
     }
 
+    private void UpdatePresentationWatchdogOnUiVE()
+    {
+        if (!_startedVE || !_compositionHookedVE || IsPrivacyProtectedVE ||
+            !_presentationTimingVE.EnabledVE)
+        {
+            StopPresentationWatchdogOnUiVE();
+            return;
+        }
+
+        if (_presentationWatchdogVE is null)
+        {
+            _presentationWatchdogVE = new DispatcherTimer(
+                DispatcherPriority.Render, Dispatcher.CurrentDispatcher);
+            _presentationWatchdogVE.Tick += PresentationWatchdog_TickVE;
+        }
+        _presentationWatchdogVE.Interval = TimeSpan.FromMilliseconds(
+            Math.Clamp(1000d / _presentationTimingVE.RefreshRateHzVE, 4d, 50d));
+        _presentationWatchdogVE.Start();
+    }
+
+    private void StopPresentationWatchdogOnUiVE()
+    {
+        if (_presentationWatchdogVE is null)
+            return;
+        _presentationWatchdogVE.Stop();
+        _presentationWatchdogVE.Tick -= PresentationWatchdog_TickVE;
+        _presentationWatchdogVE = null;
+    }
+
+    private void PresentationWatchdog_TickVE(object? sender, EventArgs e)
+    {
+        if (!ReferenceEquals(sender, _presentationWatchdogVE))
+            return;
+        if (!_startedVE || IsPrivacyProtectedVE || !_presentationTimingVE.EnabledVE)
+        {
+            StopPresentationWatchdogOnUiVE();
+            return;
+        }
+        if (_queueVE.CountVE > 0 &&
+            _presentationTimingVE.ShouldPresentOnArrivalVE(Stopwatch.GetTimestamp()))
+            ProcessLatestOnUiVE();
+        PublishMetricsIfDueVE();
+    }
+
+    private void ResetPresentationStatisticsVE()
+    {
+        lock (_gateVE)
+        {
+            _hasPresentationSampleVE = false;
+            _lastPresentationTimestampVE = 0;
+            _presentationWindowTimestampVE = Stopwatch.GetTimestamp();
+            _presentationWindowFramesVE = 0;
+            _presentedFpsVE = 0;
+            _lastPresentIntervalMsVE = 0;
+            _presentationJitterMsVE = 0;
+        }
+    }
+
+    private void RecordPresentationStatisticsVE(long presentedAt)
+    {
+        double periodMs = 1000d / _presentationTimingVE.RefreshRateHzVE;
+        lock (_gateVE)
+        {
+            if (_hasPresentationSampleVE)
+            {
+                _lastPresentIntervalMsVE = Math.Max(0,
+                    (presentedAt - _lastPresentationTimestampVE) * 1000d / Stopwatch.Frequency);
+                _presentationJitterMsVE = 0.9d * _presentationJitterMsVE +
+                    0.1d * Math.Abs(_lastPresentIntervalMsVE - periodMs);
+            }
+            _hasPresentationSampleVE = true;
+            _lastPresentationTimestampVE = presentedAt;
+            _presentationWindowFramesVE++;
+        }
+    }
+
     private void ClearPrivacySurfaceOnUiVE()
     {
         try
         {
+            StopPresentationWatchdogOnUiVE();
+            _presentationTimingVE.ResetVE(Stopwatch.GetTimestamp());
+            ResetPresentationStatisticsVE();
             _deviceVE?.ClearVE();
         }
         catch
@@ -736,6 +902,25 @@ public sealed class VERendererManager : IAsyncDisposable
 
     private VERendererMetrics VEMetricsSnapshot()
     {
+        bool enabled = _presentationTimingVE.EnabledVE;
+        double refreshRate = _presentationTimingVE.RefreshRateHzVE;
+        double presentedFps, intervalMs, jitterMs;
+        lock (_gateVE)
+        {
+            long now = Stopwatch.GetTimestamp();
+            double elapsedSeconds = (now - _presentationWindowTimestampVE) / (double)Stopwatch.Frequency;
+            if (!_startedVE)
+                _presentedFpsVE = 0;
+            else if (elapsedSeconds >= MetricsPublishIntervalMsVE / 1000d)
+            {
+                _presentedFpsVE = _presentationWindowFramesVE / elapsedSeconds;
+                _presentationWindowFramesVE = 0;
+                _presentationWindowTimestampVE = now;
+            }
+            presentedFps = _presentedFpsVE;
+            intervalMs = _lastPresentIntervalMsVE;
+            jitterMs = _presentationJitterMsVE;
+        }
         return new VERendererMetrics(
             FramesQueued:
                 Interlocked.Read(
@@ -760,7 +945,16 @@ public sealed class VERendererManager : IAsyncDisposable
                 _lastFrameAgeMsVE,
 
             LastRenderLatencyMs:
-                _lastRenderLatencyMsVE);
+                _lastRenderLatencyMsVE,
+            LastReceiveToPresentMs: _lastReceiveToPresentMsVE,
+            LastPresentedSourcePtsUs: Volatile.Read(ref _lastPresentedSourcePtsUsVE),
+            LastPresentedAtTimestamp: Volatile.Read(ref _lastPresentedAtTimestampVE),
+            DynamicPresentationEnabled: enabled,
+            TargetRefreshRateHz: refreshRate,
+            PresentedFps: presentedFps,
+            LastPresentIntervalMs: intervalMs,
+            PresentationJitterMs: jitterMs,
+            CompositionFallbacks: Interlocked.Read(ref _compositionFallbacksVE));
     }
 
     private void PublishStatusVE(

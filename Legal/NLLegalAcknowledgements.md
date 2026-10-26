@@ -1,33 +1,132 @@
 # NOVORA — Agradecimientos y contribuciones de terceros
 
-NOVORA utiliza e integra herramientas de terceros. Su autoría y licencias se mantienen separadas de la propiedad intelectual original de NOVORA.
+NOVORA-LINK se apoya en herramientas y bibliotecas mantenidas por terceros.
+Este documento conserva el reconocimiento de los componentes actuales y de
+aquellos usados históricamente. La autoría y las licencias de terceros se
+mantienen separadas de la propiedad intelectual original de NOVORA.
 
-## scrcpy
+## Componentes actuales
 
-**Genymobile / Romain Vimont (rom1v)** — herramienta para mostrar y controlar dispositivos Android.
+### FFmpeg
 
-scrcpy se distribuye bajo **Apache License 2.0**. El proyecto oficial reconoce Copyright (C) 2018 Genymobile y Copyright (C) 2018-2026 Romain Vimont.
+**Proyecto FFmpeg** — decodificación y conversión de audio y video.
 
-Proyecto oficial: https://github.com/Genymobile/scrcpy
+Se distribuye el build compartido LGPLv3 de BtbN, versión
+`n8.1.2-52-g5a03dfa0f6-20260913`, sin componentes GPL. Incluye NVDEC y
+decodificadores software.
 
-## Gnirehtet
+- Proyecto: https://ffmpeg.org/
+- Builds: https://github.com/BtbN/FFmpeg-Builds
+- Licencia: LGPL-3.0
 
-**Genymobile** — herramienta de reverse tethering para Android mediante ADB.
+### dav1d
 
-Gnirehtet se distribuye bajo **Apache License 2.0** y su proyecto oficial reconoce Copyright (C) 2017 Genymobile.
+**VideoLAN y autores de dav1d** — decodificador AV1 enlazado estáticamente
+en el build de FFmpeg.
 
-Proyecto oficial: https://github.com/Genymobile/gnirehtet
+- Proyecto: https://code.videolan.org/videolan/dav1d
+- Licencia: BSD-2-Clause
+- Versión: 1.5.3
 
-## Android Debug Bridge (ADB)
+### SDL3
 
-**Android Open Source Project (AOSP)** — Android Debug Bridge.
+**Sam Lantinga y colaboradores de SDL** — capa de entrada y compatibilidad
+de mandos en Windows.
 
-Los componentes ADB utilizados por NOVORA pertenecen al ecosistema Android/AOSP y están sujetos a sus avisos y licencias correspondientes, incluyendo Apache License 2.0 en los componentes ADB aplicables.
+- Proyecto: https://github.com/libsdl-org/SDL
+- Versión: 3.4.12
+- Licencia: zlib
 
-Proyecto oficial: https://android.googlesource.com/platform/packages/modules/adb/
+### Android Debug Bridge (ADB)
+
+**Android Open Source Project (AOSP)** — puente de depuración para las
+funciones de conexión y desarrollo.
+
+- Proyecto: https://android.googlesource.com/platform/packages/modules/adb/
+- Licencia: Apache-2.0 en los componentes aplicables
+
+### tcp_ip
+
+**rustp2p** — pila de paquetes IPv4 usada por `NovoraRelay`.
+
+- Proyecto: https://github.com/rustp2p/tcp_ip
+- Licencia: Apache-2.0
+
+### QRCoder
+
+**Raffael Herrmann y Shane Krueger** — generación de códigos QR para el
+emparejamiento LAN.
+
+- Proyecto: https://github.com/codebude/QRCoder
+- Licencia: MIT
+
+### Microsoft .NET y paquetes asociados
+
+**Microsoft Corporation y .NET Foundation** — runtime, SDK y paquetes
+`Microsoft.Extensions.Logging.Abstractions` y
+`System.Security.Cryptography.ProtectedData`.
+
+- Proyecto: https://github.com/dotnet/runtime
+- Licencia: MIT
+
+### Ecosistema Rust
+
+**Tokio Contributors, Serde Contributors y autores de `bytes`** — runtime
+asíncrono, serialización y buffers del relay.
+
+- Tokio: https://github.com/tokio-rs/tokio — MIT
+- Serde: https://github.com/serde-rs/serde — MIT OR Apache-2.0
+- bytes: https://github.com/tokio-rs/bytes — MIT
+
+## Componentes históricos
+
+### scrcpy
+
+**Genymobile / Romain Vimont (rom1v)** — herramienta para mostrar y
+controlar dispositivos Android.
+
+Uso histórico; el ejecutable y el servidor ya no se distribuyen. El
+reconocimiento se conserva por la procedencia del protocolo y del
+descriptor HID.
+
+- Proyecto: https://github.com/Genymobile/scrcpy
+- Licencia: Apache-2.0
+- Copyright: (C) 2018 Genymobile, (C) 2018-2026 Romain Vimont
+
+### Gnirehtet
+
+**Genymobile** — reverse tethering para Android mediante ADB.
+
+Uso histórico; el relay derivado fue sustituido por `NovoraRelay` y ya no
+se distribuye.
+
+- Proyecto: https://github.com/Genymobile/gnirehtet
+- Licencia: Apache-2.0
+- Copyright: (C) 2017 Genymobile
+
+## Herramientas de desarrollo
+
+Agradecemos también a los proyectos que hacen posible la compilación,
+verificación y publicación:
+
+- Inno Setup
+- GitHub Actions
+- CodeQL, DevSkim, SecurityCodeScan y Codacy
+- Rust, Cargo y el ecosistema de crates
+- .NET SDK y workload de Android
+- PowerShell y Python
 
 ## Reconocimiento
 
-NOVORA agradece expresamente a los creadores y mantenedores de estas herramientas por el trabajo de ingeniería que hace posible integrar control de dispositivos Android, depuración ADB, transmisión de pantalla y reverse tethering en proyectos como NOVORA.
+NOVORA agradece expresamente a las personas y proyectos que mantienen estas
+herramientas por el trabajo de ingeniería que hace posible integrar captura
+de pantalla, audio, control, archivos, VPN y mandos en aplicaciones como
+NOVORA-LINK.
 
-Este reconocimiento no implica que Genymobile, Romain Vimont o el Android Open Source Project sean autores, propietarios, patrocinadores o responsables de NOVORA.
+Este reconocimiento no implica que Genymobile, Romain Vimont, el Android
+Open Source Project, la .NET Foundation, Microsoft, rustp2p ni los demás
+autores sean creadores, propietarios, patrocinadores o responsables de
+NOVORA-LINK.
+
+Para el inventario con versiones y textos de licencia, consulte
+`Legal/NLLegalThirdPartyNotices.md` y `Legal/LICENSES/`.

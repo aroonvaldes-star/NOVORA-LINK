@@ -45,6 +45,9 @@ public partial class NLUIWindowMain
             _ = Dispatcher.BeginInvoke(new Action(QueueAutomaticUsb));
             return;
         }
+        // USB is an optional transport. Never let hot-plug discovery replace
+        // an already authorized LAN control session.
+        if (!ShouldPrepareAutomaticUsb(_androidLanControl?.IsAuthorized == true)) return;
         string serial = NLControlUsbAutoPolicy.SelectPhysicalSerial(
             _viewModel.Devices.Select(device =>
                 new NLControlUsbCandidate(device.Serial, device.Connected, device.IsWifiConnection)),
@@ -90,6 +93,7 @@ public partial class NLUIWindowMain
             do
             {
                 _automaticUsbDirty = false;
+                if (!ShouldPrepareAutomaticUsb(_androidLanControl?.IsAuthorized == true)) continue;
                 string serial = _automaticUsb.Serial;
                 long epoch = _automaticUsb.Epoch;
                 if (_androidControl is not null &&
@@ -97,7 +101,7 @@ public partial class NLUIWindowMain
                     await StopAutomaticUsbAsync();
                 if (_closing || !_automaticUsb.IsCurrent(serial, epoch)) continue;
                 if (_androidControl is { IsAuthorized: true } && _androidControlSerial == serial) continue;
-                if (!_automaticUsb.TryBegin(_androidControlPreparing || _androidInstalling)) continue;
+                if (!_automaticUsb.TryBegin(_androidControlPreparing)) continue;
                 await PrepareAutomaticUsbAsync(serial, epoch);
             }
             while (_automaticUsbDirty && !_closing);
@@ -141,7 +145,21 @@ public partial class NLUIWindowMain
     internal static bool IsNovoraAndroidInstalled(string output)
         => output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .Any(line => line.Trim().StartsWith("package:", StringComparison.OrdinalIgnoreCase) &&
-                line.Contains("com.novora.appcontrol", StringComparison.OrdinalIgnoreCase));
+                line.Contains("com.linkcontrol.novora", StringComparison.OrdinalIgnoreCase));
+
+    internal static string? ResolveNovoraUsbBootstrapComponent(string appControlOutput)
+    {
+        static bool Installed(string output, string package) => output
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Any(line => line.Trim().StartsWith("package:", StringComparison.OrdinalIgnoreCase) &&
+                line.Contains(package, StringComparison.OrdinalIgnoreCase));
+
+        if (Installed(appControlOutput, "com.linkcontrol.novora"))
+            return "com.linkcontrol.novora/.UsbBootstrapActivity";
+        return null;
+    }
+
+    internal static bool ShouldPrepareAutomaticUsb(bool lanAuthorized) => !lanAuthorized;
 
     private async Task PrepareAutomaticUsbAsync(string serial, long epoch)
     {
@@ -161,10 +179,11 @@ public partial class NLUIWindowMain
             string state = await _adb.ExecuteRawAsync(new[] { "-s", serial, "get-state" }, deadline.Token);
             if (state.Trim() != "device") throw new InvalidOperationException("ADB no esta autorizado para este telefono.");
             CheckAutomaticUsb(serial, epoch, generation);
-            string packagePath = await _adb.ExecuteRawAsync(
-                new[] { "-s", serial, "shell", "pm", "path", "com.novora.appcontrol" },
+            string appControlPath = await _adb.ExecuteRawAsync(
+                new[] { "-s", serial, "shell", "pm", "path", "com.linkcontrol.novora" },
                 deadline.Token);
-            if (!IsNovoraAndroidInstalled(packagePath))
+            string? bootstrapComponent = ResolveNovoraUsbBootstrapComponent(appControlPath);
+            if (bootstrapComponent is null)
                 throw new FileNotFoundException("NOVORA Android no está instalada en el teléfono detectado.");
             CheckAutomaticUsb(serial, epoch, generation);
             string before = await _adb.ExecuteRawAsync(new[] { "-s", serial, "reverse", "--list" }, deadline.Token);
@@ -194,8 +213,9 @@ public partial class NLUIWindowMain
                 if (server.IsAuthorized)
                 {
                     _ = EnsureExInStandaloneAsync();
-                    if (!lanFailover)
-                        _ = PrepareVisionLanFallbackVEAsync(serial, epoch, automatic: true);
+                    RequestWaitingExternalVisionFromAndroid();
+                    // El failover LAN ya no se prepara automáticamente: VE arranca por USB sin él.
+                    // Sigue disponible con el botón manual PREPARAR FAILOVER LAN.
                 }
                 if (!server.IsAuthorized && !AndroidControlAuthorized)
                 {
@@ -235,7 +255,7 @@ public partial class NLUIWindowMain
                 new NLControlTunnelBootstrap(server.Invitation, visibleTransport)));
             // The protected entry point accepts shell/system callers; MainActivity never trusts external bootstrap extras.
             string launch = await _adb.ExecuteRawAsync(new[] { "-s", serial, "shell", "am", "start", "--user", "0", "-n",
-                "com.novora.appcontrol/.UsbBootstrapActivity", "--es", "novora.usb", bootstrap }, deadline.Token);
+                bootstrapComponent, "--es", "novora.usb", bootstrap }, deadline.Token);
             if (launch.Contains("Error:", StringComparison.OrdinalIgnoreCase) ||
                 launch.Contains("Error type", StringComparison.OrdinalIgnoreCase) ||
                 launch.Contains("Permission Denial", StringComparison.OrdinalIgnoreCase) ||
@@ -255,7 +275,7 @@ public partial class NLUIWindowMain
             if (!_closing && _automaticUsb.IsCurrent(serial, epoch))
                 AndroidControlStatus.Text = ex is FileNotFoundException
                     ? ex.Message
-                    : "No se completo USB automatico (" + ex.GetType().Name + "). Revisa la APK appcontrol y reintenta USB.";
+                    : "No se completo USB automatico (" + ex.GetType().Name + "). Revisa NOVORA-LINK y reintenta USB.";
         }
         finally { _androidControlPreparing = false; }
     }

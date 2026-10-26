@@ -2,7 +2,7 @@ namespace NOVORA.VisionEngine.Video;
 
 /// <summary>
 /// Conserva el último paquete de configuración H.264/H.265 y lo antepone
-/// al siguiente paquete multimedia, igual que packet_merger de scrcpy 4.1.
+/// al siguiente paquete multimedia del flujo de App Control.
 /// </summary>
 public sealed class VEVideoMerger
 {

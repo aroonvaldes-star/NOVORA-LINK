@@ -21,24 +21,30 @@ public sealed class NLServiceAndroidInstaller(Func<string[], CancellationToken, 
         CancellationToken cancellationToken = default)
     {
         ValidateSerial(serial);
-        if (package.PackageId != "com.novora.appcontrol" || package.VersionCode <= 0)
+        if (package.PackageId != "com.linkcontrol.novora" || package.VersionCode <= 0)
             throw new InvalidOperationException("El paquete no corresponde a NOVORA Android.");
         string devices = await Run(["devices", "-l"], cancellationToken);
         string[] rows = devices.Split('\n').Select(x => x.Trim()).Where(x => x.StartsWith(serial + " ", StringComparison.Ordinal)
             || x.StartsWith(serial + "\t", StringComparison.Ordinal)).ToArray();
         if (rows.Length != 1 || !Regex.IsMatch(rows[0], @"^" + Regex.Escape(serial) + @"\s+device(?:\s|$)", RegexOptions.CultureInvariant, ParseTimeout))
-            throw new InvalidOperationException("Selecciona un teléfono conectado por USB y autoriza la depuración USB. No se instalará por Wi-Fi.");
-        string usbSerial;
-        try { usbSerial = (await Run(["-d", "get-serialno"], cancellationToken)).Trim(); }
+            throw new InvalidOperationException("Selecciona un teléfono ADB conectado y autoriza su depuración.");
+        bool wifiAdb = serial.Contains(':', StringComparison.Ordinal);
+        string confirmedSerial;
+        try
+        {
+            confirmedSerial = (await Run(wifiAdb
+                ? ["-s", serial, "get-serialno"]
+                : ["-d", "get-serialno"], cancellationToken)).Trim();
+        }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            throw new InvalidOperationException("Conecta un solo teléfono por USB y autoriza su depuración antes de instalar NOVORA.", ex);
+            throw new InvalidOperationException("Conecta el teléfono ADB seleccionado y autoriza su depuración antes de instalar NOVORA.", ex);
         }
-        if (usbSerial != serial)
-            throw new InvalidOperationException("Conecta únicamente el teléfono seleccionado por USB. ADB no confirmó que ese sea el único dispositivo USB.");
+        if (confirmedSerial != serial)
+            throw new InvalidOperationException("ADB no confirmó la identidad del teléfono seleccionado.");
         string state = (await Device(serial, ["get-state"], cancellationToken)).Trim();
-        if (state != "device") throw new InvalidOperationException("El teléfono USB dejó de estar autorizado.");
+        if (state != "device") throw new InvalidOperationException("El teléfono ADB dejó de estar autorizado.");
         string sdkText = (await Device(serial, ["shell", "getprop", "ro.build.version.sdk"], cancellationToken)).Trim();
         if (!int.TryParse(sdkText, NumberStyles.None, CultureInfo.InvariantCulture, out int sdk) || sdk is < 1 or > 1000)
             throw new InvalidOperationException("No se pudo comprobar la versión de Android del teléfono.");
@@ -153,7 +159,11 @@ public sealed class NLServiceAndroidInstaller(Func<string[], CancellationToken, 
     }
     private static void ValidateSerial(string serial)
     {
-        if (string.IsNullOrWhiteSpace(serial) || serial.Length > 128 || !Regex.IsMatch(serial, @"^[A-Za-z0-9._-]+$", RegexOptions.CultureInvariant, ParseTimeout))
-            throw new InvalidOperationException("El identificador USB del teléfono no es válido.");
+        if (string.IsNullOrWhiteSpace(serial) || serial.Length > 128 ||
+            !Regex.IsMatch(serial, @"^[A-Za-z0-9._-]+(?::[0-9]{1,5})?$", RegexOptions.CultureInvariant, ParseTimeout) ||
+            (serial.Contains(':', StringComparison.Ordinal) &&
+             (!int.TryParse(serial[(serial.LastIndexOf(':') + 1)..], NumberStyles.None,
+                 CultureInfo.InvariantCulture, out int port) || port is < 1 or > 65535)))
+            throw new InvalidOperationException("El identificador ADB del teléfono no es válido.");
     }
 }

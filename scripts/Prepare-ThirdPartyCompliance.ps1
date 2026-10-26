@@ -16,6 +16,14 @@ function Get-VerifiedFile {
         [Parameter(Mandatory)][string]$ExpectedSha256
     )
 
+    if (Test-Path -LiteralPath $Destination -PathType Leaf) {
+        $existing = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($existing -eq $ExpectedSha256.ToLowerInvariant()) {
+            Write-Host "Fuente verificada en caché: $Destination"
+            return
+        }
+    }
+
     Write-Host "Descargando: $Uri"
     Invoke-WebRequest -Uri $Uri -OutFile $Destination -UseBasicParsing
 
@@ -29,32 +37,39 @@ function Get-VerifiedFile {
 
 function Copy-FirstMatchingLicense {
     param(
+        [Parameter(Mandatory)][string]$Archive,
         [Parameter(Mandatory)][string]$Root,
         [Parameter(Mandatory)][string[]]$Candidates,
         [Parameter(Mandatory)][string]$Destination
     )
 
+    $entries = & tar -tf $Archive
+    if ($LASTEXITCODE -ne 0) {
+        throw "No se pudo listar $Archive con tar."
+    }
     foreach ($candidate in $Candidates) {
-        $match = Get-ChildItem `
-            -Path $Root `
-            -Recurse `
-            -File `
-            -Filter $candidate `
-            -ErrorAction SilentlyContinue |
+        $match = $entries |
+            Where-Object { $_ -notmatch '(^|/)\.\.(/|$)' -and
+                [IO.Path]::GetFileName($_) -eq $candidate } |
             Select-Object -First 1
 
         if ($match) {
-            Copy-Item -LiteralPath $match.FullName -Destination $Destination -Force
+            & tar -xf $Archive -C $Root -- $match
+            if ($LASTEXITCODE -ne 0) {
+                throw "No se pudo extraer la licencia $match de $Archive."
+            }
+            Copy-Item -LiteralPath (Join-Path $Root $match.Replace('/', [IO.Path]::DirectorySeparatorChar)) -Destination $Destination -Force
             return
         }
     }
 
-    throw "No se encontró una licencia esperada en $Root. Candidatos: $($Candidates -join ', ')"
+    throw "No se encontró una licencia esperada en $Archive. Candidatos: $($Candidates -join ', ')"
 }
 
 $resolvedPublishDir = [IO.Path]::GetFullPath($PublishDir)
 $resolvedOutputDir = [IO.Path]::GetFullPath($OutputDir)
 $legalDir = Join-Path $resolvedPublishDir "Tools\Legal"
+$tcpIpLicense = Join-Path $PSScriptRoot "..\src\NOVORA\LinkEngine\Network\Native\NovoraRelay\tcp_ip-LICENSE.txt"
 
 if (-not (Test-Path -LiteralPath $resolvedPublishDir -PathType Container)) {
     throw "PublishDir no existe: $resolvedPublishDir"
@@ -62,6 +77,10 @@ if (-not (Test-Path -LiteralPath $resolvedPublishDir -PathType Container)) {
 
 New-Item -ItemType Directory -Force -Path $resolvedOutputDir | Out-Null
 New-Item -ItemType Directory -Force -Path $legalDir | Out-Null
+if (-not (Test-Path -LiteralPath $tcpIpLicense -PathType Leaf)) {
+    throw "Falta licencia del stack IP del relay: $tcpIpLicense"
+}
+Copy-Item -LiteralPath $tcpIpLicense -Destination (Join-Path $legalDir "tcp_ip-Apache-2.0-LICENSE.txt") -Force
 
 $dependencies = @(
     @{
@@ -70,18 +89,8 @@ $dependencies = @(
         Uri = "https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz"
         Sha256 = "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c"
         Archive = "ffmpeg-8.1.2.tar.xz"
-        LicenseCandidates = @("COPYING.LGPLv2.1")
-        LicenseOutput = "FFmpeg-LGPL-2.1.txt"
-        PublishSource = $true
-    },
-    @{
-        Name = "libusb"
-        Version = "1.0.30"
-        Uri = "https://github.com/libusb/libusb/archive/refs/tags/v1.0.30.tar.gz"
-        Sha256 = "2ae28adb0bb9558c86135c4e1c11b320b0805461e207a64a6e520a114094bf07"
-        Archive = "libusb-1.0.30.tar.gz"
-        LicenseCandidates = @("COPYING")
-        LicenseOutput = "libusb-COPYING.txt"
+        LicenseCandidates = @("COPYING.LGPLv3")
+        LicenseOutput = "FFmpeg-LGPL-3.0.txt"
         PublishSource = $true
     },
     @{
@@ -111,7 +120,8 @@ New-Item -ItemType Directory -Force -Path $temp | Out-Null
 
 $notes = New-Object System.Collections.Generic.List[string]
 $notes.Add("NOVORA-LINK third-party source and license bundle")
-$notes.Add("Generated from versions pinned by scrcpy v4.1 build scripts.")
+$notes.Add("NOVORA redistributes FFmpeg, SDL3 and dav1d (statically linked in FFmpeg) for video, audio and gamepad support.")
+$notes.Add("NOVORA LinkEngine relay uses the tcp_ip stack under Apache-2.0; its license is installed as Tools/Legal/tcp_ip-Apache-2.0-LICENSE.txt.")
 $notes.Add("")
 
 try {
@@ -126,13 +136,8 @@ try {
         $extractDir = Join-Path $temp ($dependency.Name + "-" + $dependency.Version)
         New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
 
-        & tar -xf $archivePath -C $extractDir
-
-        if ($LASTEXITCODE -ne 0) {
-            throw "No se pudo extraer $archivePath con tar."
-        }
-
         Copy-FirstMatchingLicense `
+            -Archive $archivePath `
             -Root $extractDir `
             -Candidates $dependency.LicenseCandidates `
             -Destination (Join-Path $legalDir $dependency.LicenseOutput)
@@ -148,23 +153,17 @@ try {
         }
     }
 
-    $notes.Add("Build references:")
-    $notes.Add("https://github.com/Genymobile/scrcpy/blob/v4.1/app/deps/ffmpeg.sh")
-    $notes.Add("https://github.com/Genymobile/scrcpy/blob/v4.1/app/deps/libusb.sh")
-    $notes.Add("https://github.com/Genymobile/scrcpy/blob/v4.1/app/deps/sdl.sh")
-    $notes.Add("https://github.com/Genymobile/scrcpy/blob/v4.1/app/deps/dav1d.sh")
-    $notes.Add("")
-    $notes.Add("The FFmpeg and libusb source archives are published beside the NOVORA installer because the corresponding DLLs are redistributed through the scrcpy Windows package.")
+    $notes.Add("The FFmpeg source archive is published beside the NOVORA installer for the redistributed FFmpeg DLLs.")
 
     $notesPath = Join-Path $resolvedOutputDir "THIRD-PARTY-SOURCE-NOTES.txt"
     $notes | Set-Content -Path $notesPath -Encoding UTF8
     Copy-Item -LiteralPath $notesPath -Destination (Join-Path $legalDir "THIRD-PARTY-SOURCE-NOTES.txt") -Force
 
     $requiredLegal = @(
-        "FFmpeg-LGPL-2.1.txt",
-        "libusb-COPYING.txt",
+        "FFmpeg-LGPL-3.0.txt",
         "SDL3-zlib-LICENSE.txt",
         "dav1d-BSD-2-Clause.txt",
+        "tcp_ip-Apache-2.0-LICENSE.txt",
         "THIRD-PARTY-SOURCE-NOTES.txt"
     )
 
@@ -175,7 +174,7 @@ try {
         }
     }
 
-    foreach ($sourceArchive in @("ffmpeg-8.1.2.tar.xz", "libusb-1.0.30.tar.gz")) {
+    foreach ($sourceArchive in @("ffmpeg-8.1.2.tar.xz")) {
         $path = Join-Path $resolvedOutputDir $sourceArchive
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
             throw "Fuente LGPL requerida ausente: $path"
