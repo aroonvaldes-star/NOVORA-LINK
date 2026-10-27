@@ -1,7 +1,8 @@
 # NOVORA — Marcas (documento legal)
 
-**Versión:** 1.0  
-**Vigente desde:** 21 de octubre de 2026  
+**Versión:** 1.1
+
+**Revisado:** 27 de octubre de 2026
 **Documento canónico:** [`/TRADEMARKS.md`](../TRADEMARKS.md)
 
 Las reglas completas de uso de marcas, logotipos e identidad visual se

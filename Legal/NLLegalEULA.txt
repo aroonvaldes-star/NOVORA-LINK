@@ -1,12 +1,12 @@
 ﻿NOVORA-LINK — CONTRATO DE LICENCIA DE USUARIO FINAL (EULA)
-Versión 1.0 — 21 de octubre de 2026
+Versión 1.1 — 27 de octubre de 2026
 
 Copyright (c) 2026 Aaron Yair Galarza Valdes.
 Todos los derechos reservados.
 
 IMPORTANTE: LEA ESTE CONTRATO ANTES DE INSTALAR O UTILIZAR EL SOFTWARE.
-AL INSTALAR, COPIAR O UTILIZAR NOVORA-LINK USTED ACEPTA ESTOS TÉRMINOS.
-SI NO ESTÁ DE ACUERDO, NO INSTALE NI UTILICE EL SOFTWARE.
+AL MARCAR LA ACEPTACIÓN EXPRESA QUE PRESENTA EL INSTALADOR, USTED ACEPTA
+ESTOS TÉRMINOS. SI NO ESTÁ DE ACUERDO, NO ACEPTE NI INSTALE EL SOFTWARE.
 
 ======================================================================
 1. PARTES Y OBJETO
@@ -17,9 +17,10 @@ SI NO ESTÁ DE ACUERDO, NO INSTALE NI UTILICE EL SOFTWARE.
     de escritorio, el instalador y la documentación que lo acompaña (el
     "Software").
 
-1.2 El Software incluye la aplicación Windows NOVORA-LINK y puede
-    interactuar con la aplicación Android LINK Control, que se rige por
-    sus propios términos.
+1.2 Este EULA regula la aplicación de escritorio NOVORA-LINK para Windows
+    y su instalador. El producto puede interactuar con LINK Control para
+    Android. La distribución Android debe presentar los términos y avisos
+    aplicables a esa versión; este EULA no los sustituye.
 
 1.3 Este EULA complementa la NOVORA-LINK PROPRIETARY LICENSE (NLPL)
     v1.1. Respecto del Software instalado, prevalece este EULA; respecto
@@ -70,6 +71,11 @@ h) Presentar compilaciones no oficiales como versiones oficiales.
 El estudio y la modificación local del código fuente se rigen por la NLPL
 v1.1, no por este EULA.
 
+Las restricciones de esta sección operan sólo en la medida permitida por
+la ley aplicable. No eliminan derechos irrenunciables ni excepciones legales
+que correspondan a la persona usuaria, incluida la copia de respaldo de un
+programa de computación cuando proceda conforme a la ley mexicana.
+
 ======================================================================
 4. REQUISITOS Y PERMISOS
 ======================================================================
@@ -90,11 +96,15 @@ v1.1, no por este EULA.
 5. PRIVACIDAD
 ======================================================================
 
-5.1 El tratamiento de datos personales se describe en `PRIVACY.md`, que
-    forma parte de este contrato por referencia.
+5.1 El tratamiento de datos personales se describe en `PRIVACY.md`. Ese
+    aviso informa sobre el tratamiento y no limita los derechos que concede
+    la legislación de protección de datos.
 
-5.2 El Software no requiere cuenta, no opera un servicio en la nube
-    propio y no envía telemetría a servidores del Titular.
+5.2 El Software no requiere cuenta ni configura un servicio NOVORA propio
+    para recopilar telemetría. Al consultar releases o iniciar pruebas de
+    conectividad o velocidad, se comunica con los servicios externos que
+    identifica `PRIVACY.md`; dichos servicios pueden recibir la IP pública
+    y metadatos técnicos de la solicitud.
 
 5.3 Las funciones de captura de pantalla, audio, portapapeles, archivos y
     VPN se ejecutan únicamente cuando el Usuario las solicita y con los
@@ -133,8 +143,11 @@ v1.1, no por este EULA.
 8. PROPIEDAD INTELECTUAL
 ======================================================================
 
-8.1 El Software es propiedad exclusiva del Titular y está protegido por la
-    legislación mexicana e internacional aplicable.
+8.1 Los derechos sobre los elementos originales que correspondan al
+    Titular se ejercen conforme a la Ley Federal del Derecho de Autor y
+    demás normas aplicables. Los componentes de terceros y las
+    contribuciones conservan los derechos y licencias que les correspondan.
+    Este EULA no afirma que una obra esté registrada ante autoridad alguna.
 
 8.2 Este EULA no transfiere la titularidad del Software. El Usuario recibe
     únicamente los derechos expresamente concedidos.
@@ -183,11 +196,14 @@ CONFORME A LA LEY IMPERATIVA APLICABLE.
 12. LEGISLACIÓN Y JURISDICCIÓN
 ======================================================================
 
-12.1 Este contrato se rige por las leyes de los Estados Unidos Mexicanos.
+12.1 Este contrato se interpreta conforme a las leyes de los Estados
+     Unidos Mexicanos, sin excluir las normas imperativas que resulten
+     aplicables en la jurisdicción de la persona usuaria.
 
-12.2 Las partes se someten a los tribunales competentes de los Estados
-     Unidos Mexicanos, sin perjuicio de las normas imperativas de
-     protección al consumidor que resulten aplicables.
+12.2 La jurisdicción se determinará por los tribunales competentes
+     conforme a las reglas aplicables. Nada en este contrato obliga a una
+     persona consumidora a renunciar a una jurisdicción, acción o protección
+     que le reconozca una norma imperativa aplicable.
 
 ======================================================================
 13. DISPOSICIONES GENERALES
@@ -198,8 +214,11 @@ CONFORME A LA LEY IMPERATIVA APLICABLE.
 
 13.2 La falta de ejercicio de un derecho no constituye renuncia.
 
-13.3 Este contrato, la NLPL v1.1, `PRIVACY.md`, `TRADEMARKS.md` y los
-     avisos de terceros constituyen el acuerdo completo sobre el Software.
+13.3 Este contrato, la NLPL v1.1, `TRADEMARKS.md` y las licencias de
+     terceros aplicables describen los términos de uso del Software. El
+     aviso `PRIVACY.md` informa sobre el tratamiento de datos y no es una
+     renuncia a derechos de privacidad ni una aceptación para finalidades
+     distintas de las allí descritas.
 
 13.4 La versión en español prevalece sobre cualquier traducción.
 

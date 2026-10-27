@@ -6,7 +6,7 @@
 
 NOVORA-LINK conecta un teléfono Android con una PC Windows para mostrar su pantalla, transportar datos y permitir la interacción autorizada. VisionEngine (VE) se ocupa de video y audio, LinkEngine (LE) del enlace y de la ruta de Internet por VPN, y Experience Input Engine (ExInEngine) de las entradas. Cada resultado depende del dispositivo, el transporte, los permisos y el estado de la sesión.
 
-Esta descripción corresponde al árbol local de código revisado el 21 de octubre de 2026. LINK Control declara `versionCode 116` y `versionName 1.4.116`; el proyecto de escritorio declara la serie `1.4.0`. Estos datos de fuente no confirman la versión instalada en un teléfono, el contenido de un instalador ni los activos publicados.
+Esta descripción corresponde al árbol local de código revisado el 27 de octubre de 2026. LINK Control declara `versionCode 120` y `versionName 1.4.120`; el proyecto de escritorio declara la serie `1.4`. Estos datos de fuente no confirman la versión instalada en un teléfono, el contenido de un instalador ni los activos publicados.
 
 En Android, LINK Control incluye un flujo de bienvenida y selección de conexión USB o LAN. Una pantalla de motores presenta acciones para VisionEngine, LinkEngine y ExInEngine según la sesión y las capacidades disponibles. El código también conserva páginas de ajustes y diagnóstico; su disponibilidad depende del flujo de la interfaz. La presencia de estos controles en el código no acredita una prueba en el teléfono.
 
@@ -98,6 +98,7 @@ NOVORA-LINK se distribuye bajo la **NOVORA-LINK PROPRIETARY LICENSE (NLPL) v1.1*
 - [LICENSE.en.md](LICENSE.en.md) — traducción de referencia al inglés.
 - [NOTICE](NOTICE) — atribuciones y avisos de terceros.
 - [PRIVACY.md](PRIVACY.md) — aviso de privacidad.
+- [Legal/REVISION-LEGAL-2026-10.md](Legal/REVISION-LEGAL-2026-10.md) — fuentes legales revisadas y pendientes documentales antes de publicar.
 - [SECURITY.md](SECURITY.md) — reporte de vulnerabilidades.
 - [TRADEMARKS.md](TRADEMARKS.md) — uso de marcas e identidad visual.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contribuciones y licencia de aportes.

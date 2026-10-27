@@ -1,7 +1,8 @@
 # Marcas y identidad visual de NOVORA-LINK
 
-**Titular:** Aaron Yair Galarza Valdes  
-**Vigente desde:** 21 de octubre de 2026
+**Titular:** Aaron Yair Galarza Valdes
+
+**Revisado:** 27 de octubre de 2026
 
 ## 1. Signos distintivos
 
@@ -19,6 +20,10 @@ Este documento regula el uso de los siguientes signos:
 Salvo que se indique expresamente lo contrario, el Titular no declara que
 estos signos estén registrados ante autoridad alguna. El uso previo y la
 notoriedad, en su caso, se invocan conforme a la legislación aplicable.
+En México, la referencia normativa vigente para signos distintivos es la
+[Ley Federal de Protección a la Propiedad Industrial](https://www.diputados.gob.mx/LeyesBiblio/pdf/LFPPI.pdf).
+Este documento no prueba titularidad, registro, prioridad ni notoriedad de
+ningún signo concreto; verifique esos hechos antes de afirmarlos.
 
 ## 2. Usos permitidos
 

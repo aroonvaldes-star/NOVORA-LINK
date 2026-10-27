@@ -1,6 +1,7 @@
 # NOVORA — Avisos de Terceros
 
-**Actualizado:** 21 de octubre de 2026  
+**Actualizado:** 27 de octubre de 2026
+
 **Alcance:** árbol de `NOVORA-LINK` 1.4 y binarios distribuidos por el
 instalador.
 
@@ -74,9 +75,9 @@ LGPLv3 (`--enable-version3`, sin `--enable-gpl`).
 Medidas de cumplimiento:
 
 - Texto íntegro de la LGPL-3.0 en `Legal/LICENSES/LGPL-3.0.txt` y en
-  `src/NOVORA/Tools/FFmpeg-LICENSE.txt`.
+  `src/NOVORA LINK/Tools/FFmpeg-LICENSE.txt`.
 - Manifiesto y configuración del build en
-  `src/NOVORA/Tools/FFmpeg-build.json`.
+  `src/NOVORA LINK/Tools/FFmpeg-build.json`.
 - Código fuente correspondiente incluido en el instalador como
   `Tools\Legal\Sources\ffmpeg-8.1.2.tar.xz`.
 - Fuente upstream:
@@ -105,7 +106,7 @@ disponibles en https://code.videolan.org/videolan/dav1d.
 El build de FFmpeg habilita otras bibliotecas estáticas (por ejemplo libaom,
 rav1e, SVT-AV1, libvpx, libvorbis, libopus). Sus avisos deben conservarse
 conforme a sus licencias; el manifiesto completo del build y las recetas del
-proveedor están en `src/NOVORA/Tools/FFmpeg-build.json` y
+proveedor están en `src/NOVORA LINK/Tools/FFmpeg-build.json` y
 https://github.com/BtbN/FFmpeg-Builds. Este inventario debe ampliarse si se
 distribuye una compilación con dependencias adicionales.
 
@@ -123,14 +124,14 @@ distribuye una compilación con dependencias adicionales.
 
 ```powershell
 # Paquetes NuGet directos y transitivos
-dotnet list src/NOVORA/NLProjectDesktop.csproj package --include-transitive
+dotnet list "src/NOVORA LINK/NLProjectDesktop.csproj" package --include-transitive
 
 # Árbol de dependencias Rust
 cargo tree --manifest-path `
-  src/NOVORA/LinkEngine/Network/Native/NovoraRelay/Cargo.toml
+  "src/NOVORA LINK/LinkEngine/Network/Native/NovoraRelay/Cargo.toml"
 
 # Binarios incluidos
-Get-ChildItem src/NOVORA/Tools -Recurse -File |
+Get-ChildItem "src/NOVORA LINK/Tools" -Recurse -File |
   Where-Object { $_.Extension -in '.dll', '.exe' } |
   Select-Object FullName, Length
 ```

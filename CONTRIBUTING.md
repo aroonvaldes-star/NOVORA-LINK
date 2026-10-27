@@ -84,37 +84,37 @@ el benchmark que requieren entradas externas.
 6. Atienda la revisión. El Titular puede rechazar o posponer un cambio sin
    obligación de justificarlo.
 
-## 6. Licencia de las contribuciones
+## 6. Derechos sobre las contribuciones
 
-Al enviar una Contribución (pull request, parche, issue con código o
-cualquier otro material), usted:
+Enviar una contribución —incluidos pull requests, parches, issues con
+código, documentación o diseños— no transfiere su titularidad ni concede
+por sí solo al Titular una licencia de explotación más amplia que los
+permisos necesarios para alojar y revisar la propuesta en la plataforma
+utilizada.
 
-a) Declara que es autor del material o que tiene derecho suficiente para
-   conceder la licencia siguiente.
+Antes de incorporar material protegido al Software, las partes deberán
+formalizar por escrito un acuerdo separado que identifique la contribución,
+los derechos patrimoniales autorizados o transmitidos, su alcance,
+modalidad, territorio, vigencia y remuneración o participación aplicable,
+además de las condiciones de atribución y modificación. No se incorporará
+la contribución mientras ese acuerdo no esté firmado por ambas partes.
 
-b) Conserva la titularidad de su Contribución.
+La autoría y los derechos morales permanecen con la persona autora en los
+términos de la ley aplicable; este documento no pretende cederlos ni
+renunciar a ellos. Cualquier autorización para modificar una obra deberá
+constar en el acuerdo escrito y respetar los derechos inderogables.
 
-c) Concede al Titular una licencia mundial, perpetua, irrevocable, gratuita,
-   transferible y sublicenciable para reproducir, modificar, adaptar,
-   compilar, distribuir, comunicar públicamente y explotar la Contribución,
-   sola o integrada en el Software, por cualquier medio y sin limitación de
-   territorio.
+La persona que envía material declara que es su autora o que cuenta con
+autorización suficiente para proponerlo. Si un empleador, institución,
+cliente u otra persona tiene derechos sobre el material, obtenga la
+autorización necesaria antes de enviarlo. Un DCO acredita la procedencia
+de una contribución; no sustituye el acuerdo escrito sobre derechos de
+explotación.
 
-d) Concede al Titular el derecho a ejercer los derechos morales sobre la
-   Contribución en la medida permitida por la ley aplicable.
-
-e) Acepta que el Titular no está obligado a aceptar, incorporar, mantener ni
-   distribuir la Contribución.
-
-f) Acepta que la Contribución queda sujeta a la NLPL v1.1 y a este
-   documento.
-
-Si su empleador o una institución tiene derechos sobre su trabajo, obtenga
-la autorización correspondiente antes de contribuir.
-
-El Titular podrá solicitar un acuerdo de licencia o cesión adicional (CLA)
-antes de aceptar una Contribución. La firma del DCO no sustituye, por sí
-sola, ese acuerdo cuando resulte necesario.
+El Titular no está obligado a aceptar, incorporar, mantener ni distribuir
+una propuesta. Las aportaciones ya incorporadas y los acuerdos firmados
+antes de esta revisión deben analizarse según sus propios términos; este
+cambio no los modifica retroactivamente.
 
 ## 7. Conducta
 

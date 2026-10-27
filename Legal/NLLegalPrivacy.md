@@ -1,39 +1,22 @@
-# NOVORA — Aviso de Privacidad (documento legal)
+# Aviso de privacidad — referencia para distribución
 
-**Versión:** 1.0  
-**Vigente desde:** 21 de octubre de 2026  
-**Documento canónico:** [`/PRIVACY.md`](../PRIVACY.md)
+**Versión referenciada:** 1.1
 
-El texto completo y vigente del Aviso de Privacidad de NOVORA-LINK se
-encuentra en la raíz del repositorio:
+**Revisado:** 27 de octubre de 2026
+**Documento integral:** [`../PRIVACY.md`](../PRIVACY.md)
 
-- [`PRIVACY.md`](../PRIVACY.md)
+Este archivo no duplica el aviso integral. La versión completa está en la raíz del repositorio y describe el tratamiento observado en NOVORA-LINK para Windows y LINK Control para Android.
 
-Este archivo existe para que la carpeta `Legal/` sea autosuficiente en la
-distribución y para identificar la versión aplicable. **No duplica el
-texto** para evitar divergencias entre copias.
+## Resumen del tratamiento
 
-## Resumen
+- **Responsable identificado:** Aaron Yair Galarza Valdes; contacto: `aroonvaldes@gmail.com`.
+- **Datos tratados:** conexión y confianza entre dispositivos, versiones y configuración local; contenido de pantalla, audio, portapapeles o archivos sólo durante las funciones que el usuario inicia y autoriza; diagnósticos locales y mediciones.
+- **Comunicaciones externas observadas:** GitHub para releases/actualizaciones; Google durante la calibración experimental de estabilidad; Cloudflare durante la prueba de velocidad de Internet. En los detalles, frecuencia, categorías y avisos de terceros, consultar [`../PRIVACY.md`](../PRIVACY.md).
+- **Derechos:** solicitudes ARCO, revocación y limitación conforme a la ley aplicable, por `aroonvaldes@gmail.com`.
+- **Autoridad mexicana:** el procedimiento de protección de derechos de la LFPDPPP vigente corresponde a la Secretaría Anticorrupción y Buen Gobierno; no se debe reutilizar la referencia anterior al INAI.
 
-- **Responsable:** Aaron Yair Galarza Valdes.
-- **Contacto:** aroonvaldes@gmail.com.
-- **Datos:** dispositivo, conexión, versiones, PCs de confianza y el
-  contenido que el usuario decide compartir (pantalla, audio, portapapeles,
-  archivos, entradas).
-- **Finalidad:** establecer la sesión, transmitir contenido, transferir
-  archivos, proporcionar la VPN y verificar actualizaciones.
-- **Transferencias:** GitHub (actualizaciones), Google (prueba de
-  conectividad) y Cloudflare (speed test), solo en los momentos descritos.
-- **Telemetría:** NOVORA-LINK no envía telemetría a servidores del Titular.
-- **Derechos:** acceso, rectificación, cancelación y oposición (ARCO) por
-  correo electrónico.
+## Pendiente para publicar
 
-## Documentos relacionados
+La LFPDPPP exige que el aviso identifique el domicilio del responsable. El dato no consta en el repositorio y debe completarse antes de usar el aviso como versión final. También falta confirmar la presentación del aviso simplificado en la interfaz y la revisión de transferencias/proveedores. Véase [`REVISION-LEGAL-2026-10.md`](REVISION-LEGAL-2026-10.md).
 
-- [`PRIVACY.md`](../PRIVACY.md) — texto completo.
-- [`SECURITY.md`](../SECURITY.md) — reporte de vulnerabilidades.
-- [`LICENSE`](../LICENSE) — licencia del Software.
-- [`Legal/NLLegalEULA.txt`](NLLegalEULA.txt) — contrato de usuario final.
-
-En caso de discrepancia entre este resumen y `PRIVACY.md`, prevalece
-`PRIVACY.md`.
+El resumen no reemplaza el aviso integral, no es consentimiento y no amplía las finalidades descritas en él.

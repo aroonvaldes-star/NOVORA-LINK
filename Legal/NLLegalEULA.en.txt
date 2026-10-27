@@ -1,12 +1,12 @@
 NOVORA-LINK — END USER LICENSE AGREEMENT (EULA)
-Version 1.0 — October 21, 2026
+Version 1.1 — October 27, 2026
 
 Copyright (c) 2026 Aaron Yair Galarza Valdes.
 All rights reserved.
 
 IMPORTANT: READ THIS AGREEMENT BEFORE INSTALLING OR USING THE SOFTWARE.
-BY INSTALLING, COPYING OR USING NOVORA-LINK YOU ACCEPT THESE TERMS.
-IF YOU DO NOT AGREE, DO NOT INSTALL OR USE THE SOFTWARE.
+BY EXPRESSLY ACCEPTING THE TERMS SHOWN BY THE INSTALLER, YOU AGREE TO
+THESE TERMS. IF YOU DO NOT AGREE, DO NOT ACCEPT OR INSTALL THE SOFTWARE.
 
 This English text is a translation provided for convenience only. In case
 of discrepancy, the Spanish version in `Legal/NLLegalEULA.txt` prevails.
@@ -19,9 +19,10 @@ of discrepancy, the Spanish version in `Legal/NLLegalEULA.txt` prevails.
     Galarza Valdes ("Licensor") regarding NOVORA-LINK, its desktop
     components, installer and accompanying documentation (the "Software").
 
-1.2 The Software includes the NOVORA-LINK Windows application and may
-    interoperate with the LINK Control Android application, which is
-    governed by its own terms.
+1.2 This EULA governs the NOVORA-LINK Windows desktop application and its
+    installer. The product may interoperate with LINK Control for Android.
+    The Android distribution must present the terms and notices applicable
+    to that version; this EULA does not replace them.
 
 1.3 This EULA supplements the NOVORA-LINK PROPRIETARY LICENSE (NLPL)
     v1.1. For the installed Software, this EULA prevails; for the source
@@ -70,6 +71,11 @@ h) Present unofficial builds as official versions.
 Study and local modification of the source code are governed by the NLPL
 v1.1, not by this EULA.
 
+The restrictions in this section apply only to the extent permitted by
+applicable law. They do not remove non-waivable user rights or legal
+exceptions, including a backup copy of a computer program where permitted
+by Mexican law.
+
 ======================================================================
 4. REQUIREMENTS AND PERMISSIONS
 ======================================================================
@@ -90,11 +96,15 @@ v1.1, not by this EULA.
 5. PRIVACY
 ======================================================================
 
-5.1 The processing of personal data is described in `PRIVACY.md`, which is
-    incorporated into this agreement by reference.
+5.1 The processing of personal data is described in `PRIVACY.md`. That
+    notice informs users about processing and does not limit rights granted
+    by data protection law.
 
-5.2 The Software requires no account, operates no proprietary cloud
-    service and sends no telemetry to the Licensor's servers.
+5.2 The Software requires no account and does not configure a proprietary
+    NOVORA service to collect telemetry. When checking releases or starting
+    connectivity or speed tests, it communicates with the external
+    services identified in `PRIVACY.md`; those services may receive the
+    public IP address and technical request metadata.
 
 5.3 Screen capture, audio, clipboard, file transfer and VPN features run
     only when requested by the User and with the corresponding permissions.
@@ -130,8 +140,11 @@ v1.1, not by this EULA.
 8. INTELLECTUAL PROPERTY
 ======================================================================
 
-8.1 The Software is the exclusive property of the Licensor and is
-    protected by applicable Mexican and international law.
+8.1 Rights in original elements belonging to the Licensor are exercised
+    under the Federal Copyright Law of Mexico and other applicable rules.
+    Third-party components and contributions retain their respective
+    rights and licenses. This EULA does not claim that any work is
+    registered with an authority.
 
 8.2 This EULA does not transfer ownership of the Software. The User
     receives only the rights expressly granted.
@@ -181,11 +194,14 @@ MANDATORY APPLICABLE LAW.
 12. GOVERNING LAW AND JURISDICTION
 ======================================================================
 
-12.1 This agreement is governed by the laws of the United Mexican States.
+12.1 This agreement is interpreted under the laws of the United Mexican
+     States, without excluding mandatory rules applicable in the User's
+     jurisdiction.
 
-12.2 The parties submit to the competent courts of the United Mexican
-     States, without prejudice to mandatory consumer protection rules that
-     may apply.
+12.2 Jurisdiction will be determined by the competent courts under the
+     applicable rules. Nothing in this agreement requires a consumer to
+     waive any jurisdiction, action or protection granted by mandatory
+     applicable law.
 
 ======================================================================
 13. GENERAL PROVISIONS
@@ -195,9 +211,10 @@ MANDATORY APPLICABLE LAW.
 
 13.2 Failure to exercise a right does not constitute a waiver.
 
-13.3 This agreement, the NLPL v1.1, `PRIVACY.md`, `TRADEMARKS.md` and the
-     third-party notices constitute the entire agreement regarding the
-     Software.
+13.3 This agreement, the NLPL v1.1, `TRADEMARKS.md` and applicable
+     third-party licenses describe the Software terms of use. `PRIVACY.md`
+     informs users about data processing and is not a waiver of privacy
+     rights or consent to purposes beyond those described there.
 
 13.4 The Spanish version prevails over any translation.
 

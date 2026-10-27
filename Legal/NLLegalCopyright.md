@@ -1,12 +1,16 @@
 # NOVORA — Aviso de Copyright
 
-**Copyright © 2026 Aaron Yair Galarza Valdes. Todos los derechos reservados.**
+**Copyright © 2026 Aaron Yair Galarza Valdes. Todos los derechos reservados, en la medida que correspondan a los elementos originales identificados.**
+
+**Revisado:** 27 de octubre de 2026
 
 ## 1. Titularidad
 
-NOVORA, NOVORA-LINK y LINK Control son proyectos propiedad exclusiva de
-Aaron Yair Galarza Valdes, salvo los componentes de terceros expresamente
-identificados.
+Aaron Yair Galarza Valdes identifica como propios los derechos de autor
+que le correspondan sobre elementos originales de NOVORA, NOVORA-LINK y
+LINK Control, conforme a los avisos, historial y acuerdos aplicables. Este
+repositorio también contiene componentes de terceros y puede contener
+contribuciones de otras personas, que no se reclaman como propias.
 
 Este aviso cubre, sin limitación:
 
@@ -31,10 +35,11 @@ No se reclaman como obra original de NOVORA:
 
 ## 3. Contribuciones
 
-Las contribuciones aceptadas se incorporan al Software mediante la
-concesión de licencia descrita en `CONTRIBUTING.md`. El colaborador
-conserva la autoría de su aporte, pero concede al Titular los derechos
-necesarios para integrarlo, distribuirlo y explotarlo.
+Las contribuciones conservan su autoría y derechos conforme a la ley y a
+los acuerdos aplicables. Para nuevas contribuciones, `CONTRIBUTING.md`
+requiere un acuerdo escrito separado que determine los derechos de
+explotación autorizados y sus condiciones antes de incorporar el material.
+Este aviso no acredita que exista ese acuerdo para cada aporte previo.
 
 ## 4. Licencia
 
@@ -51,15 +56,21 @@ El proyecto conserva el reconocimiento de componentes usados en versiones
 anteriores, aunque ya no se distribuyan, en
 `Legal/NLLegalAcknowledgements.md`.
 
-## 6. Protección legal
+## 6. Protección legal y registros
 
-Los derechos se encuentran protegidos por la Ley Federal del Derecho de
-Autor de México, la Ley de la Propiedad Industrial en lo relativo a signos
-distintivos, los tratados internacionales aplicables —incluido el Convenio
-de Berna— y demás legislación que resulte aplicable.
+Los derechos de autor se rigen, entre otras normas aplicables, por la
+[Ley Federal del Derecho de Autor de México](https://www.diputados.gob.mx/LeyesBiblio/pdf/LFDA.pdf).
+Los signos distintivos se rigen, entre otras normas, por la
+[Ley Federal de Protección a la Propiedad Industrial](https://www.diputados.gob.mx/LeyesBiblio/pdf/LFPPI.pdf).
+También pueden ser aplicables los tratados internacionales, incluido el
+Convenio de Berna, conforme a sus ámbitos y condiciones.
 
-La publicación del código fuente no constituye renuncia, cesión ni
-licencia implícita sobre los derechos del Titular.
+La publicación del código fuente no constituye una renuncia ni una cesión
+de los derechos que efectivamente correspondan al Titular, más allá de los
+permisos expresamente concedidos en las licencias aplicables. Este aviso
+no afirma que una obra, marca o activo esté inscrito o registrado ante
+INDAUTOR, IMPI u otra autoridad; esa condición sólo debe afirmarse cuando
+se compruebe documentalmente.
 
 ## 7. Contacto
 
