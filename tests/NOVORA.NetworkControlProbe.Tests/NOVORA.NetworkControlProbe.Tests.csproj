@@ -1,26 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/NOVORA/Contracts/Input/NLInputOutput.cs" Link="NLInputOutput.cs" />
-    <Compile Include="../../src/NOVORA/Control/NLControlProtocol.cs" Link="NLControlProtocol.cs" />
-    <Compile Include="../../src/NOVORA/Control/NLControlNetworkPolicy.cs" Link="NLControlNetworkPolicy.cs" />
-    <Compile Include="../../src/NOVORA/Control/NLControlCapturePolicy.cs" Link="NLControlCapturePolicy.cs" />
-    <Compile Include="../../src/NOVORA/Control/NLControlTrustedPc.cs" Link="NLControlTrustedPc.cs" />
-    <Compile Include="../../src/NOVORA/Control/NLControlLanInvitation.cs" Link="NLControlLanInvitation.cs" />
-    <Compile Include="../../src/NOVORA/Control/NLControlLanDiscovery.cs" Link="NLControlLanDiscovery.cs" />
-    <Compile Include="../../src/NOVORA/Control/NLControlLanPeerGuard.cs" Link="NLControlLanPeerGuard.cs" />
-    <Compile Include="../../src/NOVORA/VisionEngine/Control/VEControlManager.cs" Link="VEControlManager.cs" />
-    <Compile Include="../../src/NOVORA/VisionEngine/Control/VEControlMessage.cs" Link="VEControlMessage.cs" />
-    <Compile Include="../../src/NOVORA/VisionEngine/Control/VEControlType.cs" Link="VEControlType.cs" />
-    <Compile Include="../../src/NOVORA/VisionEngine/Control/VEControlActionKey.cs" Link="VEControlActionKey.cs" />
-    <Compile Include="../../src/NOVORA/VisionEngine/Control/VEControlActionMotion.cs" Link="VEControlActionMotion.cs" />
-    <Compile Include="../../src/NOVORA/VisionEngine/Control/VEControlPosition.cs" Link="VEControlPosition.cs" />
-    <Compile Include="../../src/NOVORA/VisionEngine/Control/VEControlCopy.cs" Link="VEControlCopy.cs" />
-    <Compile Include="../../src/NOVORA/VisionEngine/Control/VEControlStatus.cs" Link="VEControlStatus.cs" />
-    <Compile Include="../../src/NOVORA/VisionEngine/Control/VEControlStats.cs" Link="VEControlStats.cs" />
-    <Compile Include="../../src/NOVORA/VisionEngine/Control/VEControlStates.cs" Link="VEControlStates.cs" />
-    <Compile Include="../../src/NOVORA/VisionEngine/Transport/VETransportStates.cs" Link="VETransportStates.cs" />
-    <Compile Include="../../src/NOVORA/Network/NLNetworkControlProbe.cs" Link="NLNetworkControlProbe.cs" Condition="Exists('../../src/NOVORA/Network/NLNetworkControlProbe.cs')" />
+    <Compile Include="../../src/NOVORA LINK/Contracts/Input/NLInputOutput.cs" Link="NLInputOutput.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlProtocol.cs" Link="NLControlProtocol.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlNetworkPolicy.cs" Link="NLControlNetworkPolicy.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlCapturePolicy.cs" Link="NLControlCapturePolicy.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlTrustedPc.cs" Link="NLControlTrustedPc.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlLanInvitation.cs" Link="NLControlLanInvitation.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlLanDiscovery.cs" Link="NLControlLanDiscovery.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlLanPeerGuard.cs" Link="NLControlLanPeerGuard.cs" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Control/VEControlManager.cs" Link="VEControlManager.cs" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Control/VEControlMessage.cs" Link="VEControlMessage.cs" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Control/VEControlType.cs" Link="VEControlType.cs" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Control/VEControlActionKey.cs" Link="VEControlActionKey.cs" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Control/VEControlActionMotion.cs" Link="VEControlActionMotion.cs" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Control/VEControlPosition.cs" Link="VEControlPosition.cs" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Control/VEControlCopy.cs" Link="VEControlCopy.cs" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Control/VEControlStatus.cs" Link="VEControlStatus.cs" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Control/VEControlStats.cs" Link="VEControlStats.cs" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Control/VEControlStates.cs" Link="VEControlStates.cs" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Transport/VETransportStates.cs" Link="VETransportStates.cs" />
+    <Compile Include="../../src/NOVORA LINK/Network/NLNetworkControlProbe.cs" Link="NLNetworkControlProbe.cs" Condition="Exists('../../src/NOVORA LINK/Network/NLNetworkControlProbe.cs')" />
     <Compile Include="../NOVORA.NetworkPolicy.Tests/ManualClock.cs" Link="ManualClock.cs" />
   </ItemGroup>
 </Project>

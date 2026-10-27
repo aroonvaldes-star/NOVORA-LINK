@@ -15,6 +15,7 @@ internal sealed class NLAndroidUITriggerCalibrationView : View
     private float _leftValue, _rightValue;
     private int _leftProgress, _rightProgress, _overallProgress;
     private string _phase = string.Empty;
+    private long _sequence = -1;
 
     internal NLAndroidUITriggerCalibrationView(Context context) : base(context)
     {
@@ -26,6 +27,12 @@ internal sealed class NLAndroidUITriggerCalibrationView : View
 
     internal void UpdateVE(NLControlExIn? value)
     {
+        long sequence = value?.Telemetry?.Sequence ?? -1;
+        if (sequence >= 0)
+        {
+            if (sequence <= _sequence) return;
+            _sequence = sequence;
+        }
         _snapshot = value;
         var progress = value?.CalibrationProgress;
         _leftProgress = ClampPercent(progress?.LeftTrigger ?? 0);

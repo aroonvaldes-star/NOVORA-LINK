@@ -24,8 +24,11 @@ internal sealed class NLAndroidUIControllerLiveView : View
     internal void UpdateVE(NLControlExIn? snapshot)
     {
         long sequence = snapshot?.Telemetry?.Sequence ?? -1;
-        if (sequence >= 0 && sequence == _sequence) return;
-        _sequence = sequence;
+        if (sequence >= 0)
+        {
+            if (sequence <= _sequence) return;
+            _sequence = sequence;
+        }
         _snapshot = snapshot;
         PostInvalidateOnAnimation();
     }

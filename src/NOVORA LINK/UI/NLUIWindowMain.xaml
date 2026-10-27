@@ -66,7 +66,7 @@
                                  Style="{StaticResource NvWindowButtonStyle}"
                                  Click="Minimize_Click"/>
                         <Button x:Name="MaximizeRestoreButton14"
-                                Content="□"
+                                Content="🔝"
                                 FontFamily="Segoe MDL2 Assets"
                                 AutomationProperties.Name="Maximizar NOVORA"
                                 ToolTip="Maximizar"
@@ -89,37 +89,37 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Button x:Name="NavHome14" Tag="Home" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}" MinWidth="112">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock Text="⌂" FontSize="20" Margin="0,0,8,0"/>
+                            <TextBlock Text="&#xE80F;" Style="{StaticResource NvNavigationIconStyle}"/>
                             <TextBlock Text="Inicio" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button x:Name="NavScreen14" Tag="Screen" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}" MinWidth="144">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="◉" FontSize="16" Margin="0,0,8,0"/>
+                            <TextBlock Text="&#xE714;" Style="{StaticResource NvNavigationIconStyle}"/>
                             <TextBlock Text="VisionEngine" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button x:Name="NavNetwork14" Tag="Network" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}" MinWidth="144" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock Text="⌁" FontSize="19" Margin="0,0,8,0"/>
+                            <TextBlock Text="&#xE774;" Style="{StaticResource NvNavigationIconStyle}"/>
                             <TextBlock Text="LinkEngine" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button x:Name="NavGameInput14" Tag="GameInput" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}" MinWidth="144">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock Text="＋" FontSize="18" Margin="0,0,8,0"/>
+                            <TextBlock Text="&#xE7FC;" Style="{StaticResource NvNavigationIconStyle}"/>
                             <TextBlock Text="ExInEngine" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button x:Name="NavIntegration14" Tag="Integration" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}" MinWidth="150">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock Text="↔" FontSize="20" Margin="0,0,8,0"/>
+                            <TextBlock Text="&#xE895;" Style="{StaticResource NvNavigationIconStyle}"/>
                             <TextBlock Text="Integración" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button x:Name="NavSettings14" Tag="Settings" Click="NavigationButton_Click" Style="{StaticResource NvNavButtonStyle}" MinWidth="164">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock Text="⚙" FontSize="17" Margin="0,0,8,0"/>
+                            <TextBlock Text="&#xE713;" Style="{StaticResource NvNavigationIconStyle}"/>
                             <TextBlock Text="Configuración" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -169,8 +169,10 @@
                 <!-- HOME -->
                 <ScrollViewer x:Name="HomePage14" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
-                        <TextBlock Text="Inicio" Style="{StaticResource NvPageTitleStyle}" Margin="0,0,0,18"/>
-                        <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,14">
+                        <TextBlock Text="CENTRO DE SESIÓN" Style="{StaticResource NvEyebrowStyle}" Margin="0,0,0,5"/>
+                        <TextBlock Text="Inicio" Style="{StaticResource NvPageTitleStyle}"/>
+                        <TextBlock Text="Prepara tu conexión y abre el motor que necesitas para esta sesión." Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,20"/>
+                        <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,16">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -178,13 +180,19 @@
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Margin="0,0,18,0">
+                                    <TextBlock Text="CONEXIÓN DEL TELÉFONO" Style="{StaticResource NvEyebrowStyle}" Margin="0,0,0,6"/>
                                     <TextBlock Text="Conecta tu teléfono" Style="{StaticResource NvSectionTitleStyle}"/>
-                                    <TextBlock Text="Usa un cable USB o conéctalo por Wi-Fi. Después podrás ver su pantalla en esta PC." Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,8" TextWrapping="Wrap"/>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Ellipse Width="9" Height="9" Fill="{DynamicResource GreenBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding ConnectionStatus}" Style="{StaticResource NvCaptionStyle}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Selecciona USB o Wi-Fi. Cuando esté listo, abre la pantalla del teléfono desde esta PC." Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,12" TextWrapping="Wrap"/>
+                                    <Border Style="{StaticResource NvStatusPillStyle}" HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="8" Height="8" Fill="{DynamicResource GreenBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding ConnectionStatus}" Foreground="{DynamicResource TextBrush}" FontSize="13" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                        <TextBlock Text="Dispositivo:" Style="{StaticResource NvCaptionStyle}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding DeviceDisplayName}" Foreground="{DynamicResource BlueBrush}" FontWeight="SemiBold" Margin="7,0,0,0" VerticalAlignment="Center"/>
                                     </StackPanel>
-                                    <TextBlock Text="{Binding DeviceDisplayName}" Foreground="{DynamicResource BlueBrush}" FontWeight="SemiBold" Margin="0,8,0,0"/>
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -213,7 +221,8 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
-                        <UniformGrid Columns="3" Margin="0,8,0,0">
+                        <TextBlock Text="MOTORES DISPONIBLES" Style="{StaticResource NvEyebrowStyle}" Margin="0,2,0,10"/>
+                        <UniformGrid Columns="3">
                             <Border Style="{StaticResource NvCardStyle}" Margin="0,0,12,0">
                                 <Grid>
                                     <Grid.RowDefinitions>

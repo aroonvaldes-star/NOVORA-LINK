@@ -6,9 +6,9 @@ static void Check(bool condition, string message)
 { if (!condition) throw new InvalidOperationException(message); }
 
 var root = new DirectoryInfo(AppContext.BaseDirectory);
-while (root is not null && !File.Exists(Path.Combine(root.FullName, "src/NOVORA/UI/NLUIWindowMain.xaml"))) root = root.Parent;
+while (root is not null && !File.Exists(Path.Combine(root.FullName, "src/NOVORA LINK/UI/NLUIWindowMain.xaml"))) root = root.Parent;
 Check(root is not null, "Checkout not found.");
-string xaml = File.ReadAllText(Path.Combine(root!.FullName, "src/NOVORA/UI/NLUIWindowMain.xaml"));
+string xaml = File.ReadAllText(Path.Combine(root!.FullName, "src/NOVORA LINK/UI/NLUIWindowMain.xaml"));
 Check(!xaml.Contains("AndroidInstallButton") && !xaml.Contains("COMPROBAR APP"), "FAIL: launcher still exposes the Android installer.");
 Check(XDocument.Parse(xaml).Descendants().Any(e => e.Name.LocalName == "Image" && (string?)e.Attribute("{http://schemas.microsoft.com/winfx/2006/xaml}Name") == "AndroidDownloadQrImage14"),
     "FAIL: public APK QR is missing.");
@@ -29,6 +29,6 @@ Check(select.Invoke(null, [JsonSerializer.Serialize(new[] { Release("uploading",
 Check(select.Invoke(null, ["[]"]) is null, "Missing publication must not produce a QR target.");
 byte[] png = (byte[])type.GetMethod("GenerateQrCode")!.Invoke(null, [selected])!;
 Check(png.Length > 100 && png.AsSpan(0, 8).SequenceEqual(new byte[] { 137,80,78,71,13,10,26,10 }), "QR is not a PNG.");
-string startup = File.ReadAllText(Path.Combine(root.FullName, "src/NOVORA/UI/NLUIWindowMain.xaml.cs"));
+string startup = File.ReadAllText(Path.Combine(root.FullName, "src/NOVORA LINK/UI/NLUIWindowMain.xaml.cs"));
 Check(!startup.Contains("RefreshAndroidInstallationAsync") && !startup.Contains("InitializeAndroidInstallation"), "Startup still performs APK/ADB installation checks.");
 Console.WriteLine("PASS public prereleases, private/unsafe URL rejection, drafts/incomplete assets, missing publication, real QR PNG and no startup installation checks.");

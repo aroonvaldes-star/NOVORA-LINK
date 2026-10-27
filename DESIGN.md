@@ -1,8 +1,8 @@
 # Design System: NOVORA PROTOTYPE APPCONTROL
 
 Documento maestro para diseñar en Stitch y después integrar con Codex sobre la
-aplicación Android funcional `com.novora.appcontrol`, ubicada en
-`src/NOVORA.Android`.
+aplicación Android funcional `com.linkcontrol.novora`, ubicada en
+`src/LINK Control`.
 
 El diseño puede mejorar composición, jerarquía, navegación visual y copy, pero
 debe conservar las capacidades, estados, permisos y límites del código actual.
@@ -368,7 +368,7 @@ AppControl. Antes de cerrar cada pantalla, verificar:
 
 ## 11. Límites de integración para Codex
 
-- Objetivo: `src/NOVORA.Android` (`com.novora.appcontrol`).
+- Objetivo: `src/LINK Control` (`com.linkcontrol.novora`).
 - Tema: `AndroidUI/NLAndroidUITheme.cs` y `Resources/values*/colors.xml`.
 - Primitivas: `AndroidUI/NLAndroidUIVisual.cs`,
   `AndroidUI/NLAndroidUIComponents.cs` y `Resources/values/styles.xml`.

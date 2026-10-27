@@ -27,6 +27,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("failed first report retires the registered slot", OpenFailure),
     ("failed detach recreates the output on the next binding", DetachFailure),
     ("controller selection follows the chosen pad and can mute the others", Selection),
+    ("same-model controllers never adopt or delete another calibration", ProfilesStayWithController),
 };
 int failures = 0;
 var selected = args.Length == 0 ? tests : tests.Where(test => test.Name.Contains(args[0], StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -56,6 +57,31 @@ static async Task<ExInManager> Create(Sink sink, params uint[] ids)
     var manager = new ExInManager(sink, new NLServiceNovoraPaths());
     await manager.StartAsync();
     return manager;
+}
+static Task ProfilesStayWithController()
+{
+    string directory = Path.Combine(Path.GetTempPath(), "novora-exin-profiles-" + Guid.NewGuid().ToString("N"));
+    const string first = "exin-045e-028e-first";
+    const string second = "exin-045e-028e-second";
+    try
+    {
+        var store = new ExInProfileStore(directory);
+        var center = new ExInState(0, 0, 0, 0, 0, 0, ExInButtons.None);
+        var minimum = new ExInState(-20000, -20000, -20000, -20000, 0, 0, ExInButtons.None);
+        var maximum = new ExInState(20000, 20000, 20000, 20000, 20000, 20000, ExInButtons.None);
+        Assert(store.SaveVE(ExInCalibrationProfile.CreateVE(first, center, minimum, maximum)), "fixture profile was not saved");
+        Assert(store.SavePaddleMappingsVE(first, ExInPaddleMappings.DefaultVE with { P1 = ExInButtons.South }), "fixture paddles were not saved");
+
+        Assert(store.LoadVE(second, Array.Empty<string>()) is null, "a different controller adopted calibration by model");
+        Assert(File.Exists(Path.Combine(directory, first + ".json")), "the first controller profile was deleted");
+        Assert(File.Exists(Path.Combine(directory, first + ".paddles.json")), "the first controller paddles were moved");
+        Assert(!File.Exists(Path.Combine(directory, second + ".json")), "a profile was created for the second controller");
+        return Task.CompletedTask;
+    }
+    finally
+    {
+        if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+    }
 }
 static ExInEvent Button(uint id, bool pressed) => new(ExInTypeEvent.Button, id, 0, 0, 0, pressed);
 static async Task Buttons()

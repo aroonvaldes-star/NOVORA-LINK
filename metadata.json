@@ -1,6 +1,6 @@
 {
   "name": "NOVORA-LINK",
-  "description": "Panel de control y telemetría de hardware en tiempo real para NOVORA-LINK v1.4.19 (LinkEngine, VisionEngine, ExInEngine y STEngine)",
+  "description": "Panel de control y telemetría de hardware en tiempo real para NOVORA-LINK v1.4.120 (LinkEngine, VisionEngine, ExInEngine y STEngine)",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

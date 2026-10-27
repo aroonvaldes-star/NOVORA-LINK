@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/NOVORA/Integration/ExInHidOutput.cs" Link="Production/ExInHidOutput.cs" />
-    <Compile Include="../../src/NOVORA/Integration/ExInHidProtocol.cs" Link="Production/ExInHidProtocol.cs" />
-    <Compile Include="../../src/NOVORA/Contracts/Input/NLInputOutput.cs" Link="Production/NLInputOutput.cs" />
+    <Compile Include="../../src/NOVORA LINK/Integration/ExInHidOutput.cs" Link="Production/ExInHidOutput.cs" />
+    <Compile Include="../../src/NOVORA LINK/Integration/ExInHidProtocol.cs" Link="Production/ExInHidProtocol.cs" />
+    <Compile Include="../../src/NOVORA LINK/Contracts/Input/NLInputOutput.cs" Link="Production/NLInputOutput.cs" />
   </ItemGroup>
 </Project>

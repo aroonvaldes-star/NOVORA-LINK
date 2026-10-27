@@ -7,9 +7,9 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/NOVORA/Control/NLControlNetworkPolicy.cs" Link="Production/NLControlNetworkPolicy.cs" />
-    <Compile Include="../../src/NOVORA/Network/NLNetworkBudget.cs" Link="Production/NLNetworkBudget.cs" />
-    <Compile Include="../../src/NOVORA/Network/NLNetworkPacer.cs" Link="Production/NLNetworkPacer.cs" />
-    <Compile Include="../../src/NOVORA/Network/NLNetworkStabilityController.cs" Link="Production/NLNetworkStabilityController.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlNetworkPolicy.cs" Link="Production/NLControlNetworkPolicy.cs" />
+    <Compile Include="../../src/NOVORA LINK/Network/NLNetworkBudget.cs" Link="Production/NLNetworkBudget.cs" />
+    <Compile Include="../../src/NOVORA LINK/Network/NLNetworkPacer.cs" Link="Production/NLNetworkPacer.cs" />
+    <Compile Include="../../src/NOVORA LINK/Network/NLNetworkStabilityController.cs" Link="Production/NLNetworkStabilityController.cs" />
   </ItemGroup>
 </Project>

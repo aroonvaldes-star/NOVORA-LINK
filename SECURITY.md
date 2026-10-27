@@ -43,7 +43,7 @@ contenido de terceros.
 Se consideran dentro del alcance:
 
 - Aplicación Windows (`src/NOVORA`).
-- Aplicación Android LINK Control (`src/NOVORA.Android`).
+- Aplicación Android LINK Control (`src/LINK Control`).
 - Relay `NovoraRelay` y protocolos de LinkEngine.
 - Emparejamiento LAN, TLS y almacenamiento de credenciales.
 - Protocolos de VisionEngine y ExInEngine.

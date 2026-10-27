@@ -8,12 +8,12 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Benchmark/**/*.cs" />
-    <Compile Include="../../src/NOVORA/Control/NLControlFileStorage.cs" Link="Production/NLControlFileStorage.cs" />
-    <Compile Include="../../src/NOVORA/VisionEngine/Exchange/VEExchangeLanFileV2.cs" Link="Production/VEExchangeLanFileV2.cs" />
-    <Compile Include="../../src/NOVORA/VisionEngine/Exchange/IVEExchangeLanFiles.cs" Link="Production/IVEExchangeLanFiles.cs" />
-    <Compile Include="../../src/NOVORA/Control/NLControlFile*V2.cs" Link="Production/%(Filename)%(Extension)" />
-    <Compile Include="../../src/NOVORA/Control/NLControlFileProtocolV1.cs" Link="Production/NLControlFileProtocolV1.cs" />
-    <Compile Include="../../src/NOVORA/Control/NLControlFileProtocolPolicy.cs" Link="Production/NLControlFileProtocolPolicy.cs" />
-    <Compile Include="../../src/NOVORA/Control/NLControlFileTransferLease.cs" Link="Production/NLControlFileTransferLease.cs" Condition="Exists('../../src/NOVORA/Control/NLControlFileTransferLease.cs')" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlFileStorage.cs" Link="Production/NLControlFileStorage.cs" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Exchange/VEExchangeLanFileV2.cs" Link="Production/VEExchangeLanFileV2.cs" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Exchange/IVEExchangeLanFiles.cs" Link="Production/IVEExchangeLanFiles.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlFile*V2.cs" Link="Production/%(Filename)%(Extension)" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlFileProtocolV1.cs" Link="Production/NLControlFileProtocolV1.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlFileProtocolPolicy.cs" Link="Production/NLControlFileProtocolPolicy.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlFileTransferLease.cs" Link="Production/NLControlFileTransferLease.cs" Condition="Exists('../../src/NOVORA LINK/Control/NLControlFileTransferLease.cs')" />
   </ItemGroup>
 </Project>

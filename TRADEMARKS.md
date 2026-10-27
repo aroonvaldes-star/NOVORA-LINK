@@ -64,7 +64,7 @@ g) Usar los signos en publicidad comparativa engañosa o en actividades
 
 ## 4. Logotipos y activos gráficos
 
-Los logotipos e imágenes oficiales se encuentran en `src/NOVORA/Asset/`.
+Los logotipos e imágenes oficiales se encuentran en `src/NOVORA LINK/Asset/`.
 Su uso requiere autorización escrita, salvo la reproducción íntegra de
 material oficial sin alteraciones y con fines informativos.
 

@@ -8,7 +8,8 @@ funcionalidad.
 
 Diseña un prototipo móvil Android completo llamado **NOVORA PROTOTYPE
 APPCONTROL**, basado en la aplicación funcional existente
-`com.novora.appcontrol` de NOVORA-LINK.
+`com.linkcontrol.novora` de NOVORA-LINK, cuya fuente Android está en
+`src/LINK Control`.
 
 El prototipo debe coincidir con las capacidades, estados, restricciones y
 flujos que ya existen en el código. No diseñes una aplicación conceptual

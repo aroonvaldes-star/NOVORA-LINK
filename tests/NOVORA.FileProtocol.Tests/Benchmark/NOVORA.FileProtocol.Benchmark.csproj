@@ -7,6 +7,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../src/NOVORA/NLProjectDesktop.csproj" />
+    <ProjectReference Include="../../../src/NOVORA LINK/NLProjectDesktop.csproj" />
   </ItemGroup>
 </Project>

@@ -41,15 +41,15 @@ Comandos de referencia:
 
 ```powershell
 # Windows
-dotnet build src/NOVORA/NLProjectDesktop.csproj -c Release
+dotnet build "src/NOVORA LINK/NLProjectDesktop.csproj" -c Release
 
 # Android (compilación, sin empaquetar)
-dotnet build src/NOVORA.Android/NLProjectAndroid.csproj -c Release -r android-arm64 `
+dotnet build "src/LINK Control/NLProjectAndroid.csproj" -c Release -r android-arm64 `
   -t:Compile -p:AndroidBuildApplicationPackage=false
 
 # Relay Rust
 cargo test --release --locked --manifest-path `
-  src/NOVORA/LinkEngine/Network/Native/NovoraRelay/Cargo.toml
+  "src/NOVORA LINK/LinkEngine/Network/Native/NovoraRelay/Cargo.toml"
 
 # Suites de pruebas del repositorio
 ./scripts/Test-NOVORA-CI.ps1 -Configuration Release

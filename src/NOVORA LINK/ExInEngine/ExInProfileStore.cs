@@ -16,12 +16,9 @@ public sealed class ExInProfileStore
 
     public ExInCalibrationProfile? LoadVE(string profileKey, IReadOnlyCollection<string>? keysInUse = null)
     {
+        _ = keysInUse;
         string path = GetPathVE(profileKey);
-        if (!File.Exists(path))
-        {
-            AdoptSameModelVE(profileKey, keysInUse);
-            if (!File.Exists(path)) return null;
-        }
+        if (!File.Exists(path)) return null;
 
         try
         {
@@ -152,61 +149,6 @@ public sealed class ExInProfileStore
     {
         DeleteVE(profileKey);
         DeletePaddleMappingsVE(profileKey);
-    }
-
-    /// <summary>
-    /// A controller without a serial is keyed by its SDL path or instance id, which can change
-    /// after a restart or a rebuild. When the current key has no profile and exactly one saved
-    /// profile of the same model exists that no connected controller is using, it belongs to
-    /// this controller: move it (with its paddle mappings) to the current key, so that only
-    /// the latest calibration of that model is ever kept.
-    /// </summary>
-    private void AdoptSameModelVE(string profileKey, IReadOnlyCollection<string>? keysInUse)
-    {
-        string? prefix = GetModelPrefixVE(profileKey);
-        if (prefix is null) return;
-
-        try
-        {
-            if (!Directory.Exists(_directoryVE)) return;
-
-            string[] candidates = Directory.GetFiles(_directoryVE, prefix + "*.json")
-                .Select(Path.GetFileName)
-                .OfType<string>()
-                .Where(name => !name.EndsWith(".paddles.json", StringComparison.OrdinalIgnoreCase))
-                .Select(name => name[..^".json".Length])
-                .Where(key => !string.Equals(key, profileKey, StringComparison.Ordinal))
-                .ToArray();
-            if (candidates.Length != 1) return;
-
-            string previousKey = candidates[0];
-            if (keysInUse?.Contains(previousKey) == true) return;
-
-            string previousPath = GetPathVE(previousKey);
-            ExInCalibrationProfile? previous = JsonSerializer.Deserialize<ExInCalibrationProfile>(
-                File.ReadAllText(previousPath), JsonOptionsVE);
-            if (previous?.IsValidVE(previousKey) != true) return;
-            if (!SaveVE(previous with { ProfileKey = profileKey })) return;
-
-            string previousPaddles = GetPaddleMappingsPathVE(previousKey);
-            string currentPaddles = GetPaddleMappingsPathVE(profileKey);
-            if (File.Exists(previousPaddles) && !File.Exists(currentPaddles))
-                File.Move(previousPaddles, currentPaddles);
-            File.Delete(previousPath);
-        }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
-        catch (JsonException) { }
-        catch (ArgumentException) { }
-    }
-
-    // Profile keys are exin-{vid:x4}-{pid:x4}-{digest}; the prefix identifies the model.
-    private static string? GetModelPrefixVE(string profileKey)
-    {
-        string[] parts = profileKey.Split('-');
-        return parts.Length == 4 && parts[0] == "exin" && parts[1].Length == 4 && parts[2].Length == 4
-            ? $"exin-{parts[1]}-{parts[2]}-"
-            : null;
     }
 
     private string GetPathVE(string profileKey)
