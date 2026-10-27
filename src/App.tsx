@@ -78,7 +78,7 @@ export default function App() {
   return (
     <div className="relative min-h-screen bg-background text-on-surface font-body flex flex-col justify-between selection:bg-primary/20 selection:text-primary">
       {/* App Container */}
-      <div className="w-full flex-1 flex flex-col mx-auto bg-surface-container-lowest border-x border-outline-variant/30 min-h-screen relative shadow-2xl">
+      <div className="w-full flex-1 flex flex-col mx-auto bg-surface-container-lowest border-x border-outline-variant min-h-screen relative">
         {/* Dynamic Top Header */}
         <Header
           currentScreen={currentScreen}
@@ -193,7 +193,7 @@ export default function App() {
 
       {/* Floating System Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-surface-container-high/95 text-on-surface border border-primary/40 shadow-xl backdrop-blur-md font-headline font-semibold text-xs flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150 max-w-sm text-center">
+        <div role="status" aria-live="polite" className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-surface-container-lowest text-on-surface border border-primary font-headline font-semibold text-xs tracking-wide flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150 max-w-sm text-center">
           <span className="material-symbols-outlined text-primary text-[18px]">verified</span>
           <span>{toastMessage}</span>
         </div>

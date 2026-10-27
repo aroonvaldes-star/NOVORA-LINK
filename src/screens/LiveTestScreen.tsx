@@ -144,10 +144,16 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
     }, 8500);
   };
 
+  // Shared treatment for a calibration step row: the active step gets an ink ring.
+  const stepRowClass = (isActive: boolean, dimmed = false) =>
+    `flex items-start gap-2.5 p-2 bg-surface-container-lowest border transition-colors ${
+      isActive ? 'border-on-surface ring-1 ring-on-surface' : 'border-outline-variant'
+    }${dimmed ? ' opacity-75' : ''}`;
+
   return (
-    <div className="w-full max-w-2xl mx-auto flex-1 flex flex-col bg-surface-container-lowest shadow-xs pb-24">
+    <div className="w-full max-w-2xl mx-auto flex-1 flex flex-col bg-surface-container-lowest pb-24">
       {/* Estado del Control Workflow: Detectado -> Calibrado -> Listo */}
-      <section className="p-4 bg-surface-container-low border-b border-outline-variant/30">
+      <section className="p-4 bg-surface-container-low border-b border-outline-variant">
         <div className="flex items-center justify-between relative max-w-md mx-auto">
           <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-0.5 bg-outline-variant -z-0"></div>
           <div className="absolute left-6 right-1/2 top-1/2 -translate-y-1/2 h-0.5 bg-primary -z-0"></div>
@@ -155,7 +161,7 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
 
           {/* Paso 1 */}
           <div className="flex flex-col items-center gap-1 z-10">
-            <div className="flex size-8 rounded-full bg-primary text-on-primary items-center justify-center ring-4 ring-surface-container-low shadow-xs">
+            <div className="flex size-8 rounded-full bg-primary text-on-primary items-center justify-center ring-4 ring-surface-container-low">
               <span className="material-symbols-outlined text-[18px] material-symbols-filled">
                 check_circle
               </span>
@@ -165,7 +171,7 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
 
           {/* Paso 2 */}
           <div className="flex flex-col items-center gap-1 z-10">
-            <div className="flex size-8 rounded-full bg-primary text-on-primary items-center justify-center ring-4 ring-surface-container-low shadow-xs">
+            <div className="flex size-8 rounded-full bg-primary text-on-primary items-center justify-center ring-4 ring-surface-container-low">
               <span className="material-symbols-outlined text-[18px] material-symbols-filled">
                 check_circle
               </span>
@@ -175,62 +181,62 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
 
           {/* Paso 3 */}
           <div className="flex flex-col items-center gap-1 z-10">
-            <div className="flex size-8 rounded-full bg-primary-container text-on-primary-container items-center justify-center ring-4 ring-surface-container-low shadow-xs border border-primary">
+            <div className="flex size-8 rounded-full bg-surface-container-lowest text-on-surface items-center justify-center ring-4 ring-surface-container-low border-2 border-on-surface">
               <span className="material-symbols-outlined text-[18px] material-symbols-filled">
                 done_all
               </span>
             </div>
-            <span className="text-xs font-headline font-bold text-primary">Listo</span>
+            <span className="text-xs font-headline font-bold text-on-surface">Listo</span>
           </div>
         </div>
       </section>
 
       {/* Especificaciones de Dispositivo Real */}
-      <section className="p-4 grid grid-cols-2 gap-3 text-xs font-body border-b border-outline-variant/30 bg-surface-container-lowest">
-        <div className="flex flex-col p-2.5 rounded bg-surface-container-low">
-          <span className="text-outline font-label uppercase text-[10px] tracking-wider mb-0.5">
+      <section className="p-4 grid grid-cols-2 gap-3 text-xs font-body border-b border-outline-variant bg-surface-container-lowest">
+        <div className="flex flex-col p-2.5 bg-surface-container-low border border-outline-variant">
+          <span className="text-on-surface-variant font-label uppercase text-[10px] tracking-wider mb-0.5">
             Dispositivo
           </span>
           <span className="text-on-surface font-semibold truncate">
             {isGamepadReal ? 'Control Físico Conectado' : 'Xbox Wireless Controller'}
           </span>
         </div>
-        <div className="flex flex-col p-2.5 rounded bg-surface-container-low">
-          <span className="text-outline font-label uppercase text-[10px] tracking-wider mb-0.5">
+        <div className="flex flex-col p-2.5 bg-surface-container-low border border-outline-variant">
+          <span className="text-on-surface-variant font-label uppercase text-[10px] tracking-wider mb-0.5">
             Conexión
           </span>
-          <span className="text-primary font-semibold flex items-center gap-1">
+          <span className="text-on-surface font-semibold flex items-center gap-1">
             <span className="material-symbols-outlined text-[14px]">bluetooth</span>
             Bluetooth (Baja Latencia)
           </span>
         </div>
-        <div className="flex flex-col p-2.5 rounded bg-surface-container-low">
-          <span className="text-outline font-label uppercase text-[10px] tracking-wider mb-0.5">
+        <div className="flex flex-col p-2.5 bg-surface-container-low border border-outline-variant">
+          <span className="text-on-surface-variant font-label uppercase text-[10px] tracking-wider mb-0.5">
             VID / PID
           </span>
           <span className="text-on-surface font-label font-medium">045E : 02FD</span>
         </div>
-        <div className="flex flex-col p-2.5 rounded bg-surface-container-low">
-          <span className="text-outline font-label uppercase text-[10px] tracking-wider mb-0.5">
+        <div className="flex flex-col p-2.5 bg-surface-container-low border border-outline-variant">
+          <span className="text-on-surface-variant font-label uppercase text-[10px] tracking-wider mb-0.5">
             Perfil Activo
           </span>
-          <span className="text-secondary font-semibold truncate">Default Gaming Profile</span>
+          <span className="text-on-surface font-semibold truncate">Default Gaming Profile</span>
         </div>
       </section>
 
       {/* Diagnóstico Operacional: Telemetría Rápida */}
-      <section className="px-4 py-3 bg-surface-container flex items-center justify-between border-b border-outline-variant/30 text-xs">
+      <section className="px-4 py-3 bg-surface-container flex items-center justify-between border-b border-outline-variant text-xs">
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary text-[18px]">verified</span>
+          <span className="material-symbols-outlined text-success text-[18px]">verified</span>
           <span className="font-headline font-semibold text-on-surface">Diagnóstico de Sensor:</span>
         </div>
         <div className="flex items-center gap-4 font-label">
           <div className="flex items-center gap-1">
-            <span className="text-outline">Drift:</span>
-            <span className="font-semibold text-primary">0.02%</span>
+            <span className="text-on-surface-variant">Drift:</span>
+            <span className="font-semibold text-success">0.02%</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-outline">Deadzone:</span>
+            <span className="text-on-surface-variant">Deadzone:</span>
             <span className="font-semibold text-on-surface">5.0%</span>
           </div>
         </div>
@@ -243,38 +249,38 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
             <h2 className="text-on-surface text-base font-headline font-bold leading-tight">
               Prueba en Vivo (Live Input Test)
             </h2>
-            <p className="text-xs text-outline">Monitoreo de señales físicas en tiempo real</p>
+            <p className="text-xs text-on-surface-variant">Monitoreo de señales físicas en tiempo real</p>
           </div>
-          <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-label font-semibold bg-primary-container/20 text-primary border border-primary/30">
-            <span className="size-2 rounded-full bg-primary animate-pulse"></span> LIVE 250Hz
+          <span className="flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-label font-semibold bg-surface-container-high text-on-surface border border-outline">
+            <span className="size-2 rounded-full bg-success animate-pulse"></span> LIVE 250Hz
           </span>
         </div>
 
         {/* Diagrama Representativo de Mandos */}
-        <div className="bg-surface-container-low rounded-xl p-4 border border-outline-variant/40">
+        <div className="bg-surface-container-low p-4 border border-outline-variant">
           {/* Gatillos Analógicos LT / RT y Bumpers LB / RB */}
-          <div className="grid grid-cols-2 gap-4 pb-4 border-b border-outline-variant/30">
+          <div className="grid grid-cols-2 gap-4 pb-4 border-b border-outline-variant">
             {/* Lado Izquierdo: LT & LB */}
             <div className="flex flex-col gap-2">
               <div className="flex justify-between items-center text-xs">
                 <span className="font-headline font-bold text-on-surface flex items-center gap-1.5">
                   <button
                     onClick={() => handlePressButton('lb')}
-                    className={`px-2 py-0.5 rounded font-label border transition-colors cursor-pointer ${
+                    className={`px-2 py-0.5 font-label border transition-colors cursor-pointer ${
                       lbPressed || activeButtons.lb
                         ? 'bg-primary text-on-primary border-primary'
-                        : 'bg-surface-container-highest border-outline-variant'
+                        : 'bg-surface-container-highest border-outline-variant text-on-surface'
                     }`}
                   >
                     LB
                   </button>
                   <span>Gatillo LT</span>
                 </span>
-                <span className="font-label text-primary font-bold text-[11px]">{ltVal}%</span>
+                <span className="font-label text-on-surface font-bold text-[11px]">{ltVal}%</span>
               </div>
-              <div className="w-full h-3 bg-surface-container-highest rounded-full overflow-hidden">
+              <div className="w-full h-3 bg-surface-container-highest overflow-hidden">
                 <div
-                  className="h-full bg-primary transition-all duration-75 rounded-full"
+                  className="h-full bg-primary transition-all duration-75"
                   style={{ width: `${ltVal}%` }}
                 ></div>
               </div>
@@ -287,20 +293,20 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                   <span>Gatillo RT</span>
                   <button
                     onClick={() => handlePressButton('rb')}
-                    className={`px-2 py-0.5 rounded font-label border transition-colors cursor-pointer ${
+                    className={`px-2 py-0.5 font-label border transition-colors cursor-pointer ${
                       rbPressed || activeButtons.rb
                         ? 'bg-primary text-on-primary border-primary'
-                        : 'bg-surface-container-highest border-outline-variant'
+                        : 'bg-surface-container-highest border-outline-variant text-on-surface'
                     }`}
                   >
                     RB
                   </button>
                 </span>
-                <span className="font-label text-primary font-bold text-[11px]">{rtVal}%</span>
+                <span className="font-label text-on-surface font-bold text-[11px]">{rtVal}%</span>
               </div>
-              <div className="w-full h-3 bg-surface-container-highest rounded-full overflow-hidden">
+              <div className="w-full h-3 bg-surface-container-highest overflow-hidden">
                 <div
-                  className="h-full bg-primary transition-all duration-75 rounded-full"
+                  className="h-full bg-primary transition-all duration-75"
                   style={{ width: `${rtVal}%` }}
                 ></div>
               </div>
@@ -331,7 +337,7 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                     y: Number(Math.max(-1, Math.min(1, y)).toFixed(2)),
                   });
                 }}
-                className="relative size-28 rounded-full bg-surface-container-highest border-2 border-outline-variant flex items-center justify-center shadow-inner cursor-crosshair"
+                className="relative size-28 rounded-full bg-surface-container-highest border-2 border-outline-variant flex items-center justify-center cursor-crosshair"
               >
                 {/* Deadzone Ring */}
                 <div className="absolute size-9 rounded-full border border-dashed border-outline pointer-events-none"></div>
@@ -345,11 +351,11 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                     transform: `translate(${stickL.x * 32}px, ${stickL.y * 32}px)`,
                   }}
                 >
-                  <div className="size-2 rounded-full bg-white"></div>
+                  <div className="size-2 rounded-full bg-on-primary"></div>
                 </div>
               </div>
 
-              <div className="font-label text-[10px] text-outline flex gap-2">
+              <div className="font-label text-[10px] text-on-surface-variant flex gap-2">
                 <span>
                   X: <strong className="text-on-surface">{stickL.x.toFixed(2)}</strong>
                 </span>
@@ -359,12 +365,13 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
               </div>
 
               {/* Mini D-Pad */}
-              <div className="relative size-16 grid grid-cols-3 grid-rows-3 gap-0.5 p-1 bg-surface-container rounded-lg border border-outline-variant mt-1">
+              <div className="relative size-16 grid grid-cols-3 grid-rows-3 gap-0.5 p-1 bg-surface-container border border-outline-variant mt-1">
                 <div></div>
                 <button
                   onClick={() => handlePressButton('up')}
-                  className={`rounded-t flex items-center justify-center cursor-pointer transition-colors ${
-                    dpad.up || activeButtons.up ? 'bg-primary text-on-primary' : 'bg-surface-container-high'
+                  aria-label="Arriba"
+                  className={`flex items-center justify-center cursor-pointer transition-colors ${
+                    dpad.up || activeButtons.up ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface'
                   }`}
                 >
                   <span className="material-symbols-outlined text-[14px]">arrow_drop_up</span>
@@ -372,8 +379,9 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                 <div></div>
                 <button
                   onClick={() => handlePressButton('left')}
-                  className={`rounded-l flex items-center justify-center cursor-pointer transition-colors ${
-                    dpad.left || activeButtons.left ? 'bg-primary text-on-primary' : 'bg-surface-container-high'
+                  aria-label="Izquierda"
+                  className={`flex items-center justify-center cursor-pointer transition-colors ${
+                    dpad.left || activeButtons.left ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface'
                   }`}
                 >
                   <span className="material-symbols-outlined text-[14px]">arrow_left</span>
@@ -381,8 +389,9 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                 <div className="bg-surface-container-highest"></div>
                 <button
                   onClick={() => handlePressButton('right')}
-                  className={`rounded-r flex items-center justify-center cursor-pointer transition-colors ${
-                    dpad.right || activeButtons.right ? 'bg-primary text-on-primary' : 'bg-surface-container-high'
+                  aria-label="Derecha"
+                  className={`flex items-center justify-center cursor-pointer transition-colors ${
+                    dpad.right || activeButtons.right ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface'
                   }`}
                 >
                   <span className="material-symbols-outlined text-[14px]">arrow_right</span>
@@ -390,8 +399,9 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                 <div></div>
                 <button
                   onClick={() => handlePressButton('down')}
-                  className={`rounded-b flex items-center justify-center cursor-pointer transition-colors ${
-                    dpad.down || activeButtons.down ? 'bg-primary text-on-primary' : 'bg-surface-container-high'
+                  aria-label="Abajo"
+                  className={`flex items-center justify-center cursor-pointer transition-colors ${
+                    dpad.down || activeButtons.down ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface'
                   }`}
                 >
                   <span className="material-symbols-outlined text-[14px]">arrow_drop_down</span>
@@ -405,6 +415,7 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handlePressButton('view')}
+                  aria-label="Vista"
                   className={`size-6 rounded-full border flex items-center justify-center text-[10px] font-label transition-colors cursor-pointer ${
                     activeButtons.view
                       ? 'bg-primary text-on-primary border-primary'
@@ -415,12 +426,14 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                 </button>
                 <button
                   onClick={() => handlePressButton('home')}
-                  className="size-8 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-md active:scale-95 transition-transform cursor-pointer"
+                  aria-label="Inicio"
+                  className="size-8 rounded-full bg-primary text-on-primary flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">videogame_asset</span>
                 </button>
                 <button
                   onClick={() => handlePressButton('menu')}
+                  aria-label="Menú"
                   className={`size-6 rounded-full border flex items-center justify-center text-[10px] font-label transition-colors cursor-pointer ${
                     activeButtons.menu
                       ? 'bg-primary text-on-primary border-primary'
@@ -431,13 +444,13 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                 </button>
               </div>
 
-              <div className="px-3 py-1.5 rounded bg-surface-container-highest border border-outline-variant text-center w-full max-w-[120px]">
-                <span className="block text-[9px] font-label uppercase text-outline">Latencia</span>
-                <span className="font-label font-bold text-xs text-primary">3.2 ms</span>
+              <div className="px-3 py-1.5 bg-surface-container-highest border border-outline-variant text-center w-full max-w-[120px]">
+                <span className="block text-[9px] font-label uppercase text-on-surface-variant">Latencia</span>
+                <span className="font-label font-bold text-xs text-on-surface">3.2 ms</span>
               </div>
 
-              <div className="text-[10px] text-outline text-center">
-                Pulsando: <span className="font-headline font-bold text-primary">{lastPressed}</span>
+              <div className="text-[10px] text-on-surface-variant text-center">
+                Pulsando: <span className="font-headline font-bold text-on-surface">{lastPressed}</span>
               </div>
             </div>
 
@@ -448,9 +461,10 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                 <div></div>
                 <button
                   onClick={() => handlePressButton('y')}
+                  aria-label="Botón Y"
                   className={`size-6 rounded-full border font-headline font-bold text-xs flex items-center justify-center cursor-pointer transition-colors ${
                     activeButtons.y
-                      ? 'bg-primary text-on-primary border-primary shadow-xs'
+                      ? 'bg-primary text-on-primary border-primary'
                       : 'bg-surface-container-high border-outline-variant text-on-surface'
                   }`}
                 >
@@ -459,9 +473,10 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                 <div></div>
                 <button
                   onClick={() => handlePressButton('x')}
+                  aria-label="Botón X"
                   className={`size-6 rounded-full border font-headline font-bold text-xs flex items-center justify-center cursor-pointer transition-colors ${
                     activeButtons.x
-                      ? 'bg-primary text-on-primary border-primary shadow-xs'
+                      ? 'bg-primary text-on-primary border-primary'
                       : 'bg-surface-container-high border-outline-variant text-on-surface'
                   }`}
                 >
@@ -470,9 +485,10 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                 <div></div>
                 <button
                   onClick={() => handlePressButton('b')}
+                  aria-label="Botón B"
                   className={`size-6 rounded-full border font-headline font-bold text-xs flex items-center justify-center cursor-pointer transition-colors ${
                     activeButtons.b
-                      ? 'bg-primary text-on-primary border-primary shadow-xs'
+                      ? 'bg-primary text-on-primary border-primary'
                       : 'bg-surface-container-high border-outline-variant text-on-surface'
                   }`}
                 >
@@ -481,9 +497,10 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                 <div></div>
                 <button
                   onClick={() => handlePressButton('a')}
+                  aria-label="Botón A"
                   className={`size-6 rounded-full border font-headline font-bold text-xs flex items-center justify-center cursor-pointer transition-colors ${
                     activeButtons.a
-                      ? 'bg-primary text-on-primary border-primary shadow-xs'
+                      ? 'bg-primary text-on-primary border-primary'
                       : 'bg-surface-container-high border-outline-variant text-on-surface'
                   }`}
                 >
@@ -512,7 +529,7 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                     y: Number(Math.max(-1, Math.min(1, y)).toFixed(2)),
                   });
                 }}
-                className="relative size-28 rounded-full bg-surface-container-highest border-2 border-outline-variant flex items-center justify-center shadow-inner cursor-crosshair"
+                className="relative size-28 rounded-full bg-surface-container-highest border-2 border-outline-variant flex items-center justify-center cursor-crosshair"
               >
                 {/* Deadzone Ring */}
                 <div className="absolute size-9 rounded-full border border-dashed border-outline pointer-events-none"></div>
@@ -530,7 +547,7 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
                 </div>
               </div>
 
-              <div className="font-label text-[10px] text-outline flex gap-2">
+              <div className="font-label text-[10px] text-on-surface-variant flex gap-2">
                 <span>
                   X: <strong className="text-on-surface">{stickR.x.toFixed(2)}</strong>
                 </span>
@@ -545,127 +562,103 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
 
       {/* Módulo de Calibración Automática Guiada */}
       <section className="p-4 pt-1">
-        <div className="bg-surface-container-low rounded-xl border border-outline-variant/40 p-4">
+        <div className="bg-surface-container-low border border-outline-variant p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[20px]">tune</span>
+              <span className="material-symbols-outlined text-on-surface text-[20px]">tune</span>
               <h3 className="font-headline font-bold text-sm text-on-surface">Calibración Automática del Engine</h3>
             </div>
-            <span className="text-[11px] font-label font-semibold text-primary px-2 py-0.5 rounded bg-primary-container/20 border border-primary/30">
+            <span className="text-[11px] font-label font-semibold text-on-surface px-2 py-0.5 bg-surface-container-high border border-outline-variant">
               4 Pasos
             </span>
           </div>
 
           {/* Pasos Sugeridos */}
           <ol className="space-y-2 text-xs font-body mb-4">
-            <li
-              className={`flex items-start gap-2.5 p-2 rounded bg-surface-container-lowest border transition-colors ${
-                activeCalibStep === 1
-                  ? 'border-primary ring-1 ring-primary/40'
-                  : 'border-outline-variant/30'
-              }`}
-            >
+            <li className={stepRowClass(activeCalibStep === 1)}>
               <span
                 className={`flex size-5 rounded-full text-[10px] font-label font-bold items-center justify-center shrink-0 ${
                   activeCalibStep > 1
                     ? 'bg-primary text-on-primary'
                     : activeCalibStep === 1
-                    ? 'bg-primary-container text-on-primary-container animate-pulse'
-                    : 'bg-surface-container text-outline'
+                    ? 'bg-on-surface text-surface-container-lowest animate-pulse'
+                    : 'bg-surface-container text-on-surface-variant'
                 }`}
               >
                 1
               </span>
               <div className="flex-1">
                 <span className="font-semibold text-on-surface">Centrar sticks analógicos:</span>
-                <p className="text-outline text-[11px]">Suelte ambos joysticks para establecer el centro neutro de compensación.</p>
+                <p className="text-on-surface-variant text-[11px]">Suelte ambos joysticks para establecer el centro neutro de compensación.</p>
               </div>
               {activeCalibStep > 1 && (
-                <span className="material-symbols-outlined text-primary text-[16px]">check</span>
+                <span className="material-symbols-outlined text-on-surface text-[16px]">check</span>
               )}
             </li>
 
-            <li
-              className={`flex items-start gap-2.5 p-2 rounded bg-surface-container-lowest border transition-colors ${
-                activeCalibStep === 2
-                  ? 'border-primary ring-1 ring-primary/40'
-                  : 'border-outline-variant/30'
-              }`}
-            >
+            <li className={stepRowClass(activeCalibStep === 2)}>
               <span
                 className={`flex size-5 rounded-full text-[10px] font-label font-bold items-center justify-center shrink-0 ${
                   activeCalibStep > 2
                     ? 'bg-primary text-on-primary'
                     : activeCalibStep === 2
-                    ? 'bg-primary-container text-on-primary-container animate-pulse'
-                    : 'bg-surface-container text-outline'
+                    ? 'bg-on-surface text-surface-container-lowest animate-pulse'
+                    : 'bg-surface-container text-on-surface-variant'
                 }`}
               >
                 2
               </span>
               <div className="flex-1">
                 <span className="font-semibold text-on-surface">Mover recorrido completo:</span>
-                <p className="text-outline text-[11px]">Gire ambos sticks 360° en sus bordes físicos para delimitar los ejes máximos.</p>
+                <p className="text-on-surface-variant text-[11px]">Gire ambos sticks 360° en sus bordes físicos para delimitar los ejes máximos.</p>
               </div>
               {activeCalibStep > 2 && (
-                <span className="material-symbols-outlined text-primary text-[16px]">check</span>
+                <span className="material-symbols-outlined text-on-surface text-[16px]">check</span>
               )}
             </li>
 
-            <li
-              className={`flex items-start gap-2.5 p-2 rounded bg-surface-container-lowest border transition-colors ${
-                activeCalibStep === 3
-                  ? 'border-secondary ring-1 ring-secondary/40'
-                  : 'border-outline-variant/30'
-              }`}
-            >
+            <li className={stepRowClass(activeCalibStep === 3)}>
               <span
                 className={`flex size-5 rounded-full text-[10px] font-label font-bold items-center justify-center shrink-0 ${
                   activeCalibStep > 3
                     ? 'bg-primary text-on-primary'
                     : activeCalibStep === 3
-                    ? 'bg-secondary text-on-secondary'
-                    : 'bg-surface-container text-outline'
+                    ? 'bg-on-surface text-surface-container-lowest'
+                    : 'bg-surface-container text-on-surface-variant'
                 }`}
               >
                 3
               </span>
               <div className="flex-1">
                 <span className="font-semibold text-on-surface">Presionar LT / RT al máximo:</span>
-                <p className="text-outline text-[11px]">Oprima ambos gatillos a fondo para registrar el recorrido analógico 0 - 255.</p>
+                <p className="text-on-surface-variant text-[11px]">Oprima ambos gatillos a fondo para registrar el recorrido analógico 0 - 255.</p>
               </div>
               {activeCalibStep === 3 && (
-                <span className="text-[10px] font-label font-semibold text-secondary">ACTIVO</span>
+                <span className="text-[10px] font-label font-semibold text-on-surface">ACTIVO</span>
               )}
               {activeCalibStep > 3 && (
-                <span className="material-symbols-outlined text-primary text-[16px]">check</span>
+                <span className="material-symbols-outlined text-on-surface text-[16px]">check</span>
               )}
             </li>
 
-            <li
-              className={`flex items-start gap-2.5 p-2 rounded bg-surface-container-lowest border transition-colors ${
-                activeCalibStep === 4
-                  ? 'border-primary ring-1 ring-primary/40'
-                  : 'border-outline-variant/30 opacity-75'
-              }`}
-            >
+            <li className={stepRowClass(activeCalibStep === 4, activeCalibStep !== 4)}>
               <span
                 className={`flex size-5 rounded-full text-[10px] font-label font-bold items-center justify-center shrink-0 ${
                   activeCalibStep === 4
-                    ? 'bg-primary text-on-primary animate-pulse'
-                    : 'bg-surface-container text-outline'
+                    ? 'bg-on-surface text-surface-container-lowest animate-pulse'
+                    : 'bg-surface-container text-on-surface-variant'
                 }`}
               >
                 4
               </span>
               <div className="flex-1">
                 <span className="font-semibold text-on-surface">Calcular valores y guardar perfil:</span>
-                <p className="text-outline text-[11px]">Guardar curva de respuesta y aplicar a 'Default Gaming Profile'.</p>
+                <p className="text-on-surface-variant text-[11px]">Guardar curva de respuesta y aplicar a 'Default Gaming Profile'.</p>
               </div>
               {activeCalibStep < 4 ? (
-                <span className="material-symbols-outlined text-outline text-[16px]">hourglass_empty</span>
+                <span className="material-symbols-outlined text-on-surface-variant text-[16px]">hourglass_empty</span>
               ) : (
-                <span className="material-symbols-outlined text-primary text-[16px]">check</span>
+                <span className="material-symbols-outlined text-on-surface text-[16px]">check</span>
               )}
             </li>
           </ol>
@@ -675,7 +668,7 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
             <button
               onClick={handleStartCalibration}
               disabled={calibrating}
-              className="flex-1 py-2.5 px-4 bg-primary text-on-primary rounded-lg font-headline font-bold text-xs flex items-center justify-center gap-2 shadow-xs hover:opacity-95 active:scale-[0.99] transition-all cursor-pointer"
+              className="flex-1 py-2.5 px-4 bg-primary text-on-primary font-headline font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 active:opacity-80 transition-opacity cursor-pointer disabled:cursor-wait disabled:opacity-60"
             >
               <span className={`material-symbols-outlined text-[16px] ${calibrating ? 'animate-spin' : ''}`}>
                 restart_alt
@@ -684,7 +677,7 @@ export const LiveTestScreen: React.FC<LiveTestScreenProps> = ({ onShowToast }) =
             </button>
             <button
               onClick={() => onShowToast("Perfil guardado: 'Default Gaming Profile' actualizado con curva de 1000Hz")}
-              className="py-2.5 px-3 bg-surface-container-highest text-on-surface rounded-lg font-headline font-medium text-xs flex items-center justify-center gap-1 border border-outline-variant hover:bg-surface-container transition-colors cursor-pointer"
+              className="py-2.5 px-3 bg-surface-container-highest text-on-surface font-headline font-medium text-xs flex items-center justify-center gap-1 border border-outline hover:bg-surface-container transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px]">save</span>
               <span>Guardar Perfil</span>

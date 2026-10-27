@@ -37,43 +37,43 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
   return (
     <div className="flex-1 flex flex-col pb-28 max-w-md mx-auto w-full">
       {/* Global Metrics Bar */}
-      <section className="p-4 grid grid-cols-3 gap-2.5 border-b border-outline-variant/20 bg-surface-container-lowest">
-        <div className="flex flex-col gap-1 rounded bg-surface-container-low p-3 border border-outline-variant/30">
+      <section className="p-4 grid grid-cols-3 gap-2.5 border-b border-outline-variant bg-surface-container-lowest">
+        <div className="flex flex-col gap-1 bg-surface-container-low p-3 border border-outline-variant">
           <div className="flex items-center justify-between text-on-surface-variant">
             <span className="text-[10px] font-medium font-body uppercase tracking-wider">Link Latency</span>
-            <span className="material-symbols-outlined text-[14px] text-primary">bolt</span>
+            <span className="material-symbols-outlined text-[14px] text-on-surface">bolt</span>
           </div>
           <p className="font-headline text-lg sm:text-xl font-bold text-on-surface leading-none mt-1">1.2 ms</p>
-          <span className="text-[10px] font-label text-primary font-medium mt-0.5">USB 3.0 Ultra</span>
+          <span className="text-[10px] font-label text-on-surface-variant font-medium mt-0.5">USB 3.0 Ultra</span>
         </div>
 
-        <div className="flex flex-col gap-1 rounded bg-surface-container-low p-3 border border-outline-variant/30">
+        <div className="flex flex-col gap-1 bg-surface-container-low p-3 border border-outline-variant">
           <div className="flex items-center justify-between text-on-surface-variant">
             <span className="text-[10px] font-medium font-body uppercase tracking-wider">Frame Timing</span>
-            <span className="material-symbols-outlined text-[14px] text-primary">speed</span>
+            <span className="material-symbols-outlined text-[14px] text-on-surface">speed</span>
           </div>
           <p className="font-headline text-lg sm:text-xl font-bold text-on-surface leading-none mt-1">0.8 ms</p>
-          <span className="text-[10px] font-label text-primary font-medium mt-0.5">Jitter &lt;0.05ms</span>
+          <span className="text-[10px] font-label text-on-surface-variant font-medium mt-0.5">Jitter &lt;0.05ms</span>
         </div>
 
-        <div className="flex flex-col gap-1 rounded bg-surface-container-low p-3 border border-outline-variant/30">
+        <div className="flex flex-col gap-1 bg-surface-container-low p-3 border border-outline-variant">
           <div className="flex items-center justify-between text-on-surface-variant">
             <span className="text-[10px] font-medium font-body uppercase tracking-wider">Engines Listos</span>
-            <span className="material-symbols-outlined text-[14px] text-emerald-500">verified</span>
+            <span className="material-symbols-outlined text-[14px] text-success">verified</span>
           </div>
           <p className="font-headline text-lg sm:text-xl font-bold text-on-surface leading-none mt-1">4 / 4</p>
-          <span className="text-[10px] font-label text-emerald-500 font-medium mt-0.5">100% Sincronía</span>
+          <span className="text-[10px] font-label text-success font-medium mt-0.5">100% Sincronía</span>
         </div>
       </section>
 
       {/* Engines Master Controls */}
-      <section className="px-4 py-3 flex gap-2.5 bg-surface-container-low border-b border-outline-variant/30">
+      <section className="px-4 py-3 flex gap-2.5 bg-surface-container-low border-b border-outline-variant">
         <button
           onClick={handleDetect}
           disabled={isDetecting}
-          className="flex-1 h-9 px-3 rounded bg-surface-container-highest hover:bg-surface-container border border-outline-variant/40 text-on-surface text-xs font-headline font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+          className="flex-1 h-9 px-3 bg-surface-container-highest hover:bg-surface-container border border-outline text-on-surface text-xs font-headline font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait"
         >
-          <span className={`material-symbols-outlined text-[16px] text-primary ${isDetecting ? 'animate-spin' : ''}`}>
+          <span className={`material-symbols-outlined text-[16px] text-on-surface ${isDetecting ? 'animate-spin' : ''}`}>
             radar
           </span>
           <span>{isDetecting ? 'Detectando...' : 'Detectar Engines'}</span>
@@ -82,9 +82,9 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
         <button
           onClick={handleRestartEngines}
           disabled={isRestarting}
-          className="flex-1 h-9 px-3 rounded bg-surface-container-highest hover:bg-surface-container border border-outline-variant/40 text-on-surface text-xs font-headline font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+          className="flex-1 h-9 px-3 bg-surface-container-highest hover:bg-surface-container border border-outline text-on-surface text-xs font-headline font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait"
         >
-          <span className={`material-symbols-outlined text-[16px] text-primary ${isRestarting ? 'animate-spin' : ''}`}>
+          <span className={`material-symbols-outlined text-[16px] text-on-surface ${isRestarting ? 'animate-spin' : ''}`}>
             restart_alt
           </span>
           <span>{isRestarting ? 'Reiniciando...' : 'Reiniciar Engines'}</span>
@@ -94,10 +94,10 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
       {/* Engines List */}
       <main className="px-4 py-4 space-y-4">
         {/* ENGINE 1: LinkEngine */}
-        <article className="rounded-xl bg-surface-container-lowest border border-outline-variant/40 shadow-xs overflow-hidden">
-          <div className="p-3.5 bg-surface-container-low flex items-center justify-between border-b border-outline-variant/20">
+        <article className="bg-surface-container-lowest border border-outline-variant overflow-hidden">
+          <div className="p-3.5 bg-surface-container-low flex items-center justify-between border-b border-outline-variant">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded bg-primary/10 text-primary flex items-center justify-center">
+              <div className="w-7 h-7 bg-surface-container-high text-on-surface border border-outline-variant flex items-center justify-center">
                 <span className="material-symbols-outlined text-[18px]">cable</span>
               </div>
               <div>
@@ -109,23 +109,23 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
                 </p>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded text-[11px] font-label font-bold bg-primary/15 text-primary border border-primary/20">
+            <span className="px-2 py-0.5 text-[11px] font-label font-bold bg-primary text-on-primary">
               ACTIVO
             </span>
           </div>
 
           <div className="p-3.5 space-y-3">
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="p-2.5 rounded bg-surface-container-low border border-outline-variant/20">
+              <div className="p-2.5 bg-surface-container-low border border-outline-variant">
                 <span className="text-on-surface-variant block text-[10px] uppercase font-label">Medio de Enlace</span>
                 <span className="font-headline font-bold text-on-surface mt-0.5 inline-flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
                   USB 3.0 Link Activo
                 </span>
               </div>
-              <div className="p-2.5 rounded bg-surface-container-low border border-outline-variant/20">
+              <div className="p-2.5 bg-surface-container-low border border-outline-variant">
                 <span className="text-on-surface-variant block text-[10px] uppercase font-label">Latencia de Bus</span>
-                <span className="font-headline font-bold text-primary mt-0.5 block">1.2 ms (RTT)</span>
+                <span className="font-headline font-bold text-on-surface mt-0.5 block">1.2 ms (RTT)</span>
               </div>
             </div>
             <div className="flex items-center justify-between text-xs px-1 text-on-surface-variant font-label">
@@ -136,10 +136,10 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
         </article>
 
         {/* ENGINE 2: VisionEngine */}
-        <article className="rounded-xl bg-surface-container-lowest border border-outline-variant/40 shadow-xs overflow-hidden">
-          <div className="p-3.5 bg-surface-container-low flex items-center justify-between border-b border-outline-variant/20">
+        <article className="bg-surface-container-lowest border border-outline-variant overflow-hidden">
+          <div className="p-3.5 bg-surface-container-low flex items-center justify-between border-b border-outline-variant">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded bg-primary/10 text-primary flex items-center justify-center">
+              <div className="w-7 h-7 bg-surface-container-high text-on-surface border border-outline-variant flex items-center justify-center">
                 <span className="material-symbols-outlined text-[18px]">display_settings</span>
               </div>
               <div>
@@ -151,7 +151,7 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
                 </p>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded text-[11px] font-label font-bold bg-primary/15 text-primary border border-primary/20">
+            <span className="px-2 py-0.5 text-[11px] font-label font-bold bg-primary text-on-primary">
               ACTIVO
             </span>
           </div>
@@ -160,40 +160,44 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
             {/* Selector Monitor & Display Mode */}
             <div className="grid grid-cols-2 gap-2.5">
               <div>
-                <label className="block text-[11px] font-semibold text-on-surface-variant mb-1 font-label">
+                <label htmlFor="vision-monitor" className="block text-[11px] font-semibold text-on-surface-variant mb-1 font-label">
                   MONITOR FUENTE
                 </label>
                 <div className="relative">
                   <select
+                    id="vision-monitor"
                     value={selectedMonitor}
                     onChange={(e) => setSelectedMonitor(e.target.value)}
-                    className="w-full appearance-none px-2.5 py-1.5 pr-7 rounded bg-surface-container-low border border-outline-variant/40 text-xs font-medium text-on-surface focus:outline-none focus:border-primary cursor-pointer"
+                    className="w-full appearance-none px-2.5 py-1.5 pr-7 bg-surface-container-low border border-outline text-xs font-medium text-on-surface cursor-pointer"
                   >
                     <option>Monitor 1 (Principal)</option>
                     <option>Monitor 2 (Secundario)</option>
                     <option>Ventana de Juego Activa</option>
                   </select>
-                  <span className="material-symbols-outlined text-[16px] text-outline absolute right-2 top-2 pointer-events-none">
+                  <span className="material-symbols-outlined text-[16px] text-on-surface-variant absolute right-2 top-2 pointer-events-none">
                     unfold_more
                   </span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-on-surface-variant mb-1 font-label">
+                <span className="block text-[11px] font-semibold text-on-surface-variant mb-1 font-label">
                   MODO VENTANA
-                </label>
-                <div className="flex items-center justify-between px-2.5 py-1.5 rounded bg-surface-container-low border border-outline-variant/40 text-xs">
+                </span>
+                <div className="flex items-center justify-between px-2.5 py-1.5 bg-surface-container-low border border-outline text-xs">
                   <span className="text-on-surface font-medium truncate mr-1">Pantalla completa</span>
                   <button
                     type="button"
+                    role="switch"
+                    aria-checked={isFullScreen}
+                    aria-label="Pantalla completa"
                     onClick={() => setIsFullScreen(!isFullScreen)}
-                    className={`w-8 h-4 rounded-full relative transition-colors focus:outline-none cursor-pointer ${
-                      isFullScreen ? 'bg-primary' : 'bg-surface-container-highest'
+                    className={`w-8 h-4 relative transition-colors cursor-pointer border ${
+                      isFullScreen ? 'bg-primary border-primary' : 'bg-surface-container-highest border-outline'
                     }`}
                   >
                     <span
-                      className={`w-3 h-3 bg-white rounded-full absolute top-0.5 transition-transform shadow ${
+                      className={`w-3 h-3 bg-surface-container-lowest absolute top-0.5 transition-transform ${
                         isFullScreen ? 'right-0.5' : 'left-0.5'
                       }`}
                     ></span>
@@ -206,22 +210,24 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-on-surface-variant font-label">RESOLUCIÓN</span>
-                <div className="inline-flex rounded-lg bg-surface-container-high p-0.5 text-xs font-label">
+                <div className="inline-flex bg-surface-container-high p-0.5 text-xs font-label">
                   <button
+                    aria-pressed={resolution === '1080p'}
                     onClick={() => setResolution('1080p')}
-                    className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                    className={`px-3 py-1 transition-colors cursor-pointer ${
                       resolution === '1080p'
-                        ? 'bg-surface-container-lowest text-on-surface font-bold shadow-xs'
+                        ? 'bg-surface-container-lowest text-on-surface font-bold'
                         : 'text-on-surface-variant hover:text-on-surface font-medium'
                     }`}
                   >
                     1080p
                   </button>
                   <button
+                    aria-pressed={resolution === '1440p'}
                     onClick={() => setResolution('1440p')}
-                    className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                    className={`px-3 py-1 transition-colors cursor-pointer ${
                       resolution === '1440p'
-                        ? 'bg-surface-container-lowest text-on-surface font-bold shadow-xs'
+                        ? 'bg-surface-container-lowest text-on-surface font-bold'
                         : 'text-on-surface-variant hover:text-on-surface font-medium'
                     }`}
                   >
@@ -234,22 +240,24 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
                 <span className="text-[11px] font-semibold text-on-surface-variant font-label">
                   TASA DE REFRESCO (FPS)
                 </span>
-                <div className="inline-flex rounded-lg bg-surface-container-high p-0.5 text-xs font-label">
+                <div className="inline-flex bg-surface-container-high p-0.5 text-xs font-label">
                   <button
+                    aria-pressed={fps === 60}
                     onClick={() => setFps(60)}
-                    className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                    className={`px-3 py-1 transition-colors cursor-pointer ${
                       fps === 60
-                        ? 'bg-surface-container-lowest text-on-surface font-bold shadow-xs'
+                        ? 'bg-surface-container-lowest text-on-surface font-bold'
                         : 'text-on-surface-variant hover:text-on-surface font-medium'
                     }`}
                   >
                     60 FPS
                   </button>
                   <button
+                    aria-pressed={fps === 120}
                     onClick={() => setFps(120)}
-                    className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                    className={`px-3 py-1 transition-colors cursor-pointer ${
                       fps === 120
-                        ? 'bg-surface-container-lowest text-on-surface font-bold shadow-xs'
+                        ? 'bg-surface-container-lowest text-on-surface font-bold'
                         : 'text-on-surface-variant hover:text-on-surface font-medium'
                     }`}
                   >
@@ -260,24 +268,25 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
             </div>
 
             {/* Bitrate Slider */}
-            <div className="p-2.5 rounded bg-surface-container-low border border-outline-variant/20 space-y-1.5">
+            <div className="p-2.5 bg-surface-container-low border border-outline-variant space-y-1.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-label text-[11px] text-on-surface-variant uppercase">
                   Flujo de datos (Bitrate)
                 </span>
-                <span className="font-label font-bold text-primary">{bitrate} Mbps</span>
+                <span className="font-label font-bold text-on-surface">{bitrate} Mbps</span>
               </div>
               <input
                 type="range"
                 min="5"
                 max="50"
                 value={bitrate}
+                aria-label="Flujo de datos en Mbps"
                 onChange={(e) => setBitrate(Number(e.target.value))}
-                className="w-full h-1.5 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-primary"
+                className="w-full h-1.5 bg-surface-container-highest appearance-none cursor-pointer accent-primary"
               />
-              <div className="flex justify-between text-[10px] font-label text-outline">
+              <div className="flex justify-between text-[10px] font-label text-on-surface-variant">
                 <span>5 Mbps</span>
-                <span className="text-primary font-semibold">25 Mbps (Recomendado)</span>
+                <span className="text-on-surface font-semibold">25 Mbps (Recomendado)</span>
                 <span>50 Mbps</span>
               </div>
             </div>
@@ -285,10 +294,10 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
         </article>
 
         {/* ENGINE 3: ExInEngine */}
-        <article className="rounded-xl bg-surface-container-lowest border border-outline-variant/40 shadow-xs overflow-hidden">
-          <div className="p-3.5 bg-surface-container-low flex items-center justify-between border-b border-outline-variant/20">
+        <article className="bg-surface-container-lowest border border-outline-variant overflow-hidden">
+          <div className="p-3.5 bg-surface-container-low flex items-center justify-between border-b border-outline-variant">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded bg-secondary-container/50 text-secondary flex items-center justify-center">
+              <div className="w-7 h-7 bg-surface-container-high text-on-surface-variant border border-outline-variant flex items-center justify-center">
                 <span className="material-symbols-outlined text-[18px]">sports_esports</span>
               </div>
               <div>
@@ -300,21 +309,21 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
                 </p>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded text-[11px] font-label font-bold bg-secondary-container/30 text-secondary border border-secondary/20">
+            <span className="px-2 py-0.5 text-[11px] font-label font-bold bg-surface-container-high text-on-surface border border-outline-variant">
               DETECTADO / LISTO
             </span>
           </div>
 
           <div className="p-3.5 space-y-3">
-            <div className="flex items-center justify-between p-2.5 rounded bg-surface-container-low border border-outline-variant/20 text-xs font-label">
+            <div className="flex items-center justify-between p-2.5 bg-surface-container-low border border-outline-variant text-xs font-label">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-[18px]">videogame_asset</span>
+                <span className="material-symbols-outlined text-on-surface text-[18px]">videogame_asset</span>
                 <div>
                   <span className="text-on-surface font-semibold block">Dispositivo HID Principal</span>
                   <span className="text-[10px] text-on-surface-variant">XInput Controller 0 • Polling 1000Hz</span>
                 </div>
               </div>
-              <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 text-[10px] font-bold rounded border border-emerald-500/20">
+              <span className="px-1.5 py-0.5 bg-success-container text-success text-[10px] font-bold border border-success">
                 OK
               </span>
             </div>
@@ -322,14 +331,14 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
             <div className="flex gap-2">
               <button
                 onClick={() => onNavigate('live_test')}
-                className="flex-1 py-2 px-3 rounded-lg bg-surface-container-high hover:bg-surface-container border border-outline-variant/40 text-on-surface text-xs font-headline font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                className="flex-1 py-2 px-3 bg-surface-container-high hover:bg-surface-container border border-outline text-on-surface text-xs font-headline font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[16px] text-primary">tune</span>
+                <span className="material-symbols-outlined text-[16px] text-on-surface">tune</span>
                 <span>Calibración</span>
               </button>
               <button
                 onClick={() => onNavigate('live_test')}
-                className="flex-1 py-2 px-3 rounded-lg bg-primary text-on-primary text-xs font-headline font-semibold flex items-center justify-center gap-1.5 transition-all hover:opacity-95 cursor-pointer shadow-xs"
+                className="flex-1 py-2 px-3 bg-primary text-on-primary text-xs font-headline font-semibold flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[16px]">motion_sensor_active</span>
                 <span>Prueba en vivo</span>
@@ -339,10 +348,10 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
         </article>
 
         {/* ENGINE 4: STEngine */}
-        <article className="rounded-xl bg-surface-container-lowest border border-outline-variant/40 shadow-xs overflow-hidden">
-          <div className="p-3.5 bg-surface-container-low flex items-center justify-between border-b border-outline-variant/20">
+        <article className="bg-surface-container-lowest border border-outline-variant overflow-hidden">
+          <div className="p-3.5 bg-surface-container-low flex items-center justify-between border-b border-outline-variant">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded bg-primary/10 text-primary flex items-center justify-center">
+              <div className="w-7 h-7 bg-surface-container-high text-on-surface border border-outline-variant flex items-center justify-center">
                 <span className="material-symbols-outlined text-[18px]">dns</span>
               </div>
               <div>
@@ -354,31 +363,31 @@ export const EnginesScreen: React.FC<EnginesScreenProps> = ({ onNavigate, onShow
                 </p>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded text-[11px] font-label font-bold bg-surface-container-highest text-on-surface-variant border border-outline-variant/40">
+            <span className="px-2 py-0.5 text-[11px] font-label font-bold bg-surface-container-highest text-on-surface-variant border border-outline-variant">
               DETECTADO
             </span>
           </div>
 
           <div className="p-3.5 space-y-2.5">
             <div className="grid grid-cols-2 gap-2 text-xs font-label">
-              <div className="p-2 rounded bg-surface-container-low border border-outline-variant/20">
+              <div className="p-2 bg-surface-container-low border border-outline-variant">
                 <span className="text-[10px] text-on-surface-variant uppercase">CPU Thermal Throttling</span>
                 <p className="font-headline font-bold text-on-surface mt-0.5">Nominal (38°C)</p>
               </div>
-              <div className="p-2 rounded bg-surface-container-low border border-outline-variant/20">
+              <div className="p-2 bg-surface-container-low border border-outline-variant">
                 <span className="text-[10px] text-on-surface-variant uppercase">Hilos Sincronizados</span>
-                <p className="font-headline font-bold text-primary mt-0.5">8 Threads Lock</p>
+                <p className="font-headline font-bold text-on-surface mt-0.5">8 Threads Lock</p>
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-[11px] font-label text-on-surface-variant px-1 pt-1 border-t border-outline-variant/20">
+            <div className="flex items-center justify-between text-[11px] font-label text-on-surface-variant px-1 pt-1 border-t border-outline-variant">
               <span className="flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px] text-primary">terminal</span>
+                <span className="material-symbols-outlined text-[14px] text-on-surface">terminal</span>
                 Diagnóstico ST: Pipeline estable
               </span>
               <button
                 onClick={() => onNavigate('hardware')}
-                className="text-primary font-medium hover:underline cursor-pointer flex items-center gap-0.5"
+                className="text-on-surface font-medium underline underline-offset-2 hover:no-underline cursor-pointer flex items-center gap-0.5"
               >
                 <span>Ver Raw Logs</span>
                 <span className="material-symbols-outlined text-[14px]">arrow_forward</span>

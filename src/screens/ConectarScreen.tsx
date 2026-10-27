@@ -55,58 +55,58 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
       <section className="space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-mono font-bold">
+            <span className="flex size-5 items-center justify-center bg-primary text-on-primary text-xs font-mono font-bold">
               1
             </span>
             <h2 className="text-xs font-bold tracking-tight text-on-surface uppercase font-headline">
               Conexión Física de Datos
             </h2>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-500 border border-rose-500/30 font-bold tracking-wide">
+          <span className="text-[10px] font-mono px-2 py-0.5 bg-error-container text-error border border-error font-bold tracking-wide">
             OBLIGATORIO
           </span>
         </div>
 
         {/* Featured Physical USB Card */}
-        <div className="rounded-xl bg-surface-container-lowest border border-primary/30 p-4 relative overflow-hidden shadow-xs hover:shadow-md transition-shadow">
+        <div className="bg-surface-container-lowest border border-on-surface p-4 relative overflow-hidden">
           <div className="flex items-start justify-between gap-3 mb-3">
             <div className="flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-lg bg-secondary-container text-primary border border-primary/20 shadow-2xs">
-                <span className="material-symbols-outlined text-2xl text-primary">cable</span>
+              <div className="flex size-11 items-center justify-center bg-surface-container-high text-on-surface border border-outline-variant">
+                <span className="material-symbols-outlined text-2xl text-on-surface">cable</span>
               </div>
               <div>
-                <p className="text-[10px] font-mono font-bold tracking-wider text-primary uppercase">ENLACE PRINCIPAL</p>
+                <p className="text-[10px] font-mono font-bold tracking-wider text-on-surface-variant uppercase">ENLACE PRINCIPAL</p>
                 <h3 className="text-sm font-bold text-on-surface leading-snug">USB Físico de Alta Velocidad</h3>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-400">
-              <span className="size-2 rounded-full bg-teal-500 animate-ping"></span>
-              <span className="text-xs font-mono font-bold tracking-tight">● Detectado</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-success-container border border-success text-success">
+              <span className="size-2 rounded-full bg-success animate-pulse"></span>
+              <span className="text-xs font-mono font-bold tracking-tight">Detectado</span>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 my-3 font-mono text-xs">
-            <div className="rounded-lg bg-surface-container-low p-2.5 border border-outline-variant/60">
+            <div className="bg-surface-container-low p-2.5 border border-outline-variant">
               <span className="text-[10px] block text-on-surface-variant font-medium">ANCHO DE BANDA</span>
-              <span className="font-bold text-xs text-primary">480 Mbps / USB 2.0+</span>
+              <span className="font-bold text-xs text-on-surface">480 Mbps / USB 2.0+</span>
             </div>
-            <div className="rounded-lg bg-surface-container-low p-2.5 border border-outline-variant/60">
+            <div className="bg-surface-container-low p-2.5 border border-outline-variant">
               <span className="text-[10px] block text-on-surface-variant font-medium">ESTADO DEL CABLE</span>
-              <span className="font-bold text-xs text-emerald-500 flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-emerald-500">check_circle</span> Cable Activo
+              <span className="font-bold text-xs text-success flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-success">check_circle</span> Cable Activo
               </span>
             </div>
           </div>
 
           {/* Subsystem Warning Card */}
-          <div className="rounded-lg bg-rose-500/10 border border-rose-500/30 p-3 mt-3 flex items-start gap-2.5">
-            <span className="material-symbols-outlined text-rose-500 text-lg shrink-0 mt-0.5">warning</span>
+          <div role="alert" className="bg-error-container border border-error p-3 mt-3 flex items-start gap-2.5">
+            <span className="material-symbols-outlined text-error text-lg shrink-0 mt-0.5">warning</span>
             <div className="space-y-0.5">
-              <p className="text-[11px] font-bold text-rose-400 uppercase tracking-wider font-headline">
+              <p className="text-[11px] font-bold text-error uppercase tracking-wider font-headline">
                 Aviso Crítico de Subsistema
               </p>
               <p className="text-xs text-on-surface leading-relaxed">
-                El enlace USB por cable es <span className="font-bold underline decoration-rose-400 text-rose-400">indispensable y obligatorio</span> para LinkEngine en tiempo real. La red inalámbrica sólo actúa como interfaz auxiliar.
+                El enlace USB por cable es <span className="font-bold underline decoration-error text-error">indispensable y obligatorio</span> para LinkEngine en tiempo real. La red inalámbrica sólo actúa como interfaz auxiliar.
               </p>
             </div>
           </div>
@@ -115,7 +115,7 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
             <button
               onClick={handleCheckUsb}
               disabled={usbStatus === 'checking'}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary text-on-primary px-4 py-2 text-xs font-semibold hover:opacity-90 transition-all active:scale-95 shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-2 bg-primary text-on-primary px-4 py-2 text-xs font-semibold hover:opacity-90 transition-opacity active:opacity-80 cursor-pointer disabled:cursor-wait disabled:opacity-60"
             >
               <span className={`material-symbols-outlined text-sm ${usbStatus === 'checking' ? 'animate-spin' : ''}`}>
                 sync
@@ -130,33 +130,33 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
       <section className="space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="flex size-5 items-center justify-center rounded-full bg-secondary-container text-primary font-mono text-xs font-bold">
+            <span className="flex size-5 items-center justify-center bg-surface-container-high text-on-surface border border-outline-variant font-mono text-xs font-bold">
               2
             </span>
             <h2 className="text-xs font-bold tracking-tight text-on-surface uppercase font-headline">
               Emparejamiento Auxiliar PC ↔ Android
             </h2>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-semibold">
+          <span className="text-[10px] font-mono px-2 py-0.5 bg-surface-container-high text-on-surface-variant border border-outline-variant font-semibold">
             AUXILIAR
           </span>
         </div>
 
         {/* Warning Ribbon: No sustituye USB */}
-        <div className="rounded-lg bg-surface-container-lowest border border-outline-variant border-l-4 border-l-secondary px-3 py-2 text-[11px] text-on-surface-variant flex items-center justify-between shadow-2xs">
+        <div className="bg-surface-container-lowest border border-outline-variant border-l-4 border-l-on-surface px-3 py-2 text-[11px] text-on-surface-variant flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-on-surface">
-            <span className="material-symbols-outlined text-secondary text-sm">info</span>
+            <span className="material-symbols-outlined text-on-surface text-sm">info</span>
             Métodos complementarios de control y sincronización.
           </span>
-          <span className="font-bold text-secondary text-[10px] uppercase font-mono tracking-tight shrink-0 ml-2">
+          <span className="font-bold text-on-surface text-[10px] uppercase font-mono tracking-tight shrink-0 ml-2">
             No sustituyen USB
           </span>
         </div>
 
         {/* Auxiliary Method 1: QR Code */}
-        <div className="rounded-xl bg-surface-container-lowest border border-outline-variant p-3.5 flex items-center justify-between hover:border-primary/50 transition-colors shadow-2xs">
+        <div className="bg-surface-container-lowest border border-outline p-3.5 flex items-center justify-between hover:border-on-surface transition-colors">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-surface-container text-secondary border border-outline-variant/60">
+            <div className="flex size-10 items-center justify-center bg-surface-container text-on-surface border border-outline-variant">
               <span className="material-symbols-outlined text-xl">qr_code_scanner</span>
             </div>
             <div>
@@ -166,17 +166,17 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
           </div>
           <button
             onClick={() => setShowQrModal(true)}
-            className="px-3 py-1.5 rounded-lg border border-outline-variant hover:border-primary text-primary font-semibold text-xs bg-surface-container-lowest hover:bg-surface-container-low transition-all cursor-pointer"
+            className="px-3 py-1.5 border border-outline hover:border-on-surface text-on-surface font-semibold text-xs bg-surface-container-lowest hover:bg-surface-container-low transition-colors cursor-pointer"
           >
             Escanear
           </button>
         </div>
 
         {/* Auxiliary Method 2: LAN Directa */}
-        <div className="rounded-xl bg-surface-container-lowest border border-outline-variant p-3.5 space-y-2.5 hover:border-primary/50 transition-colors shadow-2xs">
+        <div className="bg-surface-container-lowest border border-outline p-3.5 space-y-2.5 hover:border-on-surface transition-colors">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-surface-container text-secondary border border-outline-variant/60">
+              <div className="flex size-10 items-center justify-center bg-surface-container text-on-surface border border-outline-variant">
                 <span className="material-symbols-outlined text-xl">lan</span>
               </div>
               <div>
@@ -184,7 +184,7 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
                 <p className="text-[11px] text-on-surface-variant">Emparejamiento por IP de red local y puerto UDP</p>
               </div>
             </div>
-            <span className="text-[10px] font-mono text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-semibold">
+            <span className="text-[10px] font-mono text-success bg-success-container px-2 py-0.5 border border-success font-semibold">
               192.168.1.140
             </span>
           </div>
@@ -192,9 +192,10 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
           <div className="flex gap-2">
             <input
               type="text"
+              aria-label="IP y puerto de la LAN directa"
               value={lanIp}
               onChange={(e) => setLanIp(e.target.value)}
-              className="flex-1 bg-surface-container-low border border-outline-variant rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:border-primary focus:bg-surface-container-lowest focus:ring-0 focus:outline-none"
+              className="flex-1 bg-surface-container-low border border-outline-variant px-2.5 py-1.5 text-xs font-mono text-on-surface focus:border-on-surface focus:bg-surface-container-lowest"
               placeholder="IP:PUERTO"
             />
             <button
@@ -202,7 +203,7 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
                 setIsLanLinked(true);
                 onShowToast(`Vínculo LAN verificado en ${lanIp}`);
               }}
-              className="px-3.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold border border-outline-variant transition-all cursor-pointer"
+              className="px-3.5 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold border border-outline transition-colors cursor-pointer"
             >
               {isLanLinked ? 'Vinculado' : 'Vincular'}
             </button>
@@ -210,15 +211,15 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
         </div>
 
         {/* Auxiliary Method 3: Wi-Fi ADB */}
-        <div className="rounded-xl bg-surface-container-lowest border border-outline-variant p-3.5 flex items-center justify-between hover:border-primary/50 transition-colors shadow-2xs">
+        <div className="bg-surface-container-lowest border border-outline p-3.5 flex items-center justify-between hover:border-on-surface transition-colors">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-surface-container text-secondary border border-outline-variant/60">
+            <div className="flex size-10 items-center justify-center bg-surface-container text-on-surface border border-outline-variant">
               <span className="material-symbols-outlined text-xl">wifi_tethering</span>
             </div>
             <div>
               <div className="flex items-center gap-1.5">
                 <h4 className="text-xs font-bold text-on-surface font-headline">Wi-Fi ADB Bridge</h4>
-                <span className="size-2 rounded-full bg-emerald-500"></span>
+                <span className="size-2 rounded-full bg-success" aria-label="Activo"></span>
               </div>
               <p className="text-[11px] text-on-surface-variant">Sincronización remota de parámetros y buffers</p>
             </div>
@@ -226,7 +227,7 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
           <button
             onClick={handleSyncAdb}
             disabled={isAdbSyncing}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary-container text-on-secondary-container font-semibold hover:opacity-90 text-xs transition-all border border-primary/20 cursor-pointer"
+            className="flex items-center gap-1 px-3 py-1.5 bg-secondary-container text-on-secondary-container font-semibold hover:opacity-90 text-xs transition-opacity border border-outline cursor-pointer disabled:cursor-wait disabled:opacity-60"
           >
             <span className={`material-symbols-outlined text-sm ${isAdbSyncing ? 'animate-spin' : ''}`}>
               tune
@@ -240,7 +241,7 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-mono font-bold">
+            <span className="flex size-5 items-center justify-center bg-primary text-on-primary text-xs font-mono font-bold">
               3
             </span>
             <h2 className="text-xs font-bold tracking-tight text-on-surface uppercase font-headline">
@@ -256,7 +257,7 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
         <button
           onClick={handleDetectEngines}
           disabled={isScanning}
-          className="w-full relative group overflow-hidden rounded-xl bg-primary text-on-primary px-4 py-3.5 text-center font-headline font-bold text-sm tracking-wide transition-all duration-300 shadow-md hover:opacity-95 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
+          className="w-full relative group bg-primary text-on-primary px-4 py-3.5 text-center font-headline font-bold text-sm tracking-wide transition-opacity hover:opacity-90 active:opacity-80 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-wait disabled:opacity-70"
         >
           <span className={`material-symbols-outlined text-xl ${isScanning ? 'animate-spin' : 'group-hover:rotate-180 transition-transform'}`}>
             radar
@@ -269,23 +270,23 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
           {/* 1. LinkEngine */}
           <div
             onClick={() => onNavigate('engines')}
-            className={`rounded-xl bg-surface-container-lowest border p-3 flex flex-col justify-between relative overflow-hidden shadow-2xs transition-all cursor-pointer ${
-              scanStep >= 1 ? 'border-primary/40' : 'border-outline-variant opacity-70'
+            className={`bg-surface-container-lowest border p-3 flex flex-col justify-between transition-colors cursor-pointer hover:border-on-surface ${
+              scanStep >= 1 ? 'border-on-surface' : 'border-outline-variant opacity-70'
             }`}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold border border-primary/20">
+              <span className="text-[10px] font-mono px-1.5 py-0.5 bg-primary text-on-primary font-bold">
                 CORE USB
               </span>
-              <span className={`size-2.5 rounded-full ${scanStep >= 1 ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`}></span>
+              <span className={`size-2.5 rounded-full ${scanStep >= 1 ? 'bg-success' : 'bg-warning animate-pulse'}`}></span>
             </div>
             <div>
               <h5 className="text-xs font-bold text-on-surface font-headline">LinkEngine</h5>
               <p className="text-[10px] text-on-surface-variant font-medium">I/O Direct Pipeline</p>
             </div>
-            <div className="mt-2 pt-2 border-t border-outline-variant/50 flex items-center justify-between text-[10px] font-mono">
-              <span className="text-outline">ESTADO</span>
-              <span className="font-bold text-emerald-500">
+            <div className="mt-2 pt-2 border-t border-outline-variant flex items-center justify-between text-[10px] font-mono">
+              <span className="text-on-surface-variant">ESTADO</span>
+              <span className={`font-bold ${scanStep >= 1 ? 'text-success' : 'text-warning'}`}>
                 {scanStep >= 1 ? 'EN LÍNEA (1ms)' : 'SONDEANDO...'}
               </span>
             </div>
@@ -294,23 +295,23 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
           {/* 2. VisionEngine */}
           <div
             onClick={() => onNavigate('engines')}
-            className={`rounded-xl bg-surface-container-lowest border p-3 flex flex-col justify-between shadow-2xs transition-all cursor-pointer ${
-              scanStep >= 2 ? 'border-primary/40' : 'border-outline-variant opacity-70'
+            className={`bg-surface-container-lowest border p-3 flex flex-col justify-between transition-colors cursor-pointer hover:border-on-surface ${
+              scanStep >= 2 ? 'border-on-surface' : 'border-outline-variant opacity-70'
             }`}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-container-high text-secondary font-semibold">
+              <span className="text-[10px] font-mono px-1.5 py-0.5 bg-surface-container-high text-on-surface font-semibold">
                 NEURAL
               </span>
-              <span className={`size-2.5 rounded-full ${scanStep >= 2 ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`}></span>
+              <span className={`size-2.5 rounded-full ${scanStep >= 2 ? 'bg-success' : 'bg-warning animate-pulse'}`}></span>
             </div>
             <div>
               <h5 className="text-xs font-bold text-on-surface font-headline">VisionEngine</h5>
               <p className="text-[10px] text-on-surface-variant font-medium">Buffer de Video 4K</p>
             </div>
-            <div className="mt-2 pt-2 border-t border-outline-variant/50 flex items-center justify-between text-[10px] font-mono">
-              <span className="text-outline">ESTADO</span>
-              <span className="font-bold text-emerald-500">
+            <div className="mt-2 pt-2 border-t border-outline-variant flex items-center justify-between text-[10px] font-mono">
+              <span className="text-on-surface-variant">ESTADO</span>
+              <span className={`font-bold ${scanStep >= 2 ? 'text-success' : 'text-warning'}`}>
                 {scanStep >= 2 ? 'STANDBY (60 FPS)' : 'SONDEANDO...'}
               </span>
             </div>
@@ -319,23 +320,23 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
           {/* 3. ExInEngine */}
           <div
             onClick={() => onNavigate('live_test')}
-            className={`rounded-xl bg-surface-container-lowest border p-3 flex flex-col justify-between shadow-2xs transition-all cursor-pointer ${
-              scanStep >= 3 ? 'border-primary/40' : 'border-outline-variant opacity-70'
+            className={`bg-surface-container-lowest border p-3 flex flex-col justify-between transition-colors cursor-pointer hover:border-on-surface ${
+              scanStep >= 3 ? 'border-on-surface' : 'border-outline-variant opacity-70'
             }`}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-container-high text-secondary font-semibold">
+              <span className="text-[10px] font-mono px-1.5 py-0.5 bg-surface-container-high text-on-surface font-semibold">
                 SENSOR BUS
               </span>
-              <span className={`size-2.5 rounded-full ${scanStep >= 3 ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`}></span>
+              <span className={`size-2.5 rounded-full ${scanStep >= 3 ? 'bg-success' : 'bg-warning animate-pulse'}`}></span>
             </div>
             <div>
               <h5 className="text-xs font-bold text-on-surface font-headline">ExInEngine</h5>
               <p className="text-[10px] text-on-surface-variant font-medium">Telemetría Externa</p>
             </div>
-            <div className="mt-2 pt-2 border-t border-outline-variant/50 flex items-center justify-between text-[10px] font-mono">
-              <span className="text-outline">ESTADO</span>
-              <span className="font-bold text-emerald-500">
+            <div className="mt-2 pt-2 border-t border-outline-variant flex items-center justify-between text-[10px] font-mono">
+              <span className="text-on-surface-variant">ESTADO</span>
+              <span className={`font-bold ${scanStep >= 3 ? 'text-success' : 'text-warning'}`}>
                 {scanStep >= 3 ? 'ACTIVO (250Hz)' : 'SONDEANDO...'}
               </span>
             </div>
@@ -344,23 +345,23 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
           {/* 4. STEngine */}
           <div
             onClick={() => onNavigate('hardware')}
-            className={`rounded-xl bg-surface-container-lowest border p-3 flex flex-col justify-between shadow-2xs transition-all cursor-pointer ${
-              scanStep >= 4 ? 'border-primary/40' : 'border-outline-variant opacity-70'
+            className={`bg-surface-container-lowest border p-3 flex flex-col justify-between transition-colors cursor-pointer hover:border-on-surface ${
+              scanStep >= 4 ? 'border-on-surface' : 'border-outline-variant opacity-70'
             }`}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-container-high text-secondary font-semibold">
+              <span className="text-[10px] font-mono px-1.5 py-0.5 bg-surface-container-high text-on-surface font-semibold">
                 AUDIO/SYNC
               </span>
-              <span className={`size-2.5 rounded-full ${scanStep >= 4 ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`}></span>
+              <span className={`size-2.5 rounded-full ${scanStep >= 4 ? 'bg-success' : 'bg-warning animate-pulse'}`}></span>
             </div>
             <div>
               <h5 className="text-xs font-bold text-on-surface font-headline">STEngine</h5>
               <p className="text-[10px] text-on-surface-variant font-medium">Spatio-Temporal Sync</p>
             </div>
-            <div className="mt-2 pt-2 border-t border-outline-variant/50 flex items-center justify-between text-[10px] font-mono">
-              <span className="text-outline">ESTADO</span>
-              <span className="font-bold text-emerald-500">
+            <div className="mt-2 pt-2 border-t border-outline-variant flex items-center justify-between text-[10px] font-mono">
+              <span className="text-on-surface-variant">ESTADO</span>
+              <span className={`font-bold ${scanStep >= 4 ? 'text-success' : 'text-warning'}`}>
                 {scanStep >= 4 ? 'SINCRONIZADO' : 'SONDEANDO...'}
               </span>
             </div>
@@ -370,25 +371,31 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
 
       {/* QR Code Scanner Dialog Modal */}
       {showQrModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-surface-container-lowest border border-primary/30 p-5 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-scrim flex items-center justify-center p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="qr-title"
+            className="w-full max-w-sm bg-surface-container-lowest border border-on-surface p-5 space-y-4"
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">qr_code_scanner</span>
-                <h3 className="font-headline font-bold text-sm text-on-surface">Escanear NOVORA Desktop</h3>
+                <span className="material-symbols-outlined text-on-surface">qr_code_scanner</span>
+                <h3 id="qr-title" className="font-headline font-bold text-sm text-on-surface">Escanear NOVORA Desktop</h3>
               </div>
               <button
                 onClick={() => setShowQrModal(false)}
-                className="text-outline hover:text-on-surface p-1 rounded"
+                aria-label="Cerrar escáner"
+                className="text-on-surface-variant hover:text-on-surface p-1 cursor-pointer"
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
-            <div className="flex flex-col items-center justify-center p-6 bg-surface-container-low rounded-xl border border-dashed border-primary/50 relative overflow-hidden">
-              {/* Dynamic QR visualizer */}
-              <div className="relative size-40 bg-white p-3 rounded-lg shadow-sm flex items-center justify-center">
-                <svg viewBox="0 0 100 100" className="w-full h-full">
+            <div className="flex flex-col items-center justify-center p-6 bg-surface-container-low border border-dashed border-outline relative overflow-hidden">
+              {/* Dynamic QR visualizer. Black on white is intentional: a scannable code needs it in both themes. */}
+              <div className="relative size-40 bg-white p-3 flex items-center justify-center">
+                <svg viewBox="0 0 100 100" className="w-full h-full" role="img" aria-label="Código QR de emparejamiento">
                   {/* Outer corner patterns */}
                   <rect x="5" y="5" width="28" height="28" fill="#000" />
                   <rect x="9" y="9" width="20" height="20" fill="#fff" />
@@ -403,18 +410,18 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
                   <rect x="13" y="75" width="12" height="12" fill="#000" />
 
                   {/* Matrix elements */}
-                  <circle cx="50" cy="20" r="3" fill="#0896b0" />
-                  <circle cx="50" cy="50" r="4" fill="#0896b0" />
-                  <circle cx="50" cy="80" r="3" fill="#0896b0" />
+                  <circle cx="50" cy="20" r="3" fill="#000" />
+                  <circle cx="50" cy="50" r="4" fill="#000" />
+                  <circle cx="50" cy="80" r="3" fill="#000" />
                   <rect x="38" y="38" width="6" height="6" fill="#000" />
                   <rect x="56" y="38" width="6" height="6" fill="#000" />
                   <rect x="38" y="56" width="6" height="6" fill="#000" />
                   <rect x="56" y="56" width="6" height="6" fill="#000" />
                 </svg>
-                {/* Laser scan line animation */}
-                <div className="absolute left-2 right-2 top-0 h-0.5 bg-cyan-400 shadow-[0_0_8px_#38bdf8] animate-[bounce_2s_infinite]"></div>
+                {/* Scan line animation */}
+                <div className="absolute left-2 right-2 top-0 h-0.5 bg-primary animate-[bounce_2s_infinite]"></div>
               </div>
-              <p className="text-xs text-outline font-label mt-3 text-center">
+              <p className="text-xs text-on-surface-variant font-label mt-3 text-center">
                 Alinea el código con la cámara o sincroniza vía USB
               </p>
             </div>
@@ -425,13 +432,13 @@ export const ConectarScreen: React.FC<ConectarScreenProps> = ({ onNavigate, onSh
                   setShowQrModal(false);
                   onShowToast('Código QR validado • Parámetros sincronizados');
                 }}
-                className="flex-1 py-2 bg-primary text-on-primary rounded-lg font-headline font-bold text-xs"
+                className="flex-1 py-2 bg-primary text-on-primary font-headline font-bold text-xs cursor-pointer hover:opacity-90"
               >
                 Confirmar Emparejamiento
               </button>
               <button
                 onClick={() => setShowQrModal(false)}
-                className="py-2 px-3 border border-outline-variant text-on-surface rounded-lg font-headline text-xs"
+                className="py-2 px-3 border border-outline text-on-surface font-headline text-xs cursor-pointer hover:bg-surface-container"
               >
                 Cerrar
               </button>

@@ -19,7 +19,7 @@ export const NovoraLogo: React.FC<NovoraLogoProps> = ({
 
   if (variant === 'banner') {
     return (
-      <div className={`relative w-full rounded-xl overflow-hidden flex items-center justify-center ${theme === 'dark' ? 'bg-[#060a0c]' : 'bg-white'} ${className}`}>
+      <div className={`relative w-full overflow-hidden flex items-center justify-center bg-surface-container-lowest border border-outline-variant ${className}`}>
         {!imageError ? (
           <img
             src={remoteBannerUrl}
@@ -29,10 +29,10 @@ export const NovoraLogo: React.FC<NovoraLogoProps> = ({
             onError={() => setImageError(true)}
           />
         ) : (
-          <div className="w-full py-8 px-4 flex flex-col items-center justify-center bg-gradient-to-b from-[#0a1114] to-[#040708] border border-cyan-500/20">
-            {/* 3D Isometric Emblem */}
+          <div className="w-full py-8 px-4 flex flex-col items-center justify-center bg-surface-container-low border border-outline-variant">
+            {/* Brand emblem: kept as the NOVORA mark, not a themed UI color. */}
             <div className="relative w-16 h-16 mb-2">
-              <svg viewBox="0 0 100 100" className="w-full h-full filter drop-shadow-[0_4px_12px_rgba(0,180,216,0.3)]">
+              <svg viewBox="0 0 100 100" className="w-full h-full">
                 <defs>
                   <linearGradient id="metalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="#ffffff" />
@@ -60,7 +60,7 @@ export const NovoraLogo: React.FC<NovoraLogoProps> = ({
                   d="M78 43 L90 55 L76 69 L64 57 Z"
                   fill="#546e7a"
                 />
-                {/* Inner Neon Cobalt Bar */}
+                {/* Inner Cobalt Bar */}
                 <path
                   d="M50 40 L62 52 L50 82 L38 70 Z"
                   fill="url(#blueGrad)"
@@ -70,9 +70,9 @@ export const NovoraLogo: React.FC<NovoraLogoProps> = ({
               </svg>
             </div>
             <div className="text-center">
-              <span className="text-[10px] tracking-[0.3em] font-label uppercase text-cyan-400 font-bold">BIENVENIDO A</span>
-              <h2 className="text-2xl font-bold tracking-[0.25em] text-white font-headline mt-0.5 flex items-center justify-center gap-1">
-                NOVORA<span className="text-cyan-400">-</span>LINK
+              <span className="text-[10px] tracking-[0.3em] font-label uppercase text-on-surface-variant font-bold">BIENVENIDO A</span>
+              <h2 className="text-2xl font-bold tracking-[0.25em] text-on-surface font-headline mt-0.5 flex items-center justify-center gap-1">
+                NOVORA<span className="text-primary">-</span>LINK
               </h2>
             </div>
           </div>
@@ -110,18 +110,18 @@ export const NovoraLogo: React.FC<NovoraLogoProps> = ({
     );
   }
 
-  // Horizontal Wordmark variant
+  // Horizontal Wordmark variant: the glyph takes the UI's neutral and primary roles.
   return (
     <div className={`flex items-center gap-2 select-none ${className}`}>
       <div className="w-6 h-6 shrink-0">
         <svg viewBox="0 0 100 100" className="w-full h-full">
           <path
             d="M50 16 L80 46 L65 61 L50 46 L35 61 L20 46 Z"
-            fill="#94a3b8"
+            style={{ fill: 'var(--color-on-surface-variant)' }}
           />
           <path
             d="M50 42 L64 56 L52 82 L38 68 Z"
-            fill="#0ea5e9"
+            style={{ fill: 'var(--color-primary)' }}
           />
         </svg>
       </div>

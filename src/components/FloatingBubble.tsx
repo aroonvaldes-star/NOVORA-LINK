@@ -33,14 +33,15 @@ export const FloatingBubble: React.FC<FloatingBubbleProps> = ({
       {/* Quick Action Overlay Menu */}
       {isOpen && (
         <div
-          className="mb-2 w-56 rounded-xl bg-surface-container-lowest/95 backdrop-blur-md border border-primary/40 shadow-xl p-3 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-150"
+          className="mb-2 w-56 bg-surface-container-lowest border border-on-surface p-3 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-150"
           style={{ opacity: opacity / 100 }}
         >
-          <div className="flex items-center justify-between pb-1.5 border-b border-outline-variant/30">
+          <div className="flex items-center justify-between pb-1.5 border-b border-outline-variant">
             <span className="font-headline font-bold text-xs text-on-surface">NOVORA Quick Overlay</span>
             <button
               onClick={() => setIsOpen(false)}
-              className="text-outline hover:text-on-surface p-0.5 rounded"
+              aria-label="Cerrar menú rápido"
+              className="text-on-surface-variant hover:text-on-surface p-0.5 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px]">close</span>
             </button>
@@ -51,9 +52,9 @@ export const FloatingBubble: React.FC<FloatingBubbleProps> = ({
               onClick={() => {
                 onToggleRecord();
               }}
-              className={`p-2 rounded flex flex-col items-center gap-1 border transition-colors ${
+              className={`p-2 flex flex-col items-center gap-1 border transition-colors cursor-pointer ${
                 isRecording
-                  ? 'bg-rose-500/10 border-rose-500/40 text-rose-500'
+                  ? 'bg-error-container border-error text-error'
                   : 'bg-surface-container hover:bg-surface-container-high border-outline-variant text-on-surface'
               }`}
             >
@@ -68,9 +69,9 @@ export const FloatingBubble: React.FC<FloatingBubbleProps> = ({
                 onNavigate('live_test');
                 setIsOpen(false);
               }}
-              className="p-2 rounded bg-surface-container hover:bg-surface-container-high border border-outline-variant text-on-surface flex flex-col items-center gap-1 transition-colors"
+              className="p-2 bg-surface-container hover:bg-surface-container-high border border-outline text-on-surface flex flex-col items-center gap-1 transition-colors cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[18px] text-primary">sports_esports</span>
+              <span className="material-symbols-outlined text-[18px]">sports_esports</span>
               <span className="text-[10px] font-bold">Mando Test</span>
             </button>
 
@@ -79,9 +80,9 @@ export const FloatingBubble: React.FC<FloatingBubbleProps> = ({
                 onNavigate('hardware');
                 setIsOpen(false);
               }}
-              className="p-2 rounded bg-surface-container hover:bg-surface-container-high border border-outline-variant text-on-surface flex flex-col items-center gap-1 transition-colors"
+              className="p-2 bg-surface-container hover:bg-surface-container-high border border-outline text-on-surface flex flex-col items-center gap-1 transition-colors cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[18px] text-teal-400">speed</span>
+              <span className="material-symbols-outlined text-[18px]">speed</span>
               <span className="text-[10px] font-bold">Telemetría</span>
             </button>
 
@@ -90,15 +91,15 @@ export const FloatingBubble: React.FC<FloatingBubbleProps> = ({
                 onNavigate('archivos');
                 setIsOpen(false);
               }}
-              className="p-2 rounded bg-surface-container hover:bg-surface-container-high border border-outline-variant text-on-surface flex flex-col items-center gap-1 transition-colors"
+              className="p-2 bg-surface-container hover:bg-surface-container-high border border-outline text-on-surface flex flex-col items-center gap-1 transition-colors cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[18px] text-amber-400">folder_shared</span>
+              <span className="material-symbols-outlined text-[18px]">folder_shared</span>
               <span className="text-[10px] font-bold">Archivos</span>
             </button>
           </div>
 
-          <div className="pt-1 flex items-center justify-between text-[10px] font-label text-outline border-t border-outline-variant/30">
-            <span>Latencia: <strong className="text-primary">1.2ms</strong></span>
+          <div className="pt-1 flex items-center justify-between text-[10px] font-label text-on-surface-variant border-t border-outline-variant">
+            <span>Latencia: <strong className="text-on-surface">1.2ms</strong></span>
             <span>60 FPS</span>
           </div>
         </div>
@@ -107,12 +108,14 @@ export const FloatingBubble: React.FC<FloatingBubbleProps> = ({
       {/* Floating Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-label="Burbuja flotante de acceso rápido"
         style={{ opacity: opacity / 100 }}
-        className={`${sizeClasses} rounded-full bg-primary text-on-primary shadow-lg border-2 border-primary-container flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer relative`}
+        className={`${sizeClasses} rounded-full bg-primary text-on-primary border-2 border-primary flex items-center justify-center transition-transform hover:scale-105 active:scale-95 cursor-pointer relative`}
         title="Burbuja flotante de acceso rápido"
       >
         {isRecording ? (
-          <span className="absolute -top-0.5 -right-0.5 size-3 rounded-full bg-rose-500 animate-ping"></span>
+          <span className="absolute -top-0.5 -right-0.5 size-3 rounded-full bg-error animate-ping"></span>
         ) : null}
         <span className="material-symbols-outlined">
           {isOpen ? 'close' : 'bubble_chart'}

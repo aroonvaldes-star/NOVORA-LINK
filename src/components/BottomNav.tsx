@@ -16,7 +16,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentScreen, onNavigate 
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 mx-auto max-w-2xl bg-surface-container-lowest/95 backdrop-blur-md border-t border-outline-variant/30 px-2 py-1.5 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 mx-auto max-w-2xl bg-surface-container-lowest border-t border-outline-variant px-2 py-1.5">
       <div className="flex items-center justify-around">
         {tabs.map((tab) => {
           const isActive =
@@ -27,17 +27,21 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentScreen, onNavigate 
             <button
               key={tab.id}
               onClick={() => onNavigate(tab.id)}
-              className={`flex flex-1 flex-col items-center justify-center py-1 gap-1 transition-all active:scale-95 ${
+              aria-current={isActive ? 'page' : undefined}
+              className={`relative flex flex-1 flex-col items-center justify-center py-1 gap-1 transition-colors duration-200 active:opacity-70 cursor-pointer ${
                 isActive
-                  ? 'text-primary font-bold'
-                  : 'text-outline hover:text-on-surface'
+                  ? 'text-on-surface font-bold'
+                  : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-                  isActive ? 'bg-primary/10 text-primary' : 'text-outline'
+              {/* Swiss active marker: a solid 2px rule on the top edge, no tinted fill. */}
+              <span
+                aria-hidden="true"
+                className={`absolute -top-1.5 left-2 right-2 h-0.5 transition-colors duration-200 ${
+                  isActive ? 'bg-primary' : 'bg-transparent'
                 }`}
-              >
+              />
+              <div className="w-8 h-8 flex items-center justify-center">
                 <span
                   className={`material-symbols-outlined text-[22px] ${
                     isActive ? 'material-symbols-filled' : ''
