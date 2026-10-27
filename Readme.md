@@ -1,4 +1,4 @@
-<img width="1923" height="818" alt="Banner tecnológico Novora-Link en negro" src="https://github.com/user-attachments/assets/ca182ce8-2818-428d-bc34-f3757027ed62" />
+<img width="1536" height="512" alt="NLAssetNOVORABRANDLIGHT" src="https://github.com/user-attachments/assets/5486e2cc-3f2f-4358-980b-bba0dc83a927" />
 
 # NOVORA-LINK 1.4
 
