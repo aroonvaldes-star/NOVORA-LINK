@@ -6,6 +6,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/NOVORA.Android/AndroidUI/NLAndroidUIRoutePolicy.cs" Link="NLAndroidUIRoutePolicy.cs" />
+    <Compile Include="../../src/LINK Control/AndroidUI/NLAndroidUIRoutePolicy.cs" Link="NLAndroidUIRoutePolicy.cs" />
   </ItemGroup>
 </Project>

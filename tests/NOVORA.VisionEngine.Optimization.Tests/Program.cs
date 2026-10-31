@@ -14,7 +14,7 @@ using NOVORA.VisionEngine.Video;
 var checks = new List<(string Name, Func<Task> Check)>();
 void Add(string name, Action check) => checks.Add((name, () => { check(); return Task.CompletedTask; }));
 var capabilities = new VEAccelerationCapabilities(true, true, true, true, true, true);
-string source = args.Length > 0 ? args[0] : Path.GetFullPath("src/NOVORA");
+string source = args.Length > 0 ? args[0] : Path.GetFullPath("src/NOVORA LINK");
 var paths = new NLServiceNovoraPaths(source);
 var metrics = VEMetricsSnapshot.EmptyVE() with { WorkingSetBytes = 120_000_000, ProcessCpuPercent = 96 };
 Add("Only implemented hardware is recommended", () =>

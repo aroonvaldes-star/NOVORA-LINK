@@ -7,7 +7,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/NOVORA/VisionEngine/Metrics/VEOnDemandTelemetry.cs" Link="Production/VEOnDemandTelemetry.cs" Condition="Exists('../../src/NOVORA/VisionEngine/Metrics/VEOnDemandTelemetry.cs')" />
-    <Compile Include="../../src/NOVORA.Android/AndroidService/NLAndroidNotificationPolicy.cs" Link="Production/NLAndroidNotificationPolicy.cs" Condition="Exists('../../src/NOVORA.Android/AndroidService/NLAndroidNotificationPolicy.cs')" />
+    <Compile Include="../../src/NOVORA LINK/VisionEngine/Metrics/VEOnDemandTelemetry.cs" Link="Production/VEOnDemandTelemetry.cs" Condition="Exists('../../src/NOVORA LINK/VisionEngine/Metrics/VEOnDemandTelemetry.cs')" />
+    <Compile Include="../../src/LINK Control/AndroidService/NLAndroidNotificationPolicy.cs" Link="Production/NLAndroidNotificationPolicy.cs" Condition="Exists('../../src/LINK Control/AndroidService/NLAndroidNotificationPolicy.cs')" />
   </ItemGroup>
 </Project>

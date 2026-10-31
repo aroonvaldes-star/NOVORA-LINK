@@ -7,10 +7,10 @@ static void Check(bool condition, string message)
 }
 
 var root = new DirectoryInfo(AppContext.BaseDirectory);
-while (root is not null && !File.Exists(Path.Combine(root.FullName, "src/NOVORA/UI/NLUIWindowMain.xaml")))
+while (root is not null && !File.Exists(Path.Combine(root.FullName, "src/NOVORA LINK/UI/NLUIWindowMain.xaml")))
     root = root.Parent;
 Check(root is not null, "Cannot locate source checkout.");
-var xaml = XDocument.Load(Path.Combine(root!.FullName, "src/NOVORA/UI/NLUIWindowMain.xaml"));
+var xaml = XDocument.Load(Path.Combine(root!.FullName, "src/NOVORA LINK/UI/NLUIWindowMain.xaml"));
 XNamespace names = "http://schemas.microsoft.com/winfx/2006/xaml";
 var panel = xaml.Descendants().SingleOrDefault(e => (string?)e.Attribute(names + "Name") == "VisionTelemetryExpander14");
 Check(panel is not null && (string?)panel.Attribute("IsExpanded") == "False",
@@ -57,12 +57,12 @@ notificationGate.BeginDrain();
 Check(notificationGate.TryQueue(), "Draining must allow the next update.");
 notificationGate.BeginDrain();
 Type stateType = Assembly.GetExecutingAssembly().GetType("NOVORA.AndroidService.NLAndroidNotificationState")!;
-dynamic state = Activator.CreateInstance(stateType, "Conexión con PC", "PC personal · LAN", "Conectado por Wi-Fi · VisionEngine activo", true, true, 1L)!;
+dynamic state = Activator.CreateInstance(stateType, "Conexión con PC", "PC personal · LAN", "Conectado por Wi-Fi · VisionEngine activo", true, true, 1L, false, false, false, false)!;
 Check(notificationGate.NeedsPublish(state), "Initial notification is missing.");
 notificationGate.MarkPublished(state);
 for (int i = 0; i < 10_000; i++)
     Check(!notificationGate.NeedsPublish(state), "Identical notifications must not be republished.");
-dynamic next = Activator.CreateInstance(stateType, "Conexión con PC", "PC personal · LAN", "Conectado por Wi-Fi · VisionEngine activo", true, true, 2L)!;
+dynamic next = Activator.CreateInstance(stateType, "Conexión con PC", "PC personal · LAN", "Conectado por Wi-Fi · VisionEngine activo", true, true, 2L, false, false, false, false)!;
 Check(notificationGate.NeedsPublish(next), "New connection generation must be visible.");
 notificationGate.Reset();
 Check(notificationGate.NeedsPublish(state), "New foreground lifecycle must publish.");
@@ -75,7 +75,7 @@ string usb = (string)summary.Invoke(null, ["USB", true, false, false, true, true
 Check(usb.Contains("USB") && usb.Contains("Grabación activa") && usb.Contains("LinkEngine activo"), "USB, recording and Internet states are missing.");
 string lost = (string)summary.Invoke(null, ["LAN", false, true, true, true, false, false])!;
 Check(lost.Contains("perdido") && !lost.Contains("activo"), "Lost link must not claim active motors.");
-var service = File.ReadAllText(Path.Combine(root.FullName, "src/NOVORA.Android/AndroidService/NLAndroidServiceControl.cs"));
+var service = File.ReadAllText(Path.Combine(root.FullName, "src/LINK Control/AndroidService/NLAndroidServiceControl.cs"));
 Check(service.Contains("_notificationPolicy.NeedsPublish(") && service.Contains(".SetContentText(presentation.PublicMessage)"),
     "FAIL: the actual Android notification builder still republishes unchanged or generic-only notifications.");
 Console.WriteLine("PASS useful public summaries and actual Android service integration.");
