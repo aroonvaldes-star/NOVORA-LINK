@@ -108,7 +108,7 @@ public partial class NLUIWindowMain
         }
         catch (Exception ex)
         {
-            if (!_closing) AndroidControlStatus.Text = "USB automatico: " + ex.GetType().Name + ". Usa Reintentar USB o reconecta el cable.";
+            if (!_closing) AndroidControlStatus.Text = "USB automatico: " + ex.GetType().Name + ": " + ex.Message + " Usa Reintentar USB o reconecta el cable.";
         }
         finally { _automaticUsbBusy = false; }
     }
@@ -141,11 +141,6 @@ public partial class NLUIWindowMain
         }
         return found;
     }
-
-    internal static bool IsNovoraAndroidInstalled(string output)
-        => output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-            .Any(line => line.Trim().StartsWith("package:", StringComparison.OrdinalIgnoreCase) &&
-                line.Contains("com.linkcontrol.novora", StringComparison.OrdinalIgnoreCase));
 
     internal static string? ResolveNovoraUsbBootstrapComponent(string appControlOutput)
     {
@@ -192,7 +187,7 @@ public partial class NLUIWindowMain
             _viewModel.RefreshAudioOutputOptions(_paths);
             created = new NLControlTrustServer(System.Net.IPAddress.Loopback,
                 request => HandleAndroidControlAsync(request, generation, "USB"), GetAndroidUsbTrustStore(), NLControlProtocol.Port,
-                allowRemember: () => _allowUsbRemember, transport: "USB");
+                transport: "USB");
             // Binding must succeed before adopting an existing exact reverse mapping.
             created.Start();
             _androidControl = created;
@@ -254,7 +249,7 @@ public partial class NLUIWindowMain
             if (!_closing && _automaticUsb.IsCurrent(serial, epoch))
                 AndroidControlStatus.Text = ex is FileNotFoundException
                     ? ex.Message
-                    : "No se completo USB automatico (" + ex.GetType().Name + "). Revisa NOVORA-LINK y reintenta USB.";
+                    : "No se completo USB automatico (" + ex.GetType().Name + ": " + ex.Message + "). Revisa NOVORA-LINK y reintenta USB.";
         }
         finally { _androidControlPreparing = false; }
     }

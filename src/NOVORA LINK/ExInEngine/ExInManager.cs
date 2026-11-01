@@ -14,9 +14,6 @@ public sealed class ExInManager : IAsyncDisposable
     private const int MaxGamepadsVE = 8;
     private const ushort FirstUhidIdVE = 3;
     private const ushort PointerCompanionOffsetVE = 0x100;
-    private const ushort UhidVendorIdVE = 0x045E;
-    private const ushort UhidProductIdVE = 0x028E;
-    private const string UhidDeviceNameVE = "Microsoft X-Box 360 Pad";
     private const long StatusPublishIntervalMsVE = 1000;
     private const int MaxDiagnosticSamplesVE = 512;
     private const int MaxPendingButtonEdgesVE = 256;
@@ -62,6 +59,7 @@ public sealed class ExInManager : IAsyncDisposable
     private long _inputEpochVE;
     private ExInInputMode _modeVE = ExInInputMode.Game;
     private double _pointerSensitivityVE = ExInPointerSensitivity.DefaultVE;
+    private double _gameStickSensitivityVE = ExInGameStickSensitivity.DefaultVE;
     private bool _calibratedVE;
 
     private ExInState _calibrationMinVE;
@@ -132,6 +130,18 @@ public sealed class ExInManager : IAsyncDisposable
         ExInPointerSensitivity.ValidateVE(value);
         lock (_gateVE)
             _pointerSensitivityVE = value;
+    }
+
+    public double GameStickSensitivityVE
+    {
+        get { lock (_gateVE) return _gameStickSensitivityVE; }
+    }
+
+    public void SetGameStickSensitivityVE(double value)
+    {
+        ExInGameStickSensitivity.ValidateVE(value);
+        lock (_gateVE)
+            _gameStickSensitivityVE = value;
     }
 
     /// <summary>The controller shown, calibrated and configured in the UI. Caller holds _gateVE.</summary>
@@ -1256,7 +1266,11 @@ public sealed class ExInManager : IAsyncDisposable
         }
         else
         {
-            sent = await slot.OutputGeneration.SendStateAsync(effective, cancellationToken).ConfigureAwait(false);
+            // Sólo el mando virtual recibe la sensibilidad de juego; el puntero auxiliar usa los ejes originales.
+            double gameStickSensitivity;
+            lock (_gateVE) gameStickSensitivity = _gameStickSensitivityVE;
+            sent = await slot.OutputGeneration.SendStateAsync(
+                ExInGameStickSensitivity.ScaleVE(effective, gameStickSensitivity), cancellationToken).ConfigureAwait(false);
 
             if (slot.PointerCompanion is not null && !IsPrivacyProtectedVE)
             {

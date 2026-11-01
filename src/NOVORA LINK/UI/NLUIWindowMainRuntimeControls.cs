@@ -42,5 +42,7 @@ public partial class NLUIWindowMain
         WifiAdbButton.Content = hasDevice && !_viewModel.Device.IsWifiConnection
             ? "PREPARAR ADB WI-FI DESDE USB"
             : "CONECTAR ADB INALÁMBRICO";
+
+        UpdateHomeGuide14();
     }
 }

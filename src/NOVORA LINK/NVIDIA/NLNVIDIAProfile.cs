@@ -7,6 +7,5 @@ public enum NLNVIDIAProfile
     Competitive = 2,
     Balanced = 3,
     VisionPlus = 4,
-    Smooth = 5,
-    Stream = 6
+    Smooth = 5
 }

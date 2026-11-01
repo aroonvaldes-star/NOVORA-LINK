@@ -22,28 +22,61 @@ public partial class NLUIWindowMain
             _ = FadeToPage14(page);
     }
 
-    private async Task FadeToPage14(
+    private Task FadeToPage14(
         string page)
     {
-        _selectedPage14 =
+        string target =
             string.IsNullOrWhiteSpace(page)
                 ? "Home"
                 : page;
 
-        ShowPage14(_selectedPage14);
+        _selectedPage14 = target;
+        int token = ++_pageSwitchToken14;
+        FrameworkElement? outgoing = PageElement14(_displayedPage14);
 
-        await Task.CompletedTask;
+        // La sección anterior se desvanece antes de mostrar la nueva; si el usuario
+        // cambia otra vez durante la animación, sólo gana la última petición.
+        if (!MotionEnabled14 ||
+            outgoing is null ||
+            outgoing.Visibility != Visibility.Visible ||
+            ReferenceEquals(outgoing, PageElement14(target)))
+        {
+            CommitPage14(target);
+            return Task.CompletedTask;
+        }
+
+        UpdateNavigationState14(target);
+        FadeOutPage14(outgoing, () =>
+        {
+            if (token == _pageSwitchToken14)
+                CommitPage14(target);
+        });
+
+        return Task.CompletedTask;
+    }
+
+    private void CommitPage14(string target)
+    {
+        _displayedPage14 = target;
+        ShowPage14(target);
+        AnimatePageIn14(PageElement14(target));
+
+        // Las métricas del teléfono sólo se consultan cuando el usuario abre la sección.
+        if (string.Equals(target, "Performance", StringComparison.OrdinalIgnoreCase))
+            _ = RefreshPerformanceOnceAsync();
     }
 
     private void ShowPage14(
         string page)
     {
+        _displayedPage14 = page;
         SetPageVisibility14(HomePage14, page, "Home");
         SetPageVisibility14(ScreenPage14, page, "Screen");
         SetPageVisibility14(NetworkPage14, page, "Network");
         SetPageVisibility14(GameInputPage14, page, "GameInput");
         SetPageVisibility14(IntegrationPage14, page, "Integration");
         SetPageVisibility14(SettingsPage14, page, "Settings");
+        SetPageVisibility14(PerformancePage14, page, "Performance");
         UpdateNavigationState14(page);
     }
 
@@ -68,12 +101,14 @@ public partial class NLUIWindowMain
                     page,
                     StringComparison.OrdinalIgnoreCase);
 
-            button.Background = isSelected
-                ? (WpfBrush)FindResource("InputSelectedBackgroundBrush")
-                : WpfBrushes.Transparent;
-            button.Foreground = isSelected
-                ? (WpfBrush)FindResource("AccentTextBrush")
-                : (WpfBrush)FindResource("TextBrush");
+            TransitionNavBrush14(
+                button,
+                System.Windows.Controls.Control.BackgroundProperty,
+                isSelected ? "InputSelectedBackgroundBrush" : null);
+            TransitionNavBrush14(
+                button,
+                System.Windows.Controls.Control.ForegroundProperty,
+                isSelected ? "AccentTextBrush" : "TextBrush");
             button.Opacity = isSelected ? 1 : 0.72;
             AutomationProperties.SetHelpText(
                 button,

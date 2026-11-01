@@ -41,6 +41,7 @@ public sealed class VERendererManager : IAsyncDisposable
     private DispatcherTimer? _presentationWatchdogVE;
     private bool _hasPresentationSampleVE;
     private long _lastPresentationTimestampVE;
+    private long _lastStallLogTickVE;
     private long _presentationWindowTimestampVE;
     private long _presentationWindowFramesVE;
     private double _presentedFpsVE;
@@ -777,13 +778,55 @@ public sealed class VERendererManager : IAsyncDisposable
             return;
         if (!_startedVE || IsPrivacyProtectedVE || !_presentationTimingVE.EnabledVE)
         {
+            if (_startedVE && !IsPrivacyProtectedVE)
+                WriteStallLogVE("watchdog detenido sin privacidad: timing deshabilitado");
             StopPresentationWatchdogOnUiVE();
             return;
         }
         if (_queueVE.CountVE > 0 &&
             _presentationTimingVE.ShouldPresentOnArrivalVE(Stopwatch.GetTimestamp()))
             ProcessLatestOnUiVE();
+        DiagnosePresentationStallVE();
         PublishMetricsIfDueVE();
+    }
+
+    // Diagnóstico: separa un stream que dejó de llegar (cola vacía) de un render que no presenta (cola con fotogramas).
+    private void DiagnosePresentationStallVE()
+    {
+        long now = Stopwatch.GetTimestamp();
+        long last = _lastPresentationTimestampVE;
+        if (last == 0 || Stopwatch.GetElapsedTime(last, now).TotalMilliseconds < 2000)
+            return;
+
+        long tick = Environment.TickCount64;
+        if (tick - _lastStallLogTickVE < 5000)
+            return;
+        _lastStallLogTickVE = tick;
+
+        long composition = _presentationTimingVE.LastCompositionTimestampVE;
+        string sinceComposition = composition == 0
+            ? "sin composicion"
+            : $"{Stopwatch.GetElapsedTime(composition, now).TotalMilliseconds:F0} ms";
+        WriteStallLogVE(
+            $"sin presentar {Stopwatch.GetElapsedTime(last, now).TotalMilliseconds:F0} ms; " +
+            $"cola={_queueVE.CountVE}; composicion={sinceComposition}; " +
+            $"hook={_compositionHookedVE}; watchdog={_presentationWatchdogVE is not null}; " +
+            $"privacidad={IsPrivacyProtectedVE}");
+    }
+
+    private static void WriteStallLogVE(string line)
+    {
+        try
+        {
+            string path = Path.Combine(Path.GetTempPath(), "NOVORA_VE_stall.log");
+            var info = new FileInfo(path);
+            if (info.Exists && info.Length > 1_048_576)
+                File.Move(path, path + ".old", overwrite: true);
+            File.AppendAllText(path, $"{DateTimeOffset.Now:O} {line}{Environment.NewLine}");
+        }
+        catch
+        {
+        }
     }
 
     private void ResetPresentationStatisticsVE()

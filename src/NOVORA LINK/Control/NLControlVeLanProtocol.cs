@@ -33,8 +33,8 @@ public sealed record NLControlVeLanOffer(
     long CaptureGeneration = 0, NLControlNetworkCapabilities? CaptureCapabilities = null)
 {
     public const int OfferLifetimeSeconds = 120;
-    // PC and Android clocks may differ slightly even on the same Wi-Fi network.
-    private const int ClockSkewSeconds = 5;
+    // PC and Android clocks may differ even on the same Wi-Fi network; a phone 34 s behind rejected every offer at 5 s.
+    private const int ClockSkewSeconds = 60;
 
     public void Validate(DateTimeOffset now, bool allowLoopback = false)
     {

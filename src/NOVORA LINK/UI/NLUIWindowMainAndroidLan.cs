@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -114,9 +115,31 @@ public partial class NLUIWindowMain
             (bytes[0] == 192 && bytes[1] == 168));
     }
 
-    private static IPAddress[] GetAndroidLanAddresses() => NetworkInterface.GetAllNetworkInterfaces()
-        .Where(n => n.OperationalStatus == OperationalStatus.Up &&
-            n.NetworkInterfaceType is NetworkInterfaceType.Ethernet or NetworkInterfaceType.Wireless80211)
+    /// <summary>
+    /// Redes donde puede estar el teléfono. Los adaptadores virtuales (WSL/Hyper-V,
+    /// VirtualBox, VMware) también son "Ethernet" con IP privada; sin descartarlos la
+    /// PC ve varias redes, no reactiva la escucha LAN sola y el teléfono no la encuentra.
+    /// </summary>
+    private static NetworkInterface[] AndroidLanInterfaces()
+    {
+        var candidates = NetworkInterface.GetAllNetworkInterfaces()
+            .Where(n => n.OperationalStatus == OperationalStatus.Up &&
+                n.NetworkInterfaceType is NetworkInterfaceType.Ethernet or NetworkInterfaceType.Wireless80211 &&
+                !IsVirtualAdapter(n))
+            .ToArray();
+        var routed = candidates.Where(n => n.GetIPProperties().GatewayAddresses
+            .Any(g => g.Address.AddressFamily == AddressFamily.InterNetwork && !g.Address.Equals(IPAddress.Any))).ToArray();
+        return routed.Length > 0 ? routed : candidates;
+    }
+
+    private static bool IsVirtualAdapter(NetworkInterface adapter)
+    {
+        string text = adapter.Name + " " + adapter.Description;
+        return new[] { "Hyper-V", "vEthernet", "VirtualBox", "VMware", "WSL", "Virtual Adapter", "Host-Only" }
+            .Any(token => text.Contains(token, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IPAddress[] GetAndroidLanAddresses() => AndroidLanInterfaces()
         .SelectMany(n => n.GetIPProperties().UnicastAddresses
             .Where(a => IsPrivateLanAddress(a.Address))
             .Select(a => a.Address))
@@ -124,9 +147,7 @@ public partial class NLUIWindowMain
 
     private IPAddress? ChooseAndroidLanAddress(bool createInvitation = true)
     {
-        var addresses = NetworkInterface.GetAllNetworkInterfaces()
-            .Where(n => n.OperationalStatus == OperationalStatus.Up &&
-                n.NetworkInterfaceType is NetworkInterfaceType.Ethernet or NetworkInterfaceType.Wireless80211)
+        var addresses = AndroidLanInterfaces()
             .SelectMany(n => n.GetIPProperties().UnicastAddresses
                 .Where(a => IsPrivateLanAddress(a.Address))
                 .Select(a => new { Label = $"{n.Name} · {a.Address}", Address = a.Address }))

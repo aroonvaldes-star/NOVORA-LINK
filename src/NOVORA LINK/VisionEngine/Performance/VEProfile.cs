@@ -7,6 +7,5 @@ public enum VEProfile
     Balanced = 2,
     Quality = 3,
     Smooth = 4,
-    Streaming = 5,
     Software = 6
 }

@@ -230,68 +230,6 @@ internal sealed class LEDeviceHistory
         }
     }
 
-    internal async Task InvalidateAsync(
-        string modelKey,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(
-            modelKey);
-
-        await _gate.WaitAsync(
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        try
-        {
-            LEDeviceStoreHistory store =
-                await ReadStoreInternalAsync(
-                        cancellationToken)
-                    .ConfigureAwait(false);
-
-            int removed =
-                store.Models.RemoveAll(
-                    item =>
-                        string.Equals(
-                            item.ModelKey,
-                            modelKey,
-                            StringComparison.Ordinal));
-
-            if (removed > 0)
-            {
-                await WriteStoreInternalAsync(
-                        store,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
-    internal async Task<int> CountAsync(
-        CancellationToken cancellationToken = default)
-    {
-        await _gate.WaitAsync(
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        try
-        {
-            LEDeviceStoreHistory store =
-                await ReadStoreInternalAsync(
-                        cancellationToken)
-                    .ConfigureAwait(false);
-
-            return store.Models.Count;
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
     private async Task<LEDeviceStoreHistory> ReadStoreInternalAsync(
         CancellationToken cancellationToken)
     {

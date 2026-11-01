@@ -15,7 +15,6 @@ public sealed record VEProfileOptions(
         VEProfile.Balanced => new(profile, VEPerformanceProfile.Balanced, new(VEAccelerationBackend.Automatic)),
         VEProfile.Quality => new(profile, VEPerformanceProfile.Video, new(VEAccelerationBackend.Automatic)),
         VEProfile.Smooth => new(profile, VEPerformanceProfile.Gaming, new(VEAccelerationBackend.Automatic)),
-        VEProfile.Streaming => new(profile, VEPerformanceProfile.Video, new(VEAccelerationBackend.Automatic)),
         VEProfile.Software => new(profile, VEPerformanceProfile.Balanced, new(VEAccelerationBackend.Software)),
         _ => throw new ArgumentOutOfRangeException(nameof(profile))
     };
@@ -26,7 +25,6 @@ public sealed record VEProfileOptions(
         "Balanced" => VEProfile.Balanced,
         "VisionPlus" => VEProfile.Quality,
         "Smooth" => VEProfile.Smooth,
-        "Stream" => VEProfile.Streaming,
         "Disabled" => VEProfile.Software,
         _ => VEProfile.Automatic
     };
@@ -38,7 +36,6 @@ public sealed record VEProfileOptions(
         VEProfile.Balanced => NLNVIDIAProfile.Balanced,
         VEProfile.Quality => NLNVIDIAProfile.VisionPlus,
         VEProfile.Smooth => NLNVIDIAProfile.Smooth,
-        VEProfile.Streaming => NLNVIDIAProfile.Stream,
         VEProfile.Software => NLNVIDIAProfile.Disabled,
         _ => throw new ArgumentOutOfRangeException(nameof(Profile))
     };

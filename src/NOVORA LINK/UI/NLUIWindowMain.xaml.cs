@@ -129,10 +129,13 @@ public partial class NLUIWindowMain : Window
 
             await RefreshDevicesAsync(
                 force: true);
-            await EnsureExInStandaloneAsync();
+            // ExIn can take several seconds to reach the phone; discovery and
+            // LAN trust must not wait for it.
+            Task exInStart = EnsureExInStandaloneAsync();
 
             await StartDiscoveryLifecycleNVAsync();
             await RestoreAndroidTrustAsync();
+            await exInStart;
         }
         catch (Exception ex)
         {
@@ -270,6 +273,7 @@ public partial class NLUIWindowMain : Window
         RoutedEventArgs e)
     {
         ShowPage14(_selectedPage14);
+        AnimateShellIn14(ShellRoot14);
     }
 
     private void TitleBar_MouseLeftButtonDown(
@@ -325,10 +329,11 @@ public partial class NLUIWindowMain : Window
         }
         ApplyVisionTelemetryRequest14();
 
-        MaximizeRestoreButton14.Content =
+        // Icono vectorial: doble cuadro para restaurar cuando está maximizada, cuadro para maximizar.
+        MaximizeRestoreIcon14.Data = System.Windows.Media.Geometry.Parse(
             WindowState == WindowState.Maximized
-                ? "❐"
-                : "□";
+                ? "M2.5,0.5 H9.5 V7.5 M0.5,2.5 H7.5 V9.5 H0.5 Z"
+                : "M0.5,0.5 H9.5 V9.5 H0.5 Z");
 
         AutomationProperties.SetName(
             MaximizeRestoreButton14,
@@ -353,19 +358,6 @@ public partial class NLUIWindowMain : Window
         => await RefreshDevicesAsync(
             force: true);
 
-    private async void Device_SelectionChanged(
-        object sender,
-        SelectionChangedEventArgs e)
-    {
-        if (!_shellInitialized14)
-        {
-            return;
-        }
-
-        QueueSaveSelection14();
-        UpdateRuntimeButtons();
-    }
-
     private async void MainActionButton_Click(
         object sender,
         RoutedEventArgs e)
@@ -380,15 +372,6 @@ public partial class NLUIWindowMain : Window
                 ex.Message,
                 NLUIMessageKind14.Error);
         }
-    }
-
-    private void LinkEngineTestButton_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
-        ShowTopMessage14(
-            "Conecta el teléfono por USB, abre NOVORA-LINK en Android y toca Iniciar Internet.",
-            NLUIMessageKind14.Info);
     }
 
     private async void OpenLinkMeasurementsButton_Click(object sender, RoutedEventArgs e)
@@ -489,6 +472,7 @@ public partial class NLUIWindowMain : Window
         }
 
         ApplyTheme14(_viewModel.Theme);
+        AnimateThemeChange14(ShellRoot14);
         QueueSaveSelection14();
     }
 
@@ -514,16 +498,6 @@ public partial class NLUIWindowMain : Window
         }
 
         QueueVisionOutputSettingsSave14(applyAdvancedSettings: false);
-    }
-
-    private void SaveShellSettings_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
-        SaveSettingsFromViewModel14();
-        ShowTopMessage14(
-            "Configuracion guardada.",
-            NLUIMessageKind14.Success);
     }
 
     private void OpenUserManualEs_Click(
@@ -757,6 +731,7 @@ public partial class NLUIWindowMain : Window
         _viewModel.IntegrationDynamicResizeEnabled =
             settings.IntegrationDynamicResizeEnabled;
         _viewModel.ExInEnabled = settings.ExInEnabled;
+        HomePerformanceSessionCheck14.IsChecked = settings.PerformanceSessionEnabled;
         _viewModel.VisionProfile =
             settings.VisionProfile;
         ApplyAdvancedVisionSettingsVE();
@@ -824,12 +799,6 @@ public partial class NLUIWindowMain : Window
                 _viewModel.TargetFps,
                 _viewModel.MaxSize);
     }
-
-    private void UpdateOutputProfile()
-        => RecalculateOutputProfile14();
-
-    private void SaveSelection()
-        => SaveSettingsFromViewModel14();
 
     private void ApplyTheme14(
         string? theme)
@@ -952,6 +921,11 @@ public partial class NLUIWindowMain : Window
             ExInPointerSensitivitySlider14.Value = pointerSensitivity;
         ExInPointerSensitivityText14.Text = $"{pointerSensitivity}% · UI";
         ExInPointerSensitivitySlider14.IsEnabled = available && !calibrating;
+        int gameStickSensitivity = (int)Math.Round((_exInEngine?.Manager.GameStickSensitivityVE ?? 1d) * 100d);
+        if (Math.Abs(ExInGameStickSensitivitySlider14.Value - gameStickSensitivity) >= .5)
+            ExInGameStickSensitivitySlider14.Value = gameStickSensitivity;
+        ExInGameStickSensitivityText14.Text = $"{gameStickSensitivity}% · Juego";
+        ExInGameStickSensitivitySlider14.IsEnabled = available && !calibrating;
         ExInWindowsCalibrationButton14.IsEnabled = available && !calibrating;
         ExInCalibrationStartButton14.IsEnabled = canCalibrate && !calibrating;
         ExInCalibrationFinishButton14.IsEnabled = canCalibrate && calibrating && live?.CalibrationProgress?.Complete == true;
@@ -1072,6 +1046,17 @@ public partial class NLUIWindowMain : Window
         snapshot.ExInPointerSensitivity = (int)Math.Round(e.NewValue);
         settings.Save(snapshot);
         ExInPointerSensitivityText14.Text = $"{e.NewValue:0}% · UI";
+    }
+
+    private void ExInGameStickSensitivity_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_exInEngine is null) return;
+        _exInEngine.Manager.SetGameStickSensitivityVE(e.NewValue / 100d);
+        NLServiceSettings settings = new();
+        NLServiceNovoraSettings snapshot = settings.Load();
+        snapshot.ExInGameStickSensitivity = (int)Math.Round(e.NewValue);
+        settings.Save(snapshot);
+        ExInGameStickSensitivityText14.Text = $"{e.NewValue:0}% · Juego";
     }
 
     private void ExInWindowsCalibration_Click(object sender, RoutedEventArgs e)

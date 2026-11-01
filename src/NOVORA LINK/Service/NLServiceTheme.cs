@@ -42,12 +42,15 @@ public static class NLServiceTheme
         // PLATINUM AIR / DARK CARBON
         // ============================================================
 
-        SetBrush(resources, "WindowBrush", dark ? "#0A0F11" : "#F4F6FB");
-        SetBrush(resources, "PanelBrush", dark ? "#171C1E" : "#FFFFFF");
-        SetBrush(resources, "PanelBrush2", dark ? "#1F2629" : "#EDF1F8");
-        SetBrush(resources, "SectionHeaderBrush", dark ? "#1B2325" : "#F1F4F9");
-        SetBrush(resources, "BorderBrush", dark ? "#354044" : "#D7DDE8");
+        // Glass: el fondo es un degradado y las superficies son translucidas,
+        // para que el degradado y el brillo de fondo se vean a traves de ellas.
+        SetGradient(resources, "WindowBrush", dark ? "#05080A" : "#F7F9FD", dark ? "#0B171B" : "#E6ECF8", dark ? "#050809" : "#F3F6FC");
+        SetBrush(resources, "PanelBrush", dark ? "#8C141B1E" : "#A6FFFFFF");
+        SetBrush(resources, "PanelBrush2", dark ? "#801D2729" : "#99EDF1F8");
+        SetBrush(resources, "SectionHeaderBrush", dark ? "#841A2224" : "#99F1F4F9");
+        SetBrush(resources, "BorderBrush", dark ? "#663D4E53" : "#99D7DDE8");
         SetBrush(resources, "WindowBorderBrush", dark ? "#455257" : "#CBD3DE");
+        SetGradient(resources, "GlassEdgeBrush", dark ? "#40FFFFFF" : "#CCFFFFFF", dark ? "#0AFFFFFF" : "#33D7DDE8");
 
         // ============================================================
         // TEXTO GENERAL
@@ -66,7 +69,8 @@ public static class NLServiceTheme
         // para mantener contraste legible.
         SetBrush(resources, "AccentTextBrush", dark ? "#51DFEF" : "#304FFE");
         SetBrush(resources, "BlueDarkBrush", dark ? "#6EE9F5" : "#5671FF");
-        SetBrush(resources, "PrimaryTextBrush", "#FFFFFF");
+        // En Dark el azul de acción es cian claro: el texto debe ser oscuro para leerse.
+        SetBrush(resources, "PrimaryTextBrush", dark ? "#0A0F11" : "#FFFFFF");
         SetBrush(resources, "CyanBrush", dark ? "#35D7E9" : "#304FFE");
         SetBrush(resources, "PurpleBrush", dark ? "#B5A0FF" : "#7257C8");
 
@@ -107,9 +111,9 @@ public static class NLServiceTheme
         // BARRA SUPERIOR / SUPERFICIE AZUL
         // ============================================================
 
-        SetBrush(resources, "TitleBarBrush", dark ? "#11181A" : "#E9EDF4");
+        SetBrush(resources, "TitleBarBrush", dark ? "#8C11181A" : "#99E9EDF4");
 
-        // Texto que va ENCIMA de las tarjetas azules del NLUIWindowSettings.
+        // Texto que va ENCIMA de las tarjetas azules de la cabecera.
         // Lo dejamos bonito tanto en Dark como en Light.
         SetBrush(resources, "TitleSurfaceTextBrush", "#FFFFFF");
         SetBrush(resources, "TitleSurfaceAccentBrush", dark ? "#83D8B0" : "#16845B");
@@ -139,5 +143,28 @@ public static class NLServiceTheme
         resources[key] =
             new SolidColorBrush(
                 (WpfColor)WpfColorConverter.ConvertFromString(hex));
+    }
+
+    // Degradado diagonal con los colores repartidos a lo largo del recorrido.
+    private static void SetGradient(
+        ResourceDictionary resources,
+        string key,
+        params string[] hexes)
+    {
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new System.Windows.Point(0, 0),
+            EndPoint = new System.Windows.Point(1, 1),
+        };
+
+        for (int i = 0; i < hexes.Length; i++)
+        {
+            brush.GradientStops.Add(
+                new GradientStop(
+                    (WpfColor)WpfColorConverter.ConvertFromString(hexes[i]),
+                    hexes.Length == 1 ? 0 : (double)i / (hexes.Length - 1)));
+        }
+
+        resources[key] = brush;
     }
 }

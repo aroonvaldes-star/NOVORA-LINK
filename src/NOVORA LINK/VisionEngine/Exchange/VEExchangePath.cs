@@ -31,50 +31,6 @@ internal static class VEExchangePath
     public const string FilesFolderVE =
         "Otros";
 
-    private static readonly HashSet<string> ImageExtensionsVE =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".jpg",
-            ".jpeg",
-            ".png",
-            ".gif",
-            ".webp",
-            ".bmp",
-            ".heic",
-            ".heif"
-        };
-
-    private static readonly HashSet<string> VideoExtensionsVE =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".mp4",
-            ".m4v",
-            ".mov",
-            ".mkv",
-            ".webm",
-            ".avi",
-            ".3gp"
-        };
-
-    private static readonly HashSet<string> DocumentExtensionsVE =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".pdf",
-            ".txt",
-            ".doc",
-            ".docx",
-            ".xls",
-            ".xlsx",
-            ".ppt",
-            ".pptx",
-            ".csv",
-            ".json",
-            ".xml",
-            ".zip",
-            ".rar",
-            ".7z"
-        };
-
     // ============================================================
     // ROOT
     // ============================================================

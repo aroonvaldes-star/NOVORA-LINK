@@ -254,15 +254,6 @@ public sealed class VERendererHost : WindowsFormsHost
     // PANEL ACCESS
     // ============================================================
 
-    /// <summary>
-    /// Expone la superficie WinForms real de VisionEngine.
-    ///
-    /// Útil para componentes internos que necesitan acceder
-    /// al HWND o eventos nativos sin atravesar WPF.
-    /// </summary>
-    internal Forms.Control SurfaceControlVE =>
-        _panelVE;
-
     // ============================================================
     // FOCUS
     // ============================================================

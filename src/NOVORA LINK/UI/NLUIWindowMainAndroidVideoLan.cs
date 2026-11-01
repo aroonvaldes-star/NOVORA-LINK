@@ -19,15 +19,6 @@ public partial class NLUIWindowMain
     private volatile string _veLanPhaseVE = "Ready";
     private volatile string _veLanMessageVE = "VisionEngine LAN listo.";
 
-    internal static bool IsVeLanControlCurrent(
-        long expectedGeneration,
-        long currentGeneration,
-        bool authorized,
-        string offerHost,
-        string? currentHost) =>
-        expectedGeneration == currentGeneration && authorized &&
-        string.Equals(offerHost, currentHost, StringComparison.OrdinalIgnoreCase);
-
     private void SetVeLanPhase(string phase, string message)
     {
         _veLanPhaseVE = phase;
@@ -53,28 +44,36 @@ public partial class NLUIWindowMain
             ClearExternalVisionWaitingForDeviceVE();
 
         SetVeLanPhase("Preparing", "Preparando listeners cifrados de VisionEngine LAN.");
-        InitializeVisionEngineRuntimeVE();
-        if (!_visionEngineVE!.StatusVE.IsInitialized)
-        {
-            VECoreResult initialized = await _visionEngineVE.InitializeAsync();
-            if (!initialized.Success) return Reply(false, initialized.Message);
-        }
-
-        await StopVeLanVideoAsync("Preparando una sesión VE LAN nueva.");
-        bool audioEnabled = request.Value != NLControlProtocol.VideoOnlyCapture &&
-            _viewModel.SelectedAudioOutput != VisionEngine.Audio.VEAudioOutput.DisabledValueVE;
-        var session = new VETransportLanSession(address, GetAndroidTrustStore());
+        VETransportLanSession? session = null;
         NLControlVeLanOffer offer;
+        bool audioEnabled;
         try
         {
+            InitializeVisionEngineRuntimeVE();
+            if (!_visionEngineVE!.StatusVE.IsInitialized)
+            {
+                VECoreResult initialized = await _visionEngineVE.InitializeAsync();
+                if (!initialized.Success)
+                {
+                    // "Preparing" bloquea VideoCanStart; sin reiniciarla VE LAN quedaba rechazado hasta cerrar la PC.
+                    SetVeLanPhase("Error", initialized.Message);
+                    return Reply(false, initialized.Message);
+                }
+            }
+
+            await StopVeLanVideoAsync("Preparando una sesión VE LAN nueva.");
+            audioEnabled = request.Value != NLControlProtocol.VideoOnlyCapture &&
+                _viewModel.SelectedAudioOutput != VisionEngine.Audio.VEAudioOutput.DisabledValueVE;
+            session = new VETransportLanSession(address, GetAndroidTrustStore());
             offer = session.PrepareVE(ParseVideoBitrateVE(_viewModel.Bitrate),
                 _viewModel.MaxSize, _viewModel.TargetFps,
                 muteDeviceAudio: audioEnabled, audioEnabled);
         }
-        catch
+        catch (Exception ex)
         {
-            await session.DisposeAsync();
-            throw;
+            if (session is not null) await session.DisposeAsync();
+            SetVeLanPhase("Error", "No se pudo preparar VE LAN: " + ex.Message);
+            return Reply(false, "No se pudo preparar VE LAN: " + ex.Message);
         }
 
         var cancellation = new CancellationTokenSource();
@@ -199,19 +198,33 @@ public partial class NLUIWindowMain
             _visionEngineVE?.RuntimeVE.ExternalSourceKindVE == VEExternalSourceKind.NativeLan ||
             _externalVisionWaitingForDeviceVE &&
                 _externalVisionWaitingSourceVE == VEExternalSourceKind.NativeLan;
-        if (!ownsLan) return;
+        if (!ownsLan)
+        {
+            // "Preparing" lo gestiona PrepareVeLanVideoAsync, que llama aquí a mitad de preparación.
+            if (_veLanPhaseVE is "AwaitingPermission" or "Connecting" or "Stopping")
+                SetVeLanPhase(_androidLanControl?.IsAuthorized == true ? "Ready" : "Disconnected",
+                    _androidLanControl?.IsAuthorized == true ? "VisionEngine LAN listo." : "Control LAN desconectado.");
+            return;
+        }
         SetVeLanPhase("Stopping", reason);
-        _veLanCancellationVE?.Cancel();
-        if (_visionEngineVE?.RuntimeVE.ExternalSourceKindVE == VEExternalSourceKind.NativeLan)
-            await _visionEngineVE.StopAsync();
-        await DisposeVeLanTransportAsync();
-        ClearExternalVisionWaitingForDeviceVE();
-        _activeVisionSerialVE = null;
-        _veLanDegradedVE = false;
-        CloseVisionPresentationVE(restoreMainWindow: true, refreshInformation: true);
-        if (!_closing) AndroidControlStatus.Text = reason;
-        SetVeLanPhase(_androidLanControl?.IsAuthorized == true ? "Ready" : "Disconnected",
-            _androidLanControl?.IsAuthorized == true ? "VisionEngine LAN listo." : "Control LAN desconectado.");
+        try
+        {
+            _veLanCancellationVE?.Cancel();
+            if (_visionEngineVE?.RuntimeVE.ExternalSourceKindVE == VEExternalSourceKind.NativeLan)
+                await _visionEngineVE.StopAsync();
+            await DisposeVeLanTransportAsync();
+            ClearExternalVisionWaitingForDeviceVE();
+            _activeVisionSerialVE = null;
+            _veLanDegradedVE = false;
+            CloseVisionPresentationVE(restoreMainWindow: true, refreshInformation: true);
+            if (!_closing) AndroidControlStatus.Text = reason;
+        }
+        finally
+        {
+            // Si la parada falla, "Stopping" bloquearía VideoCanStart hasta reiniciar la PC.
+            SetVeLanPhase(_androidLanControl?.IsAuthorized == true ? "Ready" : "Disconnected",
+                _androidLanControl?.IsAuthorized == true ? "VisionEngine LAN listo." : "Control LAN desconectado.");
+        }
     }
 
     private async Task DisposeVeLanTransportAsync()

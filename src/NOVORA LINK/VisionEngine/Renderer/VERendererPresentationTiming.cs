@@ -44,6 +44,10 @@ public sealed class VERendererPresentationTiming
     {
         get { lock (_gateVE) return _compositionStallTimeoutTicksVE; }
     }
+    public long LastCompositionTimestampVE
+    {
+        get { lock (_gateVE) return _hasCompositionVE ? _lastCompositionTimestampVE : 0; }
+    }
 
     public void ConfigureVE(bool enabled, double refreshRateHz, long nowTimestamp)
     {

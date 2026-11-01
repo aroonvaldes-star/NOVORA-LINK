@@ -258,8 +258,11 @@ public partial class NLUIWindowMain
         }
 
         _exInEngine ??= new ExInCoreEngine(_paths);
-        int pointerSensitivity = Math.Clamp(new NLServiceSettings().Load().ExInPointerSensitivity, 10, 75);
+        NLServiceNovoraSettings exInSettings = new NLServiceSettings().Load();
+        int pointerSensitivity = Math.Clamp(exInSettings.ExInPointerSensitivity, 5, 40);
         _exInEngine.Manager.SetPointerSensitivityVE(pointerSensitivity / 100d);
+        int gameStickSensitivity = Math.Clamp(exInSettings.ExInGameStickSensitivity, 25, 150);
+        _exInEngine.Manager.SetGameStickSensitivityVE(gameStickSensitivity / 100d);
         _exInEngine.Manager.StatusChangedVE -= ShellGamepad_StatusChangedVE;
         _exInEngine.Manager.StatusChangedVE += ShellGamepad_StatusChangedVE;
         _exInEngine.Manager.LiveSnapshotChangedVE -= ShellGamepad_LiveSnapshotChangedVE;
@@ -439,7 +442,8 @@ public partial class NLUIWindowMain
             $"VE {_viewModel.VisionProfile}";
 
         EngineFeatureStatus14.Text =
-            $"NOVORA · {integration} · {gamepad} · {visionProfile}";
+            $"NOVORA · {integration} · {gamepad} · {visionProfile}" +
+            (ExperimentalNetworkFeatures?.IsChecked == true ? " · RED EXPERIMENTAL ACTIVA" : string.Empty);
 
         EngineFeatureStatus14.ToolTip =
             "Estado de funciones independientes y aceleración de VisionEngine. " +
@@ -606,26 +610,6 @@ public partial class NLUIWindowMain
     // ============================================================
     // INITIALIZE ON LOADED
     // ============================================================
-
-    private async Task InitializeVisionEngineOnLoadedVEAsync()
-    {
-        InitializeVisionEngineRuntimeVE();
-
-        VECoreResult result =
-            await _visionEngineVE!
-                .InitializeAsync();
-
-        if (!result.Success)
-        {
-            throw result.Exception ??
-                  new InvalidOperationException(
-                      result.Message);
-        }
-
-        SetVisionEngineStatus14(
-            "OK",
-            failed: false);
-    }
 
     // ============================================================
     // RENDERER HOST
@@ -1770,7 +1754,12 @@ public partial class NLUIWindowMain
                 await _exInControlSession.StopAsync().ConfigureAwait(true);
                 return;
             }
-            await _exInInitialization.ConfigureAwait(true);
+            try { await _exInInitialization.WaitAsync(TimeSpan.FromSeconds(20)).ConfigureAwait(true); }
+            catch (TimeoutException)
+            {
+                // Still register the phone target so the session supervisor can retry.
+                System.Diagnostics.Debug.WriteLine("ExIn initialization is still pending after 20 s.");
+            }
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
             await _exInControlSession.StartAsync(
                 manualSerial ?? _exInControlSession.RequestedSerial ?? serial!, timeout.Token).ConfigureAwait(true);

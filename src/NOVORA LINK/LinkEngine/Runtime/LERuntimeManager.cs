@@ -976,31 +976,6 @@ public sealed class LERuntimeManager :
             : LERuntimeState.Degraded;
     }
 
-    private static string BuildRuntimeMessageLE(
-        LERuntimeState state,
-        LERecoveryMonitorStatus? recovery,
-        LETransportSession? transport)
-    {
-        if (recovery?.State ==
-            LERecoveryMonitorState.WaitingForDevice)
-        {
-            return
-                "ADB OFFLINE - WAITING DEVICE.";
-        }
-
-        if (state ==
-            LERuntimeState.Running)
-        {
-            return
-                "LINKENGINE RUNTIME HEALTHY.";
-        }
-
-        return
-            recovery?.Message ??
-            transport?.LastError ??
-            "LinkEngine Runtime degradado.";
-    }
-
     // ============================================================
     // LIFECYCLE STATE
     // ============================================================

@@ -13,8 +13,6 @@ namespace NOVORA;
 public partial class NLUIWindowMain
 {
     private NLControlTrustServer? _androidControl;
-    private volatile bool _allowUsbRemember = true;
-    private void UsbRemember_Changed(object sender, RoutedEventArgs e) => _allowUsbRemember = (sender as System.Windows.Controls.CheckBox)?.IsChecked == true;
     private NLControlTrustServer? _androidLanControl;
     private NLControlLanDiscovery? _androidLanDiscovery;
     private bool AndroidControlSessionOpen => _androidControl is not null || _androidLanControl is not null;
@@ -377,17 +375,6 @@ public partial class NLUIWindowMain
     }
 
     // Optional recovery button. Initial USB connection no longer depends on this click.
-    private void PrepareAndroidControl_Click(object sender, RoutedEventArgs e)
-    {
-        _automaticUsb.Retry();
-        QueueAutomaticUsb();
-    }
-
-    private async void StopAndroidControl_Click(object sender, RoutedEventArgs e)
-    {
-        _automaticUsb.Pause();
-        await StopAndroidControlAsync();
-    }
 
     private async Task StopAndroidControlAsync(bool preserveTrustListening = false)
     {

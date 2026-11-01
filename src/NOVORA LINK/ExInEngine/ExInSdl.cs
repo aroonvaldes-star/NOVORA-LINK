@@ -27,14 +27,6 @@ public sealed class ExInSdl : IDisposable
     private const uint SdlEventJoystickBatteryUpdatedVE = 0x607;
 
     private readonly NLServiceNovoraPaths _paths;
-    private readonly Channel<ExInEvent> _eventsVE =
-        Channel.CreateUnbounded<ExInEvent>(
-            new UnboundedChannelOptions
-            {
-                SingleReader = true,
-                SingleWriter = false,
-                AllowSynchronousContinuations = false
-            });
 
     private IntPtr _libraryVE;
     private SdlSetHintDelegate? _setHintVE;
@@ -155,12 +147,6 @@ public sealed class ExInSdl : IDisposable
         {
             while (!cancellationToken.IsCancellationRequested && !_disposedVE && _initializedVE)
             {
-                // Vaciar primero la cola interna: con eventos continuos no debe esperar al siguiente timeout.
-                while (_eventsVE.Reader.TryRead(out ExInEvent queued))
-                {
-                    yield return queued;
-                }
-
                 // El cerrojo compartido impide que el renderer cierre el vídeo de SDL mientras se espera un evento.
                 bool received;
                 lock (SdlSharedGate.Gate)
@@ -285,26 +271,6 @@ public sealed class ExInSdl : IDisposable
     {
         if (gamepad != IntPtr.Zero && _closeVE is not null)
             _closeVE(gamepad);
-    }
-
-    private bool EventWatchVE(IntPtr userdata, IntPtr eventPointer)
-    {
-        try
-        {
-            if (TryReadEventVE(
-                    eventPointer,
-                    out ExInEvent? message) &&
-                message is not null)
-            {
-                _eventsVE.Writer.TryWrite(message.Value);
-            }
-        }
-        catch
-        {
-            // Nunca propagar excepciones a SDL desde un callback nativo.
-        }
-
-        return true;
     }
 
     private static bool TryReadEventVE(
@@ -470,7 +436,6 @@ public sealed class ExInSdl : IDisposable
         if (_disposedVE) return;
         // Marcar antes de liberar SDL: el bucle de eventos no debe llamar a la biblioteca descargada.
         _disposedVE = true;
-        _eventsVE.Writer.TryComplete();
         CleanupVE();
     }
 
@@ -538,10 +503,6 @@ public sealed class ExInSdl : IDisposable
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void SdlSetGamepadEventsEnabledDelegate([MarshalAs(UnmanagedType.I1)] bool enabled);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    [return: MarshalAs(UnmanagedType.I1)]
-    private delegate bool SdlEventFilterDelegate(IntPtr userdata, IntPtr eventPointer);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void SdlFreeDelegate(IntPtr memory);

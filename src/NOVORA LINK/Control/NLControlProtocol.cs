@@ -5,11 +5,6 @@ using System.Text.Json;
 namespace NOVORA.Control;
 
 public sealed record NLControlOption(string Value, string Label);
-public sealed record NLControlMetric<T>(T Value, DateTimeOffset SampledAtUtc, TimeSpan Window)
-{
-    public bool IsFreshVE(DateTimeOffset nowUtc, TimeSpan maxAge) =>
-        nowUtc >= SampledAtUtc && nowUtc - SampledAtUtc <= maxAge;
-}
 public sealed record NLControlLinkTelemetry(double RoundTripMs, double PacketLossPercent,
     double TxMbps, double RxMbps, DateTimeOffset SampledAtUtc);
 public sealed record NLControlVisionTelemetry(int Width, int Height, double FramesPerSecond,

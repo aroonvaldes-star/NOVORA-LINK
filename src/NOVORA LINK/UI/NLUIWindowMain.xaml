@@ -59,25 +59,30 @@
                     <StackPanel Grid.Column="2"
                                 Orientation="Horizontal"
                                 VerticalAlignment="Center" Height="44">
-                        <Button Content="➖"
-                                FontFamily="Segoe MDL2 Assets"
-                                AutomationProperties.Name="Minimizar NOVORA"
+                        <Button AutomationProperties.Name="Minimizar NOVORA"
                                 ToolTip="Minimizar"
-                                 Style="{StaticResource NvWindowButtonStyle}"
-                                 Click="Minimize_Click"/>
+                                Style="{StaticResource NvWindowButtonStyle}"
+                                Click="Minimize_Click">
+                            <Path Data="M0.5,5.5 H9.5" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.2" Width="10" Height="10" Stretch="None"/>
+                        </Button>
                         <Button x:Name="MaximizeRestoreButton14"
-                                Content="🔝"
-                                FontFamily="Segoe MDL2 Assets"
                                 AutomationProperties.Name="Maximizar NOVORA"
                                 ToolTip="Maximizar"
                                 Style="{StaticResource NvWindowButtonStyle}"
-                                Click="MaximizeRestore_Click"/>
-                        <Button Content="✖️"
-                                 FontFamily="Segoe MDL2 Assets"
-                                AutomationProperties.Name="Cerrar NOVORA"
+                                Click="MaximizeRestore_Click">
+                            <Path x:Name="MaximizeRestoreIcon14" Data="M0.5,0.5 H9.5 V9.5 H0.5 Z"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.2" Width="10" Height="10" Stretch="None"/>
+                        </Button>
+                        <Button AutomationProperties.Name="Cerrar NOVORA"
                                 ToolTip="Cerrar"
                                 Style="{StaticResource NvWindowButtonStyle}"
-                                Click="Close_Click"/>
+                                Click="Close_Click">
+                            <Path Data="M0.5,0.5 L9.5,9.5 M9.5,0.5 L0.5,9.5"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.2" Width="10" Height="10" Stretch="None"/>
+                        </Button>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -171,7 +176,10 @@
                     <StackPanel>
                         <TextBlock Text="CENTRO DE SESIÓN" Style="{StaticResource NvEyebrowStyle}" Margin="0,0,0,5"/>
                         <TextBlock Text="Inicio" Style="{StaticResource NvPageTitleStyle}"/>
-                        <TextBlock Text="Prepara tu conexión y abre el motor que necesitas para esta sesión." Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,20"/>
+                        <TextBlock Text="Prepara tu conexión y abre el motor que necesitas para esta sesión." Style="{StaticResource NvCaptionStyle}" Margin="0,6,0,8"/>
+                        <TextBlock x:Name="HomeNextStep14" Text="Paso 1 de 4 · Conecta el teléfono por USB o Wi-Fi." Foreground="{DynamicResource BlueBrush}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <CheckBox Style="{StaticResource NvSwitchStyle}" x:Name="HomePerformanceSessionCheck14" Content="Sesión de rendimiento: cierra mediciones en vivo, desactiva red experimental y pausa actualizaciones automáticas"
+                                  Checked="HomePerformanceSession_Changed14" Unchecked="HomePerformanceSession_Changed14" Margin="0,0,0,20"/>
                         <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,16">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -319,7 +327,6 @@
                                     <ComboBoxItem Tag="Balanced" Content="Equilibrado" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"/>
                                     <ComboBoxItem Tag="Quality" Content="Calidad" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"/>
                                     <ComboBoxItem Tag="Smooth" Content="Fluidez" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"/>
-                                    <ComboBoxItem Tag="Streaming" Content="Streaming" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"/>
                                     <ComboBoxItem Tag="Software" Content="Software" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"/>
                                 </ComboBox>
                                 <TextBlock Text="El perfil se aplica al iniciar o reconectar la transmisión."
@@ -444,14 +451,14 @@
                         <Expander Header="Opciones experimentales" Foreground="{DynamicResource TextBrush}" IsExpanded="False" Margin="0,0,0,14">
                             <Border Style="{StaticResource NvCardStyle}">
                                 <StackPanel>
-                                    <CheckBox x:Name="VisionDynamicPresentationCheck14"
+                                    <CheckBox Style="{StaticResource NvSwitchStyle}" x:Name="VisionDynamicPresentationCheck14"
                                                   Content="Presentación dinámica"
                                                   IsChecked="False" Foreground="{DynamicResource TextBrush}" FontSize="14"
                                                   Checked="VisionDynamicPresentation_Changed14"
                                                   Unchecked="VisionDynamicPresentation_Changed14" Margin="0,0,0,6"/>
                                     <TextBlock Text="Ajusta la presentación al refresco de la pantalla. Puede cambiarse durante la sesión."
                                                    Style="{StaticResource NvCaptionStyle}" TextWrapping="Wrap" Margin="0,0,0,14"/>
-                                    <CheckBox x:Name="VisionLatencyOptimizationCheck14"
+                                    <CheckBox Style="{StaticResource NvSwitchStyle}" x:Name="VisionLatencyOptimizationCheck14"
                                                   Content="Optimización de latencia"
                                                   IsChecked="True" Foreground="{DynamicResource TextBrush}" FontSize="14"
                                                   Checked="VisionLatencyOptimization_Changed14"
@@ -662,7 +669,7 @@
                             <Border Style="{StaticResource NvCardStyle}">
                                 <StackPanel>
                                     <TextBlock Text="Control de capacidad y latencia" Style="{StaticResource NvSectionTitleStyle}"/>
-                                    <CheckBox x:Name="ExperimentalNetworkFeatures" Content="Habilitar adaptación de VE y FILES binario en sesiones nuevas"
+                                    <CheckBox Style="{StaticResource NvSwitchStyle}" x:Name="ExperimentalNetworkFeatures" Content="Habilitar adaptación de VE y FILES binario en sesiones nuevas"
                                               Checked="ExperimentalNetworkFeatures_Changed" Unchecked="ExperimentalNetworkFeatures_Changed" Margin="0,8,0,8"/>
                                     <TextBlock Text="Prioriza latencia estable. Activar antes de iniciar VE. Solo regula tráfico que pasa por NOVORA; las descargas directas del router requieren control en el router."
                                                Style="{StaticResource NvCaptionStyle}" TextWrapping="Wrap"/>
@@ -688,8 +695,8 @@
                                     </Grid>
                                     <Button Content="APLICAR A LA SESIÓN ACTUAL" Style="{StaticResource NvFlatButtonStyle}" Click="ExperimentalNetworkApply_Click" Height="38" Margin="0,0,0,6"/>
                                     <Button Content="DESACTIVAR LÍMITES Y ADAPTACIÓN" Style="{StaticResource NvFlatButtonStyle}" Click="ExperimentalNetworkStop_Click" Height="38"/>
-                                    <CheckBox x:Name="ExperimentalQuietCalibration" Content="Confirmo que no hay descargas durante la calibración" Margin="0,8,0,6"/>
-                                    <CheckBox x:Name="ExperimentalSharedPhysicalLink" Content="Confirmo que LE y VE usan el mismo enlace físico; compartir presupuesto al aplicar VE"
+                                    <CheckBox Style="{StaticResource NvSwitchStyle}" x:Name="ExperimentalQuietCalibration" Content="Confirmo que no hay descargas durante la calibración" Margin="0,8,0,6"/>
+                                    <CheckBox Style="{StaticResource NvSwitchStyle}" x:Name="ExperimentalSharedPhysicalLink" Content="Confirmo que LE y VE usan el mismo enlace físico; compartir presupuesto al aplicar VE"
                                               Margin="0,0,0,6" ToolTip="Solo se agrupan una misma sesión USB física o la sesión LAN autorizada actual. Usa el mismo modo en ambos motores."/>
                                     <Button Content="CALIBRAR INTERNET EN REPOSO · 30 SEGUNDOS" Style="{StaticResource NvFlatButtonStyle}" Click="ExperimentalNetworkCalibrate_Click" Height="38"/>
                                     <TextBlock Text="La calibración mide respuestas HTTPS desde la PC a Google. La fuente se mantiene separada del túnel y del ping del juego."
@@ -900,7 +907,7 @@
                                                 </DataTemplate>
                                             </ComboBox.ItemTemplate>
                                         </ComboBox>
-                                        <CheckBox x:Name="ExInForwardSelectedOnlyCheck14"
+                                        <CheckBox Style="{StaticResource NvSwitchStyle}" x:Name="ExInForwardSelectedOnlyCheck14"
                                                   Content="Enviar al teléfono solo el mando seleccionado"
                                                   Foreground="{DynamicResource TextBrush}"
                                                   Checked="ExInForwardSelectedOnly_Changed" Unchecked="ExInForwardSelectedOnly_Changed"
@@ -927,8 +934,11 @@
                                     </UniformGrid>
                                     <TextBlock x:Name="ExInIdentityText14" Text="Sin control físico" Style="{StaticResource NvCaptionStyle}" Margin="0,10,0,0"/>
                                     <TextBlock Text="Sensibilidad del joystick para mouse virtual · solo modo UI" Style="{StaticResource NvCaptionStyle}" Margin="0,12,0,0"/>
-                                    <Slider x:Name="ExInPointerSensitivitySlider14" Minimum="10" Maximum="75" Value="50" TickFrequency="5" IsSnapToTickEnabled="True" ValueChanged="ExInPointerSensitivity_ValueChanged" Margin="0,4,0,0"/>
-                                    <TextBlock x:Name="ExInPointerSensitivityText14" Text="50% · UI" Style="{StaticResource NvCaptionStyle}" Margin="0,2,0,0"/>
+                                    <Slider x:Name="ExInPointerSensitivitySlider14" Minimum="5" Maximum="40" Value="20" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="ExInPointerSensitivity_ValueChanged" Margin="0,4,0,0"/>
+                                    <TextBlock x:Name="ExInPointerSensitivityText14" Text="20% · UI" Style="{StaticResource NvCaptionStyle}" Margin="0,2,0,0"/>
+                                    <TextBlock Text="Sensibilidad de los sticks para el mando · solo modo juego" Style="{StaticResource NvCaptionStyle}" Margin="0,12,0,0"/>
+                                    <Slider x:Name="ExInGameStickSensitivitySlider14" Minimum="25" Maximum="150" Value="100" TickFrequency="5" IsSnapToTickEnabled="True" ValueChanged="ExInGameStickSensitivity_ValueChanged" Margin="0,4,0,0"/>
+                                    <TextBlock x:Name="ExInGameStickSensitivityText14" Text="100% · Juego" Style="{StaticResource NvCaptionStyle}" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="2" Style="{StaticResource NvCardStyle}">
@@ -1087,6 +1097,20 @@
                         <TextBlock Text="Configuración" Style="{StaticResource NvPageTitleStyle}"/>
                         <TextBlock Text="Sólo opciones globales. Pantalla, red, rendimiento y game input viven en sus propias secciones."
                                        Style="{StaticResource NvCaptionStyle}" Margin="0,4,0,18"/>
+                        <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,14">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="250"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Sistema Android" Style="{StaticResource NvSectionTitleStyle}"/>
+                                    <TextBlock Text="Rendimiento y salud del teléfono. Se consulta sólo al abrir esta sección." Style="{StaticResource NvCaptionStyle}" Margin="0,5,0,0"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="ABRIR" Tag="Performance" Click="HomeOpenSection_Click"
+                                        Style="{StaticResource NvPrimaryButtonStyle}" MinWidth="150" Height="42" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
                         <Border Style="{StaticResource NvCardStyle}" Margin="0,0,0,14">
                             <Grid>
                                 <Grid.ColumnDefinitions>

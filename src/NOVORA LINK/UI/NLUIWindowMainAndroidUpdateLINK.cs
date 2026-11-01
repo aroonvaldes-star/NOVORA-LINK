@@ -19,7 +19,11 @@ public partial class NLUIWindowMain
             _appControlUpdateCancellation = new CancellationTokenSource();
             _appControlUpdateTimer = new System.Windows.Threading.DispatcherTimer
             { Interval = TimeSpan.FromMinutes(15) };
-            _appControlUpdateTimer.Tick += (_, _) => _ = RefreshAndroidUpdateLINKAsync();
+            _appControlUpdateTimer.Tick += (_, _) =>
+            {
+                // Durante una sesión activa se omite; el siguiente tick la retoma al terminar.
+                if (!HasActiveEngineSessionNV() && !_performanceSession14) _ = RefreshAndroidUpdateLINKAsync();
+            };
             _appControlUpdateTimer.Start();
             _ = RefreshAndroidUpdateLINKAsync();
         };

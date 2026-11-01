@@ -112,7 +112,9 @@ public partial class NLUIWindowMain
         return new NLControlEngines(
             !_closing && !videoBusy && !videoRunning && !lanLifecycle && videoSourceAvailable &&
                 _viewModel.SelectedMonitor is not null,
-            !_closing && !videoBusy && videoRunning,
+            // Una sesión LAN preparada pero sin video también debe poder liberarse;
+            // si no, bloquea VideoCanStart hasta que vence la oferta (120 s).
+            !_closing && !videoBusy && (videoRunning || lanLifecycle),
             !_closing && (usbEligible && link is not null && (link.EngineLE is null || linkCanTakeOver) ||
                 lanEligible && !lanPrepared && link?.EngineLE is null) && !_androidLinkStarting && !_androidLinkStopping,
             !_closing && linkCanStop,
@@ -124,7 +126,8 @@ public partial class NLUIWindowMain
             videoBusy ? "Ocupado" : videoRunning ? "Activo" : "Detenido",
             lanStateVisible ? _veLanMessageVE : !videoSourceAvailable ? "Conecta y selecciona el teléfono en PC o vincúlalo por LAN." :
                 _viewModel.SelectedMonitor is null ? "Selecciona un monitor en PC." :
-                videoBusy ? "VisionEngine está cambiando de estado." : "",
+                videoBusy ? "VisionEngine está cambiando de estado." :
+                videoRunning ? "VisionEngine ya está activo en esta PC; detenlo antes de iniciarlo por otra ruta." : "",
             exInState,
             exInMessage,
             linkCanTakeOver,
@@ -248,7 +251,15 @@ public partial class NLUIWindowMain
                 ClearPcVideoAuthorizationRequest();
                 return await PrepareVeLanVideoAsync(request, transport);
             case "stopVideo":
-                if (!IsVisionEngineRunningVE()) return Reply(true, "VisionEngine ya está detenido.");
+                if (!IsVisionEngineRunningVE())
+                {
+                    if (_veLanSessionVE is not null || _veLanPhaseVE is "AwaitingPermission" or "Connecting")
+                    {
+                        await StopVeLanVideoAsync("Android canceló la sesión VE LAN antes de transmitir.");
+                        return Reply(true, "Sesión VE LAN pendiente liberada.");
+                    }
+                    return Reply(true, "VisionEngine ya está detenido.");
+                }
                 if (_visionEngineVE?.RuntimeVE.ExternalSourceKindVE == VEExternalSourceKind.NativeLan)
                 {
                     await StopVeLanVideoAsync();
@@ -357,11 +368,13 @@ public partial class NLUIWindowMain
         _androidLinkStarting = true;
         _androidLinkError = null;
         AndroidEngineStateChanged();
+        LENetworkRelay? relay = null;
+        NLControlLanDataGateway? gateway = null;
         try
         {
-            var relay = new LENetworkRelay();
+            relay = new LENetworkRelay();
             await relay.StartAsync();
-            var gateway = new NLControlLanDataGateway(
+            gateway = new NLControlLanDataGateway(
                 address,
                 GetAndroidTrustStore(),
                 relayToken: relay.AuthenticationTokenLE);
@@ -374,6 +387,19 @@ public partial class NLUIWindowMain
         }
         catch
         {
+            // These are not published to the fields yet, so StopAndroidLanLinkAsync cannot see them.
+            try
+            {
+                if (gateway is not null)
+                {
+                    gateway.StateChanged -= AndroidLanDataGateway_StateChanged;
+                    await gateway.DisposeAsync();
+                }
+            }
+            finally
+            {
+                if (relay is not null) await relay.DisposeAsync();
+            }
             await StopAndroidLanLinkAsync();
             throw;
         }

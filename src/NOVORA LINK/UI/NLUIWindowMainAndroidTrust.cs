@@ -21,9 +21,7 @@ public partial class NLUIWindowMain
         _androidTrustStore ??= new NLControlTrustStore(AndroidTrustDirectory);
 
     private static bool IsAvailableAndroidLanAddress(IPAddress address) => IsPrivateLanAddress(address) &&
-        NetworkInterface.GetAllNetworkInterfaces().Any(n => n.OperationalStatus == OperationalStatus.Up &&
-            n.NetworkInterfaceType is NetworkInterfaceType.Ethernet or NetworkInterfaceType.Wireless80211 &&
-            n.GetIPProperties().UnicastAddresses.Any(a => a.Address.Equals(address)));
+        AndroidLanInterfaces().Any(n => n.GetIPProperties().UnicastAddresses.Any(a => a.Address.Equals(address)));
 
     private async Task RestoreAndroidTrustAsync()
     {

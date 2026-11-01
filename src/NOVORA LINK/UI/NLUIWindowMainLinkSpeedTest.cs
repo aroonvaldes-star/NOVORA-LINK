@@ -156,6 +156,7 @@ public partial class NLUIWindowMain
 
     private async Task StartLinkSpeedTestFromPcAsync(string mode)
     {
+        await DisableExperimentalNetworkForBaselineAsync();
         SyncLinkMeasurementsLE();
         var source = ActiveLinkSourceLE();
         var status = mode == "internet" ? LinkInternetMeasurementsStatus : LinkTunnelMeasurementsStatus;

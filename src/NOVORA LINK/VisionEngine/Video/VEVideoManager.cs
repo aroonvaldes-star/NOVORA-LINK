@@ -581,11 +581,16 @@ public sealed class VEVideoManager : IAsyncDisposable
                 Path.GetTempPath(),
                 "NOVORA_VE_error.log");
 
-            File.WriteAllText(
+            // Se acumula para no borrar el rastro de la caída anterior; el tamaño queda acotado.
+            var existing = new FileInfo(path);
+            if (existing.Exists && existing.Length > 1_048_576)
+                File.Move(path, path + ".old", overwrite: true);
+
+            File.AppendAllText(
                 path,
                 $"{DateTimeOffset.Now:O}{Environment.NewLine}" +
                 $"Session: {session}{Environment.NewLine}" +
-                exception);
+                exception + Environment.NewLine + Environment.NewLine);
         }
         catch
         {

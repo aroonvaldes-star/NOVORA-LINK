@@ -70,9 +70,11 @@ public sealed class NLUIExInDynamicCalibrationView : FrameworkElement
         ExInState state = _snapshot?.CorrectedState ?? default;
         ExInCalibrationProgress progress = ProgressVE();
         DrawHeaderVE(dc, p, sony, progress);
-        Rect stage = new(8, 29, ActualWidth - 16, Math.Max(190, ActualHeight - 48));
+        const double stripHeight = 26;
+        Rect stage = new(8, 29, ActualWidth - 16, Math.Max(190, ActualHeight - 48 - stripHeight));
         if (sony) DrawSonyVE(dc, stage, state, progress, p);
         else DrawXboxVE(dc, stage, state, progress, p);
+        DrawPressedStripVE(dc, new Rect(8, stage.Bottom + 4, stage.Width, stripHeight), state.Buttons, sony, p);
     }
 
     private void DrawXboxVE(DrawingContext dc, Rect stage, ExInState state, ExInCalibrationProgress progress, PaletteVE p)
@@ -101,6 +103,45 @@ public sealed class NLUIExInDynamicCalibrationView : FrameworkElement
     }
 
     private sealed record ControllerArtworkVE(BitmapSource Front, BitmapSource Side);
+
+    // Nombres de cada botón según el mando. Los hombros, clics de stick, paddles y touchpad
+    // no tienen un resalte propio en el dibujo, así que se listan aquí mientras están pulsados.
+    private static readonly (ExInButtons Flag, string Xbox, string Sony)[] PressedLabelsVE =
+    {
+        (ExInButtons.South, "A", "×"),
+        (ExInButtons.East, "B", "○"),
+        (ExInButtons.West, "X", "□"),
+        (ExInButtons.North, "Y", "△"),
+        (ExInButtons.LeftShoulder, "LB", "L1"),
+        (ExInButtons.RightShoulder, "RB", "R1"),
+        (ExInButtons.LeftStick, "L3", "L3"),
+        (ExInButtons.RightStick, "R3", "R3"),
+        (ExInButtons.Back, "Back", "Share"),
+        (ExInButtons.Start, "Start", "Options"),
+        (ExInButtons.Guide, "Guide", "PS"),
+        (ExInButtons.Touchpad, "Touchpad", "Touchpad"),
+        (ExInButtons.DPadUp, "↑", "↑"),
+        (ExInButtons.DPadDown, "↓", "↓"),
+        (ExInButtons.DPadLeft, "←", "←"),
+        (ExInButtons.DPadRight, "→", "→"),
+        (ExInButtons.P1, "P1", "P1"),
+        (ExInButtons.P2, "P2", "P2"),
+        (ExInButtons.P3, "P3", "P3"),
+        (ExInButtons.P4, "P4", "P4"),
+    };
+
+    private void DrawPressedStripVE(DrawingContext dc, Rect area, ExInButtons buttons, bool sony, PaletteVE p)
+    {
+        var names = new System.Collections.Generic.List<string>();
+        foreach (var entry in PressedLabelsVE)
+            if (buttons.HasFlag(entry.Flag))
+                names.Add(sony ? entry.Sony : entry.Xbox);
+
+        bool none = names.Count == 0;
+        string text = none ? "Ningún botón pulsado" : "Pulsados: " + string.Join(" · ", names);
+        DrawTextVE(dc, text, area.Left + area.Width / 2, area.Top + 4, 12,
+            none ? p.Muted : p.Accent, FontWeights.SemiBold, TextAlignment.Center);
+    }
 
     private static ControllerArtworkVE? LoadCalibrationImageVE(string fileName, int frontWidth,
         int frontTop, int frontBottom, int sideLeft, int sideTop, int sideBottom)
@@ -185,24 +226,6 @@ public sealed class NLUIExInDynamicCalibrationView : FrameworkElement
         if (!string.IsNullOrEmpty(label))
             DrawTextVE(dc, $"{label} · {Math.Clamp(coverage, 0, 100)}%", center.X, center.Y + ring + radius * .26,
                 Math.Max(8, radius * .27), indicator, FontWeights.Bold, TextAlignment.Center);
-    }
-
-    private void DrawImageVerticalTriggerVE(DrawingContext dc, Rect area, string label, short raw, int coverage,
-        bool active, bool calibrating, PaletteVE p)
-    {
-        Brush indicator = active && calibrating ? p.Warning : p.Accent;
-        double value = Math.Clamp(Math.Max(0, (int)raw) / 32767d, 0, 1);
-        double radius = area.Width / 2;
-        dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(150, 25, 25, 25)), null, area, radius, radius);
-        double fillHeight = area.Height * value;
-        if (fillHeight > 0)
-            dc.DrawRoundedRectangle(indicator, null,
-                new Rect(area.Left, area.Bottom - fillHeight, area.Width, fillHeight), radius, radius);
-        double fontSize = Math.Max(8, area.Width * .62);
-        DrawTextVE(dc, label, area.Left + area.Width / 2, area.Top - fontSize - 3,
-            fontSize, indicator, FontWeights.Bold, TextAlignment.Center);
-        DrawTextVE(dc, $"{Math.Clamp(coverage, 0, 100)}%", area.Left + area.Width / 2, area.Bottom + 3,
-            Math.Max(8, area.Width * .52), indicator, FontWeights.Bold, TextAlignment.Center);
     }
 
     private void DrawSonyVE(DrawingContext dc, Rect stage, ExInState state, ExInCalibrationProgress progress, PaletteVE p)
@@ -427,12 +450,6 @@ public sealed class NLUIExInDynamicCalibrationView : FrameworkElement
         double scale = Math.Min(stage.Width / ratioWidth, stage.Height / ratioHeight);
         double width = ratioWidth * scale, height = ratioHeight * scale;
         return new(stage.Left + (stage.Width - width) / 2, stage.Top + (stage.Height - height) / 2, width, height);
-    }
-
-    private static Rect FitBottomVE(Rect stage, double ratioWidth, double ratioHeight)
-    {
-        Rect fitted = FitVE(stage, ratioWidth, ratioHeight);
-        return new(fitted.Left, stage.Bottom - fitted.Height, fitted.Width, fitted.Height);
     }
 
     private static Point AtVE(Rect r, double x, double y) => new(r.Left + r.Width * x, r.Top + r.Height * y);

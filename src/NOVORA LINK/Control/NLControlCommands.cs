@@ -93,7 +93,9 @@ public static class NLControlCommands
                 "stopLink" => engines.LinkCanStop,
                 _ => false
             };
-            return ready ? null : "El motor no está disponible para esa acción. Revisa su estado actual.";
+            string detail = request.Action is "startAppVideo" or "startVideoLan" or "stopVideo" ? engines.VideoMessage : engines.LinkMessage;
+            return ready ? null : "El motor no está disponible para esa acción" +
+                (string.IsNullOrWhiteSpace(detail) ? ". Revisa su estado actual." : ": " + detail);
         }
         NLControlOption[]? options = request.Action switch
         {

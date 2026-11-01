@@ -59,7 +59,7 @@ public partial class NLUIWindowMain
         };
         _adbWatchdogNV.Tick += (_, _) =>
         {
-            if (_closing || _viewModel.Device.Connected)
+            if (_closing || _performanceSession14 || _viewModel.Device.Connected || HasActiveLanRouteNV())
             {
                 return;
             }
@@ -68,6 +68,16 @@ public partial class NLUIWindowMain
         };
         _adbWatchdogNV.Start();
     }
+
+    private bool HasActiveLanRouteNV() =>
+        _androidLanControl?.IsAuthorized == true ||
+        _androidLanDataGateway is not null ||
+        _visionEngineVE?.RuntimeVE.ExternalSourceKindVE == VisionEngine.Core.VEExternalSourceKind.NativeLan;
+
+    private bool HasActiveEngineSessionNV() =>
+        IsVisionEngineRunningVE() ||
+        _linkEngineRuntimeLE?.IsRunningLE == true ||
+        _androidLanDataGateway is not null;
 
     private void AdbDiscovery_DevicesChangedNV(
         object? sender,

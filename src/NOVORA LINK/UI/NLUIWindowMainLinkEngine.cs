@@ -276,39 +276,6 @@ public partial class NLUIWindowMain
      * ============================================================
      */
 
-    private static string FormatRecoveryStateLE(
-        LERecoveryMonitorState state)
-    {
-        return state switch
-        {
-            LERecoveryMonitorState.WaitingForDevice =>
-                "WAITING DEVICE",
-
-            LERecoveryMonitorState.RecoveringSocket =>
-                "SOCKET",
-
-            LERecoveryMonitorState.RecoveringInfrastructure =>
-                "INFRASTRUCTURE",
-
-            LERecoveryMonitorState.Recovered =>
-                "RECOVERED",
-
-            LERecoveryMonitorState.Healthy =>
-                "HEALTHY",
-
-            LERecoveryMonitorState.Failed =>
-                "FAILED",
-
-            LERecoveryMonitorState.Degraded =>
-                "DEGRADED",
-
-            _ =>
-                state
-                    .ToString()
-                    .ToUpperInvariant()
-        };
-    }
-
     /*
      * ============================================================
      * STOPPED UI

@@ -35,6 +35,7 @@ public partial class NLUIWindowMain
     private void ExperimentalNetworkFeatures_Changed(object sender,RoutedEventArgs e)
     {
         if(!_shellInitialized14)return;
+        UpdateAdvancedFeatureStatus14();
         AndroidEngineStateChanged();
         if(!ExperimentalFeaturesEnabled) _=StopExperimentalNetworkAsync();
     }
@@ -214,6 +215,13 @@ public partial class NLUIWindowMain
         catch(OperationCanceledException) { }
         catch(Exception ex) { ExperimentalNetworkStatus.Text="Experimental: "+ex.Message; }
         finally { _experimentalNetworkBusy=false; }
+    }
+    // Una medición base o una sesión de rendimiento no deben incluir la adaptación experimental.
+    private async Task DisableExperimentalNetworkForBaselineAsync()
+    {
+        ExperimentalNetworkFeatures.IsChecked=false;
+        if(_experimentalNetworkTimer is not null || _experimentalWanSession is not null || _experimentalDeviceSession is not null)
+            await StopExperimentalNetworkAsync();
     }
     private async void ExperimentalNetworkStop_Click(object sender,RoutedEventArgs e)=>await StopExperimentalNetworkAsync();
     private async void ExperimentalNetworkCalibrate_Click(object sender,RoutedEventArgs e)
