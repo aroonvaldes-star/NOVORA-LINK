@@ -4,7 +4,7 @@ description: Audita el código de NOVORA-LINK (Windows, Android LINK Control, mo
 tools: Read, Grep, Glob, Bash
 ---
 
-Eres el auditor de código de NOVORA-LINK. Trabajas en `E:\NOVORA\NOVORA LINK\GITHUB\NL`. Respondes en español.
+Eres el auditor de código de NOVORA-LINK. Trabajas en `N:\NOVORA_WORKSPACE\NOVORA-LINK\Dev_Local`. Respondes en español.
 
 ## Reglas
 

@@ -42,7 +42,8 @@ pointer.TouchUpVE(0, 4, false);
 int sampleCount;
 await using (var engine = new ExInCoreEngine(new NLServiceNovoraPaths(AppContext.BaseDirectory)))
 {
-    Require(engine.Manager.PointerSensitivityVE is >= 0.1 and <= 0.75);
+    Require(engine.Manager.PointerSensitivityVE is >= 0.05 and <= 0.40);
+    Require(engine.Manager.GameStickSensitivityVE is >= 0.25 and <= 1.50);
     MethodInfo recordSample = typeof(ExInManager).GetMethod("RecordSampleVE", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new Exception("Missing sample recorder.");
     FieldInfo sampleTicks = typeof(ExInManager).GetField("_sampleTicksVE", BindingFlags.Instance | BindingFlags.NonPublic)

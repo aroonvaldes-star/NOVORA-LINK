@@ -5,6 +5,7 @@
     <EncoderSource Condition="'$(EncoderSource)' == ''">../../src/LINK Control/AndroidVideo/NLAndroidVideoEncoder.cs</EncoderSource>
     <QueueSource Condition="'$(QueueSource)' == ''">../../src/LINK Control/AndroidVideo/NLAndroidVideoPacketQueue.cs</QueueSource>
     <ConfigurationSource Condition="'$(ConfigurationSource)' == ''">../../src/LINK Control/AndroidVideo/NLAndroidVideoEncoderConfiguration.cs</ConfigurationSource>
+    <NoWarn>$(NoWarn);CS9113</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(EncoderSource)" Link="Production/NLAndroidVideoEncoder.cs" />

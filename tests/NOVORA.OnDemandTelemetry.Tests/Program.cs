@@ -57,13 +57,16 @@ notificationGate.BeginDrain();
 Check(notificationGate.TryQueue(), "Draining must allow the next update.");
 notificationGate.BeginDrain();
 Type stateType = Assembly.GetExecutingAssembly().GetType("NOVORA.AndroidService.NLAndroidNotificationState")!;
-dynamic state = Activator.CreateInstance(stateType, "Conexión con PC", "PC personal · LAN", "Conectado por Wi-Fi · VisionEngine activo", true, true, 1L, false, false, false, false)!;
+dynamic state = Activator.CreateInstance(stateType, "Conexión con PC", "PC personal · LAN", "Conectado por Wi-Fi · VisionEngine activo", true, true, 1L, false, false)!;
 Check(notificationGate.NeedsPublish(state), "Initial notification is missing.");
 notificationGate.MarkPublished(state);
 for (int i = 0; i < 10_000; i++)
     Check(!notificationGate.NeedsPublish(state), "Identical notifications must not be republished.");
-dynamic next = Activator.CreateInstance(stateType, "Conexión con PC", "PC personal · LAN", "Conectado por Wi-Fi · VisionEngine activo", true, true, 2L, false, false, false, false)!;
+dynamic next = Activator.CreateInstance(stateType, "Conexión con PC", "PC personal · LAN", "Conectado por Wi-Fi · VisionEngine activo", true, true, 2L, false, false)!;
 Check(notificationGate.NeedsPublish(next), "New connection generation must be visible.");
+dynamic recording = Activator.CreateInstance(stateType, "Conexión con PC", "PC personal · LAN", "Conectado por Wi-Fi · VisionEngine activo", true, true, 2L, true, true)!;
+notificationGate.MarkPublished(next);
+Check(notificationGate.NeedsPublish(recording), "A recording state change must be visible.");
 notificationGate.Reset();
 Check(notificationGate.NeedsPublish(state), "New foreground lifecycle must publish.");
 Console.WriteLine("PASS bounded callback queue, duplicate suppression, generation changes and lifecycle reset.");

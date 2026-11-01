@@ -30,6 +30,7 @@ namespace NOVORA
 
         private bool IsVisionEngineRunningVE() => _running;
         private void UpdateLinkEngineButtonLE() { }
+        private void UpdateHomeGuide14() { }
 
         internal static void VerifyStartupControls()
         {

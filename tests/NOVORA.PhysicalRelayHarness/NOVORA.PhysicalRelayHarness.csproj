@@ -6,6 +6,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\NOVORA\NLProjectDesktop.csproj" />
+    <ProjectReference Include="..\..\src\NOVORA LINK\NLProjectDesktop.csproj" />
   </ItemGroup>
 </Project>

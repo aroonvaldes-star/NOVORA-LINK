@@ -14,7 +14,7 @@ using NOVORA.VisionEngine.Video;
 var checks = new List<(string Name, Func<Task> Check)>();
 void Add(string name, Action check) => checks.Add((name, () => { check(); return Task.CompletedTask; }));
 var capabilities = new VEAccelerationCapabilities(true, true, true, true, true, true);
-string source = args.Length > 0 ? args[0] : Path.GetFullPath("src/NOVORA LINK");
+string source = args.Length > 0 ? args[0] : AppContext.BaseDirectory;
 var paths = new NLServiceNovoraPaths(source);
 var metrics = VEMetricsSnapshot.EmptyVE() with { WorkingSetBytes = 120_000_000, ProcessCpuPercent = 96 };
 Add("Only implemented hardware is recommended", () =>
@@ -55,6 +55,21 @@ Add("Explicit profiles and NVIDIA opt-out remain authoritative", () =>
     }
     Require(Optimize(optimizer, metrics, VEProfile.Software, true).AccelerationRequest.Backend == VEAccelerationBackend.Software,
         "Software profile prohibits hardware even with NVIDIA preference enabled.");
+});
+Add("NVIDIA machines open the real h264_cuvid decoder without fallback", () =>
+{
+    // Sin GPU NVIDIA no hay nada que abrir: el fallback a software ya se comprueba abajo.
+    if (!System.Runtime.InteropServices.NativeLibrary.TryLoad("nvcuvid.dll", out IntPtr nvcuvid))
+    {
+        Console.WriteLine("SKIP NVDEC: nvcuvid.dll no está disponible en este equipo.");
+        return;
+    }
+    System.Runtime.InteropServices.NativeLibrary.Free(nvcuvid);
+    using var decoder = new VEVideoDecoder(paths);
+    decoder.InitializeVE(VEProtocolCodec.H264, preferNvidia: true);
+    Require(decoder.DecoderNameVE == "h264_cuvid", $"Expected h264_cuvid, got {decoder.DecoderNameVE}: {decoder.FallbackReasonVE}");
+    Require(decoder.FallbackReasonVE is null, "NVDEC must not report a fallback.");
+    Require(!decoder.NvdecActiveVE, "Opening the decoder must not claim NVDEC activity before frames exist.");
 });
 Add("Unsupported backend reaches the real software decoder", () =>
 {

@@ -13,25 +13,17 @@ Set-StrictMode -Version Latest
 if ([string]::IsNullOrWhiteSpace($RepoPath)) { $RepoPath = Split-Path -Parent $PSScriptRoot }
 
 $RepoPath = [IO.Path]::GetFullPath($RepoPath)
-$NovoraProject = Join-Path $RepoPath 'src\NOVORA\NLProjectDesktop.csproj'
-$AndroidProject = Join-Path $RepoPath 'src\NOVORA.Android\NLProjectAndroid.csproj'
-$TestsProjects = @(
-    'tests\NOVORA.LinkEngine.Tests\NOVORA.LinkEngine.Tests.csproj',
-    'tests\NOVORA.ExInHid.Tests\NOVORA.ExInHid.Tests.csproj',
-    'tests\NOVORA.DynamicAddress.Tests\NOVORA.DynamicAddress.Tests.csproj',
-    'tests\NOVORA.VisionEngine.Startup.Tests\NOVORA.VisionEngine.Startup.Tests.csproj',
-    'tests\NOVORA.VisionEngine.Presentation.Tests\NLProjectVisionEnginePresentationTests.csproj',
-    'tests\NOVORA.NetworkPolicy.Tests\NOVORA.NetworkPolicy.Tests.csproj',
-    'tests\NOVORA.RelayPolicy.Tests\NOVORA.RelayPolicy.Tests.csproj',
-    'tests\NOVORA.NetworkSession.Tests\NOVORA.NetworkSession.Tests.csproj',
-    'tests\NOVORA.NetworkControlProbe.Tests\NOVORA.NetworkControlProbe.Tests.csproj',
-    'tests\NOVORA.CapturePolicy.Tests\NOVORA.CapturePolicy.Tests.csproj',
-    'tests\NOVORA.CaptureControl.Tests\NOVORA.CaptureControl.Tests.csproj',
-    'tests\NOVORA.FileProtocol.Tests\NOVORA.FileProtocol.Tests.csproj'
-) | ForEach-Object { Join-Path $RepoPath $_ }
-$NovoraRelay = Join-Path $RepoPath 'src\NOVORA\LinkEngine\Network\Native\NovoraRelay'
+$NovoraProject = Join-Path $RepoPath 'src\NOVORA LINK\NLProjectDesktop.csproj'
+$AndroidProject = Join-Path $RepoPath 'src\LINK Control\NLProjectAndroid.csproj'
+# Se descubren todas las suites: una lista fija dejaba proyectos rotos fuera de la verificación.
+$TestsProjects = @(Get-ChildItem -LiteralPath (Join-Path $RepoPath 'tests') -Directory |
+    Where-Object { $_.Name -ne 'NOVORA.PhysicalRelayHarness' } |
+    ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Filter '*.csproj' | Where-Object { $_.Name -notmatch '_wpftmp' } } |
+    ForEach-Object { $_.FullName })
+$PhysicalHarnessProject = Join-Path $RepoPath 'tests\NOVORA.PhysicalRelayHarness\NOVORA.PhysicalRelayHarness.csproj'
+$NovoraRelay = Join-Path $RepoPath 'src\NOVORA LINK\LinkEngine\Network\Native\NovoraRelay'
 $CargoManifest = Join-Path $NovoraRelay 'Cargo.toml'
-$ProtocolPath = Join-Path $RepoPath 'src\NOVORA\Control\NLControlProtocol.cs'
+$ProtocolPath = Join-Path $RepoPath 'src\NOVORA LINK\Control\NLControlProtocol.cs'
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $OutputRoot = Join-Path $RepoPath ('artifacts\verification\' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 }
@@ -81,7 +73,7 @@ $forbiddenPolling = @(
     'RequiredInfrastructureFailuresLE'
 )
 
-$linkFiles = Get-ChildItem -LiteralPath (Join-Path $RepoPath 'src\NOVORA\LinkEngine') -Recurse -File -Filter '*.cs'
+$linkFiles = Get-ChildItem -LiteralPath (Join-Path $RepoPath 'src\NOVORA LINK\LinkEngine') -Recurse -File -Filter '*.cs'
 foreach ($token in $forbiddenPolling) {
     $hit = $linkFiles | Select-String -SimpleMatch $token | Select-Object -First 1
     if ($hit) {
@@ -123,7 +115,11 @@ if (-not $NoRestore) {
 }
 
 Run-Step 'DOTNET BUILD WINDOWS RELEASE' {
-    dotnet build $NovoraProject -c Release --no-restore "-p:OutputPath=$(Join-Path $OutputRoot 'Windows')/"
+    dotnet build $NovoraProject -c Release --no-incremental --no-restore "-p:OutputPath=$(Join-Path $OutputRoot 'Windows')/"
+}
+
+Run-Step 'DOTNET BUILD PHYSICAL HARNESS' {
+    dotnet build $PhysicalHarnessProject -c Release --no-incremental
 }
 
 foreach ($TestsProject in $TestsProjects) {
@@ -141,7 +137,7 @@ if (-not $NoRestore) {
 }
 
 Run-Step 'DOTNET BUILD ANDROID RELEASE' {
-    dotnet build $AndroidProject -c Release -t:Compile --no-restore "-p:OutputPath=$(Join-Path $OutputRoot 'Android')/"
+    dotnet build $AndroidProject -c Release -t:Compile --no-incremental --no-restore "-p:OutputPath=$(Join-Path $OutputRoot 'Android')/"
 }
 
 Run-Step 'TEST REPARACION FIREWALL SIN CAMBIOS AL SISTEMA' {
