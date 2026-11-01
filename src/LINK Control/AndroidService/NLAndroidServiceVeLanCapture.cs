@@ -47,6 +47,7 @@ internal sealed class NLAndroidServiceVeLanCapture : Service
             SingleWriter = false
         });
     private CancellationTokenSource? _lifetime;
+    private CancellationTokenSource? _queuedLifetime;
     private Task _run = Task.CompletedTask;
     private NLAndroidVideoLanStreams? _streams;
     private MediaProjection? _projection;
@@ -56,6 +57,7 @@ internal sealed class NLAndroidServiceVeLanCapture : Service
     private NLAndroidVideoCompositor? _compositor;
     private NLControlCapturePolicySession? _capturePolicySession;
     private NLControlNetworkCapabilities? _captureCapabilities;
+    private int _replacingRuns;
     private long _captureGeneration;
     private readonly NLControlCaptureTelemetrySequencer _captureTelemetrySequence = new();
     private NLAndroidAudioCapture? _audioCapture;
@@ -120,6 +122,7 @@ internal sealed class NLAndroidServiceVeLanCapture : Service
         if (intent?.Action == StopAction)
         {
             TryCancel(_lifetime);
+            TryCancel(Volatile.Read(ref _queuedLifetime));
             _ = StopRemoteAndCaptureAsync();
             return StartCommandResult.NotSticky;
         }
@@ -132,9 +135,11 @@ internal sealed class NLAndroidServiceVeLanCapture : Service
                 _reconfigurations.Writer.TryWrite(reconfigureOffer);
             return StartCommandResult.NotSticky;
         }
-        if (intent?.Action != StartAction || !_run.IsCompleted)
+        if (intent?.Action != StartAction)
             return StartCommandResult.NotSticky;
 
+        // startForegroundService exige StartForeground en cada inicio; salir antes hacía que
+        // Android cerrara la app cuando el usuario reintentaba mientras la captura previa cerraba.
         StartForeground(NotificationId, BuildNotification());
         string? offerJson = intent.GetStringExtra(OfferExtra);
 #pragma warning disable CS0618, CA1422
@@ -149,9 +154,45 @@ internal sealed class NLAndroidServiceVeLanCapture : Service
             return StartCommandResult.NotSticky;
         }
 
-        _lifetime = new CancellationTokenSource();
-        _run = RunAsync((Result)result, projectionData, offer, _lifetime);
+        Task previous = _run;
+        bool replacing = !previous.IsCompleted;
+        var lifetime = new CancellationTokenSource();
+        if (replacing)
+        {
+            Interlocked.Increment(ref _replacingRuns);
+            TryCancel(_lifetime);
+            // Solo la última solicitud sigue pendiente: una intermedia ya no llega a capturar.
+            TryCancel(Interlocked.Exchange(ref _queuedLifetime, lifetime));
+        }
+        _run = RunAfterAsync(previous, replacing, (Result)result, projectionData, offer, lifetime);
         return StartCommandResult.NotSticky;
+    }
+
+    private async Task RunAfterAsync(
+        Task previous,
+        bool replacing,
+        Result result,
+        Intent projectionData,
+        NLControlVeLanOffer offer,
+        CancellationTokenSource lifetime)
+    {
+        // La captura anterior debe liberar proyección, códec y sockets antes de la nueva.
+        if (replacing)
+        {
+            try { await previous.ConfigureAwait(false); } catch { }
+            Interlocked.CompareExchange(ref _queuedLifetime, null, lifetime);
+            int waiting = Interlocked.Decrement(ref _replacingRuns);
+            if (lifetime.IsCancellationRequested)
+            {
+                lifetime.Dispose();
+                // Sin otra solicitud detrás, nadie más cierra el servicio.
+                if (waiting == 0) await StopRemoteAndCaptureAsync().ConfigureAwait(false);
+                return;
+            }
+            StartForeground(NotificationId, BuildNotification());
+        }
+        _lifetime = lifetime;
+        await RunAsync(result, projectionData, offer, lifetime).ConfigureAwait(false);
     }
 
     private async Task RunAsync(
@@ -528,13 +569,18 @@ internal sealed class NLAndroidServiceVeLanCapture : Service
             if (_streams is not null) await _streams.DisposeAsync().ConfigureAwait(false);
             _streams = null;
             lifetime?.Dispose();
-            try
+            // Si otra captura espera para reemplazar a esta, no se avisa a la PC (cerraría la
+            // oferta nueva) ni se detiene el servicio que la va a ejecutar.
+            if (Volatile.Read(ref _replacingRuns) == 0)
             {
-                if (_stopRemote is not null) await _stopRemote().ConfigureAwait(false);
+                try
+                {
+                    if (_stopRemote is not null) await _stopRemote().ConfigureAwait(false);
+                }
+                catch { }
+                StopForeground(StopForegroundFlags.Remove);
+                StopSelf();
             }
-            catch { }
-            StopForeground(StopForegroundFlags.Remove);
-            StopSelf();
         }
         finally
         {

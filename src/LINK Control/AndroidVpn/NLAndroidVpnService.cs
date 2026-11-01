@@ -34,6 +34,7 @@ public sealed class NLAndroidVpnService : VpnService
     private Stream? _dataStream;
     private ParcelFileDescriptor? _tun;
     private Java.IO.FileDescriptor[]? _wake;
+    private NLAndroidLowLatencyLock? _latency;
     private bool _wakeSent;
     private long _epoch;
     private static long _requestedEpoch;
@@ -327,6 +328,8 @@ public sealed class NLAndroidVpnService : VpnService
                 if (underlying is not null) builder.SetUnderlyingNetworks([underlying]);
                 _tun = builder.Establish() ?? throw new InvalidOperationException("Android no autorizó el túnel VPN.");
                 _wake = Os.Pipe() ?? throw new IOException("No se pudo preparar cancelación del túnel.");
+                _latency?.Release();
+                _latency = NLAndroidLowLatencyLock.Acquire(this);
                 var descriptor = _tun.FileDescriptor!;
                 var wake = _wake[0];
                 outbound = Task.Run(async () =>
@@ -394,6 +397,8 @@ public sealed class NLAndroidVpnService : VpnService
             lock (_gate)
             {
                 try { _tun?.Close(); } catch { }
+                _latency?.Release();
+                _latency = null;
                 if (_wake is not null)
                     foreach (var descriptor in _wake) { try { Os.Close(descriptor); } catch { } descriptor.Dispose(); }
                 _wake = null;
@@ -550,6 +555,8 @@ public sealed class NLAndroidVpnService : VpnService
     {
         _destroyed = true;
         CloseRun();
+        _latency?.Release();
+        _latency = null;
         SetStatus("VPN USB detenida.", false);
         base.OnDestroy();
     }

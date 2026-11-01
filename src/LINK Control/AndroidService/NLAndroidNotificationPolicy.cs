@@ -1,7 +1,8 @@
 namespace NOVORA.AndroidService;
 
 public sealed record NLAndroidNotificationState(string Title, string Message, string PublicMessage,
-    bool Ongoing, bool CanStopVideo, long Generation);
+    bool Ongoing, bool CanStopVideo, long Generation,
+    bool CanRecord = false, bool Recording = false);
 
 /// <summary>One pending state callback and one retained notification, independent of telemetry.</summary>
 public sealed class NLAndroidNotificationPolicy

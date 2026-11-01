@@ -21,6 +21,8 @@ public sealed partial class NLAndroidServiceControl : Service
     private const int NotificationId = 214;
     public const string DisconnectAction = "com.linkcontrol.novora.DISCONNECT";
     public const string StopVideoAction = "com.linkcontrol.novora.STOP_VIDEO";
+    public const string MediaAction = "com.linkcontrol.novora.MEDIA";
+    public const string MediaExtra = "novora.media";
     public const string UsbBootstrapAction = "com.linkcontrol.novora.USB_BOOTSTRAP";
     public const string UsbBootstrapExtra = "novora.usb";
     public const string SendFilesAction = "com.linkcontrol.novora.SEND_FILES";
@@ -99,6 +101,8 @@ public sealed partial class NLAndroidServiceControl : Service
     {
         if (intent?.Action == DisconnectAction) _ = DisconnectFromNotificationAsync();
         else if (intent?.Action == StopVideoAction) _ = SendNotificationCommandAsync("stopVideo");
+        else if (intent?.Action == MediaAction && intent.GetStringExtra(MediaExtra) is "startRecording" or "stopRecording")
+            _ = SendNotificationCommandAsync(intent.GetStringExtra(MediaExtra)!);
         else if (intent?.Action == SendFilesAction) StartBackgroundFileTransfer(intent);
         else if (intent?.Action == UsbBootstrapAction)
         {
@@ -546,7 +550,8 @@ public sealed partial class NLAndroidServiceControl : Service
             state.Phase == NLControlSessionPhase.Connected, state.Phase == NLControlSessionPhase.Lost,
             state.Snapshot?.VideoRunning == true, state.Snapshot?.Engines?.LinkRunning == true,
             media?.Recording == true, media?.Starting == true);
-        return new(title, message, summary, ongoing, state.Snapshot?.Engines?.VideoCanStop == true, state.Generation);
+        return new(title, message, summary, ongoing, state.Snapshot?.Engines?.VideoCanStop == true, state.Generation,
+            media?.CanRecord == true, media is { Recording: true } or { Starting: true });
     }
     private Notification BuildNotification(NLAndroidNotificationState presentation)
     {
@@ -571,9 +576,14 @@ public sealed partial class NLAndroidServiceControl : Service
             .SetPublicVersion(generic);
         if (presentation.Ongoing)
         {
-            if (presentation.CanStopVideo)
-                builder.AddAction(NotificationServiceAction(216, StopVideoAction, "Detener pantalla"));
-            builder.AddAction(new Notification.Action.Builder(null, "Desconectar", disconnect).Build());
+            // Android muestra como máximo tres acciones: grabar, pantalla y desconectar caben siempre.
+            var actions = new List<Notification.Action>();
+            if (presentation.Recording) actions.Add(NotificationServiceAction(217, MediaAction, "Detener grabación", MediaExtra, "stopRecording"));
+            else if (presentation.CanRecord) actions.Add(NotificationServiceAction(217, MediaAction, "Grabar", MediaExtra, "startRecording"));
+            if (presentation.CanStopVideo && !presentation.Recording)
+                actions.Add(NotificationServiceAction(216, StopVideoAction, "Detener pantalla"));
+            actions.Add(new Notification.Action.Builder(null, "Desconectar", disconnect).Build());
+            foreach (var action in actions.Take(3)) builder.AddAction(action);
         }
         return builder.Build();
     }

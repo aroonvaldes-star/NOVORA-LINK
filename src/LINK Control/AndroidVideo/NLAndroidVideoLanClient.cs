@@ -109,7 +109,16 @@ internal sealed class NLAndroidVideoLanClient
         SslStream? tls = null;
         try
         {
-            await socket.ConnectAsync(address, endpoint.Port, cancellationToken).ConfigureAwait(false);
+            // Sin límite, un puerto bloqueado por firewall espera el timeout TCP del sistema (~2 min).
+            using (var connectDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                connectDeadline.CancelAfter(TimeSpan.FromSeconds(10));
+                try { await socket.ConnectAsync(address, endpoint.Port, connectDeadline.Token).ConfigureAwait(false); }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    throw new IOException($"La PC no aceptó la conexión VE LAN en {address}:{endpoint.Port} (canal {endpoint.Channel}). Revisa el firewall privado de Windows.");
+                }
+            }
             tls = new SslStream(socket.GetStream(), leaveInnerStreamOpen: false,
                 (_, certificate, _, _) => certificate is not null &&
                     CryptographicOperations.FixedTimeEquals(
