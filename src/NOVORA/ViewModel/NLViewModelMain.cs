@@ -342,7 +342,6 @@ public sealed class NLViewModelMain : INotifyPropertyChanged
             new NLViewModelSettingOption<string>("Balanced", "Balanceado"),
             new NLViewModelSettingOption<string>("Quality", "Calidad"),
             new NLViewModelSettingOption<string>("Smooth", "Fluidez"),
-            new NLViewModelSettingOption<string>("Streaming", "Streaming"),
             new NLViewModelSettingOption<string>("Software", "Software")
         };
 

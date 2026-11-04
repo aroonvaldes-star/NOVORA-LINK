@@ -632,7 +632,6 @@
                                                 <ComboBoxItem Tag="Balanced" Content="Equilibrado" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"/>
                                                 <ComboBoxItem Tag="Quality" Content="Calidad" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"/>
                                                 <ComboBoxItem Tag="Smooth" Content="Fluidez" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"/>
-                                                <ComboBoxItem Tag="Streaming" Content="Streaming" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"/>
                                                 <ComboBoxItem Tag="Software" Content="Software" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"/>
                                             </ComboBox>
 

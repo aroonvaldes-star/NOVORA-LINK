@@ -723,8 +723,11 @@ public partial class NLUIWindowMain : Window
         _viewModel.IntegrationDynamicResizeEnabled =
             settings.IntegrationDynamicResizeEnabled;
         _viewModel.ExInEnabled = settings.ExInEnabled;
+        // Pre-release 1.4: el perfil Streaming está oculto; un valor guardado vuelve a Automático.
         _viewModel.VisionProfile =
-            settings.VisionProfile;
+            string.Equals(settings.VisionProfile, "Streaming", StringComparison.OrdinalIgnoreCase)
+                ? "Automatic"
+                : settings.VisionProfile;
         ApplyAdvancedVisionSettingsVE();
 
         _viewModel.Monitors =
