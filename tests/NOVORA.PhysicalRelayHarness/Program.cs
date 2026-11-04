@@ -66,7 +66,7 @@ try
         RedirectStandardOutput = true, RedirectStandardError = true
     };
     foreach (string argument in new[] { "-s", serial, "shell", "am", "start", "--user", "0", "-n",
-                 "com.novora.appcontrol/.LanCodeActivity", "--es", "novora.lan.code", payload })
+                 "com.linkcontrol.novora/.LanCodeActivity", "--es", "novora.lan.code", payload })
         info.ArgumentList.Add(argument);
     using (Process adb = Process.Start(info) ?? throw new IOException("ADB did not start"))
     {

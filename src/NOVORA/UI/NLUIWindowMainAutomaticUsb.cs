@@ -145,7 +145,7 @@ public partial class NLUIWindowMain
     internal static bool IsNovoraAndroidInstalled(string output)
         => output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .Any(line => line.Trim().StartsWith("package:", StringComparison.OrdinalIgnoreCase) &&
-                line.Contains("com.novora.appcontrol", StringComparison.OrdinalIgnoreCase));
+                line.Contains("com.linkcontrol.novora", StringComparison.OrdinalIgnoreCase));
 
     internal static string? ResolveNovoraUsbBootstrapComponent(string appControlOutput)
     {
@@ -154,8 +154,8 @@ public partial class NLUIWindowMain
             .Any(line => line.Trim().StartsWith("package:", StringComparison.OrdinalIgnoreCase) &&
                 line.Contains(package, StringComparison.OrdinalIgnoreCase));
 
-        if (Installed(appControlOutput, "com.novora.appcontrol"))
-            return "com.novora.appcontrol/.UsbBootstrapActivity";
+        if (Installed(appControlOutput, "com.linkcontrol.novora"))
+            return "com.linkcontrol.novora/.UsbBootstrapActivity";
         return null;
     }
 
@@ -180,7 +180,7 @@ public partial class NLUIWindowMain
             if (state.Trim() != "device") throw new InvalidOperationException("ADB no esta autorizado para este telefono.");
             CheckAutomaticUsb(serial, epoch, generation);
             string appControlPath = await _adb.ExecuteRawAsync(
-                new[] { "-s", serial, "shell", "pm", "path", "com.novora.appcontrol" },
+                new[] { "-s", serial, "shell", "pm", "path", "com.linkcontrol.novora" },
                 deadline.Token);
             string? bootstrapComponent = ResolveNovoraUsbBootstrapComponent(appControlPath);
             if (bootstrapComponent is null)

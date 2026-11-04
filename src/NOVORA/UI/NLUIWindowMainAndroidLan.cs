@@ -180,8 +180,8 @@ public partial class NLUIWindowMain
             if (physicalIds.Count != 1) return false;
             string serial = devices[0].Serial;
             string installed = await _adb.ExecuteRawAsync(
-                ["-s", serial, "shell", "pm", "path", "com.novora.appcontrol"], timeout.Token);
-            if (!installed.Contains("package:com.novora.appcontrol", StringComparison.Ordinal)) return false;
+                ["-s", serial, "shell", "pm", "path", "com.linkcontrol.novora"], timeout.Token);
+            if (!installed.Contains("package:com.linkcontrol.novora", StringComparison.Ordinal)) return false;
             var invitation = server.Invitation;
             var handoff = new NLControlLanCodeHandoff(
                 Environment.MachineName, invitation.Host, invitation.Port,
@@ -191,7 +191,7 @@ public partial class NLUIWindowMain
                 System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(handoff));
             string launch = await _adb.ExecuteRawAsync(
                 ["-s", serial, "shell", "am", "start", "--user", "0", "-n",
-                    "com.novora.appcontrol/.LanCodeActivity", "--es", "novora.lan.code", payload],
+                    "com.linkcontrol.novora/.LanCodeActivity", "--es", "novora.lan.code", payload],
                 timeout.Token);
             return !launch.Contains("Error:", StringComparison.OrdinalIgnoreCase) &&
                 !launch.Contains("Permission Denial", StringComparison.OrdinalIgnoreCase) &&

@@ -262,7 +262,7 @@ internal static class LinkEngineTransportDataTests
         const string serial = "192.168.1.24:5555";
         var calls = new List<string>();
         var package = new NLServiceAndroidPackageInfo(
-            "unused.apk", "com.novora.appcontrol", 65, "1.4.65", 26, new string('A', 64));
+            "unused.apk", "com.linkcontrol.novora", 65, "1.4.65", 26, new string('A', 64));
         var installer = new NLServiceAndroidInstaller((arguments, _) =>
         {
             string command = string.Join(' ', arguments);
@@ -274,9 +274,9 @@ internal static class LinkEngineTransportDataTests
                 "-s 192.168.1.24:5555 get-state" => "device",
                 "-s 192.168.1.24:5555 shell getprop ro.build.version.sdk" => "36",
                 "-s 192.168.1.24:5555 shell am get-current-user" => "0",
-                "-s 192.168.1.24:5555 shell pm list packages -u --user 0 com.novora.appcontrol" => "",
-                "-s 192.168.1.24:5555 shell dumpsys package com.novora.appcontrol" =>
-                    "Unable to find package: com.novora.appcontrol",
+                "-s 192.168.1.24:5555 shell pm list packages -u --user 0 com.linkcontrol.novora" => "",
+                "-s 192.168.1.24:5555 shell dumpsys package com.linkcontrol.novora" =>
+                    "Unable to find package: com.linkcontrol.novora",
                 _ => throw new InvalidOperationException("Comando ADB inesperado: " + command)
             };
             return Task.FromResult(response);

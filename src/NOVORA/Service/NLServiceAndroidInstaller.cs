@@ -21,7 +21,7 @@ public sealed class NLServiceAndroidInstaller(Func<string[], CancellationToken, 
         CancellationToken cancellationToken = default)
     {
         ValidateSerial(serial);
-        if (package.PackageId != "com.novora.appcontrol" || package.VersionCode <= 0)
+        if (package.PackageId != "com.linkcontrol.novora" || package.VersionCode <= 0)
             throw new InvalidOperationException("El paquete no corresponde a NOVORA Android.");
         string devices = await Run(["devices", "-l"], cancellationToken);
         string[] rows = devices.Split('\n').Select(x => x.Trim()).Where(x => x.StartsWith(serial + " ", StringComparison.Ordinal)

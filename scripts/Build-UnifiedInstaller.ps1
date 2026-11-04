@@ -45,7 +45,7 @@ foreach ($name in @('Tools\scrcpy.exe', 'Tools\scrcpy-server',
 
 $descriptor = Get-Content -LiteralPath (Join-Path $publish 'Android\NLAndroidRelease.json') -Raw | ConvertFrom-Json
 $apkHash = (Get-FileHash -LiteralPath (Join-Path $publish 'Android\NLAndroidApp.apk') -Algorithm SHA256).Hash
-if ($descriptor.PackageId -ne 'com.novora.appcontrol' -or $descriptor.Sha256 -ne $apkHash) {
+if ($descriptor.PackageId -ne 'com.linkcontrol.novora' -or $descriptor.Sha256 -ne $apkHash) {
     throw 'La APK no coincide con el descriptor de Release integrado.'
 }
 

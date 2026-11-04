@@ -405,7 +405,7 @@ public partial class NLUIWindowMain : Window
             string output = await _adb.ExecuteRawAsync(new[]
             {
                 "-s", serial, "shell", "am", "start", "--user", "0", "-n",
-                "com.novora.appcontrol/com.novora.appcontrol.MainActivity",
+                "com.linkcontrol.novora/com.linkcontrol.novora.MainActivity",
                 "--es", "novora.page", "settings"
             });
             if (output.Contains("Error:", StringComparison.OrdinalIgnoreCase) ||

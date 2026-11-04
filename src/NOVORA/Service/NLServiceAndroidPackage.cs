@@ -15,7 +15,7 @@ public static class NLServiceAndroidPackage
 {
     public const string ApkFileName = "NLAndroidApp.apk";
     public const string ReleaseFileName = "NLAndroidRelease.json";
-    public const string ExpectedPackageId = "com.novora.appcontrol";
+    public const string ExpectedPackageId = "com.linkcontrol.novora";
     private const long MaxApk = 256L * 1024 * 1024;
     private const int MaxManifest = 1024 * 1024;
 
