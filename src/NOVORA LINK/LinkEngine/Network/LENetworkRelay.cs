@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -110,7 +109,7 @@ public sealed class LENetworkRelay :
                 return
                     _process is not null &&
                     !_process.HasExited &&
-                    IsPortListeningLE();
+                    _policySession.IsReady;
             }
             catch
             {
@@ -277,7 +276,7 @@ public sealed class LENetworkRelay :
                         $"LinkEngine Relay terminó con código {code}.");
                 }
 
-                if (IsPortListeningLE())
+                if (_policySession.IsReady)
                 {
                     return;
                 }
@@ -293,7 +292,12 @@ public sealed class LENetworkRelay :
             PersistDiagnosticsLE();
 
             throw new TimeoutException(
-                $"LinkEngine Relay no abrió 127.0.0.1:{PortLE}.");
+                $"LinkEngine Relay no confirmó LE_READY en 127.0.0.1:{PortLE}.");
+        }
+        catch
+        {
+            StopProcessLE();
+            throw;
         }
         finally
         {
@@ -418,7 +422,7 @@ public sealed class LENetworkRelay :
         object sender,
         DataReceivedEventArgs args)
     {
-        if (string.IsNullOrWhiteSpace(
+        if (!ReferenceEquals(sender, _process) || string.IsNullOrWhiteSpace(
                 args.Data))
         {
             return;
@@ -434,7 +438,7 @@ public sealed class LENetworkRelay :
         string line,
         bool forceError)
     {
-        if (_policySession.HandleLine(line)) return;
+        if (!forceError && _policySession.HandleLine(line)) return;
         if (line.StartsWith("LE_QOS ", StringComparison.Ordinal))
         {
             if (LERelayPolicyProtocol.TryReadQos(line, TimeProvider.System.GetTimestamp(), out var sample))
@@ -690,28 +694,6 @@ public sealed class LENetworkRelay :
              * Las métricas nunca deben tumbar
              * el Data Plane.
              */
-        }
-    }
-
-    private static bool IsPortListeningLE()
-    {
-        try
-        {
-            return
-                IPGlobalProperties
-                    .GetIPGlobalProperties()
-                    .GetActiveTcpListeners()
-                    .Any(
-                        endpoint =>
-                            endpoint.Address
-                                .Equals(
-                                    System.Net.IPAddress.Loopback) &&
-                            endpoint.Port ==
-                                PortLE);
-        }
-        catch
-        {
-            return false;
         }
     }
 

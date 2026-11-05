@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>NOVORA.Linux</RootNamespace>
+    <AssemblyName>NOVORA-LINK.Linux</AssemblyName>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="tests/**/*.cs" />
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <Content Include="LinkRelay/tcp_ip-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <AvaloniaResource Include="Assets/Fonts/*.ttf" />
+  </ItemGroup>
+  <Target Name="BuildLinuxLinkRelay" BeforeTargets="Build">
+    <Exec Command="cargo build --release --locked --manifest-path &quot;$(MSBuildProjectDirectory)/LinkRelay/Cargo.toml&quot;" />
+    <MakeDir Directories="$(OutDir)Tools/LinkEngine" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/LinkRelay/target/release/novora-linkengine-relay"
+          DestinationFolder="$(OutDir)Tools/LinkEngine" />
+    <Exec Command="chmod 755 &quot;$(OutDir)Tools/LinkEngine/novora-linkengine-relay&quot;" />
+  </Target>
+</Project>

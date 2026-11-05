@@ -6,7 +6,9 @@
 
 NOVORA-LINK conecta un teléfono Android con una PC Windows para mostrar su pantalla, transportar datos y permitir la interacción autorizada. VisionEngine (VE) se ocupa de video y audio, LinkEngine (LE) del enlace y de la ruta de Internet por VPN, y Experience Input Engine (ExInEngine) de las entradas. Cada resultado depende del dispositivo, el transporte, los permisos y el estado de la sesión.
 
-Esta descripción corresponde al árbol local de código revisado el 27 de octubre de 2026. LINK Control declara `versionCode 120` y `versionName 1.4.120`; el proyecto de escritorio declara la serie `1.4`. Estos datos de fuente no confirman la versión instalada en un teléfono, el contenido de un instalador ni los activos publicados.
+Esta descripción corresponde al árbol de `Dev_Local` revisado el 4 de noviembre de 2026. LINK Control declara `versionCode 124` y `versionName 1.4.124`; el proyecto de escritorio declara `1.4.0`. Estos datos de fuente no confirman la versión instalada en un teléfono, el contenido de un instalador ni los activos publicados.
+
+**Plataformas:** LINK Control es una aplicación Android. El cliente Windows usa WPF/WinForms; `src/NOVORA-LINUX` contiene una aplicación Avalonia independiente que reutiliza los assets de marca y los temas Light/Dark. Linux incluye control LAN/USB, VisionEngine por USB y una ruta LAN nativa con canales TLS autenticados, FFmpeg y SDL. La compilación y las pruebas de protocolo locales pasan, pero la captura Android no se ha validado físicamente y la integración Linux todavía no iguala todas las funciones de Windows.
 
 En Android, LINK Control incluye un flujo de bienvenida y selección de conexión USB o LAN. Una pantalla de motores presenta acciones para VisionEngine, LinkEngine y ExInEngine según la sesión y las capacidades disponibles. El código también conserva páginas de ajustes y diagnóstico; su disponibilidad depende del flujo de la interfaz. La presencia de estos controles en el código no acredita una prueba en el teléfono.
 
@@ -89,6 +91,8 @@ Los indicadores de estado deben distinguir dato confirmado, dato caducado y ause
 La fiabilidad se evalúa por motor y por ruta: enlace USB/LAN, VPN e Internet, video, audio y entradas. Registrar versión realmente instalada, transporte, permisos, estado de cada motor y error observado permite reproducir fallos intermitentes. La calidad del video, la velocidad de Internet y la entrega de entradas requieren mediciones propias durante una sesión PC-Android.
 
 La auditoría estática local del 10 de octubre identificó riesgos pendientes en el relay LE, el saludo DATA LAN y la recepción de archivos por VE LAN. También dejó sin validar el rendimiento y la fiabilidad de extremo a extremo en un teléfono físico. Por ello, las afirmaciones de baja latencia, estabilidad y recuperación automática siguen siendo objetivos sujetos a pruebas reproducibles, no resultados confirmados por este documento.
+
+La revisión de `Dev_Local` del 4 de noviembre encontró además discrepancias en las rutas de proyectos referenciadas por algunos workflows de GitHub Actions y que la carga del tema guardado no se aplica al iniciar. El build y las pruebas completas de Windows/Android no se ejecutaron en esta revisión; consulta [el informe de revisión](docs/informes/2026-11-04-revision-dev-local.md) para el alcance, la verificación y los límites.
 
 ## 7. Licencia y avisos legales
 

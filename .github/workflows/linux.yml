@@ -1,0 +1,66 @@
+name: NOVORA Linux
+'on':
+  push:
+    paths:
+      - 'src/NOVORA-LINUX/**'
+      - '.github/workflows/linux.yml'
+  pull_request:
+    paths:
+      - 'src/NOVORA-LINUX/**'
+      - '.github/workflows/linux.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Rust stable
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
+        with:
+          toolchain: stable
+
+      - name: Verify Rust toolchain
+        run: rustc --version && cargo --version
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg cmake ninja-build build-essential
+
+      - name: Build SDL3 runtime
+        run: |
+          git clone --depth 1 --branch release-3.2.0 https://github.com/libsdl-org/SDL.git "$RUNNER_TEMP/SDL"
+          test "$(git -C "$RUNNER_TEMP/SDL" rev-parse HEAD)" = "535d80badefc83c5c527ec5748f2a20d6a9310fe"
+          cmake -S "$RUNNER_TEMP/SDL" -B "$RUNNER_TEMP/SDL-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSDL_SHARED=ON \
+            -DSDL_STATIC=OFF \
+            -DSDL_TESTS=OFF \
+            -DSDL_EXAMPLES=OFF
+          cmake --build "$RUNNER_TEMP/SDL-build" --parallel 2
+          sudo cmake --install "$RUNNER_TEMP/SDL-build"
+          sudo ldconfig
+
+      - name: Build NOVORA-LINK Linux
+        run: dotnet build src/NOVORA-LINUX/NOVORA.Linux.csproj -c Release --verbosity quiet
+
+      - name: Run Linux protocol and native smoke tests
+        run: dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release --verbosity quiet

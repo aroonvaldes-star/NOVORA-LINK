@@ -237,7 +237,7 @@ public partial class NLApplicationApp :
                 settingsService.Load();
 
             NLServiceTheme.Apply(
-                NLServiceTheme.Light);
+                settings.Theme);
         }
         catch
         {

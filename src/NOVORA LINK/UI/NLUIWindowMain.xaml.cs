@@ -705,7 +705,7 @@ public partial class NLUIWindowMain : Window
         NLServiceNovoraSettings settings =
             _settingsService.Load();
 
-        _viewModel.Theme = NLServiceTheme.Light;
+        _viewModel.Theme = settings.Theme;
         _viewModel.VideoPresentationMode =
             settings.VideoPresentationMode;
         _viewModel.Bitrate =
