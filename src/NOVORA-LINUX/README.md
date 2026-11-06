@@ -27,47 +27,89 @@ two minutes and is single-use. The certificate and trusted-device hashes are kep
 `$XDG_CONFIG_HOME/novora-link-linux` (or `~/.config/novora-link-linux`) with
 user-only file permissions.
 
-VisionEngine supports video and optional audio over an authorized USB session
-and native LAN capture over an authorized LAN session. USB uses token-authenticated
-ADB reverse endpoints; LAN prepares independent, short-lived TLS video, control,
-and optional audio channels, pinned to the existing Linux trust-store certificate
-and authenticated with per-channel tokens. The AppControl `startVideoLan` action
-returns the LINK Control 1.4.124 offer format. Both paths parse VE framing, decode
-video with FFmpeg, and present frames through SDL3; LAN audio is optional and has
-a bounded connection grace period. FFmpeg uses its default software decoder and
-applies the rotation announced by the stream. The current Android video path sends
-H.264 and PCM S16LE stereo audio at 48 kHz. Protocol, authenticated-channel,
-control-action, FFmpeg rotation, and SDL checks run locally, including LAN
-loopback tests; physical-device audio/video playback and end-to-end LAN capture
-are still unverified. Remote input, file exchange, recording, and configurable
-stream profiles are not integrated.
+## VisionEngine
 
-The SDL video renderer now selects SDL's default backend (override with
-`NOVORA_SDL_RENDERER=opengl|vulkan|software`), uses linear texture scaling,
-preserves the video aspect ratio, and creates a high-pixel-density resizable
-window. The VisionEngine page reports the selected SDL backend, output pixel
-size, video packets, rendered frames, and an approximate packet/frame difference;
-the same telemetry is included in AppControl snapshots. The difference is
-diagnostic only and is not a precise network-drop counter. On the development
-host, `glxinfo` reports Mesa `llvmpipe`, so an `opengl` SDL backend there does
-not imply hardware acceleration. A physical-device comparison against Windows
-at native and fractional scaling is still required.
+The VisionEngine page now connects its settings and actions to the USB/LAN runtime:
+
+- Persistent capture profiles, bitrate, maximum size and FPS; Android batch settings
+  use revisions and share the same configuration transaction as the Linux UI.
+- Automatic/software/forced hardware decoding. VAAPI, CUDA, QSV and Vulkan are
+  offered for probing with a real H.264 decode and RGBA download. A forced backend
+  fails explicitly when unavailable. SDL rendering and video decoding are reported
+  separately; an OpenGL renderer does not prove hardware decoding.
+- Monitor and audio-device enumeration, stable saved names, window/fullscreen,
+  VSync and low-latency decoding. Output/decoder changes apply to the next session.
+- Keyboard, text Unicode, mouse clicks/drag and horizontal/vertical fractional
+  touchpad scrolling. The SDL event timer works even when no video frames arrive;
+  focus loss releases input and closing the video window stops the session.
+  Android requires LINK Control accessibility. Android cursor navigation, Tab,
+  selection and edit shortcuts were extended; unrestricted global raw key injection
+  remains outside accessibility capabilities.
+- H.264/optional PCM recording to unique MKV files, original video timestamp deltas,
+  audio clock normalization and segments on rotation/geometry change. A bounded
+  background writer avoids blocking the decoder; failed captures retain `.partial`
+  files and visible diagnostics. No audio track is published when no audio arrived.
+- Bidirectional FILES V2 during VE, individual files or directories, progress,
+  cancellation, generation-bound leases, SHA-256 verification and confined receive
+  storage without overwrite. LAN uses a separate authenticated TLS channel; USB
+  uses a separate token-authenticated ADB reverse endpoint on device port 27218.
+  Android-to-PC transfers use the compatible generation-bound budget negotiation
+  in Observe mode (Linux does not advertise adaptive network shaping).
+
+Use **Solicitar pantalla a Android** with LINK Control visible, then accept Android's
+screen-capture permission. Remote input needs the accessibility permission enabled
+on the phone. Choose recording/receive folders before starting a new session.
+USB FILES V2 and the additional keyboard behavior require an Android APK built from
+this updated source; the previously recorded 1.4.124 APK has not been rebuilt or
+installed by this change.
+
+Local verification covers framed protocols/trust, batch settings and stale
+revisions, decoder reconfiguration, SDL events and selected outputs, real FFmpeg
+and MKV decoding, files and failure cleanup. The native runtime check sends live
+video/audio over sockets through FFmpeg and SDL and finalizes a recording.
+
+Physical-device USB/LAN capture, real laptop touchpad-to-Android interaction,
+GPU hardware decoding and multi-monitor/fractional-scaling behavior still require
+hardware validation. On this host all probed hardware decoders were unavailable;
+software decoding passed. Mesa/Zink warnings do not establish physical GPU use.
 
 Protocol framing and LAN/USB pairing/resume follow LINK Control protocol v1 used by
-LINK Control 1.4.124. A USB-authorized `startLink` now launches the Linux LinkEngine
-relay and CONTROL listener, authenticates the Android HELLO/heartbeat, and prepares
-ADB reverse ports 27183/27184 without replacing existing routes. Only reverse routes
-created by this app are removed on stop. This USB LinkEngine path has not yet been
-confirmed end-to-end on physical Android hardware. LAN LinkEngine, ExInEngine,
-file transfer, and LinkEngine speed/telemetry controls remain unavailable.
+LINK Control 1.4.124. An authorized `startLink` now selects the transport of the
+active control session. USB launches the Linux LinkEngine relay and CONTROL
+listener, authenticates the Android HELLO/heartbeat, and prepares ADB reverse
+ports 27183/27184 without replacing existing routes. LAN launches the same relay
+on loopback and an ephemeral TLS DATA gateway bound to the authorized private
+address; the gateway pins the trust-store certificate, validates the single-use
+token, authenticates DATA against the relay, and returns the LINK Control
+`{Host,Port,Fingerprint,Token}` offer. Only reverse routes created by this app are
+removed on stop. The LAN gateway and transport routing are covered by loopback
+tests, but neither USB nor LAN LinkEngine has been confirmed end-to-end on
+physical Android hardware. ExInEngine, file transfer, LinkEngine telemetry, and
+the speed test remain unavailable.
 
 ## Protocol and trust checks
 
 ```sh
 cargo test --manifest-path src/NOVORA-LINUX/LinkRelay/Cargo.toml --locked
 dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj
+dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -- --le-lan-only
 ```
 
 With an authorized physical Android device attached and LINK Control 1.4.124
 installed, the optional hardware check can be run with
 `dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -- --device <adb-serial>`.
+
+## Focused native VE checks
+
+After building the test project, run each mode in a separate process:
+
+```sh
+dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --input-native
+dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --outputs-native
+dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --ve-ui
+SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy NOVORA_SDL_RENDERER=software dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --ve-runtime-native
+```
+
+The runtime fixture currently requires the `libopenh264` encoder. Main protocol
+and recording checks detect either `libx264` or `libopenh264`. `--ve-ui` creates a
+temporary configuration and renders `/tmp/novora-ve-ui.png`.

@@ -7,6 +7,7 @@
     <AssemblyName>NOVORA.Linux.ProtocolTests</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../LINK Control/AndroidVideo/NLAndroidKeyboardEditing.cs" Link="AndroidKeyboardEditing.cs" />
     <ProjectReference Include="../NOVORA.Linux.csproj" />
   </ItemGroup>
 </Project>

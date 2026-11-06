@@ -13,6 +13,7 @@ internal sealed class LinuxFfmpegVideoDecoder : IAsyncDisposable
     private readonly ILinuxVideoRenderer _renderer;
     private int _disposed;
 
+    public string ActiveBackend { get; }
     public VideoSession Session => _session;
     private int OutputWidth => _session.RotationDegrees is 90 or 270 ? _session.Height : _session.Width;
     private int OutputHeight => _session.RotationDegrees is 90 or 270 ? _session.Width : _session.Height;
@@ -20,8 +21,9 @@ internal sealed class LinuxFfmpegVideoDecoder : IAsyncDisposable
     internal Task<string> ErrorTask => _stderrTask;
 
     public LinuxFfmpegVideoDecoder(
-        VideoCodec codec, VideoSession session, ILinuxVideoRenderer renderer)
+        VideoCodec codec, VideoSession session, ILinuxVideoRenderer renderer, LinuxVisionSettings? settings = null)
     {
+        ActiveBackend = settings is null ? "software" : LinuxVisionAcceleration.Select(settings);
         _codec = codec;
         _session = session;
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
@@ -37,7 +39,7 @@ internal sealed class LinuxFfmpegVideoDecoder : IAsyncDisposable
             RedirectStandardError = true,
             CreateNoWindow = true
         };
-        foreach (string argument in BuildArguments(codec, session))
+        foreach (string argument in BuildArguments(codec, session, ActiveBackend, settings?.LowLatency ?? true))
             start.ArgumentList.Add(argument);
 
         _process = new Process { StartInfo = start, EnableRaisingEvents = true };
@@ -106,7 +108,7 @@ internal sealed class LinuxFfmpegVideoDecoder : IAsyncDisposable
         }
     }
 
-    private static IReadOnlyList<string> BuildArguments(VideoCodec codec, VideoSession session)
+    internal static IReadOnlyList<string> BuildArguments(VideoCodec codec, VideoSession session, string backend = "software", bool lowLatency = true)
     {
         string demuxer = codec switch
         {
@@ -123,13 +125,14 @@ internal sealed class LinuxFfmpegVideoDecoder : IAsyncDisposable
             270 => ",transpose=cclock",
             _ => ""
         };
-        return
-        [
-            "-hide_banner", "-loglevel", "error", "-flags", "low_delay",
-            "-probesize", "32", "-analyzeduration", "0", "-f", demuxer, "-i", "pipe:0",
-            "-an", "-vf", $"scale={session.Width}:{session.Height}:flags=fast_bilinear{rotation}",
-            "-fps_mode", "passthrough", "-pix_fmt", "rgba", "-f", "rawvideo", "pipe:1"
-        ];
+        var arguments = new List<string> { "-hide_banner", "-loglevel", "error" };
+        if (lowLatency) arguments.AddRange(["-flags", "low_delay"]);
+        if (backend != "software") arguments.AddRange(["-hwaccel", backend, "-hwaccel_output_format", backend]);
+        arguments.AddRange(["-probesize", "32", "-analyzeduration", "0", "-f", demuxer, "-i", "pipe:0"]);
+        string download = backend == "software" ? "" : "hwdownload,format=nv12,";
+        arguments.AddRange(["-an", "-vf", $"{download}scale={session.Width}:{session.Height}:flags=fast_bilinear{rotation}",
+            "-flush_packets", "1", "-fps_mode", "passthrough", "-pix_fmt", "rgba", "-f", "rawvideo", "pipe:1"]);
+        return arguments;
     }
 
     private void WriteIvfHeader(VideoSession session)
@@ -187,5 +190,62 @@ internal sealed class LinuxFfmpegVideoDecoder : IAsyncDisposable
         {
             _process.Dispose();
         }
+    }
+}
+
+internal static class LinuxVisionDecoderInput
+{
+    public static (byte[] Data, long? PresentationTimeUs)[] ForPacket(
+        VideoPacket packet, byte[]? configuration, bool decoderRecreated)
+    {
+        if (decoderRecreated && !packet.IsConfiguration && configuration is not null)
+            return [(configuration, null), (packet.Data, packet.PresentationTimeUs)];
+        return [(packet.Data, packet.PresentationTimeUs)];
+    }
+}
+
+internal static class LinuxVisionDecoderMonitor
+{
+    public static async Task<T> AwaitAsync<T>(
+        Task<T> operation,
+        Task frameTask,
+        CancellationTokenSource sessionLifetime)
+    {
+        Task completed = await Task.WhenAny(operation, frameTask).ConfigureAwait(false);
+        if (completed == frameTask)
+        {
+            sessionLifetime.Cancel();
+            try
+            {
+                await operation.ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException)
+            {
+            }
+            await frameTask.ConfigureAwait(false);
+            throw new EndOfStreamException("La presentación de VisionEngine terminó antes que el flujo.");
+        }
+
+        T result = await operation.ConfigureAwait(false);
+        if (frameTask.IsCompleted)
+        {
+            await frameTask.ConfigureAwait(false);
+            throw new EndOfStreamException("La presentación de VisionEngine terminó antes que el flujo.");
+        }
+        return result;
+    }
+
+    public static async Task AwaitAsync(
+        Task operation,
+        Task frameTask,
+        CancellationTokenSource sessionLifetime)
+    {
+        await AwaitAsync(ObserveAsync(operation), frameTask, sessionLifetime).ConfigureAwait(false);
+    }
+
+    private static async Task<bool> ObserveAsync(Task operation)
+    {
+        await operation.ConfigureAwait(false);
+        return true;
     }
 }

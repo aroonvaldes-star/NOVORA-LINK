@@ -201,7 +201,10 @@ public sealed class NLAndroidControlAccessibilityService : AccessibilityService
 
     private void ExecuteKey(NLControlInputCommand command)
     {
-        if (command.KeyAction != 1) return;
+        // SDL/AppControl sends both edges. Execute key-down (including repeats), never key-up twice.
+        if (command.KeyAction != 0) return;
+        if (command.Keycode is 57 or 58 or 59 or 60 or 113 or 114 or 117 or 118) return;
+        if (TryExecuteEditingKey(command)) return;
         if (command.Keycode == 67)
         {
             EditFocusedText("\b");
@@ -230,6 +233,57 @@ public sealed class NLAndroidControlAccessibilityService : AccessibilityService
         if (action is null)
             throw new NotSupportedException($"Android no permite inyectar la tecla {command.Keycode} desde Accesibilidad.");
         RequireGlobalAction(action.Value, "tecla global");
+    }
+
+    private bool TryExecuteEditingKey(NLControlInputCommand command)
+    {
+        bool control = (command.MetaState & 0x1000) != 0;
+        bool shift = (command.MetaState & 1) != 0;
+        if (command.Keycode is not (19 or 20 or 21 or 22 or 61 or 92 or 93 or 122 or 123) &&
+            !(control && command.Keycode is 29 or 31 or 50 or 52)) return false;
+        using AccessibilityNodeInfo? root = RootInActiveWindow;
+        using AccessibilityNodeInfo? focused = root?.FindFocus(NodeFocus.Input) ?? root?.FindFocus(NodeFocus.Accessibility);
+        if (focused is null) throw new InvalidOperationException("Android no expuso un elemento enfocado para esta tecla.");
+        if (command.Keycode == 61 || !focused.Editable && command.Keycode is 19 or 20 or 21 or 22)
+        {
+            var direction = command.Keycode switch
+            {
+                19 => Android.Views.FocusSearchDirection.Up,
+                20 => Android.Views.FocusSearchDirection.Down,
+                21 => Android.Views.FocusSearchDirection.Left,
+                22 => Android.Views.FocusSearchDirection.Right,
+                _ => shift ? Android.Views.FocusSearchDirection.Backward : Android.Views.FocusSearchDirection.Forward
+            };
+            using AccessibilityNodeInfo? next = focused.FocusSearch(direction);
+            if (next is null || !next.PerformAction(Android.Views.Accessibility.Action.Focus))
+                throw new InvalidOperationException("La aplicación Android no permite mover el foco en esa dirección.");
+            return true;
+        }
+        if (control && command.Keycode is 31 or 50 or 52)
+        {
+            var action = command.Keycode switch
+            {
+                31 => Android.Views.Accessibility.Action.Copy,
+                50 => Android.Views.Accessibility.Action.Paste,
+                _ => Android.Views.Accessibility.Action.Cut
+            };
+            if (!focused.PerformAction(action)) throw new InvalidOperationException("El campo Android rechazó el atajo de edición.");
+            return true;
+        }
+        string text = NLControlAndroidInput.GetEditableText(focused.Text?.ToString(), focused.HintText?.ToString(), focused.ShowingHintText);
+        (int start, int end) = control && command.Keycode == 29
+            ? (0, text.Length)
+            : NLAndroidKeyboardEditing.Move(text, focused.TextSelectionStart, focused.TextSelectionEnd, command.Keycode, command.MetaState);
+        if (!SetNodeSelection(focused, start, end)) throw new InvalidOperationException("El campo Android rechazó el movimiento del cursor.");
+        return true;
+    }
+
+    private static bool SetNodeSelection(AccessibilityNodeInfo node, int start, int end)
+    {
+        using var arguments = new Bundle();
+        arguments.PutInt(AccessibilityNodeInfo.ActionArgumentSelectionStartInt, start);
+        arguments.PutInt(AccessibilityNodeInfo.ActionArgumentSelectionEndInt, end);
+        return node.PerformAction(Android.Views.Accessibility.Action.SetSelection, arguments);
     }
 
     private void ExecuteTouch(NLControlInputCommand command, TaskCompletionSource completion)
@@ -288,10 +342,15 @@ public sealed class NLAndroidControlAccessibilityService : AccessibilityService
     private void ExecuteScroll(NLControlInputCommand command, TaskCompletionSource completion)
     {
         PointF start = Scale(command);
-        float distance = Math.Max(120, Resources?.DisplayMetrics?.HeightPixels / 4f ?? 300);
-        PointF end = new(start.X, Math.Clamp(start.Y + Math.Sign(command.VerticalScroll) * distance,
-            0, (Resources?.DisplayMetrics?.HeightPixels ?? 1) - 1));
-        DispatchPath(start, end, 140, completion);
+        if (!float.IsFinite(command.HorizontalScroll) || !float.IsFinite(command.VerticalScroll))
+            throw new InvalidDataException("Desplazamiento de touchpad inválido.");
+        var metrics = Resources?.DisplayMetrics ?? throw new InvalidOperationException("Pantalla no disponible.");
+        float distance = Math.Max(120, metrics.HeightPixels / 4f);
+        PointF end = new(
+            Math.Clamp(start.X + Math.Clamp(command.HorizontalScroll, -4, 4) * distance, 0, metrics.WidthPixels - 1),
+            Math.Clamp(start.Y + Math.Clamp(command.VerticalScroll, -4, 4) * distance, 0, metrics.HeightPixels - 1));
+        if (start == end) { completion.SetResult(); return; }
+        DispatchPath(start, end, 80, completion);
     }
 
     private void DispatchPath(PointF start, PointF end, long durationMs, TaskCompletionSource completion)
@@ -420,17 +479,18 @@ public sealed class NLAndroidControlAccessibilityService : AccessibilityService
             node.Text?.ToString(),
             node.HintText?.ToString(),
             node.ShowingHintText);
-        string text = NLControlAndroidInput.EditText(
-            current,
-            node.TextSelectionStart,
-            node.TextSelectionEnd,
-            input);
+        (string text, int caret) = NLAndroidKeyboardEditing.Insert(
+            current, node.TextSelectionStart, node.TextSelectionEnd, input);
 
         using var args = new Bundle();
         args.PutCharSequence(
             AccessibilityNodeInfo.ActionArgumentSetTextCharsequence,
             new Java.Lang.String(text));
-        return node.PerformAction(Android.Views.Accessibility.Action.SetText, args);
+        if (!node.PerformAction(Android.Views.Accessibility.Action.SetText, args)) return false;
+        // ACTION_SET_TEXT moves the cursor to the end. Restore insertion position for subsequent input.
+        if (!SetNodeSelection(node, caret, caret))
+            throw new InvalidOperationException("Android aceptó el texto pero no restauró la posición del cursor.");
+        return true;
     }
 
     private void SetClipboard(string text)

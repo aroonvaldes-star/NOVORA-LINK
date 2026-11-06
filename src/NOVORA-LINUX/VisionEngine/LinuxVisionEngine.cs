@@ -15,7 +15,8 @@ internal sealed record LinuxVideoSourceOffer(
     int AudioPort,
     string AudioToken,
     bool MuteDeviceAudio,
-    bool AudioEnabled);
+    bool AudioEnabled,
+    int FilesPort = 0, string FilesToken = "", int FilesWireVersion = 0, long CaptureGeneration = 0);
 
 internal sealed record LinuxVisionTelemetry(
     string RendererBackend,
@@ -23,13 +24,16 @@ internal sealed record LinuxVisionTelemetry(
     long FramesRendered,
     long FramesDroppedEstimate,
     int OutputWidth,
-    int OutputHeight);
+    int OutputHeight, string DecoderBackend = "Unavailable", bool AudioPlaying = false, string InputStatus = "", string RecordingStatus = "", string FilesStatus = "");
 
 internal sealed class LinuxVisionEngine : IAsyncDisposable
 {
     public const int DeviceVideoPort = 27215;
     public const int DeviceControlPort = 27216;
     public const int DeviceAudioPort = 27217;
+    public const int DeviceFilesPort = 27218;
+    private static long _generation = DateTime.UtcNow.Ticks;
+    public LinuxVisionRuntime? Runtime { get; private set; }
 
     private readonly AdbBridge _adb;
     private readonly string _serial;
@@ -38,37 +42,22 @@ internal sealed class LinuxVisionEngine : IAsyncDisposable
     private LinuxAppControlTransport? _videoTransport;
     private LinuxAppControlTransport? _controlTransport;
     private LinuxAppControlTransport? _audioTransport;
+    private LinuxAppControlTransport? _filesTransport;
     private AdbBridge.UsbReverseLease? _reverse;
     private CancellationTokenSource? _sessionCancellation;
     private Task _sessionTask = Task.CompletedTask;
-    private LinuxSdlVideoRenderer? _renderer;
-    private long _videoPacketsReceived;
     private int _ownsExclusiveGate;
     private string _state = "Stopped";
     private string _message = "VisionEngine Linux está detenido.";
     private int _disposed;
 
+    public LinuxVisionSettings Settings { get; set; } = LinuxVisionSettings.Default;
     public event EventHandler? StatusChanged;
     public bool IsRunning => _state is "Waiting" or "Streaming";
     public bool HasSession => _videoTransport is not null;
     public string State => _state;
     public string Message => _message;
-    public LinuxVisionTelemetry Telemetry
-    {
-        get
-        {
-            LinuxSdlVideoRenderer? renderer = Volatile.Read(ref _renderer);
-            long rendered = renderer?.FramesPresented ?? 0;
-            long received = Interlocked.Read(ref _videoPacketsReceived);
-            return new LinuxVisionTelemetry(
-                renderer?.Backend ?? "Unavailable",
-                received,
-                rendered,
-                Math.Max(0, received - rendered),
-                renderer?.OutputWidth ?? 0,
-                renderer?.OutputHeight ?? 0);
-        }
-    }
+    public LinuxVisionTelemetry Telemetry => Runtime?.Telemetry ?? new("Unavailable",0,0,0,0,0);
 
     public LinuxVisionEngine(AdbBridge adb, string serial, SemaphoreSlim? exclusiveSessionGate = null)
     {
@@ -79,9 +68,14 @@ internal sealed class LinuxVisionEngine : IAsyncDisposable
         _exclusiveSessionGate = exclusiveSessionGate ?? new SemaphoreSlim(1, 1);
     }
 
-    public async Task<string> StartAsync(CancellationToken cancellationToken)
+    public async Task<string> StartAsync(
+        CancellationToken cancellationToken,
+        int bitrate = 8_000_000,
+        int maxSize = 1920,
+        int fps = 60)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        ValidateCaptureSettings(bitrate, maxSize, fps);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -96,48 +90,53 @@ internal sealed class LinuxVisionEngine : IAsyncDisposable
             var video = new LinuxAppControlTransport();
             var control = new LinuxAppControlTransport();
             var audio = new LinuxAppControlTransport();
+            var files = new LinuxAppControlTransport();
             AdbBridge.UsbReverseLease? reverse = null;
             try
             {
                 AppControlStreamOffer videoOffer = video.Prepare();
                 AppControlStreamOffer controlOffer = control.Prepare();
                 AppControlStreamOffer audioOffer = audio.Prepare();
+                AppControlStreamOffer filesOffer = files.Prepare();
                 reverse = await _adb.PrepareUsbReverseMappingsAsync(
                     _serial,
                     [
                         (DeviceVideoPort, videoOffer.Port),
                         (DeviceControlPort, controlOffer.Port),
-                        (DeviceAudioPort, audioOffer.Port)
+                        (DeviceAudioPort, audioOffer.Port),
+                        (DeviceFilesPort, filesOffer.Port)
                     ],
                     cancellationToken).ConfigureAwait(false);
 
                 _videoTransport = video;
                 _controlTransport = control;
                 _audioTransport = audio;
-                Volatile.Write(ref _renderer, null);
-                Interlocked.Exchange(ref _videoPacketsReceived, 0);
+                _filesTransport = files;
+                Runtime = new LinuxVisionRuntime(Settings, Interlocked.Increment(ref _generation));
+                Runtime.Changed += RaiseStatusChanged;
                 _reverse = reverse;
                 reverse = null;
                 _sessionCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 _state = "Waiting";
                 _message = "VisionEngine espera la autorización de captura y el flujo de AppControl.";
                 _sessionTask = RunSessionAsync(
-                    video, videoOffer, control, controlOffer, audio, audioOffer,
+                    video, videoOffer, control, controlOffer, audio, audioOffer, files, filesOffer, Runtime,
                     _sessionCancellation.Token);
                 RaiseStatusChanged();
 
                 var offer = new LinuxVideoSourceOffer(
                     Port: DeviceVideoPort,
                     Token: videoOffer.Token,
-                    Bitrate: 8_000_000,
-                    MaxSize: 1920,
-                    Fps: 60,
+                    Bitrate: bitrate,
+                    MaxSize: maxSize,
+                    Fps: fps,
                     ControlPort: DeviceControlPort,
                     ControlToken: controlOffer.Token,
                     AudioPort: DeviceAudioPort,
                     AudioToken: audioOffer.Token,
                     MuteDeviceAudio: true,
-                    AudioEnabled: true);
+                    AudioEnabled: Settings.AudioEnabled, FilesPort: DeviceFilesPort, FilesToken: filesOffer.Token,
+                    FilesWireVersion: 2, CaptureGeneration: Runtime.Generation);
                 return JsonSerializer.Serialize(offer);
             }
             catch
@@ -149,6 +148,7 @@ internal sealed class LinuxVisionEngine : IAsyncDisposable
                     await video.DisposeAsync().ConfigureAwait(false);
                     await control.DisposeAsync().ConfigureAwait(false);
                     await audio.DisposeAsync().ConfigureAwait(false);
+                    await files.DisposeAsync().ConfigureAwait(false);
                 }
                 finally
                 {
@@ -164,131 +164,46 @@ internal sealed class LinuxVisionEngine : IAsyncDisposable
     }
 
     private async Task RunSessionAsync(
-        LinuxAppControlTransport videoTransport,
-        AppControlStreamOffer videoOffer,
-        LinuxAppControlTransport controlTransport,
-        AppControlStreamOffer controlOffer,
-        LinuxAppControlTransport audioTransport,
-        AppControlStreamOffer audioOffer,
-        CancellationToken cancellationToken)
+        LinuxAppControlTransport videoTransport, AppControlStreamOffer videoOffer,
+        LinuxAppControlTransport controlTransport, AppControlStreamOffer controlOffer,
+        LinuxAppControlTransport audioTransport, AppControlStreamOffer audioOffer,
+        LinuxAppControlTransport filesTransport, AppControlStreamOffer filesOffer,
+        LinuxVisionRuntime runtime, CancellationToken cancellationToken)
     {
         try
         {
-            using var acceptTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            acceptTimeout.CancelAfter(TimeSpan.FromSeconds(30));
-            Task<Stream> videoAccept = videoTransport.AcceptAsync(
-                videoOffer, TimeSpan.FromSeconds(30), acceptTimeout.Token);
-            Task<Stream> controlAccept = controlTransport.AcceptAsync(
-                controlOffer, TimeSpan.FromSeconds(30), acceptTimeout.Token);
-            Task<Stream> audioAccept = audioTransport.AcceptAsync(
-                audioOffer, TimeSpan.FromSeconds(30), acceptTimeout.Token);
-            await Task.WhenAll(videoAccept, controlAccept, audioAccept).ConfigureAwait(false);
-            await using Stream video = await videoAccept.ConfigureAwait(false);
-            await using Stream control = await controlAccept.ConfigureAwait(false);
-            await using Stream audio = await audioAccept.ConfigureAwait(false);
-            using var sessionLifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            using var renderer = new LinuxSdlVideoRenderer();
-            Volatile.Write(ref _renderer, renderer);
-            using var audioPlayer = new LinuxSdlAudioPlayer();
-            var reader = new LinuxVisionProtocolReader(video);
-            (VideoCodec codec, VideoSession session) =
-                await reader.OpenAsync(sessionLifetime.Token).ConfigureAwait(false);
-            Task audioTask = RunAudioAsync(audio, audioPlayer, sessionLifetime.Token);
-
-            LinuxFfmpegVideoDecoder? decoder = new(codec, session, renderer);
-            byte[]? configuration = null;
-            _state = "Streaming";
-            _message = $"VisionEngine transmite video {codec} y audio por USB · {session.Width}×{session.Height}.";
-            RaiseStatusChanged();
-            try
-            {
-                while (!sessionLifetime.IsCancellationRequested)
-                {
-                    if (audioTask.IsFaulted)
-                        await audioTask.ConfigureAwait(false);
-                    VideoPacket packet = await reader.ReadPacketAsync(
-                        session,
-                        changed => session = changed,
-                        sessionLifetime.Token).ConfigureAwait(false)
-                        ?? throw new EndOfStreamException("El flujo de video terminó.");
-
-                    if (packet.Session != session)
-                        session = packet.Session;
-
-                    if (packet.IsConfiguration)
-                        configuration = packet.Data;
-                    else
-                        Interlocked.Increment(ref _videoPacketsReceived);
-
-                    if (decoder is null || decoder.SessionGeometryChanged(session))
-                    {
-                        if (decoder is not null)
-                            await decoder.DisposeAsync().ConfigureAwait(false);
-                        decoder = new LinuxFfmpegVideoDecoder(codec, session, renderer);
-                        if (configuration is not null)
-                            await decoder.WritePacketAsync(configuration, null, sessionLifetime.Token).ConfigureAwait(false);
-                        continue;
-                    }
-
-                    await decoder.WritePacketAsync(
-                        packet.Data, packet.PresentationTimeUs, sessionLifetime.Token).ConfigureAwait(false);
-                }
-            }
-            finally
-            {
-                sessionLifetime.Cancel();
-                try
-                {
-                    await audioTask.ConfigureAwait(false);
-                }
-                catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException)
-                {
-                }
-                if (decoder is not null)
-                    await decoder.DisposeAsync().ConfigureAwait(false);
-            }
-            _ = control;
+            using var timeout=CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(30));
+            Task<Stream> video=videoTransport.AcceptAsync(videoOffer,TimeSpan.FromSeconds(30),timeout.Token);
+            Task<Stream> control=controlTransport.AcceptAsync(controlOffer,TimeSpan.FromSeconds(30),timeout.Token);
+            Task<Stream> files=filesTransport.AcceptAsync(filesOffer,TimeSpan.FromSeconds(30),timeout.Token);
+            Task<Stream>? audio=Settings.AudioEnabled ? audioTransport.AcceptAsync(audioOffer,TimeSpan.FromSeconds(30),timeout.Token) : null;
+            await Task.WhenAll(audio is null ? [video,control,files] : new[]{video,control,files,audio}).ConfigureAwait(false);
+            _state="Streaming"; _message="VisionEngine USB conectado: video, control y archivos autenticados."; RaiseStatusChanged();
+            await runtime.RunAsync(await video,await control,audio is null ? null : await audio,await files,cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-        }
-        catch (OperationCanceledException)
-        {
-            _state = "Failed";
-            _message = "VisionEngine agotó el tiempo de espera al abrir los canales AppControl.";
-            RaiseStatusChanged();
-        }
-
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            _state = "Failed";
-            _message = $"VisionEngine se detuvo: {ex.Message}";
-            RaiseStatusChanged();
-        }
+        { _state="Failed"; _message=$"VisionEngine USB se detuvo: {ex.Message}"; RaiseStatusChanged(); }
         finally
         {
-            if (_state is "Waiting" or "Streaming")
+            _sessionCancellation?.Cancel();
+            var reverse=Interlocked.Exchange(ref _reverse,null);
+            try
             {
-                _state = "Stopped";
-                _message = "El flujo de VisionEngine terminó.";
+                await LinuxVisionCleanup.RunAsync(()=>runtime.DisposeAsync().AsTask(),
+                    ()=>videoTransport.DisposeAsync().AsTask(),()=>controlTransport.DisposeAsync().AsTask(),
+                    ()=>audioTransport.DisposeAsync().AsTask(),()=>filesTransport.DisposeAsync().AsTask(),
+                    ()=>reverse is null ? Task.CompletedTask : reverse.DisposeAsync().AsTask()).ConfigureAwait(false);
+            }
+            catch (Exception ex) { _state="Failed"; _message="VE USB cerró con errores: "+ex.GetBaseException().Message; }
+            finally
+            {
+                _videoTransport=null; _controlTransport=null; _audioTransport=null; _filesTransport=null;
+                ReleaseExclusiveGate();
+                if (_state is "Waiting" or "Streaming") { _state="Stopped"; _message="VisionEngine USB detenido."; }
                 RaiseStatusChanged();
             }
-        }
-    }
-
-    private static async Task RunAudioAsync(
-        Stream stream, LinuxSdlAudioPlayer player, CancellationToken cancellationToken)
-    {
-        var reader = new LinuxAudioProtocolReader(stream);
-        AudioCodec? codec = await reader.OpenAsync(cancellationToken).ConfigureAwait(false);
-        if (codec is null)
-            return;
-        using var decoder = new LinuxFfmpegAudioDecoder(codec.Value);
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            AudioPacket packet = await reader.ReadPacketAsync(cancellationToken).ConfigureAwait(false);
-            foreach (byte[] pcm in decoder.Decode(packet))
-                player.Play(pcm);
         }
     }
 
@@ -304,9 +219,11 @@ internal sealed class LinuxVisionEngine : IAsyncDisposable
             LinuxAppControlTransport? video = _videoTransport;
             LinuxAppControlTransport? control = _controlTransport;
             LinuxAppControlTransport? audio = _audioTransport;
+            LinuxAppControlTransport? files = _filesTransport;
             _videoTransport = null;
             _controlTransport = null;
             _audioTransport = null;
+            _filesTransport = null;
             AdbBridge.UsbReverseLease? reverse = _reverse;
             _reverse = null;
             List<Exception>? errors = null;
@@ -327,6 +244,7 @@ internal sealed class LinuxVisionEngine : IAsyncDisposable
             catch (Exception ex) { (errors ??= []).Add(ex); }
             try
             {
+                if (files is not null) await files.DisposeAsync().ConfigureAwait(false);
                 await _sessionTask.ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException) { }
@@ -354,6 +272,14 @@ internal sealed class LinuxVisionEngine : IAsyncDisposable
     }
 
     private void RaiseStatusChanged() => StatusChanged?.Invoke(this, EventArgs.Empty);
+
+    private static void ValidateCaptureSettings(int bitrate, int maxSize, int fps)
+    {
+        if (bitrate is < 2_000_000 or > 15_000_000 ||
+            maxSize is not (480 or 720 or 960 or 1080 or 1280 or 1440 or 1600 or 1920 or 2160) ||
+            fps is not (15 or 24 or 30 or 45 or 60))
+            throw new InvalidDataException("Los ajustes de captura de VisionEngine no son válidos.");
+    }
 
     private void ReleaseExclusiveGate()
     {

@@ -13,7 +13,7 @@ internal enum AudioCodec : uint
     Raw = 0x00726177
 }
 
-internal sealed record AudioPacket(byte[] Data, bool IsConfiguration);
+internal sealed record AudioPacket(byte[] Data, bool IsConfiguration, long? PresentationTimeUs = null);
 
 internal sealed class LinuxAudioProtocolReader(Stream stream)
 {
@@ -47,7 +47,7 @@ internal sealed class LinuxAudioProtocolReader(Stream stream)
             throw new InvalidDataException($"Longitud de paquete de audio VE inválida: {rawLength}.");
         byte[] payload = new byte[checked((int)rawLength)];
         await _stream.ReadExactlyAsync(payload, cancellationToken).ConfigureAwait(false);
-        return new AudioPacket(payload, (flags & ConfigFlag) != 0);
+        return new AudioPacket(payload, (flags & ConfigFlag) != 0, (flags & ConfigFlag) != 0 ? null : (long)(flags & ((1UL << 62) - 1)));
     }
 }
 
@@ -331,9 +331,12 @@ internal sealed class LinuxSdlAudioPlayer : IDisposable
         public int Frequency;
     }
 
-    public LinuxSdlAudioPlayer()
+    public LinuxSdlAudioPlayer(uint deviceId = 0, string? deviceName = null)
     {
+        uint resolvedDevice = deviceId == 0 && string.IsNullOrWhiteSpace(deviceName)
+            ? 0 : LinuxSdlDevices.ResolveAudioDeviceId(deviceId, deviceName);
         _library = NativeLibrary.Load("libSDL3.so.0");
+        bool initialized = false;
         try
         {
             var init = Load<SdlInitSubSystem>("SDL_InitSubSystem");
@@ -347,8 +350,9 @@ internal sealed class LinuxSdlAudioPlayer : IDisposable
             var open = Load<SdlOpenAudioDeviceStream>("SDL_OpenAudioDeviceStream");
             if (!init(SdlInitAudio))
                 throw CreateException("SDL_InitSubSystem(SDL_INIT_AUDIO)");
+            initialized = true;
             var spec = new AudioSpec { Format = AudioS16Le, Channels = Channels, Frequency = SampleRate };
-            _stream = open(DefaultPlaybackDevice, ref spec, IntPtr.Zero, IntPtr.Zero);
+            _stream = open(resolvedDevice == 0 ? DefaultPlaybackDevice : resolvedDevice, ref spec, IntPtr.Zero, IntPtr.Zero);
             if (_stream == IntPtr.Zero)
                 throw CreateException("SDL_OpenAudioDeviceStream");
             if (!_resume(_stream))
@@ -356,6 +360,8 @@ internal sealed class LinuxSdlAudioPlayer : IDisposable
         }
         catch
         {
+            if (_stream != IntPtr.Zero) _destroy?.Invoke(_stream);
+            if (initialized) _quit?.Invoke(SdlInitAudio);
             NativeLibrary.Free(_library);
             throw;
         }

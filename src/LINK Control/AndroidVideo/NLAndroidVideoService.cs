@@ -42,6 +42,7 @@ public sealed class NLAndroidVideoService : Service
     private TcpClient? _client;
     private TcpClient? _controlClient;
     private TcpClient? _audioClient;
+    private TcpClient? _filesClient;
     private Task _controlTask = Task.CompletedTask;
     private NLAndroidAudioCapture? _audioCapture;
     private readonly Channel<bool> _displayChanges = Channel.CreateBounded<bool>(
@@ -193,6 +194,15 @@ public sealed class NLAndroidVideoService : Service
             NetworkStream controlStream = _controlClient.GetStream();
             await controlStream.WriteAsync(Convert.FromHexString(offer.ControlToken), feed.Token);
             _controlTask = RunControlAsync(controlStream, feed.Token);
+            if (offer.FilesWireVersion == 2)
+            {
+                NLAndroidServiceFilesV2.MarkV2Negotiated(offer.CaptureGeneration);
+                _filesClient = new TcpClient { NoDelay = true };
+                await _filesClient.ConnectAsync("127.0.0.1", offer.FilesPort, feed.Token);
+                NetworkStream filesStream = _filesClient.GetStream();
+                await filesStream.WriteAsync(Convert.FromHexString(offer.FilesToken), feed.Token);
+                await NLAndroidServiceFilesV2.AttachAsync(this, filesStream, offer.CaptureGeneration, feed.Token);
+            }
 
             if (offer.AudioEnabled)
             {
@@ -224,6 +234,13 @@ public sealed class NLAndroidVideoService : Service
             _client = null;
             try { _controlClient?.Dispose(); } catch { }
             _controlClient = null;
+            if (offer.FilesWireVersion == 2)
+            {
+                try { await NLAndroidServiceFilesV2.DetachAsync(offer.CaptureGeneration); } catch { }
+                NLAndroidServiceFilesV2.ClearV2Negotiated(offer.CaptureGeneration);
+            }
+            try { _filesClient?.Dispose(); } catch { }
+            _filesClient = null;
             try { _audioClient?.Dispose(); } catch { }
             _audioClient = null;
             try { await _controlTask.ConfigureAwait(false); }
@@ -407,6 +424,10 @@ public sealed class NLAndroidVideoService : Service
             offer.Bitrate is < 250_000 or > 100_000_000 || offer.MaxSize is < 240 or > 4320 ||
             offer.Fps is < 10 or > 120)
             throw new InvalidDataException("Oferta de video LINK Control inválida.");
+        if (offer.FilesWireVersion is not (0 or 2) || offer.FilesWireVersion == 2 &&
+            (offer.CaptureGeneration <= 0 || offer.FilesPort is < 1 or > 65535 || offer.FilesToken.Length != 64))
+            throw new InvalidDataException("Oferta FILES USB inválida.");
+        if (offer.FilesWireVersion == 2) _ = Convert.FromHexString(offer.FilesToken);
         _ = Convert.FromHexString(offer.Token);
         _ = Convert.FromHexString(offer.ControlToken);
         if (offer.AudioEnabled) _ = Convert.FromHexString(offer.AudioToken);
@@ -496,6 +517,8 @@ public sealed class NLAndroidVideoService : Service
         _client = null;
         try { _controlClient?.Dispose(); } catch { }
         _controlClient = null;
+        try { _filesClient?.Dispose(); } catch { }
+        _filesClient = null;
         try { _audioClient?.Dispose(); } catch { }
         _audioClient = null;
         try { await _controlTask.ConfigureAwait(false); }

@@ -65,7 +65,8 @@ public sealed record NLControlReply(int Version, long Id, bool Success, string M
 public sealed record NLControlVideoSourceOffer(int Port, string Token, int Bitrate, int MaxSize, int Fps,
     int ControlPort = 0, string ControlToken = "", int AudioPort = 0, string AudioToken = "",
     bool MuteDeviceAudio = false, bool AudioEnabled = true,
-    long CaptureGeneration = 0, NLControlNetworkCapabilities? CaptureCapabilities = null);
+    long CaptureGeneration = 0, NLControlNetworkCapabilities? CaptureCapabilities = null,
+    int FilesPort = 0, string FilesToken = "", int FilesWireVersion = 0);
 public sealed record NLControlTunnelBootstrap(NLControlLanInvitation Invitation, string Transport);
 public sealed record NLControlLinkOffer(string Host, int Port, string Fingerprint, string Token,
     string Transport = "LAN");

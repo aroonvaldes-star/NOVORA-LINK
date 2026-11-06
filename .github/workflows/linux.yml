@@ -40,6 +40,9 @@ jobs:
       - name: Verify Rust toolchain
         run: rustc --version && cargo --version
 
+      - name: Test Linux LinkEngine relay
+        run: cargo test --manifest-path src/NOVORA-LINUX/LinkRelay/Cargo.toml --locked
+
       - name: Install FFmpeg
         run: |
           sudo apt-get update

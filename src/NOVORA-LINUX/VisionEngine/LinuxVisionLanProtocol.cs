@@ -37,7 +37,8 @@ internal sealed record LinuxVisionLanOffer(
     int Fps,
     bool MuteDeviceAudio,
     LinuxVisionLanEndpoint? Files = null,
-    int FilesWireVersion = 0);
+    int FilesWireVersion = 0,
+    long CaptureGeneration = 0);
 
 internal static class LinuxVisionLanProtocol
 {
@@ -60,7 +61,8 @@ internal static class LinuxVisionLanProtocol
             throw new InvalidDataException("Oferta VE LAN: caducidad no válida.");
         if (offer.Bitrate <= 0 || offer.MaxSize <= 0 || offer.Fps is < 1 or > 240)
             throw new InvalidDataException("Oferta VE LAN: perfil no válido.");
-        if (offer.FilesWireVersion is not (0 or 1 or 2))
+        if (offer.FilesWireVersion is not (0 or 1 or 2) ||
+            offer.FilesWireVersion == 2 && (offer.CaptureGeneration <= 0 || offer.Files is null))
             throw new InvalidDataException("Oferta VE LAN: capacidad no válida.");
 
         if (allowLoopback ? !IPAddress.IsLoopback(address) :

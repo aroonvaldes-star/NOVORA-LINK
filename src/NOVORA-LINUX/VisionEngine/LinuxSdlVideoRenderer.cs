@@ -39,9 +39,30 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
     private bool _initialized;
     private bool _disposed;
     private long _framesPresented;
+    private readonly LinuxVisionSettings _settings;
+    private readonly LinuxVisionInput _input = new();
+    private readonly SdlPollEvent _pollEvent;
+    private readonly SdlGetWindowId _getWindowId;
+    private readonly SdlGetWindowSize _getWindowSize;
+    private readonly SdlStartTextInput _startTextInput;
+    private readonly SdlStopTextInput _stopTextInput;
+    private readonly SdlSetWindowFullscreen _setWindowFullscreen;
+    private readonly SdlGetDisplayBounds _getDisplayBounds;
+    private readonly SdlSetRenderVSync _setRenderVSync;
+    private DispatcherTimer? _eventTimer;
+    private VideoSession? _session;
+    private bool _closed;
+    private float _wheelHorizontal, _wheelVertical, _wheelX, _wheelY;
+    private long _nextWheelAt;
+    public event Action<byte[]>? Input;
+    public event Action? Closed;
+    public string? InputError { get; private set; }
 
-    public LinuxSdlVideoRenderer()
+
+    public LinuxSdlVideoRenderer(LinuxVisionSettings? settings = null)
     {
+        _settings = settings ?? LinuxVisionSettings.Default;
+        _input.Frame += frame => Input?.Invoke(frame);
         _library = NativeLibrary.Load("libSDL3.so.0");
         var init = Load<SdlInitSubSystem>("SDL_InitSubSystem");
         _quitSubSystem = Load<SdlQuitSubSystem>("SDL_QuitSubSystem");
@@ -61,6 +82,15 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         _createWindow = Load<SdlCreateWindow>("SDL_CreateWindow");
         _createRenderer = Load<SdlCreateRenderer>("SDL_CreateRenderer");
         _getPixelFormatForMasks = Load<SdlGetPixelFormatForMasks>("SDL_GetPixelFormatForMasks");
+
+        _pollEvent = Load<SdlPollEvent>("SDL_PollEvent");
+        _getWindowId = Load<SdlGetWindowId>("SDL_GetWindowID");
+        _getWindowSize = Load<SdlGetWindowSize>("SDL_GetWindowSize");
+        _startTextInput = Load<SdlStartTextInput>("SDL_StartTextInput");
+        _stopTextInput = Load<SdlStopTextInput>("SDL_StopTextInput");
+        _setWindowFullscreen = Load<SdlSetWindowFullscreen>("SDL_SetWindowFullscreen");
+        _getDisplayBounds = Load<SdlGetDisplayBounds>("SDL_GetDisplayBounds");
+        _setRenderVSync = Load<SdlSetRenderVSync>("SDL_SetRenderVSync");
 
         _destinationRect = Marshal.AllocHGlobal(Marshal.SizeOf<SdlFRect>());
         try
@@ -99,8 +129,23 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         InvokeOnUi(() => PresentOnUi(rgba, width, height));
     }
 
+    public void UpdateSession(VideoSession session) => InvokeOnUi(() =>
+    {
+        _session = session;
+        RefreshViewport();
+    });
+
+    private void RefreshViewport()
+    {
+        if (_window == IntPtr.Zero || _session is null) return;
+        if (!_getWindowSize(_window, out int width, out int height) ||
+            !_getRenderOutputSize(_renderer, out int pixelsWidth, out int pixelsHeight)) return;
+        _input.UpdateViewport(_session, width, height, pixelsWidth, pixelsHeight);
+    }
+
     private void PresentOnUi(byte[] rgba, int width, int height)
     {
+        if (_closed) throw new IOException("Se cerró la ventana de VisionEngine.");
         EnsureSurface(width, height);
         GCHandle pinned = GCHandle.Alloc(rgba, GCHandleType.Pinned);
         try
@@ -132,7 +177,6 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         if (!_renderClear(_renderer) || !_renderTexture(_renderer, _texture, IntPtr.Zero, _destinationRect))
             throw CreateException("SDL_RenderTexture");
         _renderPresent(_renderer);
-        _pumpEvents();
         Interlocked.Increment(ref _framesPresented);
     }
 
@@ -154,10 +198,20 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
 
         if (_window == IntPtr.Zero)
         {
-            _window = _createWindow("NOVORA-LINK · VisionEngine", width, height,
-                WindowResizable | WindowHighPixelDensity);
+            uint monitorId = _settings.MonitorId == 0 && string.IsNullOrWhiteSpace(_settings.MonitorName)
+                ? 0 : LinuxSdlDevices.ResolveMonitorId(_settings.MonitorId, _settings.MonitorName);
+            _window = monitorId == 0
+                ? _createWindow("NOVORA-LINK · VisionEngine", width, height, WindowResizable | WindowHighPixelDensity)
+                : CreateWindowOnMonitor(width, height, monitorId);
             if (_window == IntPtr.Zero)
                 throw CreateException("SDL_CreateWindow");
+            if (_settings.Fullscreen && !_setWindowFullscreen(_window, true))
+                throw CreateException("SDL_SetWindowFullscreen");
+            if (_settings.RemoteInput && !_startTextInput(_window))
+                throw CreateException("SDL_StartTextInput");
+            _eventTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(8), DispatcherPriority.Input,
+                (_, _) => PollEvents());
+            _eventTimer.Start();
         }
         string? rendererName = Environment.GetEnvironmentVariable("NOVORA_SDL_RENDERER");
         if (string.IsNullOrWhiteSpace(rendererName))
@@ -168,6 +222,8 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         if (_renderer == IntPtr.Zero)
             throw CreateException("SDL_CreateRenderer");
         Backend = Marshal.PtrToStringUTF8(_getRendererName(_renderer)) ?? "Unknown";
+        if (_settings.VSync && !_setRenderVSync(_renderer, 1))
+            throw CreateException("El renderer seleccionado no admite sincronización de presentación");
 
         uint pixelFormat = _getPixelFormatForMasks(32,
             0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
@@ -180,6 +236,103 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
             throw CreateException("SDL_SetTextureScaleMode");
         _width = width;
         _height = height;
+        _session ??= new VideoSession(width, height, 0, 16 * 1024 * 1024);
+        RefreshViewport();
+    }
+
+    private IntPtr CreateWindowOnMonitor(int width, int height, uint monitorId)
+    {
+        if (!_getDisplayBounds(monitorId, out SdlRect bounds))
+            throw CreateException("El monitor seleccionado ya no está disponible; selecciona el predeterminado");
+        var createProperties = Load<SdlCreateProperties>("SDL_CreateProperties");
+        var destroyProperties = Load<SdlDestroyProperties>("SDL_DestroyProperties");
+        var setNumber = Load<SdlSetNumberProperty>("SDL_SetNumberProperty");
+        var setString = Load<SdlSetStringProperty>("SDL_SetStringProperty");
+        var setBoolean = Load<SdlSetBooleanProperty>("SDL_SetBooleanProperty");
+        var createWindow = Load<SdlCreateWindowWithProperties>("SDL_CreateWindowWithProperties");
+        uint properties = createProperties();
+        if (properties == 0) throw CreateException("SDL_CreateProperties");
+        try
+        {
+            // Initial placement works on Wayland; moving a normal window after creation does not.
+            if (!setString(properties, "SDL.window.create.title", "NOVORA-LINK · VisionEngine") ||
+                !setNumber(properties, "SDL.window.create.width", width) ||
+                !setNumber(properties, "SDL.window.create.height", height) ||
+                !setNumber(properties, "SDL.window.create.x", bounds.X + Math.Max(0, (bounds.W - width) / 2)) ||
+                !setNumber(properties, "SDL.window.create.y", bounds.Y + Math.Max(0, (bounds.H - height) / 2)) ||
+                !setBoolean(properties, "SDL.window.create.resizable", true) ||
+                !setBoolean(properties, "SDL.window.create.high_pixel_density", true))
+                throw CreateException("No se pudo configurar la ventana del monitor seleccionado");
+            return createWindow(properties);
+        }
+        finally { destroyProperties(properties); }
+    }
+
+    private void PollEvents()
+    {
+        if (_disposed || _closed || _window == IntPtr.Zero) return;
+        try
+        {
+            uint id = _getWindowId(_window);
+            RefreshViewport();
+            // Bound work per UI tick, preserving queued events for the next tick.
+            for (int count = 0; count < 256 && _pollEvent(out SdlEvent e); count++)
+            {
+                if (e.Type == 0x100 || e.WindowId == id && e.Type == 0x210)
+                {
+                    _input.ReleaseAll();
+                    _closed = true;
+                    _eventTimer?.Stop();
+                    Closed?.Invoke();
+                    return;
+                }
+                if (e.WindowId != id) continue;
+                if (e.Type == 0x20f)
+                {
+                    _input.ReleaseAll();
+                    _wheelHorizontal = _wheelVertical = 0;
+                    continue;
+                }
+                if (!_settings.RemoteInput) continue;
+                switch (e.Type)
+                {
+                    case 0x300: case 0x301:
+                        _input.Key(e.Scancode, e.Modifiers, e.Type == 0x300, e.Repeat != 0);
+                        break;
+                    case 0x303:
+                        _input.Text(Marshal.PtrToStringUTF8(e.Text) ?? string.Empty);
+                        break;
+                    case 0x400:
+                        _input.Motion(e.MotionX, e.MotionY);
+                        break;
+                    case 0x401: case 0x402:
+                        _input.Button(e.Button, e.Type == 0x401, e.ButtonX, e.ButtonY);
+                        break;
+                    case 0x403:
+                        float direction = e.WheelDirection == 1 ? -1 : 1;
+                        _wheelHorizontal += e.WheelX * direction;
+                        _wheelVertical += e.WheelY * direction;
+                        _wheelX = e.WheelMouseX;
+                        _wheelY = e.WheelMouseY;
+                        break;
+                }
+            }
+            // Accessibility consumes gestures, not raw HID deltas. Coalesce touchpad updates
+            // into one gesture window without truncating the fractional delta to an integer.
+            if ((_wheelHorizontal != 0 || _wheelVertical != 0) && Environment.TickCount64 >= _nextWheelAt)
+            {
+                _input.Scroll(_wheelX, _wheelY, _wheelHorizontal, _wheelVertical, false);
+                _wheelHorizontal = _wheelVertical = 0;
+                _nextWheelAt = Environment.TickCount64 + 80;
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            InputError = ex.Message;
+            _closed = true;
+            _eventTimer?.Stop();
+            Closed?.Invoke();
+        }
     }
 
     private static void InvokeOnUi(Action action)
@@ -204,9 +357,13 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
     {
         if (_disposed)
             return;
-        _disposed = true;
         InvokeOnUi(() =>
         {
+            if (_disposed) return;
+            _eventTimer?.Stop();
+            _input.ReleaseAll();
+            _disposed = true;
+            if (_window != IntPtr.Zero && _settings.RemoteInput) _stopTextInput(_window);
             if (_texture != IntPtr.Zero) _destroyTexture(_texture);
             if (_renderer != IntPtr.Zero) _destroyRenderer(_renderer);
             if (_window != IntPtr.Zero) _destroyWindow(_window);
@@ -215,6 +372,43 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         Marshal.FreeHGlobal(_destinationRect);
         NativeLibrary.Free(_library);
     }
+
+    // SDL 3.2 ABI: fixed-size event union; text pointer is copied before the next poll.
+    [StructLayout(LayoutKind.Explicit, Size = 128)]
+    private struct SdlEvent
+    {
+        [FieldOffset(0)] public uint Type;
+        [FieldOffset(16)] public uint WindowId;
+        [FieldOffset(24)] public int Scancode;
+        [FieldOffset(32)] public ushort Modifiers;
+        [FieldOffset(37)] public byte Repeat;
+        [FieldOffset(24)] public IntPtr Text;
+        [FieldOffset(28)] public float MotionX;
+        [FieldOffset(32)] public float MotionY;
+        [FieldOffset(24)] public byte Button;
+        [FieldOffset(28)] public float ButtonX;
+        [FieldOffset(32)] public float ButtonY;
+        [FieldOffset(24)] public float WheelX;
+        [FieldOffset(28)] public float WheelY;
+        [FieldOffset(32)] public uint WheelDirection;
+        [FieldOffset(36)] public float WheelMouseX;
+        [FieldOffset(40)] public float WheelMouseY;
+    }
+    [StructLayout(LayoutKind.Sequential)] private struct SdlRect { public int X, Y, W, H; }
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlPollEvent(out SdlEvent e);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate uint SdlGetWindowId(IntPtr window);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlGetWindowSize(IntPtr window, out int w, out int h);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlStartTextInput(IntPtr window);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlStopTextInput(IntPtr window);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate uint SdlCreateProperties();
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void SdlDestroyProperties(uint properties);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate IntPtr SdlCreateWindowWithProperties(uint properties);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlSetNumberProperty(uint properties, [MarshalAs(UnmanagedType.LPUTF8Str)] string name, long value);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlSetStringProperty(uint properties, [MarshalAs(UnmanagedType.LPUTF8Str)] string name, [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlSetBooleanProperty(uint properties, [MarshalAs(UnmanagedType.LPUTF8Str)] string name, [MarshalAs(UnmanagedType.I1)] bool value);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlSetWindowFullscreen(IntPtr window, [MarshalAs(UnmanagedType.I1)] bool fullscreen);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlGetDisplayBounds(uint display, out SdlRect bounds);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlSetRenderVSync(IntPtr renderer, int vsync);
 
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct SdlFRect(float X, float Y, float W, float H);

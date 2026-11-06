@@ -1,16 +1,15 @@
-using System.Buffers.Binary;
-using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
-using System.Text;
+using System.Text.Json;
 
 namespace NOVORA.Linux.Control;
 
-internal sealed class LinuxLinkEngine : IAsyncDisposable
+internal sealed class LinuxLinkEngine : ILinuxLinkEngine
 {
     private const int ControlPort = 27183;
+    private const int DataPort = 27184;
     private static readonly TimeSpan HandshakeTimeout = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan HeartbeatTimeout = TimeSpan.FromSeconds(10);
     private readonly AdbBridge _adb;
@@ -19,7 +18,7 @@ internal sealed class LinuxLinkEngine : IAsyncDisposable
     private CancellationTokenSource _stop = new();
     private TcpListener? _listener;
     private TcpClient? _activeClient;
-    private Process? _relay;
+    private LinuxLinkRelay? _relay;
     private AdbBridge.UsbReverseLease? _reverse;
     private Task _acceptTask = Task.CompletedTask;
     private string? _token;
@@ -49,7 +48,8 @@ internal sealed class LinuxLinkEngine : IAsyncDisposable
             {
                 if (State == "Error")
                     throw new InvalidOperationException(Message);
-                return _token ?? throw new InvalidOperationException("La sesión LinkEngine no tiene token.");
+                return JsonSerializer.Serialize(new UsbLinkOffer("USB",
+                    _token ?? throw new InvalidOperationException("La sesión LinkEngine no tiene token.")));
             }
 
             if (_stop.IsCancellationRequested)
@@ -60,21 +60,14 @@ internal sealed class LinuxLinkEngine : IAsyncDisposable
             _stopping = false;
             _token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
             AdbBridge.UsbReverseLease? reverse = null;
-            Process? relay = null;
+            LinuxLinkRelay? relay = null;
             TcpListener? listener = null;
             try
             {
-                reverse = await _adb.PrepareUsbReversePortsAsync(_serial, [ControlPort, 27184], cancellationToken);
-                relay = StartRelay(_token);
-                relay.Exited += (_, _) =>
-                {
-                    if (!_stopping)
-                    {
-                        _connected = false;
-                        SetState("Error", "El proceso nativo de LinkEngine terminó inesperadamente.");
-                    }
-                };
-                await WaitForRelayReadyAsync(relay, cancellationToken);
+                reverse = await _adb.PrepareUsbReversePortsAsync(_serial, [ControlPort, DataPort], cancellationToken);
+                relay = new LinuxLinkRelay();
+                await relay.StartAsync(_token, cancellationToken);
+                relay.ExitedUnexpectedly += OnRelayExited;
                 listener = new TcpListener(IPAddress.Loopback, ControlPort);
                 listener.Start(16);
                 cancellationToken.ThrowIfCancellationRequested();
@@ -88,13 +81,16 @@ internal sealed class LinuxLinkEngine : IAsyncDisposable
                 cancellationToken.ThrowIfCancellationRequested();
                 SetState("Waiting", "LinkEngine preparado; esperando HELLO de Android por USB.");
                 _acceptTask = AcceptLoopAsync(_stop.Token);
-                return _token;
+                return JsonSerializer.Serialize(new UsbLinkOffer("USB", _token));
             }
             catch
             {
                 listener?.Stop();
                 if (relay is not null)
-                    await StopProcessAsync(relay);
+                {
+                    relay.ExitedUnexpectedly -= OnRelayExited;
+                    await relay.DisposeAsync();
+                }
                 if (reverse is not null)
                     await reverse.DisposeAsync();
                 _token = null;
@@ -120,7 +116,7 @@ internal sealed class LinuxLinkEngine : IAsyncDisposable
             _listener?.Stop();
             _activeClient?.Dispose();
             await _acceptTask;
-            Process? relay = _relay;
+            LinuxLinkRelay? relay = _relay;
             AdbBridge.UsbReverseLease? reverse = _reverse;
             _listener = null;
             _relay = null;
@@ -129,7 +125,10 @@ internal sealed class LinuxLinkEngine : IAsyncDisposable
             _token = null;
             _connected = false;
             if (relay is not null)
-                await StopProcessAsync(relay);
+            {
+                relay.ExitedUnexpectedly -= OnRelayExited;
+                await relay.DisposeAsync();
+            }
             if (reverse is not null)
                 await reverse.DisposeAsync();
             _stop.Dispose();
@@ -139,64 +138,6 @@ internal sealed class LinuxLinkEngine : IAsyncDisposable
         {
             _lifecycle.Release();
         }
-    }
-
-    private static Process StartRelay(string token)
-    {
-        string path = Path.Combine(AppContext.BaseDirectory, "Tools", "LinkEngine", "novora-linkengine-relay");
-        if (!File.Exists(path))
-            throw new FileNotFoundException("No se encontró el relay nativo Linux de LinkEngine.", path);
-
-        var start = new ProcessStartInfo
-        {
-            FileName = path,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-            WorkingDirectory = AppContext.BaseDirectory
-        };
-        start.Environment["NOVORA_RELAY_TOKEN"] = token;
-        var process = new Process { StartInfo = start, EnableRaisingEvents = true };
-        if (!process.Start())
-            throw new InvalidOperationException("No se pudo iniciar el relay nativo de LinkEngine.");
-        return process;
-    }
-
-    private static async Task WaitForRelayReadyAsync(Process relay, CancellationToken cancellationToken)
-    {
-        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var diagnostics = new StringBuilder();
-        object gate = new();
-        relay.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data?.StartsWith("LE_READY ", StringComparison.Ordinal) == true)
-                ready.TrySetResult();
-        };
-        relay.ErrorDataReceived += (_, e) =>
-        {
-            if (string.IsNullOrWhiteSpace(e.Data))
-                return;
-            lock (gate)
-            {
-                if (diagnostics.Length < 512)
-                    diagnostics.Append(e.Data.AsSpan(0, Math.Min(e.Data.Length, 512 - diagnostics.Length)));
-            }
-        };
-        relay.BeginOutputReadLine();
-        relay.BeginErrorReadLine();
-
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(10));
-        Task exited = relay.WaitForExitAsync(timeout.Token);
-        Task completed = await Task.WhenAny(ready.Task, exited);
-        if (completed == exited)
-        {
-            await exited;
-            lock (gate)
-                throw new InvalidOperationException($"El relay de LinkEngine terminó al iniciar (código {relay.ExitCode}). {diagnostics}");
-        }
-        await ready.Task.WaitAsync(timeout.Token);
     }
 
     private async Task AcceptLoopAsync(CancellationToken cancellationToken)
@@ -251,11 +192,11 @@ internal sealed class LinuxLinkEngine : IAsyncDisposable
         {
             handshake.CancelAfter(HandshakeTimeout);
             NetworkStream stream = client.GetStream();
-            string hello = await ReadFrameAsync(stream, handshake.Token);
+            string hello = await LinuxLinkProtocol.ReadFrameAsync(stream, handshake.Token);
             if (!TryValidateHello(hello, _token!, out _))
                 return;
 
-            await WriteFrameAsync(stream, "NOVORA-LINK|2|ACK", handshake.Token);
+            await LinuxLinkProtocol.WriteFrameAsync(stream, "NOVORA-LINK|2|ACK", handshake.Token);
             _connected = true;
             SetState("Connected", "Canal CONTROL de LinkEngine conectado por USB.");
             long sequence = 0;
@@ -263,10 +204,10 @@ internal sealed class LinuxLinkEngine : IAsyncDisposable
             {
                 using var heartbeat = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 heartbeat.CancelAfter(HeartbeatTimeout);
-                string payload = await ReadFrameAsync(stream, heartbeat.Token);
+                string payload = await LinuxLinkProtocol.ReadFrameAsync(stream, heartbeat.Token);
                 if (!TryCreateHeartbeatAck(payload, ref sequence, out string ack))
                     throw new InvalidDataException("Heartbeat de LinkEngine no válido.");
-                await WriteFrameAsync(stream, ack, heartbeat.Token);
+                await LinuxLinkProtocol.WriteFrameAsync(stream, ack, heartbeat.Token);
             }
         }
     }
@@ -277,10 +218,11 @@ internal sealed class LinuxLinkEngine : IAsyncDisposable
         string[] fields = payload.Split('|');
         if (fields.Length != 5 || fields[0] != "NOVORA-LINK" || fields[1] != "2" ||
             fields[2] != "HELLO" || string.IsNullOrWhiteSpace(fields[3]) ||
-            fields[3].Length > 128 || !IsToken(fields[4]) || !IsToken(token))
+            fields[3].Length > 128 || !LinuxLinkProtocol.IsToken(fields[4]) ||
+            !LinuxLinkProtocol.IsToken(token))
             return false;
-        byte[] received = Encoding.ASCII.GetBytes(fields[4].ToLowerInvariant());
-        byte[] expected = Encoding.ASCII.GetBytes(token.ToLowerInvariant());
+        byte[] received = System.Text.Encoding.ASCII.GetBytes(fields[4].ToLowerInvariant());
+        byte[] expected = System.Text.Encoding.ASCII.GetBytes(token.ToLowerInvariant());
         if (!CryptographicOperations.FixedTimeEquals(received, expected))
             return false;
         clientId = fields[3];
@@ -303,46 +245,12 @@ internal sealed class LinuxLinkEngine : IAsyncDisposable
         return true;
     }
 
-    private static async Task<string> ReadFrameAsync(Stream stream, CancellationToken cancellationToken)
+    private void OnRelayExited(object? sender, string message)
     {
-        byte[] header = new byte[sizeof(int)];
-        await stream.ReadExactlyAsync(header, cancellationToken);
-        int length = BinaryPrimitives.ReadInt32BigEndian(header);
-        if (length is < 1 or > 1024)
-            throw new InvalidDataException("Frame CONTROL de LinkEngine fuera de límite.");
-        byte[] payload = new byte[length];
-        await stream.ReadExactlyAsync(payload, cancellationToken);
-        return new UTF8Encoding(false, true).GetString(payload);
-    }
-
-    private static async Task WriteFrameAsync(Stream stream, string payload, CancellationToken cancellationToken)
-    {
-        byte[] body = Encoding.UTF8.GetBytes(payload);
-        byte[] frame = new byte[sizeof(int) + body.Length];
-        BinaryPrimitives.WriteInt32BigEndian(frame, body.Length);
-        body.CopyTo(frame, sizeof(int));
-        await stream.WriteAsync(frame, cancellationToken);
-        await stream.FlushAsync(cancellationToken);
-    }
-
-    private static bool IsToken(string value) =>
-        value.Length == 64 && value.All(Uri.IsHexDigit);
-
-    private static async Task StopProcessAsync(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-                await process.WaitForExitAsync();
-            }
-        }
-        catch (InvalidOperationException) { }
-        finally
-        {
-            process.Dispose();
-        }
+        if (_stopping)
+            return;
+        _connected = false;
+        SetState("Error", message);
     }
 
     private void SetState(string state, string message)

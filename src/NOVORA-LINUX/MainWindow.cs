@@ -15,9 +15,16 @@ using System.Net.Sockets;
 
 namespace NOVORA.Linux;
 
-public sealed class MainWindow : Window
+public sealed partial class MainWindow : Window
 {
     private static readonly string[] Navigation = ["Inicio", "VisionEngine", "LinkEngine", "ExInEngine", "Integración", "Configuración"];
+    private static readonly string[] VisionProfiles =
+        ["Automático", "Competitivo", "Equilibrado", "Calidad", "Fluidez", "Software"];
+    private static readonly string[] CaptureResolutions =
+        ["480", "720", "960", "1080", "1280", "1440", "1600", "1920", "2160"];
+    private static readonly string[] CaptureFrameRates = ["15", "24", "30", "45", "60"];
+    private static readonly string[] CaptureBitrates =
+        Enumerable.Range(2, 14).Select(value => $"{value}M").ToArray();
     private readonly LinuxControlHost _host = new();
     private readonly ComboBox _addresses = new();
     private readonly ComboBox _adbDevices = new();
@@ -41,6 +48,34 @@ public sealed class MainWindow : Window
     private readonly TextBlock _visionMessage = new();
     private readonly TextBlock _visionMetrics = new();
     private readonly Button _visionStopButton = new() { Content = "Detener VisionEngine", IsEnabled = false };
+    private readonly TextBlock _homeNextStep = new();
+    private readonly Button _homeScreenButton = new() { Content = "VER PANTALLA" };
+    private readonly Button _homeConnectionButton = new() { Content = "TIPO DE CONEXIÓN ▾" };
+    private readonly CheckBox _performanceSession = new()
+    {
+        Content = "Sesión de rendimiento: cierra mediciones en vivo, desactiva red experimental y pausa actualizaciones automáticas.",
+        IsEnabled = false
+    };
+    private readonly ComboBox _visionProfileSelector = new();
+    private readonly ComboBox _visionResolutionSelector = new();
+    private readonly ComboBox _visionFpsSelector = new();
+    private readonly ComboBox _visionBitrateSelector = new();
+    private readonly TextBlock _visionSettingsStatus = new();
+    private readonly TextBlock _linkTechnicalStatus = new();
+    private readonly Button _linkTechnicalButton = new() { Content = "MOSTRAR DETALLES TÉCNICOS" };
+    private readonly Button _linkPrepareButton = new() { Content = "PREPARAR ESTA RUTA", IsEnabled = false };
+    private readonly Button _linkInternetTestButton = new() { Content = "MEDIR INTERNET", IsEnabled = false };
+    private readonly Button _linkTunnelTestButton = new() { Content = "MEDIR ENLACE PC ↔ ANDROID", IsEnabled = false };
+    private readonly Button _linkTrafficButton = new() { Content = "ACTUALIZAR TRÁFICO", IsEnabled = false };
+    private readonly TextBlock _integrationSentSummary = new();
+    private readonly TextBlock _integrationReceivedSummary = new();
+    private readonly TextBlock _integrationSentNames = new();
+    private readonly TextBlock _integrationReceivedNames = new();
+    private readonly Button _openPerformanceButton = new() { Content = "ABRIR" };
+    private readonly Button _checkPcUpdateButton = new() { Content = "Buscar actualización de PC", IsEnabled = false };
+    private readonly Button _checkAndroidUpdateButton = new() { Content = "Buscar actualización de LINK Control", IsEnabled = false };
+    private readonly Button _manualEsButton = new() { Content = "MANUAL ES", IsEnabled = false };
+    private readonly Button _manualEnButton = new() { Content = "MANUAL EN", IsEnabled = false };
     private readonly TextBlock _settingsHostStatus = new();
     private readonly Border _messageDot = new();
     private readonly Image _brandEmblem = new();
@@ -89,9 +124,9 @@ public sealed class MainWindow : Window
         _fingerprint.Watermark = "La huella aparecerá cuando prepares el control LAN.";
         _adbStatus.Text = "Consulta ADB pendiente.";
         _linkState.Text = "Desconectado";
-        _linkMessage.Text = "Conecta el teléfono por USB y habilita LinkEngine desde AppControl.";
+        _linkMessage.Text = "Conecta el teléfono por USB o LAN y habilita LinkEngine desde AppControl.";
         _linkPageState.Text = "Desconectado";
-        _linkPageMessage.Text = "Conecta el teléfono por USB y habilita LinkEngine desde AppControl.";
+        _linkPageMessage.Text = "Conecta el teléfono por USB o LAN y habilita LinkEngine desde AppControl.";
         _settingsHostStatus.Text = "El control LAN está detenido.";
 
         _addresses.MinWidth = 250;
@@ -147,6 +182,9 @@ public sealed class MainWindow : Window
             _pages.Add(page, content);
             pageHost.Children.Add(content);
         }
+        AvaloniaControl performancePage = BuildPerformancePage();
+        _pages.Add("Rendimiento", performancePage);
+        pageHost.Children.Add(performancePage);
         Grid.SetRow(pageHost, 3);
         shell.Children.Add(pageHost);
         ShowPage(_currentPage);
@@ -243,9 +281,15 @@ public sealed class MainWindow : Window
         {
             var button = new Button
             {
-                Content = page,
+                Content = NavigationContent(page),
                 Tag = page,
-                MinWidth = page == "Configuración" ? 140 : 132,
+                MinWidth = page switch
+                {
+                    "Inicio" => 112,
+                    "VisionEngine" or "LinkEngine" or "ExInEngine" => 144,
+                    "Integración" => 150,
+                    _ => 164
+                },
                 Height = 44,
                 Padding = new Thickness(14, 0),
                 Background = Brush("#111c2c"),
@@ -258,6 +302,52 @@ public sealed class MainWindow : Window
             _navigation.Children.Add(button);
         }
         return _navigation;
+    }
+
+    private static AvaloniaControl NavigationContent(string page)
+    {
+        string geometry = page switch
+        {
+            "Inicio" => "M2,15 L16,2 30,15 27,18 27,30 19,30 19,21 13,21 13,30 5,30 5,18Z",
+            "VisionEngine" => "M2,3 L30,3 30,23 19,23 19,28 25,28 25,31 7,31 7,28 13,28 13,23 2,23Z M5,6 L5,20 27,20 27,6Z M12,9 L21,13 12,17Z",
+            "LinkEngine" => "M25,47 A21,21 0 1 1 47,25 M5,26 L45,26 M10,13 L42,13 M10,39 L25,39 M26,5 C13,16 13,36 26,47 M26,5 C34,12 38,19 37,27 M36,43 L32,47 C24,55 14,45 22,37 L30,29 C38,21 48,31 40,39 M43,36 L47,32 C55,24 65,34 57,42 L49,50 C41,58 31,48 39,40 M32,44 L47,35",
+            "ExInEngine" => "M10,8 C5,8 4,12 2,23 C1,29 5,30 9,25 L12,21 20,21 23,25 C27,30 31,29 30,23 L27,12 C26,8 23,8 20,8Z M10,12 L10,19 M7,15.5 L13,15.5 M22,12 L22,14 M25,15 L25,17",
+            "Integración" => "M8,3 L24,3 24,12 8,12Z M3,18 L13,18 13,28 3,28Z M19,18 L29,18 29,28 19,28Z M12,12 L12,16 M24,12 L24,16 M8,16 L24,16",
+            _ => "M16,2 A14,14 0 1 1 16,30 A14,14 0 1 1 16,2Z M16,9 L16,23 M9,16 L23,16"
+        };
+        var path = new Avalonia.Controls.Shapes.Path
+        {
+            Data = Geometry.Parse(geometry),
+            Width = 16,
+            Height = 16,
+            Stretch = Stretch.Uniform,
+            Fill = Brushes.Transparent,
+            Stroke = Brush("#93c5fd"),
+            StrokeThickness = 2,
+            Margin = new Thickness(0, 0, 7, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        return new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children =
+            {
+                path,
+                new TextBlock
+                {
+                    Text = page switch
+                    {
+                        "VisionEngine" => "Screen",
+                        "LinkEngine" => "Network",
+                        "ExInEngine" => "Game Input",
+                        _ => page
+                    },
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            }
+        };
     }
 
     private AvaloniaControl BuildMessageBar()
@@ -299,6 +389,16 @@ public sealed class MainWindow : Window
         var content = PageContent();
         AddPageHeading(content, "CENTRO DE SESIÓN", "Inicio",
             "Prepara tu conexión y abre el motor que necesitas para esta sesión.");
+        _homeNextStep.Text = "Paso 1 de 4 · Conecta el teléfono por USB o Wi-Fi.";
+        _homeNextStep.Foreground = Brush("#60a5fa");
+        _homeNextStep.FontWeight = FontWeight.SemiBold;
+        _homeNextStep.Margin = new Thickness(0, 0, 0, 8);
+        _homeNextStep.TextWrapping = TextWrapping.Wrap;
+        content.Children.Add(_homeNextStep);
+        _performanceSession.Foreground = Brush("#dbe5f1");
+        _performanceSession.Margin = new Thickness(0, 0, 0, 16);
+        content.Children.Add(_performanceSession);
+
         var connection = new StackPanel { Spacing = 12 };
         connection.Children.Add(Label("CONEXIÓN DEL TELÉFONO", "#60a5fa", 12, true));
         connection.Children.Add(SectionTitle("Conecta tu teléfono"));
@@ -307,6 +407,23 @@ public sealed class MainWindow : Window
         connection.Children.Add(BuildAdbControls());
         connection.Children.Add(_adbStatus);
         connection.Children.Add(_adbRefreshButton);
+        var connectionActions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 10,
+            Margin = new Thickness(0, 4, 0, 0)
+        };
+        StylePrimaryButton(_homeScreenButton);
+        _homeScreenButton.Click += (_, _) =>
+        {
+            ShowPage("VisionEngine");
+            SetMessage("Abre VisionEngine desde LINK Control para autorizar e iniciar la captura.");
+        };
+        StyleFlatButton(_homeConnectionButton);
+        _homeConnectionButton.Click += (_, _) => ShowPage("Configuración");
+        connectionActions.Children.Add(_homeScreenButton);
+        connectionActions.Children.Add(_homeConnectionButton);
+        connection.Children.Add(connectionActions);
         content.Children.Add(Card(connection));
 
         var engines = new Grid
@@ -315,11 +432,11 @@ public sealed class MainWindow : Window
             Margin = new Thickness(0, 0, 0, 14)
         };
         AddEngineCard(engines, "VisionEngine", "Transmisión de pantalla y audio",
-            "Captura AppControl USB, decodificación FFmpeg y presentación SDL.", "VisionEngine",
-            "USB · video", 0);
+            "Captura AppControl USB/LAN, decodificación FFmpeg y presentación SDL.", "VisionEngine",
+            "USB + LAN", 0);
         AddEngineCard(engines, "LinkEngine", "Internet y conexión de esta sesión",
-            "Inicia LinkEngine desde AppControl del teléfono después de enlazar por USB.", "LinkEngine",
-            "USB · preparando", 2);
+            "Inicia LinkEngine desde AppControl del teléfono enlazado por USB o LAN/Wi-Fi.", "LinkEngine",
+            "Bajo demanda", 2);
         AddEngineCard(engines, "ExInEngine", "Mando, entrada y calibración",
             "El backend SDL/HID Linux todavía no está integrado.", "ExInEngine",
             "No integrado", 4);
@@ -339,36 +456,16 @@ public sealed class MainWindow : Window
         return ScrollPage(content);
     }
 
-    private AvaloniaControl BuildVisionPage()
+    private AvaloniaControl BuildVisionPage() => BuildFunctionalVisionPage();
+
+    private static void StyleSelector(ComboBox selector)
     {
-        var content = PageContent();
-        AddPageHeading(content, "VISIONENGINE", "VisionEngine · Pantalla y audio",
-            "Recibe la pantalla del teléfono por AppControl y preséntala con FFmpeg y SDL.");
-        var status = new StackPanel { Spacing = 10 };
-        status.Children.Add(SectionTitle("Estado de la transmisión"));
-        _visionState.Text = "Detenido";
-        _visionState.Foreground = Brush("#dbe5f1");
-        _visionMessage.Text = "Enlaza LINK Control por USB y solicita la captura desde AppControl.";
-        _visionMessage.Foreground = Brush("#a8b7ca");
-        _visionMessage.TextWrapping = TextWrapping.Wrap;
-        status.Children.Add(StatusPill(_visionState));
-        status.Children.Add(_visionMessage);
-        _visionMetrics.Foreground = Brush("#8fa3bd");
-        _visionMetrics.TextWrapping = TextWrapping.Wrap;
-        status.Children.Add(_visionMetrics);
-        StyleFlatButton(_visionStopButton);
-        _visionStopButton.Click += async (_, _) => await StopVisionAsync();
-        status.Children.Add(_visionStopButton);
-        content.Children.Add(Card(status));
-        content.Children.Add(Card(StatusSection("Captura",
-            "AppControl USB entrega video H.264 y audio PCM estéreo por canales autenticados con token. El flujo LAN aún no está integrado.",
-            Badge("USB · VIDEO + AUDIO", "#172b45", "#93c5fd"))));
-        content.Children.Add(Card(StatusSection("Decodificación y presentación",
-            "FFmpeg decodifica el video. SDL selecciona el renderer disponible; la aceleración de video y los perfiles aún están pendientes.",
-            Badge("FFMPEG + SDL", "#172b45", "#93c5fd"))));
-        content.Children.Add(Card(DisabledSection("Validación y funciones pendientes",
-            "La captura y salida de audio están integradas, pero aún no se validan en un teléfono físico. Interacción teclado/ratón, grabación y transporte VisionEngine LAN siguen pendientes.")));
-        return ScrollPage(content);
+        selector.MinHeight = 38;
+        selector.Foreground = Brush("#dbe5f1");
+        selector.Background = Brush("#1b2a3e");
+        selector.BorderBrush = Brush("#34475f");
+        selector.BorderThickness = new Thickness(1);
+        selector.Padding = new Thickness(10, 6);
     }
 
     private AvaloniaControl BuildLinkPage()
@@ -384,29 +481,87 @@ public sealed class MainWindow : Window
         status.Children.Add(SectionTitle("Conexión"));
         status.Children.Add(_linkPageMessage);
         status.Children.Add(StatusPill(_linkPageState));
-        status.Children.Add(LabeledValue("Transporte", "ADB reverse · USB"));
-        status.Children.Add(LabeledValue("CONTROL", "tcp:27183"));
-        status.Children.Add(LabeledValue("DATA / relay", "tcp:27184"));
-        status.Children.Add(Caption("Activa LinkEngine desde AppControl en el teléfono enlazado. El relay Linux y el canal de control se preparan bajo demanda."));
+        status.Children.Add(Caption("LinkEngine conectado por USB o Wi-Fi."));
+        status.Children.Add(StatusGrid(
+            ("Estado de LE", _linkPageState),
+            ("Teléfono", _deviceStatus),
+            ("Enlace activo", _linkMessage),
+            ("Reconexión", Caption("Reconexión automática según el estado del relay."))));
+        _linkTechnicalStatus.Text = "ADB y transporte: USB 27183/27184 · LAN TLS fijado a certificado";
+        _linkTechnicalStatus.Foreground = Brush("#a8b7ca");
+        _linkTechnicalStatus.TextWrapping = TextWrapping.Wrap;
+        _linkTechnicalStatus.IsVisible = false;
+        _linkTechnicalButton.Click += (_, _) =>
+        {
+            _linkTechnicalStatus.IsVisible = !_linkTechnicalStatus.IsVisible;
+            _linkTechnicalButton.Content = _linkTechnicalStatus.IsVisible
+                ? "OCULTAR DETALLES TÉCNICOS"
+                : "MOSTRAR DETALLES TÉCNICOS";
+        };
+        StyleFlatButton(_linkTechnicalButton);
+        status.Children.Add(_linkTechnicalButton);
+        status.Children.Add(_linkTechnicalStatus);
         Border statusCard = Card(status);
         Grid.SetColumn(statusCard, 0);
         columns.Children.Add(statusCard);
 
         var preparation = new StackPanel { Spacing = 12 };
         preparation.Children.Add(SectionTitle("Preparar el canal de conexión"));
-        preparation.Children.Add(Caption("Conecta el teléfono por cable y enlázalo mediante ADB. Después, inicia LinkEngine desde AppControl. El servidor Linux no reemplaza rutas ADB existentes."));
-        preparation.Children.Add(Caption("Para cambiar o actualizar el dispositivo USB, usa la tarjeta de conexión en Inicio."));
-        var homeButton = FlatButton("Abrir conexión");
-        homeButton.Click += (_, _) => ShowPage("Inicio");
-        preparation.Children.Add(homeButton);
-        preparation.Children.Add(Card(DisabledSection("Por LAN / Wi-Fi",
-            "El transporte de datos LinkEngine por LAN aún no está integrado en Linux.")));
+        preparation.Children.Add(Caption("Deja listo el transporte de LinkEngine: conexión USB por cable o ADB inalámbrico por Wi-Fi. Después prepara la ruta y autoriza Iniciar Internet desde AppControl."));
+        preparation.Children.Add(Caption("Conecta el teléfono por cable y activa LinkEngine desde AppControl. Usa la guía si necesitas habilitar Internet USB en Android."));
+        var wifi = new StackPanel { Spacing = 8 };
+        wifi.Children.Add(SectionTitle("Por Wi-Fi"));
+        wifi.Children.Add(Caption("Configura ADB inalámbrico cuando el teléfono y la PC estén en la misma red; esto no inicia LinkEngine por sí solo."));
+        var wifiButton = FlatButton("CONFIGURAR ADB INALÁMBRICO");
+        wifiButton.IsEnabled = false;
+        wifi.Children.Add(wifiButton);
+        preparation.Children.Add(Card(wifi));
+        preparation.Children.Add(Caption("Para cambiar o actualizar el dispositivo, usa la tarjeta de conexión en Inicio."));
+        preparation.Children.Add(_linkPrepareButton);
+        var lanInfo = new StackPanel { Spacing = 6 };
+        lanInfo.Children.Add(SectionTitle("Por LAN / Wi-Fi"));
+        lanInfo.Children.Add(Caption("LinkEngine LAN usa el relay local y un gateway TLS en la IP privada autorizada. Android recibe host, puerto, huella y token de un solo uso; no requiere ADB reverse."));
+        preparation.Children.Add(Card(lanInfo));
         Border preparationCard = Card(preparation);
         Grid.SetColumn(preparationCard, 2);
         columns.Children.Add(preparationCard);
         content.Children.Add(columns);
-        content.Children.Add(Card(DisabledSection("Diagnóstico y velocidad",
-            "La telemetría y la prueba de velocidad de LinkEngine todavía no están integradas en la interfaz Linux.")));
+        content.Children.Add(Card(new StackPanel
+        {
+            Spacing = 10,
+            Children =
+            {
+                SectionTitle("Mediciones técnicas de esta sesión"),
+                Caption("Valores en vivo y pruebas recibidas por este enlace; se reinician al cambiar o detener la sesión."),
+                Caption("Tráfico actual: la telemetría de sesión aún no está disponible en Linux."),
+                Caption("Internet: sin medir en esta sesión."),
+                Caption("Enlace PC ↔ Android: sin medir en esta sesión."),
+                new Expander
+                {
+                    Header = "Mediciones de esta sesión",
+                    Foreground = Brush("#dbe5f1"),
+                    Content = new StackPanel
+                    {
+                        Spacing = 8,
+                        Children =
+                        {
+                            Caption("Tráfico y pruebas de esta sesión. El relay mide el tráfico; las pruebas se muestran por separado."),
+                            _linkInternetTestButton,
+                            _linkTunnelTestButton,
+                            _linkTrafficButton,
+                            Caption("Sin mediciones en esta sesión.")
+                        }
+                    }
+                },
+                new Expander
+                {
+                    Header = "Ajustes técnicos · red experimental (LE / VE / Archivos)",
+                    Foreground = Brush("#dbe5f1"),
+                    Content = DisabledSection("Control de capacidad y latencia",
+                        "La adaptación experimental de red no está disponible en Linux.")
+                }
+            }
+        }));
         return ScrollPage(content);
     }
 
@@ -415,22 +570,259 @@ public sealed class MainWindow : Window
         var content = PageContent();
         AddPageHeading(content, "EXINENGINE", "ExInEngine · Control",
             "Primero calibra el mando; después elige el teléfono, el modo y las asignaciones.");
-        content.Children.Add(Card(DisabledSection("Calibración dinámica",
-            "La vista del mando, calibración de sticks y gatillos, mapeo de botones y telemetría requieren integrar ExInEngine con SDL/HID en Linux.")));
-        content.Children.Add(Card(DisabledSection("Dispositivos y asignaciones",
-            "Detección y configuración de mandos todavía no disponibles.")));
+        content.Children.Add(BuildExInCalibrationCard());
+        content.Children.Add(BuildExInDeviceCards());
+        content.Children.Add(BuildExInModeAndPaddles());
+        content.Children.Add(BuildExInDiagnostics());
         return ScrollPage(content);
+    }
+
+    private AvaloniaControl BuildExInCalibrationCard()
+    {
+        var layout = new Grid { ColumnDefinitions = new ColumnDefinitions("1.4*,24,*") };
+        var controller = new Border
+        {
+            Height = 360,
+            Background = Brush("#0b1220"),
+            BorderBrush = Brush("#26364d"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10),
+            Child = new Viewbox
+            {
+                Child = new Avalonia.Controls.Shapes.Path
+                {
+                    Data = Geometry.Parse("M25,15 C12,12 8,20 5,52 C4,64 12,66 21,53 L28,45 72,45 79,53 C88,66 96,64 95,52 C92,20 88,12 75,15 L62,21 38,21Z M33,29 L33,41 M27,35 L39,35 M65,28 L65,33 M76,35 L82,35"),
+                    Fill = Brushes.Transparent,
+                    Stroke = Brush("#35d7e9"),
+                    StrokeThickness = 4,
+                    Stretch = Stretch.Uniform
+                }
+            }
+        };
+        var controls = new StackPanel { Spacing = 10 };
+        controls.Children.Add(SectionTitle("Calibración dinámica"));
+        controls.Children.Add(Label("ExInEngine no está integrado en esta compilación Linux.", "#fbbf24", 14, true));
+        controls.Children.Add(Caption("Deja el mando quieto y pulsa INICIAR. La imagen muestra el frontal, los dos laterales y los gatillos."));
+        var buttons = new Grid { ColumnDefinitions = new ColumnDefinitions("*,8,*"), RowDefinitions = new RowDefinitions("Auto,8,Auto") };
+        foreach ((string text, int col, int row) in new[]
+                 {
+                     ("INICIAR", 0, 0), ("GUARDAR", 2, 0),
+                     ("RESTABLECER", 0, 2), ("CONTROLES DEL SISTEMA", 2, 2)
+                 })
+        {
+            var button = FlatButton(text);
+            button.IsEnabled = false;
+            Grid.SetColumn(button, col);
+            Grid.SetRow(button, row);
+            buttons.Children.Add(button);
+        }
+        controls.Children.Add(buttons);
+        controls.Children.Add(Label("COBERTURA MÍNIMA                                        0%", "#a8b7ca", 12, true));
+        controls.Children.Add(new ProgressBar { Minimum = 0, Maximum = 100, Value = 0, Height = 10 });
+        AddExInProgressPair(controls, "Stick izquierdo", "Stick derecho");
+        AddExInProgressPair(controls, "Gatillo izquierdo", "Gatillo derecho");
+        Grid.SetColumn(controller, 0);
+        Grid.SetColumn(controls, 2);
+        layout.Children.Add(controller);
+        layout.Children.Add(controls);
+        return Card(layout);
+    }
+
+    private static void AddExInProgressPair(StackPanel parent, string left, string right)
+    {
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,12,*") };
+        foreach ((string label, int column) in new[] { (left, 0), (right, 2) })
+        {
+            var stack = new StackPanel { Spacing = 5 };
+            stack.Children.Add(Caption($"{label} · 0%"));
+            stack.Children.Add(new ProgressBar { Minimum = 0, Maximum = 100, Value = 0, Height = 10 });
+            Grid.SetColumn(stack, column);
+            grid.Children.Add(stack);
+        }
+        parent.Children.Add(grid);
+    }
+
+    private AvaloniaControl BuildExInDeviceCards()
+    {
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("0.85*,14,1.15*") };
+        var state = new StackPanel { Spacing = 8 };
+        state.Children.Add(SectionTitle("Estado de ExInEngine"));
+        state.Children.Add(Caption("ExInEngine detenido."));
+        state.Children.Add(Caption("Mandos conectados: 0"));
+        state.Children.Add(Caption("Reconexión automática"));
+        var devices = new Grid { ColumnDefinitions = new ColumnDefinitions("*,14,*") };
+        var phone = new StackPanel { Spacing = 8 };
+        phone.Children.Add(SectionTitle("Conexión al teléfono"));
+        phone.Children.Add(DisabledSelector("Teléfono no detectado"));
+        phone.Children.Add(Caption("Automático: USB primero, después ADB Wi-Fi."));
+        var controller = new StackPanel { Spacing = 8 };
+        controller.Children.Add(SectionTitle("Mando"));
+        controller.Children.Add(DisabledSelector("Sin control físico"));
+        controller.Children.Add(new CheckBox
+        {
+            Content = "Enviar al teléfono solo el mando seleccionado",
+            IsEnabled = false,
+            Foreground = Brush("#dbe5f1")
+        });
+        controller.Children.Add(Caption("La identidad, la calibración y los paddles siguen al mando seleccionado."));
+        Grid.SetColumn(controller, 2);
+        devices.Children.Add(phone);
+        devices.Children.Add(controller);
+        var deviceCard = Card(devices);
+        Grid.SetColumn(deviceCard, 2);
+        var stateCard = Card(state);
+        Grid.SetColumn(stateCard, 0);
+        grid.Children.Add(stateCard);
+        grid.Children.Add(deviceCard);
+        return grid;
+    }
+
+    private static ComboBox DisabledSelector(string value)
+    {
+        var selector = new ComboBox
+        {
+            ItemsSource = new[] { value },
+            SelectedIndex = 0,
+            IsEnabled = false
+        };
+        StyleSelector(selector);
+        return selector;
+    }
+
+    private AvaloniaControl BuildExInModeAndPaddles()
+    {
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,14,*") };
+        var mode = new StackPanel { Spacing = 8 };
+        mode.Children.Add(SectionTitle("Modo de conexión y control"));
+        mode.Children.Add(Caption("El teléfono elegido arriba recibe el modo seleccionado."));
+        var modeButtons = new Grid { ColumnDefinitions = new ColumnDefinitions("*,8,*") };
+        foreach ((string text, int column) in new[] { ("MODO JUEGO", 0), ("MODO UI", 2) })
+        {
+            var button = FlatButton(text);
+            button.IsEnabled = false;
+            Grid.SetColumn(button, column);
+            modeButtons.Children.Add(button);
+        }
+        mode.Children.Add(modeButtons);
+        mode.Children.Add(Caption("Sin control físico"));
+        mode.Children.Add(Caption("Sensibilidad del joystick para mouse virtual · solo modo UI"));
+        mode.Children.Add(new Slider { Minimum = 5, Maximum = 40, Value = 20, IsEnabled = false });
+        mode.Children.Add(Caption("20% · UI"));
+        mode.Children.Add(Caption("Sensibilidad de los sticks para el mando · solo modo juego"));
+        mode.Children.Add(new Slider { Minimum = 25, Maximum = 150, Value = 100, IsEnabled = false });
+        mode.Children.Add(Caption("100% · Juego"));
+
+        var paddles = new StackPanel { Spacing = 8 };
+        paddles.Children.Add(SectionTitle("Paddles traseros"));
+        paddles.Children.Add(Caption("Conecta un mando compatible para configurar P1–P4."));
+        var mappings = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,12,*"),
+            RowDefinitions = new RowDefinitions("Auto,10,Auto")
+        };
+        for (int index = 0; index < 4; index++)
+        {
+            var stack = new StackPanel { Spacing = 5 };
+            stack.Children.Add(Caption($"P{index + 1}"));
+            stack.Children.Add(DisabledSelector("Sin asignar"));
+            Grid.SetColumn(stack, index % 2 == 0 ? 0 : 2);
+            Grid.SetRow(stack, index / 2 == 0 ? 0 : 2);
+            mappings.Children.Add(stack);
+        }
+        paddles.Children.Add(mappings);
+        paddles.Children.Add(Caption("Cada paddle puede repetir el mismo botón. La asignación se guarda para este mando."));
+        var modeCard = Card(mode);
+        var paddleCard = Card(paddles);
+        Grid.SetColumn(paddleCard, 2);
+        grid.Children.Add(modeCard);
+        grid.Children.Add(paddleCard);
+        return grid;
+    }
+
+    private AvaloniaControl BuildExInDiagnostics()
+    {
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,14,*") };
+        var reading = new StackPanel { Spacing = 7 };
+        reading.Children.Add(SectionTitle("Lectura del mando"));
+        reading.Children.Add(Caption("Sticks, gatillos y botones: sin dispositivo."));
+        reading.Children.Add(Caption("Identidad: no disponible."));
+        var health = new StackPanel { Spacing = 7 };
+        health.Children.Add(SectionTitle("Salud y batería"));
+        health.Children.Add(Caption("Diagnóstico no ejecutado"));
+        health.Children.Add(Caption("Batería no reportada"));
+        var readingCard = Card(reading);
+        var healthCard = Card(health);
+        Grid.SetColumn(healthCard, 2);
+        grid.Children.Add(readingCard);
+        grid.Children.Add(healthCard);
+        return grid;
     }
 
     private AvaloniaControl BuildIntegrationPage()
     {
         var content = PageContent();
-        AddPageHeading(content, "INTEGRACIÓN", "Integración",
-            "Estado de los componentes disponibles en esta versión Linux.");
-        content.Children.Add(EngineDetailCard("LinkEngine", "Integración parcial · USB",
-            "Relay nativo Linux y CONTROL USB disponibles. El canal Android completo requiere iniciar LinkEngine desde AppControl."));
+        AddPageHeading(content, "INTEGRACIÓN", "Integración Android ↔ Linux",
+            "Funciones que hacen que Android se comporte como una extensión de NOVORA.");
+        var files = new Grid { ColumnDefinitions = new ColumnDefinitions("*,1,*") };
+        var sent = new StackPanel { Spacing = 6, Margin = new Thickness(0, 0, 16, 0) };
+        sent.Children.Add(Caption("Enviados al teléfono"));
+        _integrationSentSummary.Text = "0 archivos · 0 B";
+        _integrationSentSummary.Foreground = Brush("#60a5fa");
+        _integrationSentSummary.FontSize = 18;
+        sent.Children.Add(_integrationSentSummary);
+        _integrationSentNames.Text = "Aún no hay archivos enviados.";
+        _integrationSentNames.Foreground = Brush("#a8b7ca");
+        _integrationSentNames.TextWrapping = TextWrapping.Wrap;
+        sent.Children.Add(_integrationSentNames);
+        var divider = new Border { Background = Brush("#26364d") };
+        Grid.SetColumn(divider, 1);
+        var received = new StackPanel { Spacing = 6, Margin = new Thickness(16, 0, 0, 0) };
+        received.Children.Add(Caption("Recibidos en esta PC"));
+        _integrationReceivedSummary.Text = "0 archivos · 0 B";
+        _integrationReceivedSummary.Foreground = Brush("#22c55e");
+        _integrationReceivedSummary.FontSize = 18;
+        received.Children.Add(_integrationReceivedSummary);
+        _integrationReceivedNames.Text = "Aún no hay archivos recibidos.";
+        _integrationReceivedNames.Foreground = Brush("#a8b7ca");
+        _integrationReceivedNames.TextWrapping = TextWrapping.Wrap;
+        received.Children.Add(_integrationReceivedNames);
+        Grid.SetColumn(received, 2);
+        files.Children.Add(sent);
+        files.Children.Add(divider);
+        files.Children.Add(received);
+        content.Children.Add(Card(new StackPanel
+        {
+            Spacing = 10,
+            Children =
+            {
+                SectionTitle("Archivos de esta sesión"),
+                Caption("El comparativo se actualiza cuando una transferencia termina correctamente."),
+                files
+            }
+        }));
+
+        var cards = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,12,*"),
+            RowDefinitions = new RowDefinitions("Auto,12,Auto,12,Auto")
+        };
+        AddIntegrationCard(cards, "Clipboard", "Android ↔ Linux por eventos, sin historial sensible.", 0, 0);
+        var filesCard = new StackPanel { Spacing = 8 };
+        filesCard.Children.Add(SectionTitle("Archivos / Share"));
+        filesCard.Children.Add(Caption("Suelta aquí archivos o carpetas para enviarlos al teléfono."));
+        var receiveFolder = FlatButton("RECIBIR CARPETA NOVORA");
+        receiveFolder.IsEnabled = false;
+        filesCard.Children.Add(receiveFolder);
+        PlaceIntegrationCard(cards, Card(filesCard), 2, 0);
+        AddIntegrationCard(cards, "Apps y notificaciones", "Infraestructura de integración aún no disponible en Linux.", 0, 2);
+        AddIntegrationCard(cards, "Display / ventanas", "Virtual display, resize y ventanas sólo cuando el backend las soporte.", 2, 2);
+        AddIntegrationCard(cards, "Micrófono Android", "La capacidad Android → PC no está disponible en esta compilación.", 0, 4);
+        AddIntegrationCard(cards, "Cámara / PC → Android", "Se mostrará cuando exista soporte real; no se simula la función.", 2, 4);
+        content.Children.Add(cards);
+        content.Children.Add(EngineDetailCard("LinkEngine", "Integración USB y LAN",
+            "Relay nativo Linux, CONTROL USB y DATA LAN con TLS fijado al certificado de esta PC. Android inicia LinkEngine desde la sesión autorizada; telemetría y speedtest siguen pendientes."));
         content.Children.Add(EngineDetailCard("VisionEngine", "Integración USB · video",
-            "AppControl USB, sockets autenticados, decodificación FFmpeg y presentación SDL. Audio, LAN, control y grabación pendientes."));
+            "AppControl USB/LAN negocia bitrate, tamaño y FPS; decodificación FFmpeg, presentación SDL y audio. Control remoto, grabación, transferencia de archivos, salida de audio configurable y optimización de perfiles pendientes."));
         content.Children.Add(EngineDetailCard("ExInEngine", "No integrado",
             "Dispositivos de juego, SDL/HID y calibración pendientes."));
         content.Children.Add(EngineDetailCard("Transferencia de archivos", "No integrada",
@@ -438,11 +830,38 @@ public sealed class MainWindow : Window
         return ScrollPage(content);
     }
 
+    private static void AddIntegrationCard(Grid grid, string title, string description, int column, int row)
+    {
+        var stack = new StackPanel { Spacing = 6 };
+        stack.Children.Add(SectionTitle(title));
+        stack.Children.Add(Caption(description));
+        PlaceIntegrationCard(grid, Card(stack), column, row);
+    }
+
+    private static void PlaceIntegrationCard(Grid grid, AvaloniaControl card, int column, int row)
+    {
+        Grid.SetColumn(card, column);
+        Grid.SetRow(card, row);
+        grid.Children.Add(card);
+    }
+
     private AvaloniaControl BuildSettingsPage()
     {
         var content = PageContent();
         AddPageHeading(content, "SISTEMA", "Configuración",
-            "Preferencias de conexión y confianza de los dispositivos.");
+            "Sólo opciones globales. Pantalla, red, rendimiento y game input viven en sus propias secciones.");
+        var performance = new Grid { ColumnDefinitions = new ColumnDefinitions("*,250") };
+        var performanceText = new StackPanel { Spacing = 6 };
+        performanceText.Children.Add(SectionTitle("Sistema Android"));
+        performanceText.Children.Add(Caption("Rendimiento y salud del teléfono. Se consulta sólo al abrir esta sección."));
+        Grid.SetColumn(performanceText, 0);
+        performance.Children.Add(performanceText);
+        StylePrimaryButton(_openPerformanceButton);
+        _openPerformanceButton.Click += (_, _) => ShowPage("Rendimiento");
+        Grid.SetColumn(_openPerformanceButton, 1);
+        performance.Children.Add(_openPerformanceButton);
+        content.Children.Add(Card(performance));
+
         var lan = new StackPanel { Spacing = 12 };
         lan.Children.Add(SectionTitle("Conexión LAN"));
         lan.Children.Add(Caption("Selecciona la interfaz privada de la PC para generar una invitación de un solo uso compatible con LINK Control 1.4.124."));
@@ -451,22 +870,105 @@ public sealed class MainWindow : Window
         lan.Children.Add(BuildPairingPanel());
         lan.Children.Add(Caption("El estado del teléfono y los controles ADB se muestran en Inicio."));
         content.Children.Add(Card(lan));
-        var trusted = new StackPanel { Spacing = 12 };
-        trusted.Children.Add(SectionTitle("Teléfonos con acceso recordado"));
-        trusted.Children.Add(Caption("Puedes revocar el acceso de un dispositivo guardado en esta PC."));
-        trusted.Children.Add(BuildTrustedDevicesPanel());
-        content.Children.Add(Card(trusted));
         var appearance = new StackPanel { Spacing = 10 };
-        appearance.Children.Add(SectionTitle("Apariencia"));
-        appearance.Children.Add(Caption("Selecciona el tema de color de NOVORA-LINK."));
+        appearance.Children.Add(SectionTitle("Tema"));
+        appearance.Children.Add(Caption("Inicio predeterminado: Light. Puedes activar Dark durante esta sesión."));
         _themeSelector.ItemsSource = new[] { "Claro · Light", "Oscuro · Dark" };
         _themeSelector.SelectedIndex = LinuxTheme.IsDark ? 1 : 0;
         _themeSelector.MinWidth = 220;
         _themeSelector.SelectionChanged += ThemeSelectionChanged;
         appearance.Children.Add(_themeSelector);
         content.Children.Add(Card(appearance));
-        content.Children.Add(Card(DisabledSection("Otras preferencias",
-            "Métricas de rendimiento y actualizaciones automáticas aún no están disponibles en Linux.")));
+
+        var updates = new StackPanel { Spacing = 8 };
+        updates.Children.Add(SectionTitle("Actualizaciones"));
+        updates.Children.Add(Caption("La versión Linux no ofrece actualmente descarga e instalación de actualizaciones desde la aplicación."));
+        StylePrimaryButton(_checkPcUpdateButton);
+        StyleFlatButton(_checkAndroidUpdateButton);
+        updates.Children.Add(_checkPcUpdateButton);
+        updates.Children.Add(_checkAndroidUpdateButton);
+        content.Children.Add(Card(updates));
+
+        var manuals = new StackPanel { Spacing = 8 };
+        manuals.Children.Add(SectionTitle("Manual de usuario"));
+        manuals.Children.Add(Caption("Español prioritario · English available."));
+        StylePrimaryButton(_manualEsButton);
+        StylePrimaryButton(_manualEnButton);
+        manuals.Children.Add(_manualEsButton);
+        manuals.Children.Add(_manualEnButton);
+        content.Children.Add(Card(manuals));
+
+        var showQr = FlatButton("Mostrar QR");
+        showQr.IsEnabled = false;
+        var copyLink = FlatButton("Copiar enlace directo");
+        copyLink.IsEnabled = false;
+        content.Children.Add(Card(new StackPanel
+        {
+            Spacing = 8,
+            Children =
+            {
+                SectionTitle("LINK Control · Android"),
+                Caption("LinkControl.apk · Descarga en tu teléfono"),
+                Caption("La descarga y el código QR todavía no están integrados en Linux."),
+                showQr,
+                copyLink
+            }
+        }));
+        var trusted = new StackPanel { Spacing = 12 };
+        trusted.Children.Add(SectionTitle("Teléfonos con acceso recordado"));
+        trusted.Children.Add(Caption("Puedes revocar el acceso de un dispositivo guardado en esta PC."));
+        trusted.Children.Add(BuildTrustedDevicesPanel());
+        content.Children.Add(Card(trusted));
+        return ScrollPage(content);
+    }
+
+    private AvaloniaControl BuildPerformancePage()
+    {
+        var content = PageContent();
+        AddPageHeading(content, "SISTEMA ANDROID", "Sistema Android",
+            "Rendimiento y salud del teléfono.");
+        var batteryValue = Caption("-- %");
+        batteryValue.FontSize = 20;
+        batteryValue.Foreground = Brush("#dbe5f1");
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("190,14,*,14,*") };
+        var battery = new StackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
+        battery.Children.Add(SectionTitle("Batería"));
+        battery.Children.Add(new ProgressBar { Minimum = 0, Maximum = 100, Value = 0, Width = 140, Height = 14 });
+        battery.Children.Add(batteryValue);
+        var system = new StackPanel { Spacing = 10 };
+        system.Children.Add(SectionTitle("Sistema"));
+        system.Children.Add(Caption("Dispositivo: sin datos"));
+        system.Children.Add(Caption("Android: sin datos"));
+        var metrics = new StackPanel { Spacing = 8 };
+        foreach (string label in new[] { "CPU", "RAM", "Temperatura" })
+        {
+            metrics.Children.Add(SectionTitle(label));
+            metrics.Children.Add(Caption("--"));
+            metrics.Children.Add(new ProgressBar { Minimum = 0, Maximum = 100, Value = 0, Height = 10 });
+        }
+        var batteryCard = Card(battery);
+        var systemCard = Card(system);
+        var metricsCard = Card(metrics);
+        Grid.SetColumn(systemCard, 2);
+        Grid.SetColumn(metricsCard, 4);
+        grid.Children.Add(batteryCard);
+        grid.Children.Add(systemCard);
+        grid.Children.Add(metricsCard);
+        content.Children.Add(grid);
+        var optimization = new Grid { ColumnDefinitions = new ColumnDefinitions("*,220") };
+        var text = new StackPanel { Spacing = 6 };
+        text.Children.Add(SectionTitle("Optimización segura del dispositivo"));
+        text.Children.Add(Caption("Lista para analizar y optimizar cuando tú lo solicites."));
+        Grid.SetColumn(text, 0);
+        optimization.Children.Add(text);
+        var optimize = FlatButton("OPTIMIZAR AHORA");
+        optimize.IsEnabled = false;
+        StylePrimaryButton(optimize);
+        Grid.SetColumn(optimize, 1);
+        optimization.Children.Add(optimize);
+        content.Children.Add(Card(optimization));
+        content.Children.Add(Card(DisabledSection("Métricas del dispositivo",
+            "La consulta bajo demanda de batería, CPU, RAM y temperatura requiere la integración de métricas Android.")));
         return ScrollPage(content);
     }
 
@@ -528,7 +1030,7 @@ public sealed class MainWindow : Window
     {
         var content = new StackPanel { Spacing = 10 };
         content.Children.Add(EngineIcon(name));
-        content.Children.Add(Badge(name == "LinkEngine" ? "USB" : "MOTOR", "#172b45", "#93c5fd"));
+        content.Children.Add(Badge(name == "LinkEngine" ? "USB · LAN" : "MOTOR", "#172b45", "#93c5fd"));
         content.Children.Add(SectionTitle(name));
         content.Children.Add(Caption(subtitle));
         content.Children.Add(Caption(detail));
@@ -613,9 +1115,10 @@ public sealed class MainWindow : Window
         _currentPage = page;
         foreach ((string name, AvaloniaControl content) in _pages)
             content.IsVisible = name == page;
+        string selectedNavigation = page == "Rendimiento" ? "Configuración" : page;
         foreach (Button button in _navigation.Children.OfType<Button>())
         {
-            bool active = Equals(button.Tag, page);
+            bool active = Equals(button.Tag, selectedNavigation);
             button.Background = Brush(active ? "#1d3150" : "#111c2c");
             button.Foreground = Brush(active ? "#93c5fd" : "#cbd5e1");
         }
@@ -637,6 +1140,28 @@ public sealed class MainWindow : Window
         Spacing = 10,
         Children = { SectionTitle(heading), Caption(message), badge }
     };
+
+    private static Grid StatusGrid(params (string Label, TextBlock Value)[] items)
+    {
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,14,*"),
+            RowDefinitions = new RowDefinitions("Auto,12,Auto")
+        };
+        for (int index = 0; index < items.Length; index++)
+        {
+            var stack = new StackPanel { Spacing = 4 };
+            stack.Children.Add(Caption(items[index].Label));
+            items[index].Value.TextWrapping = TextWrapping.Wrap;
+            var value=new TextBlock { TextWrapping=TextWrapping.Wrap, Foreground=items[index].Value.Foreground };
+            value.Bind(TextBlock.TextProperty,new Avalonia.Data.Binding(nameof(TextBlock.Text)) { Source=items[index].Value });
+            stack.Children.Add(value);
+            Grid.SetColumn(stack, index % 2 == 0 ? 0 : 2);
+            Grid.SetRow(stack, index / 2 == 0 ? 0 : 2);
+            grid.Children.Add(stack);
+        }
+        return grid;
+    }
 
     private static StackPanel DisabledSection(string heading, string message) => new()
     {
@@ -974,6 +1499,7 @@ public sealed class MainWindow : Window
         _visionMetrics.Foreground = Brush(
             telemetry?.RendererBackend == "software" ? "#fbbf24" : "#8fa3bd");
         _visionStopButton.IsEnabled = _host.HasVisionSession;
+        RefreshFunctionalVisionState();
     }
 
     private async Task StopVisionAsync()

@@ -15,34 +15,20 @@ internal sealed class LinuxVisionLanEngine : IAsyncDisposable
     private LinuxVisionLanSession? _session;
     private CancellationTokenSource? _sessionCancellation;
     private Task _sessionTask = Task.CompletedTask;
-    private LinuxSdlVideoRenderer? _renderer;
-    private long _videoPacketsReceived;
+    private static long _generation = DateTime.UtcNow.Ticks;
+    public LinuxVisionRuntime? Runtime { get; private set; }
     private int _ownsExclusiveGate;
     private int _disposed;
     private string _state = "Stopped";
     private string _message = "VisionEngine LAN está detenido.";
 
+    public LinuxVisionSettings Settings { get; set; } = LinuxVisionSettings.Default;
     public event EventHandler? StatusChanged;
     public bool IsRunning => _state is "Waiting" or "Streaming";
     public bool HasSession => _session is not null;
     public string State => _state;
     public string Message => _message;
-    public LinuxVisionTelemetry Telemetry
-    {
-        get
-        {
-            LinuxSdlVideoRenderer? renderer = Volatile.Read(ref _renderer);
-            long received = Interlocked.Read(ref _videoPacketsReceived);
-            long rendered = renderer?.FramesPresented ?? 0;
-            return new LinuxVisionTelemetry(
-                renderer?.Backend ?? "Unavailable",
-                received,
-                rendered,
-                Math.Max(0, received - rendered),
-                renderer?.OutputWidth ?? 0,
-                renderer?.OutputHeight ?? 0);
-        }
-    }
+    public LinuxVisionTelemetry Telemetry => Runtime?.Telemetry ?? new("Unavailable",0,0,0,0,0);
 
     public LinuxVisionLanEngine(
         IPAddress address,
@@ -58,9 +44,18 @@ internal sealed class LinuxVisionLanEngine : IAsyncDisposable
         _allowLoopback = allowLoopbackForTests;
     }
 
-    public async Task<string> StartAsync(bool audioEnabled, CancellationToken cancellationToken)
+    public async Task<string> StartAsync(
+        bool audioEnabled,
+        CancellationToken cancellationToken,
+        int bitrate = 8_000_000,
+        int maxSize = 1920,
+        int fps = 60)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        if (bitrate is < 2_000_000 or > 15_000_000 ||
+            maxSize is not (480 or 720 or 960 or 1080 or 1280 or 1440 or 1600 or 1920 or 2160) ||
+            fps is not (15 or 24 or 30 or 45 or 60))
+            throw new InvalidDataException("Los ajustes de captura de VisionEngine LAN no son válidos.");
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -74,18 +69,18 @@ internal sealed class LinuxVisionLanEngine : IAsyncDisposable
             try
             {
                 session = new LinuxVisionLanSession(_address, _trustStore.Certificate, _allowLoopback);
+                Runtime = new LinuxVisionRuntime(Settings,Interlocked.Increment(ref _generation));
+                Runtime.Changed += RaiseStatusChanged;
                 LinuxVisionLanOffer offer = session.Prepare(
-                    bitrate: 8_000_000,
-                    maxSize: 1920,
-                    fps: 60,
-                    audioEnabled);
+                    bitrate,
+                    maxSize,
+                    fps,
+                    audioEnabled, Runtime.Generation);
                 _session = session;
                 _sessionCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                Volatile.Write(ref _renderer, null);
-                Interlocked.Exchange(ref _videoPacketsReceived, 0);
                 _state = "Waiting";
                 _message = "VisionEngine LAN espera la autorización de captura y los canales TLS.";
-                _sessionTask = RunSessionAsync(session, offer, _sessionCancellation.Token);
+                _sessionTask = RunSessionAsync(session, Runtime, _sessionCancellation.Token);
                 RaiseStatusChanged();
                 return JsonSerializer.Serialize(offer);
             }
@@ -103,103 +98,29 @@ internal sealed class LinuxVisionLanEngine : IAsyncDisposable
         }
     }
 
-    private async Task RunSessionAsync(
-        LinuxVisionLanSession session,
-        LinuxVisionLanOffer offer,
-        CancellationToken cancellationToken)
+    private async Task RunSessionAsync(LinuxVisionLanSession session,LinuxVisionRuntime runtime,CancellationToken cancellationToken)
     {
         try
         {
-            using var acceptTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            acceptTimeout.CancelAfter(TimeSpan.FromSeconds(LinuxVisionLanProtocol.OfferLifetimeSeconds));
-            await using LinuxVisionLanStreams streams =
-                await session.AcceptAsync(acceptTimeout.Token).ConfigureAwait(false);
-            using var sessionLifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            using var renderer = new LinuxSdlVideoRenderer();
-            Volatile.Write(ref _renderer, renderer);
-
-            LinuxVisionAudioPlayback? audioPlayback = streams.Audio is null
-                ? null
-                : new LinuxVisionAudioPlayback(streams.Audio);
-            var reader = new LinuxVisionProtocolReader(streams.Video);
-            (VideoCodec codec, VideoSession videoSession) =
-                await reader.OpenAsync(sessionLifetime.Token).ConfigureAwait(false);
-            Task? audioTask = audioPlayback?.RunAsync(sessionLifetime.Token);
-            LinuxFfmpegVideoDecoder? decoder = null;
-            byte[]? configuration = null;
-            _state = "Streaming";
-            _message = streams.AudioDegraded
-                ? $"VisionEngine LAN transmite video sin audio · {videoSession.Width}×{videoSession.Height}."
-                : $"VisionEngine LAN transmite video y audio · {videoSession.Width}×{videoSession.Height}.";
+            using var timeout=CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(LinuxVisionLanProtocol.OfferLifetimeSeconds));
+            await using var streams=await session.AcceptAsync(timeout.Token).ConfigureAwait(false);
+            _state="Streaming"; _message=streams.AudioDegraded ? "VisionEngine LAN conectado sin audio; control y archivos autenticados." : "VisionEngine LAN conectado: video, audio, control y archivos autenticados.";
             RaiseStatusChanged();
-            try
-            {
-                while (true)
-                {
-                    if (audioTask?.IsFaulted == true)
-                        await audioTask.ConfigureAwait(false);
-                    VideoPacket packet = await reader.ReadPacketAsync(
-                        videoSession,
-                        changed => videoSession = changed,
-                        sessionLifetime.Token).ConfigureAwait(false)
-                        ?? throw new EndOfStreamException("El flujo de video VE LAN terminó.");
-
-                    if (packet.Session != videoSession)
-                        videoSession = packet.Session;
-                    if (packet.IsConfiguration)
-                        configuration = packet.Data;
-                    else
-                        Interlocked.Increment(ref _videoPacketsReceived);
-
-                    if (decoder is null || decoder.SessionGeometryChanged(videoSession))
-                    {
-                        if (decoder is not null)
-                            await decoder.DisposeAsync().ConfigureAwait(false);
-                        decoder = new LinuxFfmpegVideoDecoder(codec, videoSession, renderer);
-                        if (configuration is not null)
-                            await decoder.WritePacketAsync(
-                                configuration, null, sessionLifetime.Token).ConfigureAwait(false);
-                        continue;
-                    }
-
-                    await decoder.WritePacketAsync(
-                        packet.Data, packet.PresentationTimeUs, sessionLifetime.Token).ConfigureAwait(false);
-                }
-            }
-            finally
-            {
-                sessionLifetime.Cancel();
-                if (audioTask is not null)
-                {
-                    try { await audioTask.ConfigureAwait(false); }
-                    catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException) { }
-                }
-                if (decoder is not null)
-                    await decoder.DisposeAsync().ConfigureAwait(false);
-                audioPlayback?.Dispose();
-            }
+            await runtime.RunAsync(streams.Video,streams.Control,streams.Audio,streams.Files,cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-        }
-        catch (OperationCanceledException)
-        {
-            _state = "Failed";
-            _message = "VisionEngine LAN agotó el tiempo de espera al abrir los canales.";
-            RaiseStatusChanged();
-        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            _state = "Failed";
-            _message = $"VisionEngine LAN se detuvo: {ex.Message}";
-            RaiseStatusChanged();
-        }
+        { _state="Failed"; _message=$"VisionEngine LAN se detuvo: {ex.Message}"; RaiseStatusChanged(); }
         finally
         {
-            if (_state is "Waiting" or "Streaming")
+            _sessionCancellation?.Cancel();
+            try { await LinuxVisionCleanup.RunAsync(()=>runtime.DisposeAsync().AsTask(),()=>session.DisposeAsync().AsTask()).ConfigureAwait(false); }
+            catch (Exception ex) { _state="Failed"; _message="VE LAN cerró con errores: "+ex.GetBaseException().Message; }
+            finally
             {
-                _state = "Stopped";
-                _message = "El flujo de VisionEngine LAN terminó.";
+                _session=null; ReleaseExclusiveGate();
+                if (_state is "Waiting" or "Streaming") { _state="Stopped"; _message="VisionEngine LAN detenido."; }
                 RaiseStatusChanged();
             }
         }
@@ -257,27 +178,4 @@ internal sealed class LinuxVisionLanEngine : IAsyncDisposable
         _gate.Dispose();
     }
 
-    private sealed class LinuxVisionAudioPlayback : IDisposable
-    {
-        private readonly Stream _stream;
-        private readonly LinuxSdlAudioPlayer _player = new();
-
-        public LinuxVisionAudioPlayback(Stream stream) => _stream = stream;
-
-        public async Task RunAsync(CancellationToken cancellationToken)
-        {
-            var reader = new LinuxAudioProtocolReader(_stream);
-            AudioCodec? codec = await reader.OpenAsync(cancellationToken).ConfigureAwait(false);
-            if (codec is null) return;
-            using var decoder = new LinuxFfmpegAudioDecoder(codec.Value);
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                AudioPacket packet = await reader.ReadPacketAsync(cancellationToken).ConfigureAwait(false);
-                foreach (byte[] pcm in decoder.Decode(packet))
-                    _player.Play(pcm);
-            }
-        }
-
-        public void Dispose() => _player.Dispose();
-    }
 }

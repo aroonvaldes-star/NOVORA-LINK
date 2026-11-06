@@ -8,8 +8,9 @@ internal sealed class LinuxVisionLanStreams(
     Stream video,
     Stream control,
     Stream? audio,
-    bool audioDegraded) : IAsyncDisposable
+    bool audioDegraded, Stream? files = null) : IAsyncDisposable
 {
+    public Stream? Files { get; } = files;
     public Stream Video { get; } = video;
     public Stream Control { get; } = control;
     public Stream? Audio { get; } = audio;
@@ -17,6 +18,7 @@ internal sealed class LinuxVisionLanStreams(
 
     public async ValueTask DisposeAsync()
     {
+        if (Files is not null) await Files.DisposeAsync().ConfigureAwait(false);
         await Video.DisposeAsync().ConfigureAwait(false);
         await Control.DisposeAsync().ConfigureAwait(false);
         if (Audio is not null)
@@ -34,6 +36,7 @@ internal sealed class LinuxVisionLanSession : IAsyncDisposable
     private readonly LinuxVisionLanChannel _video;
     private readonly LinuxVisionLanChannel _control;
     private readonly LinuxVisionLanChannel _audio;
+    private readonly LinuxVisionLanChannel _files;
     private readonly CancellationTokenSource _stop = new();
     private LinuxVisionLanOffer? _offer;
     private DateTimeOffset _expiresAt;
@@ -49,9 +52,10 @@ internal sealed class LinuxVisionLanSession : IAsyncDisposable
         _video = new LinuxVisionLanChannel(address, certificate, LinuxVisionLanChannelKind.Video, allowLoopback);
         _control = new LinuxVisionLanChannel(address, certificate, LinuxVisionLanChannelKind.Control, allowLoopback);
         _audio = new LinuxVisionLanChannel(address, certificate, LinuxVisionLanChannelKind.Audio, allowLoopback);
+        _files = new LinuxVisionLanChannel(address, certificate, LinuxVisionLanChannelKind.Files, allowLoopback);
     }
 
-    public LinuxVisionLanOffer Prepare(int bitrate, int maxSize, int fps, bool audioEnabled)
+    public LinuxVisionLanOffer Prepare(int bitrate, int maxSize, int fps, bool audioEnabled, long generation = 0)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_offer is not null)
@@ -76,7 +80,9 @@ internal sealed class LinuxVisionLanSession : IAsyncDisposable
             bitrate,
             maxSize,
             fps,
-            MuteDeviceAudio: audioEnabled);
+            MuteDeviceAudio: audioEnabled,
+            Files: generation > 0 ? _files.Prepare(sessionId, _expiresAt) : null,
+            FilesWireVersion: generation > 0 ? 2 : 0, CaptureGeneration: generation);
         _offer.Validate(DateTimeOffset.UtcNow, _allowLoopback);
         return _offer;
     }
@@ -90,13 +96,14 @@ internal sealed class LinuxVisionLanSession : IAsyncDisposable
 
         Task<Stream> video = _video.AcceptAsync(offer.SessionId, offer.Video, _expiresAt, linked.Token);
         Task<Stream> control = _control.AcceptAsync(offer.SessionId, offer.Control, _expiresAt, linked.Token);
+        Task<Stream>? files = offer.Files is null ? null : _files.AcceptAsync(offer.SessionId, offer.Files, _expiresAt, linked.Token);
         Task<Stream>? audio = offer.Audio is null
             ? null
             : _audio.AcceptAsync(offer.SessionId, offer.Audio, _expiresAt, linked.Token);
 
         try
         {
-            await Task.WhenAll(video, control).ConfigureAwait(false);
+            await Task.WhenAll(files is null ? [video, control] : new[] { video, control, files }).ConfigureAwait(false);
             Stream? audioStream = null;
             bool audioDegraded = false;
             if (audio is not null)
@@ -118,7 +125,7 @@ internal sealed class LinuxVisionLanSession : IAsyncDisposable
                 await video.ConfigureAwait(false),
                 await control.ConfigureAwait(false),
                 audioStream,
-                audioDegraded);
+                audioDegraded, files is null ? null : await files.ConfigureAwait(false));
         }
         catch
         {
@@ -126,6 +133,8 @@ internal sealed class LinuxVisionLanSession : IAsyncDisposable
             await _video.DisposeAsync().ConfigureAwait(false);
             await _control.DisposeAsync().ConfigureAwait(false);
             await _audio.DisposeAsync().ConfigureAwait(false);
+            await _files.DisposeAsync().ConfigureAwait(false);
+            if (files is not null) await ObserveFailureAsync(files).ConfigureAwait(false);
             await ObserveFailureAsync(video).ConfigureAwait(false);
             await ObserveFailureAsync(control).ConfigureAwait(false);
             if (audio is not null)
@@ -142,6 +151,7 @@ internal sealed class LinuxVisionLanSession : IAsyncDisposable
         await _video.DisposeAsync().ConfigureAwait(false);
         await _control.DisposeAsync().ConfigureAwait(false);
         await _audio.DisposeAsync().ConfigureAwait(false);
+        await _files.DisposeAsync().ConfigureAwait(false);
         _stop.Dispose();
     }
 

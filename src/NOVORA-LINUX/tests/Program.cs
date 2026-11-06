@@ -10,6 +10,17 @@ using NOVORA.Linux;
 using NOVORA.Linux.Control;
 using NOVORA.Linux.VisionEngine;
 
+if (args is ["--ve-runtime-native"]) { VisionRuntimeChecks.RunNative(); return; }
+if (args is ["--outputs-native"]) { VisionInputChecks.RunOutputsNative(); return; }
+if (args is ["--ve-ui"]) { VisionUiChecks.Run(); return; }
+if (args is ["--input-native"]) { VisionInputChecks.RunNative(); return; }
+await VisionInputChecks.RunAsync();
+AndroidKeyboardChecks.Run();
+VisionSettingsChecks.Run();
+await VisionAccelerationChecks.RunAsync();
+await VisionFilesChecks.RunAsync();
+await VisionIntegrationChecks.RunAsync();
+await VisionRecordingChecks.RunAsync();
 string directory = Path.Combine(Path.GetTempPath(), "novora-linux-protocol-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(directory);
 
@@ -25,6 +36,13 @@ try
         TestSdlRenderer(useDummyDriver: false);
         return;
     }
+    if (args is ["--le-lan-only"])
+    {
+        await TestLanLinkGatewayAsync(Path.Combine(directory, "le-lan-gateway"));
+        await TestLanLinkControlRoutingAsync(Path.Combine(directory, "le-lan-control"));
+        Console.WriteLine("LinkEngine LAN checks passed.");
+        return;
+    }
 
     await TestFrameCompatibilityAsync();
     TestAdbParsing();
@@ -36,12 +54,16 @@ try
     TestVisionLanOfferValidation();
     await TestVisionLanChannelAsync(Path.Combine(directory, "vision-lan"));
     await TestVisionLanControlIntegrationAsync(Path.Combine(directory, "vision-lan-control"));
+    await TestVisionDecoderMonitoringAsync();
+    TestVisionDecoderReconfiguration();
     await TestFfmpegDecoderAsync();
     TestSdlRenderer();
     TestSdlAudioOutput();
     await TestPairingAndResumeAsync(Path.Combine(directory, "trust"));
     await TestActiveRevocationAsync(Path.Combine(directory, "revoke-trust"));
     await TestUsbTunnelAsync(Path.Combine(directory, "usb-trust"));
+    await TestLanLinkGatewayAsync(Path.Combine(directory, "le-lan-gateway"));
+    await TestLanLinkControlRoutingAsync(Path.Combine(directory, "le-lan-control"));
     if (args.Length == 2 && args[0] == "--device")
         await TestPhysicalUsbAsync(Path.Combine(directory, "physical-usb-trust"), args[1]);
     Console.WriteLine("Linux protocol and trust-store checks passed.");
@@ -403,7 +425,7 @@ static async Task TestVisionLanControlIntegrationAsync(string directory)
         LinuxVisionLanOffer offer = JsonSerializer.Deserialize<LinuxVisionLanOffer>(started.Value!)
             ?? throw new InvalidOperationException("VisionEngine LAN offer could not be deserialized.");
         offer.Validate(DateTimeOffset.UtcNow, allowLoopback: true);
-        Assert(offer.Audio is not null && offer.Files is null && offer.FilesWireVersion == 0,
+        Assert(offer.Audio is not null && offer.Files is not null && offer.FilesWireVersion == 2 && offer.CaptureGeneration > 0,
             "LAN offer did not preserve optional audio and disabled file-channel semantics.");
         Assert(!sessionGate.Wait(0),
             "The shared VisionEngine gate did not exclude a concurrent USB transport.");
@@ -430,6 +452,7 @@ static async Task TestVisionLanControlIntegrationAsync(string directory)
 
 static async Task TestFfmpegDecoderAsync()
 {
+    string h264Encoder = await FindH264EncoderAsync();
     var encoder = new ProcessStartInfo
     {
         FileName = "ffmpeg",
@@ -441,7 +464,7 @@ static async Task TestFfmpegDecoderAsync()
     foreach (string argument in new[]
     {
         "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=red:s=64x32:r=10",
-        "-frames:v", "3", "-c:v", "libopenh264", "-f", "h264", "pipe:1"
+        "-frames:v", "3", "-c:v", h264Encoder, "-f", "h264", "pipe:1"
     })
         encoder.ArgumentList.Add(argument);
 
@@ -453,30 +476,112 @@ static async Task TestFfmpegDecoderAsync()
     }
     catch (System.ComponentModel.Win32Exception)
     {
-        return;
+        throw new InvalidOperationException("FFmpeg is required for the VisionEngine decoder smoke test.");
     }
     using var bitstream = new MemoryStream();
     Task output = process.StandardOutput.BaseStream.CopyToAsync(bitstream);
     Task<string> errors = process.StandardError.ReadToEndAsync();
     await process.WaitForExitAsync();
     await output;
-    if (process.ExitCode != 0 && (await errors).Contains("Unknown encoder", StringComparison.Ordinal))
-        return;
     Assert(process.ExitCode == 0, $"FFmpeg could not create the H.264 smoke-test stream: {await errors}");
 
     var renderer = new TestVisionRenderer();
-    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
     await using var decoder = new LinuxFfmpegVideoDecoder(
         VideoCodec.H264, new VideoSession(64, 32, 90, 2 * 1024 * 1024), renderer);
     await decoder.WritePacketAsync(bitstream.ToArray(), null, timeout.Token);
     Task completed = await Task.WhenAny(
-        renderer.FirstFrame.Task, decoder.FrameTask, Task.Delay(TimeSpan.FromSeconds(10), timeout.Token));
+        renderer.FirstFrame.Task, decoder.FrameTask, Task.Delay(TimeSpan.FromSeconds(20), timeout.Token));
     if (completed == decoder.FrameTask)
         throw new InvalidOperationException($"FFmpeg ended before producing a frame: {await decoder.ErrorTask}");
     await renderer.FirstFrame.Task.WaitAsync(timeout.Token);
     Assert(renderer.Width == 32 && renderer.Height == 64 && renderer.FrameCount > 0,
         "FFmpeg did not decode and rotate an Android-compatible H.264 frame to RGBA.");
     Console.WriteLine("VisionEngine FFmpeg decoder smoke test passed.");
+}
+
+static async Task<string> FindH264EncoderAsync()
+{
+    var start = new ProcessStartInfo
+    {
+        FileName = "ffmpeg",
+        UseShellExecute = false,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        CreateNoWindow = true
+    };
+    start.ArgumentList.Add("-hide_banner");
+    start.ArgumentList.Add("-encoders");
+
+    using var process = new Process { StartInfo = start };
+    try
+    {
+        if (!process.Start())
+            throw new InvalidOperationException("FFmpeg encoder discovery did not start.");
+    }
+    catch (System.ComponentModel.Win32Exception)
+    {
+        throw new InvalidOperationException("FFmpeg is required for the VisionEngine decoder smoke test.");
+    }
+
+    Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+    Task<string> stderr = process.StandardError.ReadToEndAsync();
+    await process.WaitForExitAsync();
+    string output = $"{await stdout}\n{await stderr}";
+    Assert(process.ExitCode == 0, $"FFmpeg could not list available encoders: {output}");
+
+    string[] available = output.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+    foreach (string candidate in new[] { "libx264", "libopenh264" })
+        if (available.Contains(candidate, StringComparer.Ordinal))
+            return candidate;
+
+    throw new InvalidOperationException(
+        "FFmpeg must provide a software H.264 encoder (libx264 or libopenh264) for the VisionEngine decoder smoke test.");
+}
+
+static async Task TestVisionDecoderMonitoringAsync()
+{
+    using var cancellation = new CancellationTokenSource();
+    var presentation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    async Task<int> PendingOperationAsync()
+    {
+        await Task.Delay(Timeout.InfiniteTimeSpan, cancellation.Token);
+        return 0;
+    }
+
+    Task<int> operation = PendingOperationAsync();
+    Task monitored = LinuxVisionDecoderMonitor.AwaitAsync(operation, presentation.Task, cancellation);
+    presentation.SetException(new IOException("Renderer failed."));
+    try
+    {
+        await monitored;
+        throw new InvalidOperationException("A failed renderer was not propagated to the VE session.");
+    }
+    catch (IOException ex) when (ex.Message == "Renderer failed.")
+    {
+    }
+
+    Assert(cancellation.IsCancellationRequested,
+        "A presentation failure did not cancel the VisionEngine session.");
+}
+
+static void TestVisionDecoderReconfiguration()
+{
+    byte[] configuration = [1, 2, 3];
+    byte[] keyFrame = [4, 5, 6];
+    var changedSession = new VideoSession(128, 64, 90, 2 * 1024 * 1024);
+    var packet = new VideoPacket(changedSession, keyFrame, 42, false, true);
+
+    (byte[] Data, long? PresentationTimeUs)[] inputs =
+        LinuxVisionDecoderInput.ForPacket(packet, configuration, decoderRecreated: true);
+    Assert(inputs.Length == 2 && ReferenceEquals(inputs[0].Data, configuration) &&
+        ReferenceEquals(inputs[1].Data, keyFrame) && inputs[1].PresentationTimeUs == 42,
+        "Recreating the decoder on a geometry change did not replay configuration and forward the current keyframe.");
+
+    var configPacket = new VideoPacket(changedSession, configuration, null, true, false);
+    inputs = LinuxVisionDecoderInput.ForPacket(configPacket, configuration, decoderRecreated: true);
+    Assert(inputs.Length == 1 && ReferenceEquals(inputs[0].Data, configuration),
+        "A configuration packet was duplicated while recreating the decoder.");
 }
 
 static void TestSdlRenderer(bool useDummyDriver = true)
@@ -599,9 +704,50 @@ static async Task TestPairingAndResumeAsync(string directory)
                     new ControlRequest(1, 1, "resume", Value: trustedPc.DeviceId, Code: token), CancellationToken.None);
                 ControlReply connected = await ControlProtocol.ReadAsync<ControlReply>(resumed.Stream, CancellationToken.None);
                 Assert(connected.Success && connected.Snapshot is not null, "Trusted session did not resume.");
+                Assert(connected.Snapshot!.Bitrates.Any(option => option.Value == "10M") &&
+                    connected.Snapshot.VideoSettings?.Resolutions.Any(option => option.Value == "1280") == true,
+                    "Linux VisionEngine did not advertise supported capture settings.");
 
                 await ControlProtocol.WriteAsync(resumed.Stream,
-                    new ControlRequest(1, 2, "startLink", Revision: connected.Snapshot!.Revision), CancellationToken.None);
+                    new ControlRequest(1, 2, "bitrate", Value: "10M", Revision: connected.Snapshot.Revision), CancellationToken.None);
+                ControlReply bitrate = await ControlProtocol.ReadAsync<ControlReply>(resumed.Stream, CancellationToken.None);
+                Assert(bitrate.Success && bitrate.Snapshot?.Bitrate == "10M" &&
+                    bitrate.Snapshot.Revision > connected.Snapshot.Revision,
+                    "Linux VisionEngine did not apply and publish the selected bitrate.");
+
+                await ControlProtocol.WriteAsync(resumed.Stream,
+                    new ControlRequest(1, 3, "resolution", Value: "1280", Revision: bitrate.Snapshot!.Revision), CancellationToken.None);
+                ControlReply resolution = await ControlProtocol.ReadAsync<ControlReply>(resumed.Stream, CancellationToken.None);
+                Assert(resolution.Success && resolution.Snapshot?.VideoSettings?.Resolution == "1280",
+                    "Linux VisionEngine did not apply the selected capture resolution.");
+
+                await ControlProtocol.WriteAsync(resumed.Stream,
+                    new ControlRequest(1, 4, "profile", Value: "Software", Revision: resolution.Snapshot!.Revision), CancellationToken.None);
+                ControlReply profile = await ControlProtocol.ReadAsync<ControlReply>(resumed.Stream, CancellationToken.None);
+                Assert(profile.Success && profile.Snapshot?.Profile == "Software",
+                    "Linux VisionEngine did not publish the selected capture profile.");
+
+                await ControlProtocol.WriteAsync(resumed.Stream,
+                    new ControlRequest(1, 5, "fps", Value: "30", Revision: connected.Snapshot.Revision), CancellationToken.None);
+                ControlReply stale = await ControlProtocol.ReadAsync<ControlReply>(resumed.Stream, CancellationToken.None);
+                Assert(!stale.Success && stale.Message.Contains("ajustes cambiaron", StringComparison.OrdinalIgnoreCase),
+                    "Linux VisionEngine accepted a stale capture-settings revision.");
+
+                Assert(profile.Snapshot!.VideoSettings?.CanApplyTogether==true,"Batch VE settings not advertised.");
+                string batch=JsonSerializer.Serialize(new ControlVideoChanges("Balanced","11M","1440","45","Disabled","0","Window"));
+                await ControlProtocol.WriteAsync(resumed.Stream,new ControlRequest(1,51,"applyVideoSettings",batch,profile.Snapshot.Revision),CancellationToken.None);
+                ControlReply applied=await ControlProtocol.ReadAsync<ControlReply>(resumed.Stream,CancellationToken.None);
+                Assert(applied.Success && applied.Snapshot?.Bitrate=="11M" && applied.Snapshot.VideoSettings?.Resolution=="1440" && applied.Snapshot.AudioOutput=="Disabled","Android batch settings contract failed.");
+                string invalid=JsonSerializer.Serialize(new ControlVideoChanges("Balanced","11M","9999","45","Pc","0"));
+                await ControlProtocol.WriteAsync(resumed.Stream,new ControlRequest(1,52,"applyVideoSettings",invalid,applied.Snapshot!.Revision),CancellationToken.None);
+                ControlReply invalidReply=await ControlProtocol.ReadAsync<ControlReply>(resumed.Stream,CancellationToken.None);
+                Assert(!invalidReply.Success && invalidReply.Snapshot?.Bitrate=="11M" && invalidReply.Snapshot.AudioOutput=="Disabled","Invalid batch partially mutated settings.");
+                await ControlProtocol.WriteAsync(resumed.Stream,new ControlRequest(1,53,"network.capabilities", "{\"Version\":1,\"FilesWireVersions\":[1,2]}"),CancellationToken.None);
+                ControlReply capabilities=await ControlProtocol.ReadAsync<ControlReply>(resumed.Stream,CancellationToken.None);
+                Assert(capabilities.Success,"Android capability negotiation failed.");
+
+                await ControlProtocol.WriteAsync(resumed.Stream,
+                    new ControlRequest(1, 54, "startLink", Revision: profile.Snapshot!.Revision), CancellationToken.None);
                 ControlReply unsupported = await ControlProtocol.ReadAsync<ControlReply>(resumed.Stream, CancellationToken.None);
                 Assert(!unsupported.Success && unsupported.Message.Contains("LinkEngine", StringComparison.Ordinal),
                     "Unsupported engine action was not reported explicitly.");
@@ -647,6 +793,103 @@ static async Task TestPairingAndResumeAsync(string directory)
 static async Task<TestConnection> ConnectAsync(LanInvitation invitation)
 {
     return await ConnectToEndpointAsync(invitation.Host, invitation.Port, invitation.Fingerprint);
+}
+
+static async Task TestLanLinkGatewayAsync(string directory)
+{
+    using var store = new LinuxTrustStore(directory);
+    string relayToken = new string('a', 64);
+    var relayListener = new TcpListener(IPAddress.Loopback, 0);
+    relayListener.Start();
+    int relayPort = ((IPEndPoint)relayListener.LocalEndpoint).Port;
+    Task relaySession = Task.Run(async () =>
+    {
+        using TcpClient relay = await relayListener.AcceptTcpClientAsync();
+        NetworkStream stream = relay.GetStream();
+        string auth = await LinuxLinkProtocol.ReadFrameAsync(stream, CancellationToken.None);
+        Assert(auth == LinuxLinkProtocol.CreateDataAuthentication(relayToken),
+            "LAN gateway did not authenticate DATA against the relay.");
+        await LinuxLinkProtocol.WriteFrameAsync(stream,
+            LinuxLinkProtocol.DataAuthenticationAck, CancellationToken.None);
+        await stream.WriteAsync(new byte[] { 0, 0, 0, 7 });
+        byte[] packet = new byte[1];
+        await stream.ReadExactlyAsync(packet);
+        await stream.WriteAsync(packet);
+    });
+
+    await using var gateway = new LinuxLanLinkGateway(IPAddress.Loopback, store, relayPort,
+        relayToken, allowLoopback: true);
+    LanLinkOffer offer = gateway.Start();
+    Assert(offer.Host == "127.0.0.1" && offer.Port is > 0 and <= 65535 && offer.Transport == "LAN",
+        "LAN gateway offer is incomplete.");
+    Assert(offer.Fingerprint == store.Fingerprint && LinuxLinkProtocol.IsToken(offer.Token),
+        "LAN gateway offer does not carry the PC identity.");
+
+    using (TestConnection rejected = await ConnectToEndpointAsync(offer.Host, offer.Port, offer.Fingerprint))
+    {
+        string wrong = offer.Token[0] == '0' ? new string('1', 64) : new string('0', 64);
+        await ControlProtocol.WriteAsync(rejected.Stream, new LinkHello(1, wrong), CancellationToken.None);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        try { _ = await rejected.Stream.ReadAsync(new byte[1], timeout.Token); }
+        catch (IOException) { }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested) { }
+    }
+    Assert(!gateway.IsConnected, "LAN gateway accepted an invalid DATA token.");
+
+    using TestConnection client = await ConnectToEndpointAsync(offer.Host, offer.Port, offer.Fingerprint);
+    await ControlProtocol.WriteAsync(client.Stream, new LinkHello(1, offer.Token), CancellationToken.None);
+    await WaitUntilAsync(() => gateway.IsConnected, TimeSpan.FromSeconds(3));
+    byte[] relayId = new byte[4];
+    await client.Stream.ReadExactlyAsync(relayId);
+    Assert(BinaryPrimitives.ReadUInt32BigEndian(relayId) == 7,
+        "LAN gateway did not forward the relay identity.");
+    await client.Stream.WriteAsync(new byte[] { 0x42 });
+    byte[] echo = new byte[1];
+    await client.Stream.ReadExactlyAsync(echo);
+    Assert(echo[0] == 0x42, "LAN gateway did not bridge DATA in both directions.");
+    await relaySession.WaitAsync(TimeSpan.FromSeconds(3));
+    relayListener.Stop();
+}
+
+static async Task TestLanLinkControlRoutingAsync(string directory)
+{
+    using var store = new LinuxTrustStore(directory);
+    var fake = new FakeLinkEngine();
+    var server = new LinuxControlServer(IPAddress.Loopback, store, port: 0,
+        allowLoopbackForTests: true, linkEngine: fake);
+    server.Start();
+    try
+    {
+        LanInvitation invitation = server.Invitation;
+        using TestConnection paired = await ConnectAsync(invitation);
+        await ControlProtocol.WriteAsync(paired.Stream,
+            new ControlRequest(1, 1, "pair.lan", Code: invitation.Code), CancellationToken.None);
+        ControlReply connected = await ControlProtocol.ReadAsync<ControlReply>(paired.Stream, CancellationToken.None);
+        Assert(connected.Success && connected.Snapshot?.Engines?.LinkCanStart == true,
+            "LAN control did not advertise LinkEngine as startable.");
+
+        await ControlProtocol.WriteAsync(paired.Stream,
+            new ControlRequest(1, 2, "startLink", Value: "USB"), CancellationToken.None);
+        ControlReply wrongRoute = await ControlProtocol.ReadAsync<ControlReply>(paired.Stream, CancellationToken.None);
+        Assert(!wrongRoute.Success, "LAN control accepted a USB LinkEngine offer.");
+
+        await ControlProtocol.WriteAsync(paired.Stream,
+            new ControlRequest(1, 3, "startLink"), CancellationToken.None);
+        ControlReply started = await ControlProtocol.ReadAsync<ControlReply>(paired.Stream, CancellationToken.None);
+        Assert(started.Success && started.Value?.Contains("\"Transport\":\"LAN\"", StringComparison.Ordinal) == true,
+            "LAN control did not return the LAN LinkEngine offer.");
+        Assert(started.Snapshot?.Engines?.LinkCanStop == true && started.Snapshot.Engines.LinkRunning,
+            "LAN control snapshot did not publish the running LinkEngine.");
+
+        await ControlProtocol.WriteAsync(paired.Stream,
+            new ControlRequest(1, 4, "stopLink"), CancellationToken.None);
+        ControlReply stopped = await ControlProtocol.ReadAsync<ControlReply>(paired.Stream, CancellationToken.None);
+        Assert(stopped.Success && !fake.IsStarted, "LAN control did not stop LinkEngine.");
+    }
+    finally
+    {
+        await server.DisposeAsync();
+    }
 }
 
 static async Task TestActiveRevocationAsync(string directory)
@@ -749,6 +992,29 @@ sealed class TestConnection(TcpClient client, SslStream stream) : IDisposable
     {
         Stream.Dispose();
         Client.Dispose();
+    }
+}
+
+sealed class FakeLinkEngine : ILinuxLinkEngine
+{
+    public event EventHandler? StateChanged;
+    public bool IsStarted { get; private set; }
+    public bool IsConnected => IsStarted;
+    public string State => IsStarted ? "Connected" : "Stopped";
+    public string Message => State;
+
+    public Task<string> StartAsync(CancellationToken cancellationToken)
+    {
+        IsStarted = true;
+        StateChanged?.Invoke(this, EventArgs.Empty);
+        return Task.FromResult("{\"Transport\":\"LAN\"}");
+    }
+
+    public Task StopAsync()
+    {
+        IsStarted = false;
+        StateChanged?.Invoke(this, EventArgs.Empty);
+        return Task.CompletedTask;
     }
 }
 

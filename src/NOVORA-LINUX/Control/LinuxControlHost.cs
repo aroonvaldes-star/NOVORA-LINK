@@ -1,3 +1,4 @@
+using NOVORA.Linux.VisionEngine;
 using System.Net;
 using System.Net.NetworkInformation;
 
@@ -10,10 +11,22 @@ internal sealed record LanAddress(string InterfaceName, IPAddress Address)
 
 internal sealed class LinuxControlHost : IAsyncDisposable
 {
+    private readonly LinuxVisionSettingsStore _visionStore;
+    private readonly object _visionSettingsGate = new();
+    public LinuxVisionSettings VisionSettings { get; private set; }
+    public event Action? VisionSettingsChanged;
+    public LinuxControlHost(LinuxVisionSettingsStore? visionStore = null)
+    {
+        _visionStore=visionStore ?? new();
+        try { VisionSettings = _visionStore.Load(); }
+        catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or InvalidDataException or UnauthorizedAccessException)
+        { VisionSettings = LinuxVisionSettings.Default; }
+    }
     private LinuxTrustStore? _store;
     private LinuxControlServer? _lanServer;
     private LinuxControlServer? _usbServer;
     private LinuxLinkEngine? _usbLinkEngine;
+    private LinuxLanLinkEngine? _lanLinkEngine;
     private LinuxLanDiscovery? _discovery;
     private AdbBridge.UsbReverseLease? _usbReverse;
     private string? _usbSerial;
@@ -27,9 +40,15 @@ internal sealed class LinuxControlHost : IAsyncDisposable
     public bool IsAuthorized => _lanServer?.IsAuthorized == true || _usbServer?.IsAuthorized == true;
     public LanInvitation? Invitation => _lanServer?.Invitation;
     public string? UsbSerial => _usbSerial;
-    public string LinkState => _usbLinkEngine?.State ?? "Unavailable";
-    public string LinkMessage => _usbLinkEngine?.Message ??
-        "Enlaza un teléfono por USB para habilitar LinkEngine.";
+    public string LinkState => ActiveLinkEngine?.State ?? "Unavailable";
+    public string LinkMessage => ActiveLinkEngine?.Message ??
+        "Enlaza un teléfono por USB o LAN para habilitar LinkEngine.";
+    private ILinuxLinkEngine? ActiveLinkEngine =>
+        _usbLinkEngine?.IsConnected == true ? _usbLinkEngine :
+        _lanLinkEngine?.IsConnected == true ? _lanLinkEngine :
+        _usbLinkEngine?.IsStarted == true ? _usbLinkEngine :
+        _lanLinkEngine?.IsStarted == true ? _lanLinkEngine :
+        (ILinuxLinkEngine?)_usbLinkEngine ?? _lanLinkEngine;
     private LinuxControlServer? VisionServer =>
         _lanServer?.HasVisionSession == true ? _lanServer :
         _usbServer?.HasVisionSession == true ? _usbServer :
@@ -64,16 +83,24 @@ internal sealed class LinuxControlHost : IAsyncDisposable
             throw new InvalidOperationException("Detén el control LAN antes de cambiar de interfaz.");
 
         EnsureTrustStore();
+        LinuxLanLinkEngine? linkEngine = null;
         try
         {
+            linkEngine = new LinuxLanLinkEngine(address, _store!);
             var visionLanEngine = new NOVORA.Linux.VisionEngine.LinuxVisionLanEngine(
                 address, _store!, _visionSessionGate);
-            _lanServer = new LinuxControlServer(address, _store!, visionLanEngine: visionLanEngine);
+            _lanServer = new LinuxControlServer(address, _store!, linkEngine: linkEngine,
+                visionLanEngine: visionLanEngine);
+            _lanServer.VisionSettingsGate = _visionSettingsGate;
+            _lanServer.ConfigureVisionSettings(VisionSettings);
+            _lanServer.VisionSettingsChanged += ApplyRemoteVisionSettings;
+            _lanLinkEngine = linkEngine;
             _discovery = new LinuxLanDiscovery(address, Environment.MachineName, _store!.Fingerprint);
             _lanServer.StatusChanged += OnStatusChanged;
             _lanServer.InvitationChanged += OnInvitationChanged;
             _lanServer.Start();
             _discovery.Start();
+            linkEngine = null;
         }
         catch
         {
@@ -83,9 +110,12 @@ internal sealed class LinuxControlHost : IAsyncDisposable
                 _lanServer.InvitationChanged -= OnInvitationChanged;
                 _lanServer.DisposeAsync().AsTask().GetAwaiter().GetResult();
             }
+            if (linkEngine is not null)
+                linkEngine.DisposeAsync().AsTask().GetAwaiter().GetResult();
             if (_discovery is not null)
                 _discovery.DisposeAsync().AsTask().GetAwaiter().GetResult();
             _lanServer = null;
+            _lanLinkEngine = null;
             _discovery = null;
             throw;
         }
@@ -114,9 +144,36 @@ internal sealed class LinuxControlHost : IAsyncDisposable
             throw new AggregateException("El dispositivo fue revocado, pero no se liberaron todos sus recursos.", errors);
     }
 
+    public void StartVisionRecording() { lock(_visionSettingsGate) (VisionRuntime ?? throw new InvalidOperationException("Inicia VE primero.")).StartRecording(); }
+    public void RequestVision() => (_usbServer?.IsAuthorized == true ? _usbServer : _lanServer)?.RequestVision();
+    public LinuxVisionRuntime? VisionRuntime => VisionServer?.VisionRuntime;
+    public bool VisionRecording => VisionServer?.VisionRecording == true;
+
     public Task StopVisionAsync() =>
         (VisionServer ?? throw new InvalidOperationException("El control LAN o USB no está iniciado."))
         .StopVisionAsync();
+
+    public void ConfigureVisionSettings(string bitrate, string profile, int maxSize, int fps) =>
+        ConfigureVisionSettings(VisionSettings with { Bitrate = bitrate, Profile = LinuxVisionSettings.ProfileId(profile), MaxSize = maxSize, Fps = fps });
+
+    public void ConfigureVisionSettings(LinuxVisionSettings settings)
+    {
+        lock(_visionSettingsGate)
+        {
+        settings.Validate();
+        if (VisionRecording) throw new InvalidOperationException("Detén la grabación antes de cambiar ajustes.");
+        _visionStore.Save(settings);
+        _lanServer?.ConfigureVisionSettings(settings);
+        _usbServer?.ConfigureVisionSettings(settings);
+        VisionSettings = settings;
+        VisionSettingsChanged?.Invoke();
+        }
+    }
+
+    private void ApplyRemoteVisionSettings(LinuxVisionSettings settings)
+    {
+        ConfigureVisionSettings(settings);
+    }
 
     public async Task StartUsbAsync(AdbDevice device, CancellationToken cancellationToken)
     {
@@ -128,6 +185,9 @@ internal sealed class LinuxControlHost : IAsyncDisposable
             _adb, device.Serial, _visionSessionGate);
         LinuxControlServer server = new(IPAddress.Loopback, _store!, port: 27214,
             transport: "USB", linkEngine: linkEngine, visionEngine: visionEngine);
+        server.VisionSettingsGate = _visionSettingsGate;
+        server.ConfigureVisionSettings(VisionSettings);
+        server.VisionSettingsChanged += ApplyRemoteVisionSettings;
         server.StatusChanged += OnStatusChanged;
         try
         {
@@ -209,12 +269,14 @@ internal sealed class LinuxControlHost : IAsyncDisposable
         LinuxControlServer? lanServer = _lanServer;
         LinuxControlServer? usbServer = _usbServer;
         LinuxLinkEngine? usbLinkEngine = _usbLinkEngine;
+        LinuxLanLinkEngine? lanLinkEngine = _lanLinkEngine;
         AdbBridge.UsbReverseLease? reverse = _usbReverse;
         LinuxTrustStore? store = _store;
         _discovery = null;
         _lanServer = null;
         _usbServer = null;
         _usbLinkEngine = null;
+        _lanLinkEngine = null;
         _usbReverse = null;
         _usbSerial = null;
         _store = null;
@@ -252,16 +314,24 @@ internal sealed class LinuxControlHost : IAsyncDisposable
                 {
                     try
                     {
-                        if (lanServer is not null)
-                        {
-                            lanServer.StatusChanged -= OnStatusChanged;
-                            lanServer.InvitationChanged -= OnInvitationChanged;
-                            await lanServer.DisposeAsync();
-                        }
+                        if (lanLinkEngine is not null)
+                            await lanLinkEngine.DisposeAsync();
                     }
                     finally
                     {
-                        store?.Dispose();
+                        try
+                        {
+                            if (lanServer is not null)
+                            {
+                                lanServer.StatusChanged -= OnStatusChanged;
+                                lanServer.InvitationChanged -= OnInvitationChanged;
+                                await lanServer.DisposeAsync();
+                            }
+                        }
+                        finally
+                        {
+                            store?.Dispose();
+                        }
                     }
                 }
             }

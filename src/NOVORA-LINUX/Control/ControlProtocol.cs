@@ -5,6 +5,13 @@ using System.Text.Json;
 namespace NOVORA.Linux.Control;
 
 internal sealed record ControlOption(string Value, string Label);
+internal sealed record ControlVideoSettings(
+    string Resolution,
+    string Fps,
+    ControlOption[] Resolutions,
+    ControlOption[] FrameRates,
+    string Monitor = "0", ControlOption[]? Monitors = null, bool CanApplyTogether = true,
+    string PresentationMode = "Window", ControlOption[]? PresentationModes = null);
 internal sealed record ControlEngines(
     bool VideoCanStart,
     bool VideoCanStop,
@@ -27,6 +34,8 @@ internal sealed record ControlEngines(
     object? VisionTelemetry = null,
     long VideoAuthorizationRequestId = 0,
     bool ExInCanStart = false);
+internal sealed record ControlVideoChanges(string Profile,string Bitrate,string Resolution,string Fps,string Audio,string Monitor,string PresentationMode = "Window");
+internal sealed record ControlMedia(bool CanCapture, bool CanRecord, bool Recording, string Message, bool Starting = false, bool AudioIncluded = false);
 internal sealed record ControlSnapshot(
     long Revision,
     string PcName,
@@ -39,7 +48,8 @@ internal sealed record ControlSnapshot(
     ControlOption[] Bitrates,
     ControlOption[] Profiles,
     ControlOption[] AudioOutputs,
-    ControlEngines? Engines = null);
+    ControlEngines? Engines = null,
+    ControlVideoSettings? VideoSettings = null, ControlMedia? Media = null, bool FileSharing = false, object? Capabilities = null);
 internal sealed record ControlRequest(
     int Version,
     long Id,
