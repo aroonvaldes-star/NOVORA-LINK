@@ -98,10 +98,24 @@ internal static class VisionRecordingChecks
     private static async Task<byte[]> GenerateAsync(int width=64,int height=32)
     {
         var start=new ProcessStartInfo("ffmpeg"){UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true};
-        foreach(string arg in new[]{"-hide_banner","-loglevel","error","-f","lavfi","-i",$"color=c=red:s={width}x{height}:r=10","-frames:v","1","-c:v","libopenh264","-f","h264","pipe:1"}) start.ArgumentList.Add(arg);
+        string encoder=await SoftwareH264EncoderAsync();
+        foreach(string arg in new[]{"-hide_banner","-loglevel","error","-f","lavfi","-i",$"color=c=red:s={width}x{height}:r=10","-frames:v","1","-c:v",encoder,"-f","h264","pipe:1"}) start.ArgumentList.Add(arg);
         using var process=Process.Start(start) ?? throw new Exception("FFmpeg missing.");
         using var output=new MemoryStream(); Task copy=process.StandardOutput.BaseStream.CopyToAsync(output); Task<string> errors=process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync(); await copy; if(process.ExitCode!=0) throw new Exception(await errors); return output.ToArray();
+    }
+    private static string? _encoder;
+    /// <summary>Fedora ships libopenh264; Ubuntu (CI) ships libx264. Use whichever FFmpeg provides.</summary>
+    private static async Task<string> SoftwareH264EncoderAsync()
+    {
+        if(_encoder is not null) return _encoder;
+        var start=new ProcessStartInfo("ffmpeg"){UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true};
+        start.ArgumentList.Add("-hide_banner"); start.ArgumentList.Add("-encoders");
+        using var process=Process.Start(start) ?? throw new Exception("FFmpeg missing.");
+        Task<string> errors=process.StandardError.ReadToEndAsync();
+        string encoders=await process.StandardOutput.ReadToEndAsync(); await process.WaitForExitAsync(); await errors;
+        return _encoder=new[]{"libx264","libopenh264"}.FirstOrDefault(name=>encoders.Contains(" "+name+" ",StringComparison.Ordinal))
+            ?? throw new Exception("FFmpeg must provide libx264 or libopenh264 for the recording checks.");
     }
     private static async Task<string> RunAsync(string name,string[] args)
     {
