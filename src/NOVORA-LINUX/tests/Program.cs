@@ -13,6 +13,7 @@ using NOVORA.Linux.VisionEngine;
 if (args is ["--windows-ui"]) { WindowsParityChecks.Run(); return; }
 if (args is ["--connection-selection"]) { await ConnectionSelectionChecks.RunAsync(); return; }
 if (args is ["--auto-connect"]) { await AutoConnectChecks.RunAsync(); return; }
+if (args is ["--decoder-smoke"]) { await TestFfmpegDecoderAsync(); return; }
 if (args is ["--mobile"]) { await MobileConnectionChecks.RunAsync(); return; }
 if (args is ["--update-github"]) { UpdateGitHubChecks.Run(); await UpdateGitHubChecks.RunLiveAsync(); return; }
 if (args is ["--ve-runtime-native"]) { VisionRuntimeChecks.RunNative(); return; }
@@ -495,7 +496,10 @@ static async Task TestFfmpegDecoderAsync()
     foreach (string argument in new[]
     {
         "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=red:s=64x32:r=10",
-        "-frames:v", "3", "-c:v", h264Encoder, "-f", "h264", "pipe:1"
+        // Android's encoder disables B-frames (max-bframes=0). libx264 defaults to B-frames, whose
+        // reordering holds the first pictures until later ones arrive, so a 3-frame stream with an
+        // open pipe never produced output on the Ubuntu CI runner.
+        "-frames:v", "3", "-c:v", h264Encoder, "-bf", "0", "-f", "h264", "pipe:1"
     })
         encoder.ArgumentList.Add(argument);
 
