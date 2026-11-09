@@ -621,9 +621,15 @@ static void TestVisionDecoderReconfiguration()
 
 static void TestSdlRenderer(bool useDummyDriver = true)
 {
-    string? originalDriver = Environment.GetEnvironmentVariable("SDL_VIDEODRIVER");
+    // SDL3 reads SDL_VIDEO_DRIVER; SDL_VIDEODRIVER is the SDL2 name and is ignored, which made the
+    // headless CI runner look for a real display.
+    string? originalDriver = Environment.GetEnvironmentVariable("SDL_VIDEO_DRIVER");
+    string? originalLegacyDriver = Environment.GetEnvironmentVariable("SDL_VIDEODRIVER");
     if (useDummyDriver)
-        Environment.SetEnvironmentVariable("SDL_VIDEODRIVER", "dummy");
+    {
+        NativeEnvironment.Set("SDL_VIDEO_DRIVER", "dummy");
+        NativeEnvironment.Set("SDL_VIDEODRIVER", "dummy");
+    }
     try
     {
         using var renderer = new LinuxSdlVideoRenderer();
@@ -638,14 +644,17 @@ static void TestSdlRenderer(bool useDummyDriver = true)
     }
     finally
     {
-        Environment.SetEnvironmentVariable("SDL_VIDEODRIVER", originalDriver);
+        NativeEnvironment.Set("SDL_VIDEO_DRIVER", originalDriver);
+        NativeEnvironment.Set("SDL_VIDEODRIVER", originalLegacyDriver);
     }
 }
 
 static void TestSdlAudioOutput()
 {
-    string? originalDriver = Environment.GetEnvironmentVariable("SDL_AUDIODRIVER");
-    Environment.SetEnvironmentVariable("SDL_AUDIODRIVER", "dummy");
+    string? originalDriver = Environment.GetEnvironmentVariable("SDL_AUDIO_DRIVER");
+    string? originalLegacyDriver = Environment.GetEnvironmentVariable("SDL_AUDIODRIVER");
+    NativeEnvironment.Set("SDL_AUDIO_DRIVER", "dummy");
+    NativeEnvironment.Set("SDL_AUDIODRIVER", "dummy");
     try
     {
         using var player = new LinuxSdlAudioPlayer();
@@ -653,7 +662,8 @@ static void TestSdlAudioOutput()
     }
     finally
     {
-        Environment.SetEnvironmentVariable("SDL_AUDIODRIVER", originalDriver);
+        NativeEnvironment.Set("SDL_AUDIO_DRIVER", originalDriver);
+        NativeEnvironment.Set("SDL_AUDIODRIVER", originalLegacyDriver);
     }
 }
 

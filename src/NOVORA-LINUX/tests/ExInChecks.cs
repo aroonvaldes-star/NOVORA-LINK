@@ -44,7 +44,7 @@ internal static class ExInChecks
         string temp = Path.Combine(Path.GetTempPath(), "novora-exin-linux-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temp);
         Environment.SetEnvironmentVariable("XDG_DATA_HOME", Path.Combine(temp, "data"));
-        Environment.SetEnvironmentVariable("SDL_VIDEO_DRIVER", "dummy");
+        NativeEnvironment.Set("SDL_VIDEO_DRIVER", "dummy");
 
         // ── ADB parsing (same transport classification as AdbBridge) ─────────────────────
         var usb = NLServiceADB.ParseDevice("R5CT123 device usb:1-1 product:x model:Galaxy_S23 device:y transport_id:3");
@@ -233,7 +233,7 @@ internal static class ExInChecks
         string? previousData = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
         Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", Path.Combine(root, "config"));
         Environment.SetEnvironmentVariable("XDG_DATA_HOME", Path.Combine(root, "data"));
-        Environment.SetEnvironmentVariable("SDL_VIDEO_DRIVER", "dummy");
+        NativeEnvironment.Set("SDL_VIDEO_DRIVER", "dummy");
         try
         {
             Avalonia.AppBuilder.Configure<NOVORA.Linux.App>().UsePlatformDetect().SetupWithoutStarting();

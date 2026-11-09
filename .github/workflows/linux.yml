@@ -70,4 +70,8 @@ jobs:
         run: dotnet build src/NOVORA-LINUX/NOVORA.Linux.csproj -c Release --verbosity quiet
 
       - name: Run Linux protocol and native smoke tests
+        # The runner has no display or sound card: SDL3 must use its dummy drivers.
+        env:
+          SDL_VIDEO_DRIVER: dummy
+          SDL_AUDIO_DRIVER: dummy
         run: dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release --verbosity quiet

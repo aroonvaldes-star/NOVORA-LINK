@@ -57,7 +57,7 @@ internal static class VisionInputChecks
         AppBuilder.Configure<Application>().UsePlatformDetect().SetupWithoutStarting();
         string? oldDriver = Environment.GetEnvironmentVariable("SDL_VIDEO_DRIVER");
         string? oldRenderer = Environment.GetEnvironmentVariable("NOVORA_SDL_RENDERER");
-        Environment.SetEnvironmentVariable("SDL_VIDEO_DRIVER", "dummy");
+        NativeEnvironment.Set("SDL_VIDEO_DRIVER", "dummy");
         Environment.SetEnvironmentVariable("NOVORA_SDL_RENDERER", "software");
         IntPtr library = IntPtr.Zero, text = IntPtr.Zero;
         try
@@ -140,7 +140,7 @@ internal static class VisionInputChecks
         {
             if (text != IntPtr.Zero) Marshal.FreeCoTaskMem(text);
             if (library != IntPtr.Zero) NativeLibrary.Free(library);
-            Environment.SetEnvironmentVariable("SDL_VIDEO_DRIVER", oldDriver);
+            NativeEnvironment.Set("SDL_VIDEO_DRIVER", oldDriver);
             Environment.SetEnvironmentVariable("NOVORA_SDL_RENDERER", oldRenderer);
         }
     }
@@ -148,8 +148,8 @@ internal static class VisionInputChecks
     public static void RunOutputsNative()
     {
         AppBuilder.Configure<Application>().UsePlatformDetect().SetupWithoutStarting();
-        Environment.SetEnvironmentVariable("SDL_VIDEO_DRIVER", "dummy");
-        Environment.SetEnvironmentVariable("SDL_AUDIO_DRIVER", "dummy");
+        NativeEnvironment.Set("SDL_VIDEO_DRIVER", "dummy");
+        NativeEnvironment.Set("SDL_AUDIO_DRIVER", "dummy");
         Environment.SetEnvironmentVariable("NOVORA_SDL_RENDERER", "software");
         LinuxOutputDevice monitor = LinuxSdlDevices.Monitors().First(device => device.Id != 0);
         LinuxOutputDevice audio = LinuxSdlDevices.AudioOutputs().First(device => device.Id != 0);

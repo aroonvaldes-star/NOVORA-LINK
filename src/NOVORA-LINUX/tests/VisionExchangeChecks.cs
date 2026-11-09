@@ -59,7 +59,7 @@ internal static class VisionExchangeChecks
         string? previousData = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
         Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", Path.Combine(root, "config"));
         Environment.SetEnvironmentVariable("XDG_DATA_HOME", Path.Combine(root, "data"));
-        Environment.SetEnvironmentVariable("SDL_VIDEO_DRIVER", "dummy");
+        NativeEnvironment.Set("SDL_VIDEO_DRIVER", "dummy");
         try
         {
             AppBuilder.Configure<App>().UsePlatformDetect().SetupWithoutStarting();
