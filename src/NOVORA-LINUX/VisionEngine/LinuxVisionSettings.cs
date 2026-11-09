@@ -19,8 +19,21 @@ internal sealed record LinuxVisionSettings
     public bool RemoteInput { get; init; } = true;
     public bool LowLatency { get; init; } = true;
     public bool VSync { get; init; }
-    public string RecordingDirectory { get; init; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "NOVORA");
-    public string ReceiveDirectory { get; init; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "NOVORA");
+    public string RecordingDirectory { get; init; } = Path.Combine(UserFolder(Environment.SpecialFolder.MyVideos, "Videos"), "NOVORA");
+    public string ReceiveDirectory { get; init; } = Path.Combine(UserFolder(Environment.SpecialFolder.UserProfile, ""), "Downloads", "NOVORA");
+
+    /// <summary>
+    /// GetFolderPath returns "" on Linux when the folder does not exist yet (fresh profile, CI runner),
+    /// which made every default setting invalid. Never verify existence; fall back under $HOME.
+    /// </summary>
+    private static string UserFolder(Environment.SpecialFolder folder, string homeFallback)
+    {
+        string path = Environment.GetFolderPath(folder, Environment.SpecialFolderOption.DoNotVerify);
+        if (!string.IsNullOrWhiteSpace(path) && Path.IsPathFullyQualified(path)) return path;
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile, Environment.SpecialFolderOption.DoNotVerify);
+        if (string.IsNullOrWhiteSpace(home) || !Path.IsPathFullyQualified(home)) home = Path.GetTempPath();
+        return homeFallback.Length == 0 ? home : Path.Combine(home, homeFallback);
+    }
     public static LinuxVisionSettings Default => new();
     public int BitrateBits => ParseBitrate(Bitrate);
     /// <summary>Mobile-data profiles (values match NLControlMobileData: 120 kbit/s·5 fps·480 px and 250 kbit/s·30 fps·720 px).</summary>
