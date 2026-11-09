@@ -47,6 +47,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes ffmpeg cmake ninja-build build-essential
+          # SDL3 refuses to configure without a windowing backend (X11 or Wayland).
+          sudo apt-get install --yes libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+            libxss-dev libxfixes-dev libxkbcommon-dev libwayland-dev wayland-protocols \
+            libegl1-mesa-dev libgl1-mesa-dev libgbm-dev libdrm-dev libpulse-dev libasound2-dev
 
       - name: Build SDL3 runtime
         run: |
