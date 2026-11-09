@@ -214,9 +214,10 @@ public sealed partial class NLAndroidUIActivity : Activity
         settingsBody.AddView(NLAndroidUIVisionSettingsPage.ApplyHint(this));
         Card(() => {
             Label("Actualización de LINK Control", 15);
-            _updateLinkStatus = Muted("Conecta con NOVORA PC para comprobar actualizaciones.");
+            _updateLinkStatus = Muted("Las actualizaciones se buscan en el repositorio de LINK Control.");
             _updateLinkButton = Button("Instalar actualización", OpenUpdateLINKAsync);
             _updateLinkButton.Visibility = ViewStates.Gone;
+            _updateLinkCheckButton = Button("Buscar actualización", () => CheckUpdateLINKGitHubAsync(manual: true));
         });
         var version = new TextView(this) {
             Text = "v" + (PackageManager?.GetPackageInfo(PackageName!, PackageInfoFlags.MatchAll)?.VersionName ?? "—"),
@@ -1153,6 +1154,7 @@ public sealed partial class NLAndroidUIActivity : Activity
     {
         base.OnResume();
         ResumeUpdateLINKInstall();
+        _ = CheckUpdateLINKGitHubAsync(manual: false);
         RenderLinkMonitor();
         _automaticUsbResumed = true;
         _pendingUsbBootstrap ??= NLAndroidServiceUsbBootstrap.Take();

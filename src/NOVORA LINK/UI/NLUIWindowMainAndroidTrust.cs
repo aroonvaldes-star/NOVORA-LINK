@@ -13,6 +13,8 @@ public partial class NLUIWindowMain
     private NLControlTrustStore? _androidUsbTrustStore;
     private bool _androidLanNetworkSubscribed;
     private bool _androidLanRebinding;
+    private int _androidLanFailures;
+    private DateTimeOffset _androidLanRetryAfter;
     private NLControlTrustStore GetAndroidUsbTrustStore() => _androidUsbTrustStore ??= new NLControlTrustStore(Path.Combine(AndroidTrustDirectory, "USB"));
     private static string AndroidTrustDirectory => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NOVORA", "AndroidControl");
@@ -25,50 +27,82 @@ public partial class NLUIWindowMain
 
     private async Task RestoreAndroidTrustAsync()
     {
+        if (_closing) return;
         if (!_androidLanNetworkSubscribed)
         {
             NetworkChange.NetworkAddressChanged += AndroidLanNetworkAddressChanged;
             _androidLanNetworkSubscribed = true;
         }
-        if (_closing || AndroidControlSessionOpen || !File.Exists(Path.Combine(AndroidTrustDirectory, NLControlTrustStore.FileName))) return;
+        if (_closing || _androidLanRebinding || _androidControlPreparing || DateTimeOffset.UtcNow < _androidLanRetryAfter) return;
+        _androidLanRebinding = true;
         try
         {
             var store = GetAndroidTrustStore();
-            if (!store.ListenEnabled || store.Devices.Count == 0) return;
-            IPAddress? address = IPAddress.TryParse(store.LastHost, out var saved) && IsAvailableAndroidLanAddress(saved)
-                ? saved : GetAndroidLanAddresses() is { Length: 1 } addresses ? addresses[0] : null;
-            if (address is null)
+            // A saved disabled listener represents an explicit stop, not missing setup.
+            if (!store.ListenEnabled && store.LastHost is not null) return;
+            string? current = _androidLanControl is { IsClosed: false } ? store.LastHost : null;
+            string? chosen = NLControlLanAutoPolicy.ChooseAddress(
+                GetAndroidLanAddresses().Select(address => address.ToString()), current);
+            if (chosen == current && current is not null)
             {
-                AndroidControlStatus.Text = "La red guardada cambió. Elige la red actual en Activar reconexión LAN.";
+                // UDP can fail independently of TLS (for example, a temporary port conflict).
+                // Retry discovery without replacing an authorized TCP/USB session.
+                if (_androidLanDiscovery is null && _androidLanControl is { } listening)
+                {
+                    var discovery = new NLControlLanDiscovery(
+                        new(Environment.MachineName, current, listening.Port, store.Fingerprint), persistent: true);
+                    try { discovery.Start(); _androidLanDiscovery = discovery; }
+                    catch { await discovery.DisposeAsync(); throw; }
+                }
+                _androidLanFailures = 0;
+                _androidLanRetryAfter = default;
                 return;
             }
-            await StartAndroidTrustedListenerAsync(address);
+            if (chosen is null)
+            {
+                if (_androidLanControl is not null) await StopAndroidLanListenerAsync();
+                return;
+            }
+            await StartAndroidTrustedListenerAsync(IPAddress.Parse(chosen));
+            _androidLanFailures = 0;
+            _androidLanRetryAfter = default;
         }
-        catch (Exception ex) { AndroidControlStatus.Text = "No se pudo recuperar la confianza LAN: " + ex.Message; }
+        catch (Exception ex)
+        {
+            _androidLanFailures = Math.Min(_androidLanFailures + 1, 5);
+            _androidLanRetryAfter = DateTimeOffset.UtcNow + NLControlLanAutoPolicy.RetryDelay(_androidLanFailures);
+            if (!_closing) AndroidControlStatus.Text = "No se pudo preparar la conexión LAN: " + ex.Message;
+        }
+        finally { _androidLanRebinding = false; }
     }
 
     private void AndroidLanNetworkAddressChanged(object? sender, EventArgs e)
     {
         _ = Dispatcher.InvokeAsync(async () =>
         {
-            if (_closing || _androidLanRebinding || _androidControlPreparing) return;
-            _androidLanRebinding = true;
-            try
-            {
-                var store = _androidTrustStore;
-                if (store?.ListenEnabled != true || store.Devices.Count == 0 ||
-                    IPAddress.TryParse(store.LastHost, out var current) && IsAvailableAndroidLanAddress(current)) return;
-                IPAddress[] addresses = GetAndroidLanAddresses();
-                if (addresses.Length == 1) await StartAndroidTrustedListenerAsync(addresses[0]);
-                else AndroidControlStatus.Text = "La IP de la PC cambió. Elige la red actual en Activar reconexión LAN.";
-            }
-            catch (Exception ex) { AndroidControlStatus.Text = "No se pudo reactivar LAN tras cambiar de IP: " + ex.Message; }
-            finally { _androidLanRebinding = false; }
+            _androidLanRetryAfter = default;
+            await RestoreAndroidTrustAsync();
         });
+    }
+
+    // Rebinding LAN must not invalidate a healthy USB session or its generation.
+    private async Task StopAndroidLanListenerAsync()
+    {
+        var server = _androidLanControl;
+        var discovery = _androidLanDiscovery;
+        _androidLanControl = null;
+        _androidLanDiscovery = null;
+        if (discovery is not null) await discovery.DisposeAsync();
+        if (server is not null) await server.DisposeAsync();
+        try { await StopVeLanVideoAsync(); }
+        finally { await StopAndroidLanLinkAsync(); }
+        UpdateHomeLanConnectionButton();
     }
 
     private void StopAndroidLanNetworkWatch()
     {
+        _automaticConnectionTimer?.Stop();
+        _automaticUsbRecovery.Pause();
         if (!_androidLanNetworkSubscribed) return;
         NetworkChange.NetworkAddressChanged -= AndroidLanNetworkAddressChanged;
         _androidLanNetworkSubscribed = false;
@@ -76,11 +110,14 @@ public partial class NLUIWindowMain
 
     private async Task StartAndroidTrustedListenerAsync(IPAddress address)
     {
-        await StopAndroidControlAsync(preserveTrustListening: true);
+        await StopAndroidLanListenerAsync();
         if (_closing) return;
         var store = GetAndroidTrustStore();
         long generation = _androidControlGeneration;
-        var server = new NLControlTrustServer(address, request => HandleAndroidControlAsync(request, generation, "LAN"), store, allowPairing: false);
+        NLControlTrustServer? server = null;
+        server = new NLControlTrustServer(address, request => ReferenceEquals(_androidLanControl, server)
+            ? HandleAndroidControlAsync(request, generation, "LAN", server)
+            : Task.FromResult(new NLControlReply(NLControlProtocol.Version, request.Id, false, "Sesión revocada.")), store, allowPairing: false);
         _androidLanControl = server;
         server.StatusChanged += (_, status) => Dispatcher.BeginInvoke(new Action(() =>
         {
@@ -90,6 +127,7 @@ public partial class NLUIWindowMain
                     : status;
                 if (!server.IsAuthorized && !AndroidControlAuthorized) { ResetAndroidFileTransfer(); _ = FinishAndroidRecordingAsync(); }
                 if (server.IsAuthorized) RequestWaitingExternalVisionFromAndroid();
+                else QueueAutomaticUsb();
                 UpdateHomeLanConnectionButton();
                 UpdateRuntimeButtons();
                 AndroidEngineStateChanged();
@@ -114,12 +152,12 @@ public partial class NLUIWindowMain
                 : "Reconexión LAN activa; el descubrimiento no está disponible en esta red.";
             UpdateHomeLanConnectionButton();
         }
-        catch { await StopAndroidControlAsync(); throw; }
+        catch { if (ReferenceEquals(_androidLanControl, server)) await StopAndroidLanListenerAsync(); throw; }
     }
 
     private async void ActivateAndroidTrust_Click(object sender, RoutedEventArgs e)
     {
-        if (_androidControlPreparing || _closing) return;
+        if (_androidControlPreparing || _androidLanRebinding || _closing) return;
         _androidControlPreparing = true;
         try
         {
@@ -138,7 +176,7 @@ public partial class NLUIWindowMain
 
     private async void ManageAndroidTrust_Click(object sender, RoutedEventArgs e)
     {
-        if (_closing || _androidControlPreparing) return;
+        if (_closing || _androidControlPreparing || _androidLanRebinding) return;
         _androidControlPreparing = true;
         try
         {

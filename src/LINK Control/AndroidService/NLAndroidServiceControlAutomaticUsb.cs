@@ -50,7 +50,12 @@ public sealed partial class NLAndroidServiceControl
                 try
                 {
                     await Session.ConnectTunnelAsync(bootstrap.Invitation, bootstrap.Transport);
-                    if (tunnelOperation == _operation) _usbInvitation = null;
+                    if (tunnelOperation == _operation)
+                    {
+                        _usbInvitation = null;
+                        // NOVORA_DYNAMIC_CONNECTION_V1: prepare the Wi-Fi route for when the cable leaves.
+                        _ = PrepareLanFallbackAsync(bootstrap.Invitation.Fingerprint, tunnelOperation);
+                    }
                 }
                 finally { RenderNotification(); }
             }

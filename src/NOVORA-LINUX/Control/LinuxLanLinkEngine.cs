@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
+using NOVORA.LinkEngine.Network;
 
 namespace NOVORA.Linux.Control;
 
@@ -21,6 +22,8 @@ internal sealed class LinuxLanLinkEngine : ILinuxLinkEngine
     private string _state = "Stopped";
     private string _message = "LinkEngine LAN detenido.";
     private bool _stopping;
+    private string? _sessionKey;
+    private DateTimeOffset _startedAtUtc;
 
     public event EventHandler? StateChanged;
 
@@ -36,6 +39,13 @@ internal sealed class LinuxLanLinkEngine : ILinuxLinkEngine
     public bool IsConnected => _gateway?.IsConnected == true;
     public string State => Volatile.Read(ref _state);
     public string Message => Volatile.Read(ref _message);
+    public string Transport => "LAN";
+    public string? Serial => null;
+    public string? SessionKey => IsConnected ? Volatile.Read(ref _sessionKey) : null;
+    public string ClientId => "-";
+    public long HeartbeatCount => 0;
+    public int RelayRestarts => _relay?.Restarts ?? 0;
+    public LERelayTrafficSnapshot? TrafficSnapshot => _relay?.TrafficSnapshot;
 
     public async Task<string> StartAsync(CancellationToken cancellationToken)
     {
@@ -58,6 +68,9 @@ internal sealed class LinuxLanLinkEngine : ILinuxLinkEngine
                 string relayToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
                 await relay.StartAsync(relayToken, cancellationToken);
                 relay.ExitedUnexpectedly += OnRelayExited;
+                relay.Recovering += OnRelayRecovering;
+                relay.Recovered += OnRelayRecovered;
+                _startedAtUtc = DateTimeOffset.UtcNow;
 
                 gateway = new LinuxLanLinkGateway(_address, _store, DataPort, relayToken);
                 gateway.StateChanged += OnGatewayStateChanged;
@@ -81,7 +94,7 @@ internal sealed class LinuxLanLinkEngine : ILinuxLinkEngine
                 }
                 if (relay is not null)
                 {
-                    relay.ExitedUnexpectedly -= OnRelayExited;
+                    DetachRelay(relay);
                     await relay.DisposeAsync();
                 }
                 _offer = null;
@@ -115,7 +128,7 @@ internal sealed class LinuxLanLinkEngine : ILinuxLinkEngine
             }
             if (relay is not null)
             {
-                relay.ExitedUnexpectedly -= OnRelayExited;
+                DetachRelay(relay);
                 await relay.DisposeAsync();
             }
             SetState("Stopped", "LinkEngine LAN detenido.");
@@ -129,7 +142,11 @@ internal sealed class LinuxLanLinkEngine : ILinuxLinkEngine
     private void OnGatewayStateChanged(object? sender, EventArgs e)
     {
         if (IsConnected)
+        {
+            Volatile.Write(ref _sessionKey, FormattableString.Invariant(
+                $"LAN:{_address}:{_startedAtUtc:O}:{DateTimeOffset.UtcNow:O}"));
             SetState("Connected", "Canal DATA de LinkEngine conectado por LAN.");
+        }
         else if (!_stopping)
             SetState("Waiting", "Canal DATA LAN cerrado; LinkEngine espera la reconexión de Android.");
     }
@@ -139,6 +156,27 @@ internal sealed class LinuxLanLinkEngine : ILinuxLinkEngine
         if (_stopping)
             return;
         SetState("Error", message);
+    }
+
+    private void OnRelayRecovering(object? sender, int attempt)
+    {
+        if (_stopping) return;
+        SetState("Degraded", $"El relay de LinkEngine se detuvo; reiniciándolo (intento {attempt}).");
+    }
+
+    private void OnRelayRecovered(object? sender, EventArgs e)
+    {
+        if (_stopping) return;
+        SetState(IsConnected ? "Connected" : "Waiting", IsConnected
+            ? "Relay de LinkEngine recuperado; canal DATA LAN activo."
+            : "Relay de LinkEngine recuperado; esperando la reconexión DATA de Android por LAN.");
+    }
+
+    private void DetachRelay(LinuxLinkRelay relay)
+    {
+        relay.ExitedUnexpectedly -= OnRelayExited;
+        relay.Recovering -= OnRelayRecovering;
+        relay.Recovered -= OnRelayRecovered;
     }
 
     private void SetState(string state, string message)

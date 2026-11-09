@@ -71,7 +71,7 @@ internal static class LinuxTheme
                 Brushes.RemoveAt(index);
                 continue;
             }
-            brush.Color = Color.Parse(ResolveColor(Brushes[index].DarkColor, theme));
+            brush.Color = Color.Parse(LinuxVisualPalette.Resolve(Brushes[index].DarkColor, theme));
         }
         Changed?.Invoke(null, EventArgs.Empty);
     }
@@ -119,7 +119,7 @@ internal static class LinuxTheme
     public static SolidColorBrush CreateBrush(string color)
     {
         string normalized = color.ToUpperInvariant();
-        var brush = new SolidColorBrush(Color.Parse(ResolveColor(normalized, _theme)));
+        var brush = new SolidColorBrush(Color.Parse(LinuxVisualPalette.Resolve(normalized, _theme)));
         Brushes.Add((new WeakReference<SolidColorBrush>(brush), normalized));
         return brush;
     }
@@ -135,7 +135,10 @@ internal static class LinuxTheme
     private static void ApplyAvaloniaTheme()
     {
         if (Application.Current is { } application)
+            {
             application.RequestedThemeVariant = _theme == Dark ? ThemeVariant.Dark : ThemeVariant.Light;
+            LinuxVisualPalette.ApplyResources(application, _theme);
+        }
     }
 
     private static string GetThemePath()

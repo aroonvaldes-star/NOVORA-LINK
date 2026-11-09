@@ -16,7 +16,29 @@ internal sealed record LinuxVideoSourceOffer(
     string AudioToken,
     bool MuteDeviceAudio,
     bool AudioEnabled,
-    int FilesPort = 0, string FilesToken = "", int FilesWireVersion = 0, long CaptureGeneration = 0);
+    int FilesPort = 0, string FilesToken = "", int FilesWireVersion = 0, long CaptureGeneration = 0,
+    LinuxCaptureCapabilities? CaptureCapabilities = null);
+
+/// <summary>
+/// JSON-compatible with NLControlNetworkCapabilities. Only sent for mobile-data captures: frame pacing
+/// makes Android drop frames before the encoder, and MobileData unlocks the 100 kbit/s · 1 fps floors.
+/// </summary>
+internal sealed record LinuxCaptureCapabilities(int Version, bool StabilityTelemetry, bool LiveVideoBitrate,
+    bool CaptureFramePacing, bool LiveGeometry, bool MobileData)
+{
+    public static LinuxCaptureCapabilities Mobile { get; } = new(1, false, false, true, false, true);
+
+    /// <summary>Capture limits shared by the USB and LAN engines.</summary>
+    public static void ValidateCapture(int bitrate, int maxSize, int fps, bool mobileData)
+    {
+        bool size = maxSize is 480 or 720 or 960 or 1080 or 1280 or 1440 or 1600 or 1920 or 2160;
+        bool valid = mobileData
+            ? bitrate is >= 100_000 and <= 15_000_000 && maxSize is 480 or 720 && fps is >= 1 and <= 30
+            : bitrate is >= 2_000_000 and <= 15_000_000 && size && fps is 15 or 24 or 30 or 45 or 60;
+        if (!valid)
+            throw new InvalidDataException("Los ajustes de captura de VisionEngine no son válidos.");
+    }
+}
 
 internal sealed record LinuxVisionTelemetry(
     string RendererBackend,
@@ -24,7 +46,7 @@ internal sealed record LinuxVisionTelemetry(
     long FramesRendered,
     long FramesDroppedEstimate,
     int OutputWidth,
-    int OutputHeight, string DecoderBackend = "Unavailable", bool AudioPlaying = false, string InputStatus = "", string RecordingStatus = "", string FilesStatus = "");
+    int OutputHeight, string DecoderBackend = "Unavailable", bool AudioPlaying = false, string InputStatus = "", string RecordingStatus = "", string FilesStatus = "", long VideoBytesReceived = 0);
 
 internal sealed class LinuxVisionEngine : IAsyncDisposable
 {
@@ -72,10 +94,11 @@ internal sealed class LinuxVisionEngine : IAsyncDisposable
         CancellationToken cancellationToken,
         int bitrate = 8_000_000,
         int maxSize = 1920,
-        int fps = 60)
+        int fps = 60,
+        bool mobileData = false)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-        ValidateCaptureSettings(bitrate, maxSize, fps);
+        LinuxCaptureCapabilities.ValidateCapture(bitrate, maxSize, fps, mobileData);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -135,8 +158,9 @@ internal sealed class LinuxVisionEngine : IAsyncDisposable
                     AudioPort: DeviceAudioPort,
                     AudioToken: audioOffer.Token,
                     MuteDeviceAudio: true,
-                    AudioEnabled: Settings.AudioEnabled, FilesPort: DeviceFilesPort, FilesToken: filesOffer.Token,
-                    FilesWireVersion: 2, CaptureGeneration: Runtime.Generation);
+                    AudioEnabled: Settings.AudioEnabled && !mobileData, FilesPort: DeviceFilesPort, FilesToken: filesOffer.Token,
+                    FilesWireVersion: 2, CaptureGeneration: Runtime.Generation,
+                    CaptureCapabilities: mobileData ? LinuxCaptureCapabilities.Mobile : null);
                 return JsonSerializer.Serialize(offer);
             }
             catch
@@ -273,13 +297,6 @@ internal sealed class LinuxVisionEngine : IAsyncDisposable
 
     private void RaiseStatusChanged() => StatusChanged?.Invoke(this, EventArgs.Empty);
 
-    private static void ValidateCaptureSettings(int bitrate, int maxSize, int fps)
-    {
-        if (bitrate is < 2_000_000 or > 15_000_000 ||
-            maxSize is not (480 or 720 or 960 or 1080 or 1280 or 1440 or 1600 or 1920 or 2160) ||
-            fps is not (15 or 24 or 30 or 45 or 60))
-            throw new InvalidDataException("Los ajustes de captura de VisionEngine no son válidos.");
-    }
 
     private void ReleaseExclusiveGate()
     {

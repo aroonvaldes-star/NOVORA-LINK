@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text.Json;
+using NOVORA.LinkEngine.Network;
 
 namespace NOVORA.Linux.Control;
 
@@ -26,12 +27,23 @@ internal sealed class LinuxLinkEngine : ILinuxLinkEngine
     private string _message = "LinkEngine detenido.";
     private bool _connected;
     private bool _stopping;
+    private string _clientId = "-";
+    private long _heartbeats;
+    private string? _sessionKey;
+    private DateTimeOffset _startedAtUtc;
 
     public event EventHandler? StateChanged;
     public bool IsStarted => Volatile.Read(ref _state) is not "Stopped";
     public bool IsConnected => Volatile.Read(ref _connected);
     public string State => Volatile.Read(ref _state);
     public string Message => Volatile.Read(ref _message);
+    public string Transport => "USB";
+    public string? Serial => _serial;
+    public string? SessionKey => IsConnected ? Volatile.Read(ref _sessionKey) : null;
+    public string ClientId => Volatile.Read(ref _clientId);
+    public long HeartbeatCount => Interlocked.Read(ref _heartbeats);
+    public int RelayRestarts => _relay?.Restarts ?? 0;
+    public LERelayTrafficSnapshot? TrafficSnapshot => _relay?.TrafficSnapshot;
 
     public LinuxLinkEngine(AdbBridge adb, string serial)
     {
@@ -68,6 +80,8 @@ internal sealed class LinuxLinkEngine : ILinuxLinkEngine
                 relay = new LinuxLinkRelay();
                 await relay.StartAsync(_token, cancellationToken);
                 relay.ExitedUnexpectedly += OnRelayExited;
+                relay.Recovering += OnRelayRecovering;
+                relay.Recovered += OnRelayRecovered;
                 listener = new TcpListener(IPAddress.Loopback, ControlPort);
                 listener.Start(16);
                 cancellationToken.ThrowIfCancellationRequested();
@@ -79,6 +93,7 @@ internal sealed class LinuxLinkEngine : ILinuxLinkEngine
                 relay = null;
                 listener = null;
                 cancellationToken.ThrowIfCancellationRequested();
+                _startedAtUtc = DateTimeOffset.UtcNow;
                 SetState("Waiting", "LinkEngine preparado; esperando HELLO de Android por USB.");
                 _acceptTask = AcceptLoopAsync(_stop.Token);
                 return JsonSerializer.Serialize(new UsbLinkOffer("USB", _token));
@@ -88,7 +103,7 @@ internal sealed class LinuxLinkEngine : ILinuxLinkEngine
                 listener?.Stop();
                 if (relay is not null)
                 {
-                    relay.ExitedUnexpectedly -= OnRelayExited;
+                    DetachRelay(relay);
                     await relay.DisposeAsync();
                 }
                 if (reverse is not null)
@@ -124,9 +139,12 @@ internal sealed class LinuxLinkEngine : ILinuxLinkEngine
             _activeClient = null;
             _token = null;
             _connected = false;
+            _sessionKey = null;
+            _clientId = "-";
+            Interlocked.Exchange(ref _heartbeats, 0);
             if (relay is not null)
             {
-                relay.ExitedUnexpectedly -= OnRelayExited;
+                DetachRelay(relay);
                 await relay.DisposeAsync();
             }
             if (reverse is not null)
@@ -193,10 +211,14 @@ internal sealed class LinuxLinkEngine : ILinuxLinkEngine
             handshake.CancelAfter(HandshakeTimeout);
             NetworkStream stream = client.GetStream();
             string hello = await LinuxLinkProtocol.ReadFrameAsync(stream, handshake.Token);
-            if (!TryValidateHello(hello, _token!, out _))
+            if (!TryValidateHello(hello, _token!, out string clientId))
                 return;
 
             await LinuxLinkProtocol.WriteFrameAsync(stream, "NOVORA-LINK|2|ACK", handshake.Token);
+            Volatile.Write(ref _clientId, clientId);
+            Interlocked.Exchange(ref _heartbeats, 0);
+            Volatile.Write(ref _sessionKey, FormattableString.Invariant(
+                $"USB:{_serial}:{_startedAtUtc:O}:{DateTimeOffset.UtcNow:O}"));
             _connected = true;
             SetState("Connected", "Canal CONTROL de LinkEngine conectado por USB.");
             long sequence = 0;
@@ -208,6 +230,7 @@ internal sealed class LinuxLinkEngine : ILinuxLinkEngine
                 if (!TryCreateHeartbeatAck(payload, ref sequence, out string ack))
                     throw new InvalidDataException("Heartbeat de LinkEngine no válido.");
                 await LinuxLinkProtocol.WriteFrameAsync(stream, ack, heartbeat.Token);
+                Interlocked.Increment(ref _heartbeats);
             }
         }
     }
@@ -251,6 +274,27 @@ internal sealed class LinuxLinkEngine : ILinuxLinkEngine
             return;
         _connected = false;
         SetState("Error", message);
+    }
+
+    private void OnRelayRecovering(object? sender, int attempt)
+    {
+        if (_stopping) return;
+        SetState("Degraded", $"El relay de LinkEngine se detuvo; reiniciándolo (intento {attempt}).");
+    }
+
+    private void OnRelayRecovered(object? sender, EventArgs e)
+    {
+        if (_stopping) return;
+        SetState(IsConnected ? "Connected" : "Waiting", IsConnected
+            ? "Relay de LinkEngine recuperado; Android reconecta DATA por USB."
+            : "Relay de LinkEngine recuperado; esperando a Android por USB.");
+    }
+
+    private void DetachRelay(LinuxLinkRelay relay)
+    {
+        relay.ExitedUnexpectedly -= OnRelayExited;
+        relay.Recovering -= OnRelayRecovering;
+        relay.Recovered -= OnRelayRecovered;
     }
 
     private void SetState(string state, string message)

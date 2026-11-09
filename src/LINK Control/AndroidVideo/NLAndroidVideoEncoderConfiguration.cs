@@ -6,7 +6,7 @@ internal static class NLAndroidVideoEncoderConfiguration
     internal const int KeyFrameIntervalSeconds = 2;
 
     internal static IReadOnlyDictionary<string, int> Options(int bitrate, int fps, int apiLevel,
-        bool supportsCbr, bool supportsNoBFrames, bool advanced = true)
+        bool supportsCbr, bool supportsNoBFrames, bool advanced = true, bool preferVbr = false)
     {
         var result = new Dictionary<string, int>
         {
@@ -17,7 +17,9 @@ internal static class NLAndroidVideoEncoderConfiguration
             ["i-frame-interval"] = KeyFrameIntervalSeconds
         };
         if (!advanced) return result;
-        if (supportsCbr) result["bitrate-mode"] = 2;
+        // BITRATE_MODE_VBR = 1 (mobile profiles, only when supported), BITRATE_MODE_CBR = 2.
+        if (preferVbr) result["bitrate-mode"] = 1;
+        else if (supportsCbr) result["bitrate-mode"] = 2;
         // KEY_MAX_B_FRAMES is official from API29; its default is already zero.
         if (apiLevel >= 29 && supportsNoBFrames) result["max-bframes"] = 0;
         if (apiLevel >= 26) result["latency"] = 1;

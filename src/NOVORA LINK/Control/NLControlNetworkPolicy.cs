@@ -23,6 +23,8 @@ public sealed record NLNetworkBaseline(long Generation, string LinkKey,
     double RttP95Ms, long ObservedAtTicks, bool QuietCalibrationConfirmed);
 public sealed record NLControlNetworkCapabilities(int Version = 1,
     bool StabilityTelemetry = false, bool LiveVideoBitrate = false,
-    bool CaptureFramePacing = false, bool LiveGeometry = false, int[]? FilesWireVersions = null);
+    bool CaptureFramePacing = false, bool LiveGeometry = false, int[]? FilesWireVersions = null,
+    // Additive «mobileDataV1»: lower capture floors (100 kbit/s, 1 fps) and mobile profiles.
+    bool MobileData = false);
 public sealed record NLNetworkDecision(NLNetworkPolicy AppliedPolicy,
     IReadOnlyList<NLNetworkGrant> Grants, bool Congested, double VideoRateFactor, string Reason);

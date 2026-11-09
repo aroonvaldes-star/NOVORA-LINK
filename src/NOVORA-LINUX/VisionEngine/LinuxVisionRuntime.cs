@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Threading.Channels;
 using NOVORA.Linux.Control;
@@ -14,6 +15,9 @@ internal sealed class LinuxVisionRuntime : IAsyncDisposable
     private CancellationTokenSource? _lifetime;
     private LinuxSdlVideoRenderer? _renderer;
     private long _packets;
+    private long _videoBytes;
+    private long _clipboardSequence;
+    private readonly ConcurrentDictionary<ulong, TaskCompletionSource> _clipboardAcks = new();
     private volatile bool _streaming;
     private int _disposed;
     public LinuxVisionFiles Files { get; }
@@ -23,18 +27,81 @@ internal sealed class LinuxVisionRuntime : IAsyncDisposable
     public string InputStatus { get; private set; } = "Control remoto: requiere Accesibilidad de LINK Control en Android.";
     public bool AudioPlaying { get; private set; }
     public event Action? Changed;
+    /// <summary>Android answered a clipboard read (Type 1). Never logged or persisted.</summary>
+    public event Action<string>? ClipboardReceived;
+    /// <summary>Ctrl+C (true) / Ctrl+V (false) pressed in the video window.</summary>
+    public event Action<bool>? ClipboardShortcut;
+    /// <summary>Paths dropped on the video window.</summary>
+    public event Action<string[]>? FilesDropped;
+    /// <summary>Files sent and received during this VE session (Windows Integración summary).</summary>
+    public LinuxVisionTransferSummary Transfers { get; } = new();
+    public bool IsStreaming => _streaming;
     public LinuxVisionRuntime(LinuxVisionSettings settings, long generation)
     {
         _settings=settings; Generation=generation;
         Files=new(settings.ReceiveDirectory);
         Recorder=new(settings.RecordingDirectory, settings.Fps);
         Files.Changed += Notify;
+        Files.Sent += Transfers.RecordSent;
+        Files.ReceivedFile += (destination,bytes)=>Transfers.RecordReceived(1,bytes,destination);
         Recorder.Changed += Notify;
     }
     private void Notify() => Changed?.Invoke();
     public LinuxVisionTelemetry Telemetry => new(_renderer?.Backend ?? "Unavailable",Interlocked.Read(ref _packets),_renderer?.FramesPresented ?? 0,
         Math.Max(0,Interlocked.Read(ref _packets)-(_renderer?.FramesPresented ?? 0)),_renderer?.OutputWidth ?? 0,_renderer?.OutputHeight ?? 0,
-        DecoderBackend, AudioPlaying, InputStatus, Recorder.Status, Files.Status);
+        DecoderBackend, AudioPlaying, InputStatus, Recorder.Status, Files.Status, Interlocked.Read(ref _videoBytes));
+
+    /// <summary>Windows ExchangeVE Ctrl+C: Android copies the focused selection and returns its clipboard (Type 8 → Type 1).</summary>
+    public void RequestClipboard()
+    {
+        if (!_streaming) throw new InvalidOperationException("ExchangeVE requiere VisionEngine activo.");
+        QueueCommand(new { Type=8, CopyKey=1 });
+    }
+
+    /// <summary>Windows ExchangeVE Ctrl+V: sets Android's clipboard (Type 9) and optionally pastes into the focused field; waits for the ack.</summary>
+    public async Task SetClipboardAsync(string text,bool paste,CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (!_streaming) throw new InvalidOperationException("ExchangeVE requiere VisionEngine activo.");
+        ulong sequence=(ulong)Interlocked.Increment(ref _clipboardSequence);
+        byte[] payload=JsonSerializer.SerializeToUtf8Bytes(new { Type=9, Text=text, Sequence=sequence, Paste=paste });
+        if (payload.Length>ControlProtocol.MaxFrame) throw new InvalidDataException("El texto del portapapeles es demasiado grande para enviarlo a Android.");
+        var ack=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _clipboardAcks[sequence]=ack;
+        try
+        {
+            byte[] frame=new byte[payload.Length+4]; BinaryPrimitives.WriteInt32BigEndian(frame,payload.Length); payload.CopyTo(frame,4);
+            QueueInput(frame);
+            await ack.Task.WaitAsync(TimeSpan.FromSeconds(3),token).ConfigureAwait(false);
+        }
+        catch (TimeoutException) { throw new TimeoutException("Android no confirmó el portapapeles. Revisa la Accesibilidad de LINK Control."); }
+        finally { _clipboardAcks.TryRemove(sequence,out _); }
+    }
+
+    /// <summary>Windows VEMediaRecorder.CaptureAsync: PNG of the last presented frame in the recordings folder.</summary>
+    public async Task<string> CaptureAsync(CancellationToken token=default)
+    {
+        if (!_streaming || _renderer is not { } renderer || !renderer.TryGetLastFrame(out byte[] rgba,out int width,out int height))
+            throw new InvalidOperationException("Espera a que VE muestre imagen antes de capturar.");
+        string directory=_settings.RecordingDirectory;
+        string path=await Task.Run(()=>
+        {
+            Directory.CreateDirectory(directory);
+            string stem="NOVORA-captura-"+DateTime.Now.ToString("yyyyMMdd-HHmmss",System.Globalization.CultureInfo.InvariantCulture);
+            for (int i=0;i<1000;i++)
+            {
+                string candidate=Path.Combine(directory,i==0 ? stem+".png" : $"{stem} ({i}).png");
+                try { LinuxPngWriter.Write(candidate,rgba,width,height); return candidate; }
+                catch (IOException) when (File.Exists(candidate) && i<999) { }
+            }
+            throw new IOException("No se pudo reservar un nombre para la captura.");
+        },token).ConfigureAwait(false);
+        Notify();
+        return path;
+    }
+
+    /// <summary>Applies "Presentación dinámica" to the open window without restarting VE.</summary>
+    public void SetVSync(bool enabled) => _renderer?.SetVSync(enabled);
 
     public void StartRecording()
     {
@@ -67,6 +134,8 @@ internal sealed class LinuxVisionRuntime : IAsyncDisposable
         {
             renderer=new LinuxSdlVideoRenderer(_settings); _renderer=renderer;
             renderer.Input += QueueInput;
+            renderer.ClipboardShortcut += copy => ClipboardShortcut?.Invoke(copy);
+            renderer.FilesDropped += paths => FilesDropped?.Invoke(paths);
             renderer.Closed += () => { windowClosed=true; lifetime.Cancel(); };
             if (files is not null) await Files.AttachAsync(files,Generation,lifetime.Token).ConfigureAwait(false);
             write=WriteInputAsync(control,lifetime.Token);
@@ -87,6 +156,7 @@ internal sealed class LinuxVisionRuntime : IAsyncDisposable
                 VideoPacket? next=decoder is null ? await read.ConfigureAwait(false) : await LinuxVisionDecoderMonitor.AwaitAsync(read,decoder.FrameTask,lifetime).ConfigureAwait(false);
                 if (next is not { } packet) throw new EndOfStreamException("El flujo de video terminó.");
                 session=packet.Session;
+                Interlocked.Add(ref _videoBytes,packet.Data.Length);
                 if (packet.IsConfiguration) configuration=packet.Data; else Interlocked.Increment(ref _packets);
                 bool recreate=decoder is null || decoder.SessionGeometryChanged(session);
                 if (recreate)
@@ -145,11 +215,27 @@ internal sealed class LinuxVisionRuntime : IAsyncDisposable
             while (!token.IsCancellationRequested)
             {
                 JsonElement response=await ControlProtocol.ReadAsync<JsonElement>(stream,token).ConfigureAwait(false);
-                if (response.TryGetProperty("Type",out var type) && type.GetInt32()==6)
-                { InputStatus=response.TryGetProperty("Text",out var text) ? text.GetString() ?? "Error de entrada Android." : "Error de entrada Android."; Notify(); }
+                int kind=response.TryGetProperty("Type",out var type) && type.ValueKind==JsonValueKind.Number ? type.GetInt32() : 0;
+                switch (kind)
+                {
+                    case 1: // NLControlInputResponse.ClipboardType
+                        ClipboardReceived?.Invoke(response.TryGetProperty("Text",out var clip) && clip.ValueKind==JsonValueKind.String ? clip.GetString() ?? "" : "");
+                        break;
+                    case 2: // ClipboardAckType
+                        if (response.TryGetProperty("Sequence",out var sequence) && sequence.TryGetUInt64(out ulong acked) && _clipboardAcks.TryRemove(acked,out var ack))
+                            ack.TrySetResult();
+                        break;
+                    case 6:
+                        InputStatus=response.TryGetProperty("Text",out var text) ? text.GetString() ?? "Error de entrada Android." : "Error de entrada Android."; Notify();
+                        break;
+                }
             }
         }
-        finally { _lifetime?.Cancel(); }
+        finally
+        {
+            _lifetime?.Cancel();
+            foreach (var pending in _clipboardAcks.Values) pending.TrySetException(new IOException("El canal de control de VE terminó."));
+        }
     }
     private async Task PlayAudioAsync(Stream stream,CancellationToken token)
     {

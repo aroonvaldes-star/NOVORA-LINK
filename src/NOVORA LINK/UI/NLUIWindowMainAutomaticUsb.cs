@@ -16,10 +16,40 @@ public partial class NLUIWindowMain
     private string _automaticUsbSnapshot = string.Empty;
     private bool _automaticUsbLoaded, _automaticUsbQueued, _automaticUsbBusy, _automaticUsbDirty;
     private long _automaticUsbServerEpoch = -1;
+    private readonly NLControlUsbRecovery _automaticUsbRecovery = new();
+    private DispatcherTimer? _automaticConnectionTimer;
 
     private void InitializeAutomaticUsb()
     {
-        Loaded += (_, _) => { _automaticUsbLoaded = true; QueueAutomaticUsb(); };
+        Loaded += (_, _) =>
+        {
+            _automaticUsbLoaded = true;
+            _automaticConnectionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            _automaticConnectionTimer.Tick += async (_, _) =>
+            {
+                if (_closing) return;
+                QueueAutomaticUsb();
+                if (!_automaticUsbBusy && !_androidControlPreparing && !_androidLanRebinding &&
+                    _automaticUsbRecovery.Exhausted &&
+                    _automaticUsbRecovery.AuthorizationExpired(_androidControl?.IsAuthorized == true) &&
+                    _androidControl is not null)
+                {
+                    await StopAutomaticUsbAsync();
+                    if (!_closing) AndroidControlStatus.Text = "No se confirmó USB después de tres intentos. Reintenta o reconecta el cable.";
+                }
+                if (!_automaticUsbBusy && !_androidControlPreparing &&
+                    ShouldPrepareAutomaticUsb(_androidLanControl?.IsAuthorized == true) &&
+                    _automaticUsbRecovery.ShouldRetry(_androidControl?.IsAuthorized == true,
+                        _androidControl is null || _androidControl.IsClosed))
+                {
+                    _automaticUsb.Retry();
+                    QueueAutomaticUsb();
+                }
+                await RestoreAndroidTrustAsync();
+            };
+            _automaticConnectionTimer.Start();
+            QueueAutomaticUsb();
+        };
         Activated += (_, _) => QueueAutomaticUsb();
         Closed += (_, _) => { _automaticUsbLoaded = false; _automaticUsb.Pause(); };
     }
@@ -73,6 +103,8 @@ public partial class NLUIWindowMain
             online,
             NLControlUsbAutoPolicy.ParseTransportIdentity(_automaticUsbSnapshot, serial),
             allowWifi: lanFailover);
+        _automaticUsbRecovery.Observe(serial.Length == 0 ? "" : serial + "|" +
+            NLControlUsbAutoPolicy.ParseTransportIdentity(_automaticUsbSnapshot, serial));
         _automaticUsbDirty = true;
         if (!_automaticUsbLoaded || _automaticUsbQueued || _automaticUsbBusy) return;
         _automaticUsbQueued = true;
@@ -101,7 +133,8 @@ public partial class NLUIWindowMain
                     await StopAutomaticUsbAsync();
                 if (_closing || !_automaticUsb.IsCurrent(serial, epoch)) continue;
                 if (_androidControl is { IsAuthorized: true } && _androidControlSerial == serial) continue;
-                if (!_automaticUsb.TryBegin(_androidControlPreparing)) continue;
+                if (_androidControlPreparing || _androidLanRebinding || !_automaticUsbRecovery.TryBegin()) continue;
+                if (!_automaticUsb.TryBegin(false)) continue;
                 await PrepareAutomaticUsbAsync(serial, epoch);
             }
             while (_automaticUsbDirty && !_closing);
@@ -186,7 +219,9 @@ public partial class NLUIWindowMain
             CheckAutomaticUsb(serial, epoch, generation);
             _viewModel.RefreshAudioOutputOptions(_paths);
             created = new NLControlTrustServer(System.Net.IPAddress.Loopback,
-                request => HandleAndroidControlAsync(request, generation, "USB"), GetAndroidUsbTrustStore(), NLControlProtocol.Port,
+                request => ReferenceEquals(_androidControl, created)
+                    ? HandleAndroidControlAsync(request, generation, "USB", created)
+                    : Task.FromResult(new NLControlReply(NLControlProtocol.Version, request.Id, false, "Sesión revocada.")), GetAndroidTrustStore(), NLControlProtocol.Port,
                 transport: "USB");
             // Binding must succeed before adopting an existing exact reverse mapping.
             created.Start();
@@ -204,6 +239,11 @@ public partial class NLUIWindowMain
                     : status;
                 if (server.IsAuthorized)
                 {
+                    // The authorized route identifies the phone; engine buttons must not
+                    // require a second selection after a single-device automatic bootstrap.
+                    var authorizedDevice = _viewModel.Devices.FirstOrDefault(device =>
+                        string.Equals(device.Serial, serial, StringComparison.OrdinalIgnoreCase));
+                    if (authorizedDevice is not null) _viewModel.Device = authorizedDevice;
                     _ = EnsureExInStandaloneAsync();
                     RequestWaitingExternalVisionFromAndroid();
                     // El failover LAN ya no se prepara automáticamente: VE arranca por USB sin él.

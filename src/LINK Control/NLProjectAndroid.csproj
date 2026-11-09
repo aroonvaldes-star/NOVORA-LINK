@@ -7,8 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>NOVORA.AndroidApp</RootNamespace>
     <ApplicationId>com.linkcontrol.novora</ApplicationId>
-    <ApplicationVersion>124</ApplicationVersion>
-    <ApplicationDisplayVersion>1.4.124</ApplicationDisplayVersion>
+    <ApplicationVersion>125</ApplicationVersion>
+    <ApplicationDisplayVersion>1.4.125</ApplicationDisplayVersion>
     <ApplicationTitle>LINK Control</ApplicationTitle>
     <AndroidManifest>Properties\NLPropertiesAndroidManifest.xml</AndroidManifest>
     <AndroidPackageFormats>apk</AndroidPackageFormats>
@@ -24,6 +24,7 @@
 
     <Compile Include="..\NOVORA LINK\Control\NLControlProtocol.cs" Link="Control\NLControlProtocol.cs" />
     <Compile Include="..\NOVORA LINK\Control\NLControlCapturePolicy.cs" Link="Control\NLControlCapturePolicy.cs" />
+    <Compile Include="..\NOVORA LINK\Control\NLControlMobileData.cs" Link="Control\NLControlMobileData.cs" />
     <Compile Include="..\NOVORA LINK\Control\NLControlNetworkPolicy.cs" Link="Control\NLControlNetworkPolicy.cs" />
     <Compile Include="..\NOVORA LINK\Control\NLControlNetworkAllocation.cs" Link="Control\NLControlNetworkAllocation.cs" />
     <Compile Include="..\NOVORA LINK\Network\NLNetworkBudget.cs" Link="Network\NLNetworkBudget.cs" />

@@ -36,7 +36,7 @@ public partial class NLUIWindowMain
 
     private async void HomeConnectionUsb_Click(object sender, RoutedEventArgs e)
     {
-        if (_closing || _androidControlPreparing) return;
+        if (_closing || _androidControlPreparing || _androidLanRebinding) return;
         try
         {
             if (ConnectionRouteBusy())
@@ -64,6 +64,7 @@ public partial class NLUIWindowMain
                 }
                 await StopAndroidControlAsync();
             }
+            _automaticUsbRecovery.Reset();
             _automaticUsb.Retry();
             QueueAutomaticUsb();
             ShowTopMessage14("Preparando conexión USB. Autoriza el teléfono si lo solicita.", NLUIMessageKind14.Info);
@@ -81,7 +82,7 @@ public partial class NLUIWindowMain
     private void HomeConnectionLan_Click(object sender, RoutedEventArgs e)
     {
         UpdateHomeLanConnectionButton();
-        if (_closing || _androidControlPreparing) return;
+        if (_closing || _androidControlPreparing || _androidLanRebinding) return;
         if (_androidLanControl?.IsAuthorized == true)
         {
             ShowTopMessage14("La conexión LAN ya está autorizada.", NLUIMessageKind14.Info);
@@ -129,7 +130,9 @@ public partial class NLUIWindowMain
             .ToArray();
         var routed = candidates.Where(n => n.GetIPProperties().GatewayAddresses
             .Any(g => g.Address.AddressFamily == AddressFamily.InterNetwork && !g.Address.Equals(IPAddress.Any))).ToArray();
-        return routed.Length > 0 ? routed : candidates;
+        return (routed.Length > 0 ? routed : candidates)
+            .OrderBy(n => n.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 ? 1 : 0)
+            .ThenBy(n => n.Name, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
     private static bool IsVirtualAdapter(NetworkInterface adapter)
@@ -171,7 +174,7 @@ public partial class NLUIWindowMain
 
     private async void PrepareAndroidLan_Click(object sender, RoutedEventArgs e)
     {
-        if (_androidControlPreparing) return;
+        if (_androidControlPreparing || _androidLanRebinding) return;
         _androidControlPreparing = true;
         UpdateHomeLanConnectionButton();
         NLControlTrustServer? created = null;
@@ -179,11 +182,14 @@ public partial class NLUIWindowMain
         {
             IPAddress? address = ChooseAndroidLanAddress();
             if (address is null || _closing) return;
-            await StopAndroidControlAsync();
+            await StopAndroidLanListenerAsync();
             long generation = _androidControlGeneration;
             _viewModel.RefreshAudioOutputOptions(_paths);
             var store = GetAndroidTrustStore();
-            var server = new NLControlTrustServer(address, request => HandleAndroidControlAsync(request, generation, "LAN"), store);
+            NLControlTrustServer? server = null;
+            server = new NLControlTrustServer(address, request => ReferenceEquals(_androidLanControl, server)
+                ? HandleAndroidControlAsync(request, generation, "LAN", server)
+                : Task.FromResult(new NLControlReply(NLControlProtocol.Version, request.Id, false, "Sesión revocada.")), store);
             created = server;
             _androidLanControl = server;
 
@@ -205,9 +211,6 @@ public partial class NLUIWindowMain
                 if (server.IsAuthorized) RequestWaitingExternalVisionFromAndroid();
                 if (server.IsAuthorized || server.IsClosed || !server.IsInvitationOpen)
                 {
-                    var discovery = _androidLanDiscovery;
-                    _androidLanDiscovery = null;
-                    if (discovery is not null) await discovery.DisposeAsync();
                     invitationDialog?.Close();
                 }
             }));
@@ -215,7 +218,7 @@ public partial class NLUIWindowMain
             store.SetListening(address.ToString(), true);
             var discovery = new NLControlLanDiscovery(
                 new(Environment.MachineName, address.ToString(), server.Invitation.Port,
-                    server.Invitation.Fingerprint));
+                    server.Invitation.Fingerprint), persistent: true);
             _androidLanDiscovery = discovery;
             string discoveryStatus;
             try { discovery.Start(); discoveryStatus = "Android puede buscar esta PC en la red."; }
@@ -257,11 +260,12 @@ public partial class NLUIWindowMain
             invitationDialog.ShowDialog();
             invitationDialog = null;
             server.CancelInvitation();
-            if (!server.IsAuthorized && store.Devices.Count == 0 && ReferenceEquals(_androidLanControl, server)) await StopAndroidControlAsync();
+            if (!server.IsAuthorized && store.Devices.Count == 0 && ReferenceEquals(_androidLanControl, server))
+                AndroidControlStatus.Text = "Esperando un enlace autorizado; el código LAN temporal se cerró.";
         }
         catch (Exception ex)
         {
-            if (created is not null && ReferenceEquals(_androidLanControl, created)) await StopAndroidControlAsync();
+            if (created is not null && ReferenceEquals(_androidLanControl, created)) await StopAndroidLanListenerAsync();
             if (!_closing) AndroidControlStatus.Text = "No se pudo preparar LAN: " + ex.Message;
         }
         finally

@@ -15,10 +15,35 @@
     <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
     <Content Include="LinkRelay/tcp_ip-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="LinkRelay/target/release/novora-linkengine-relay"
+             Link="Tools/LinkEngine/novora-linkengine-relay"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Assets/**/*" CopyToOutputDirectory="PreserveNewest" />
     <AvaloniaResource Include="Assets/Fonts/*.ttf" />
   </ItemGroup>
-  <Target Name="BuildLinuxLinkRelay" BeforeTargets="Build">
+  <!-- ExInEngine: the Windows engine, HID session and protocol are compiled unchanged so Linux
+       behaves exactly like Windows. Only ExInSdl (native SDL3 loading/event model) and the
+       paths/ADB services are Linux-specific, in ExInEngine/. -->
+  <PropertyGroup>
+    <NovoraWindowsSource>$(MSBuildProjectDirectory)/../NOVORA LINK</NovoraWindowsSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(NovoraWindowsSource)/ExInEngine/*.cs"
+             Exclude="$(NovoraWindowsSource)/ExInEngine/ExInSdl.cs"
+             Link="ExInEngine/Shared/%(Filename)%(Extension)" />
+    <Compile Include="$(NovoraWindowsSource)/Integration/ExInHidProtocol.cs;$(NovoraWindowsSource)/Integration/ExInHidOutput.cs;$(NovoraWindowsSource)/Integration/ExInControlSession.cs;$(NovoraWindowsSource)/Integration/ExInConnectionSupervisor.cs"
+             Link="ExInEngine/Shared/%(Filename)%(Extension)" />
+    <Compile Include="$(NovoraWindowsSource)/Service/NLServiceTimerResolution.cs;$(NovoraWindowsSource)/Contracts/Input/NLInputOutput.cs"
+             Link="ExInEngine/Shared/%(Filename)%(Extension)" />
+    <!-- LinkEngine: SpeedTest server, per-session measurements and recovery policy, unchanged. -->
+    <Compile Include="$(NovoraWindowsSource)/LinkEngine/Metrics/LESpeedTestServer.cs;$(NovoraWindowsSource)/LinkEngine/Metrics/LESessionMeasurements.cs;$(NovoraWindowsSource)/LinkEngine/Recovery/LERecoveryPolicy.cs"
+             Link="LinkEngine/Shared/%(Filename)%(Extension)" />
+    <!-- VisionEngine Exchange: same NOVORA folder import (category layout, collision-safe names). -->
+    <Compile Include="$(NovoraWindowsSource)/Control/NLControlFileStorage.cs"
+             Link="VisionEngine/Shared/%(Filename)%(Extension)" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+  </ItemGroup>
+  <Target Name="BuildLinuxLinkRelay" BeforeTargets="PrepareForBuild">
     <Exec Command="cargo build --release --locked --manifest-path &quot;$(MSBuildProjectDirectory)/LinkRelay/Cargo.toml&quot;" />
     <MakeDir Directories="$(OutDir)Tools/LinkEngine" />
     <Copy SourceFiles="$(MSBuildProjectDirectory)/LinkRelay/target/release/novora-linkengine-relay"

@@ -13,6 +13,7 @@ internal sealed class NLAndroidVideoEncoder : MediaCodec.Callback, IAsyncDisposa
     private readonly Action<Exception> _failed;
     private readonly object _codecGate = new();
     private readonly int _maximumBitrate;
+    private readonly int _minimumBitrate;
     private readonly NLControlKeyframeGate _keyframeGate = new();
     // Without a Handler, MediaCodec delivers callbacks on the main looper, shared with the
     // UI and the accessibility gestures. Output gets its own display-priority thread.
@@ -23,10 +24,13 @@ internal sealed class NLAndroidVideoEncoder : MediaCodec.Callback, IAsyncDisposa
 
     public NLAndroidVideoEncoder(int width, int height, int bitrate, int fps, Action<Exception> failed,
         long captureGeneration = 0,
-        int maximumFrameBytes = NLAndroidVideoPacketQueue.MaximumIndividualFrameBytes)
+        int maximumFrameBytes = NLAndroidVideoPacketQueue.MaximumIndividualFrameBytes,
+        bool mobileData = false)
     {
         _failed = failed;
         _maximumBitrate = bitrate;
+        _minimumBitrate = NLControlMobileData.MinimumBitrate(mobileData);
+        MobileData = mobileData;
         Telemetry = new NLControlCaptureTelemetryWindow(captureGeneration);
         _packets = new NLAndroidVideoPacketQueue(
             bitrate,
@@ -38,7 +42,7 @@ internal sealed class NLAndroidVideoEncoder : MediaCodec.Callback, IAsyncDisposa
             ?? throw new InvalidOperationException("Android no ofrece un codificador H.264.");
         try
         {
-            ConfigureFormat(width, height, bitrate, fps);
+            ConfigureFormat(width, height, bitrate, fps, mobileData);
             InputSurface = _codec.CreateInputSurface()
                 ?? throw new InvalidOperationException("MediaCodec no creó la superficie de entrada.");
         }
@@ -53,10 +57,12 @@ internal sealed class NLAndroidVideoEncoder : MediaCodec.Callback, IAsyncDisposa
         }
     }
 
-    private void ConfigureFormat(int width, int height, int bitrate, int fps)
+    private void ConfigureFormat(int width, int height, int bitrate, int fps, bool mobileData)
     {
         using var capabilities = _codec.CodecInfo.GetCapabilitiesForType(MediaFormat.MimetypeVideoAvc);
         bool supportsCbr = capabilities?.EncoderCapabilities?.IsBitrateModeSupported(BitrateMode.Cbr) == true;
+        // Mobile profiles prefer VBR: a static screen then costs far less than its nominal bitrate.
+        bool supportsVbr = capabilities?.EncoderCapabilities?.IsBitrateModeSupported(BitrateMode.Vbr) == true;
         bool supportsNoBFrames = false;
         if (OperatingSystem.IsAndroidVersionAtLeast(29) && capabilities is not null)
         {
@@ -73,9 +79,12 @@ internal sealed class NLAndroidVideoEncoder : MediaCodec.Callback, IAsyncDisposa
         NLAndroidVideoEncoderConfiguration.Configure(advanced =>
             {
                 using var format = CreateFormat(width, height, NLAndroidVideoEncoderConfiguration.Options(
-                    bitrate, fps, (int)Build.VERSION.SdkInt, supportsCbr, supportsNoBFrames, advanced));
+                    bitrate, fps, (int)Build.VERSION.SdkInt, supportsCbr, supportsNoBFrames, advanced,
+                    preferVbr: mobileData && supportsVbr));
                 _codec.SetCallback(this, _callbackHandler);
                 _codec.Configure(format, null, null, MediaCodecConfigFlags.Encode);
+                // Only the configuration that succeeded tells whether VBR is really in use.
+                UsesVbr = advanced && mobileData && supportsVbr;
             }, _codec.Reset,
             ex => ex is Java.Lang.IllegalArgumentException or Java.Lang.UnsupportedOperationException ||
                 ex is MediaCodec.CodecException { IsRecoverable: true, IsTransient: false } codecError &&
@@ -93,6 +102,10 @@ internal sealed class NLAndroidVideoEncoder : MediaCodec.Callback, IAsyncDisposa
     }
 
     public Surface InputSurface { get; }
+    /// <summary>The capture was negotiated with «mobileDataV1» (lower bitrate floor).</summary>
+    public bool MobileData { get; }
+    /// <summary>VBR was requested; false when the codec does not support it (CBR or default is used).</summary>
+    public bool UsesVbr { get; private set; }
     public ChannelReader<NLAndroidVideoPacket> Packets => _packets.Reader;
     public long DroppedPackets => _packets.DroppedPackets;
     public NLControlCaptureTelemetryWindow Telemetry { get; }
@@ -113,7 +126,7 @@ internal sealed class NLAndroidVideoEncoder : MediaCodec.Callback, IAsyncDisposa
     {
         lock (_codecGate)
         {
-            if (_stopped || bitrate is < 250_000 or > 100_000_000 || bitrate > _maximumBitrate) return false;
+            if (_stopped || bitrate < _minimumBitrate || bitrate > 100_000_000 || bitrate > _maximumBitrate) return false;
             try
             {
                 using var parameters = new Bundle();

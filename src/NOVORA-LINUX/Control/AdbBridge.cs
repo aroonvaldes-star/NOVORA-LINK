@@ -38,8 +38,8 @@ internal sealed class AdbBridge
             throw new InvalidOperationException(current.State == "unauthorized"
                 ? "Autoriza la depuración USB en el teléfono y vuelve a buscar dispositivos."
                 : $"ADB informa el estado «{current.State}» para este teléfono.");
-        if (!current.IsUsb)
-            throw new InvalidOperationException("El dispositivo seleccionado no aparece conectado por USB físico.");
+        // Cable USB or paired wireless debugging: both require the user's explicit consent on the
+        // phone, and the protected bootstrap still needs the shell identity that only ADB grants.
 
         AdbCommandResult package = await ExecuteForDeviceAsync(serial,
             ["shell", "pm", "path", "com.linkcontrol.novora"], cancellationToken);
@@ -95,8 +95,8 @@ internal sealed class AdbBridge
             .SingleOrDefault(device => string.Equals(device.Serial, serial, StringComparison.Ordinal));
         if (current is null)
             throw new InvalidOperationException("El teléfono se desconectó de ADB.");
-        if (current.State != "device" || !current.IsUsb)
-            throw new InvalidOperationException("El teléfono debe estar autorizado y conectado por USB físico.");
+        if (current.State != "device")
+            throw new InvalidOperationException("El teléfono debe estar autorizado en ADB (cable USB o depuración inalámbrica).");
 
         AdbCommandResult before = await ExecuteForDeviceAsync(serial, ["reverse", "--list"], cancellationToken);
         EnsureCommandSucceeded(before, "No se pudieron consultar las rutas USB existentes.");

@@ -13,6 +13,12 @@ internal static class LinuxFilesNetwork
         // Observe is the existing Android enum value 1: no adaptive shaping is advertised by Linux.
         return new(revision,generation,$"linux-{transport}-{generation}",0,0,65536,1500,1);
     }
+    public static bool AdvertisesMobileData(string json)
+    {
+        using var request=JsonDocument.Parse(json);
+        return request.RootElement.TryGetProperty("MobileData",out var mobile) && mobile.ValueKind==JsonValueKind.True;
+    }
+
     public static void ValidateCapabilities(string json)
     {
         using var request=JsonDocument.Parse(json);

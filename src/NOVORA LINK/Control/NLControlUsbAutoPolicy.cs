@@ -81,7 +81,7 @@ namespace NOVORA.Control
             NLControlUsbCandidate? selected = physical.FirstOrDefault(candidate =>
                 String.Equals(candidate.Serial, selectedSerial, StringComparison.OrdinalIgnoreCase));
 
-            return (selected ?? physical.FirstOrDefault())?.Serial.Trim() ?? String.Empty;
+            return (selected ?? (physical.Length == 1 ? physical[0] : null))?.Serial.Trim() ?? String.Empty;
         }
 
         public static HashSet<string> ParseOnline(string snapshot)

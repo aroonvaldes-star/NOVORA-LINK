@@ -14,7 +14,7 @@ internal sealed record UpdateLINKResult(bool Available, string Message, long Ver
 
 /// <summary>
 /// Compares the installed LINK Control with the APK verified by an authorized NOVORA PC.
-/// The GitHub repository is private, so this never embeds a token or claims anonymous access.
+/// Independently, <see cref="UpdateLINKGitHub"/> checks the public LINK-CONTROL repository.
 /// </summary>
 internal static class UpdateLINK
 {
@@ -114,7 +114,11 @@ public sealed partial class NLAndroidUIActivity
     private long _updateLinkPromptedVersion;
     private bool _updateLinkInProgress;
     private string? _updateLinkPendingApk;
-    private NLControlAppUpdate? _updateLinkPendingOffer;
+    private long _updateLinkPendingSize;
+    private Button _updateLinkCheckButton = null!;
+    private UpdateLINKRelease? _updateLinkGitHub;
+    private bool _updateLinkGitHubChecking;
+    private static readonly TimeSpan UpdateLINKCheckInterval = TimeSpan.FromHours(6);
 
     private void RenderUpdateLINK(NLControlSnapshot? snapshot)
     {
@@ -122,6 +126,14 @@ public sealed partial class NLAndroidUIActivity
         catch (Android.Content.PM.PackageManager.NameNotFoundException)
         {
             _updateLinkResult = new(false, "No se pudo leer la versión instalada de LINK Control.");
+        }
+        // Without a PC offer, a newer release found in the LINK-CONTROL repository stays available.
+        if (!_updateLinkResult.Available && GitHubUpdateResult() is { Available: true } github)
+        {
+            _updateLinkResult = github;
+            if (!_updateLinkInProgress) _updateLinkStatus.Text = github.Message;
+            _updateLinkButton.Visibility = Android.Views.ViewStates.Visible;
+            return;
         }
         if (!_updateLinkInProgress) _updateLinkStatus.Text = _updateLinkResult.Message;
         _updateLinkButton.Visibility = _updateLinkResult.Available
@@ -140,7 +152,122 @@ public sealed partial class NLAndroidUIActivity
 
     private async Task OpenUpdateLINKAsync()
     {
-        await DownloadAndInstallUpdateLINKAsync();
+        if (_service?.Session.Current.Snapshot?.AppUpdate is not null && _updateLinkResult.ReleaseUrl is not null)
+            await DownloadAndInstallUpdateLINKAsync();
+        else
+            await DownloadAndInstallGitHubUpdateAsync(manual: true);
+    }
+
+    private long InstalledVersionCode() =>
+        PackageManager?.GetPackageInfo(PackageName!, PackageInfoFlags.MatchAll)?.LongVersionCode ?? 0;
+
+    private UpdateLINKResult? GitHubUpdateResult()
+    {
+        if (_updateLinkGitHub is not { } release) return null;
+        long installed;
+        try { installed = InstalledVersionCode(); }
+        catch (Android.Content.PM.PackageManager.NameNotFoundException) { return null; }
+        return release.VersionCode > installed
+            ? new(true, "LINK Control " + release.VersionName + " está disponible en el repositorio de LINK Control.",
+                release.VersionCode, release.VersionName)
+            : new(false, "LINK Control está actualizado (versión " + (installed > 0 ? "1.4." + installed : "—") + ").");
+    }
+
+    private bool EnginesRunning() =>
+        _service?.Session.Current.Snapshot is { } snapshot &&
+        (snapshot.VideoRunning || snapshot.Engines?.LinkRunning == true);
+
+    /// <summary>
+    /// Checks the public LINK-CONTROL repository: automatically at most every 6 hours, or on demand.
+    /// Downloads automatically only on an unmetered network and never while engines run.
+    /// </summary>
+    private async Task CheckUpdateLINKGitHubAsync(bool manual)
+    {
+        if (_updateLinkGitHubChecking || _updateLinkInProgress) return;
+        ISharedPreferences? preferences = GetSharedPreferences("novora.update", FileCreationMode.Private);
+        long last = preferences?.GetLong("lastGitHubCheck", 0) ?? 0;
+        if (!manual && DateTimeOffset.UtcNow.ToUnixTimeSeconds() - last < (long)UpdateLINKCheckInterval.TotalSeconds)
+            return;
+        _updateLinkGitHubChecking = true;
+        _updateLinkCheckButton.Enabled = false;
+        if (manual) _updateLinkStatus.Text = "Buscando actualizaciones en el repositorio de LINK Control…";
+        try
+        {
+            using var client = UpdateLINKGitHub.CreateClient(PackageManager?.GetPackageInfo(PackageName!, 0)?.VersionName ?? "0");
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            _updateLinkGitHub = await UpdateLINKGitHub.FindLatestAsync(client, (int)Build.VERSION.SdkInt, timeout.Token);
+            using (ISharedPreferencesEditor? editor = preferences?.Edit())
+            {
+                editor?.PutLong("lastGitHubCheck", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                editor?.Apply();
+            }
+            if (!_active) return;
+            if (GitHubUpdateResult() is not { } result) return;
+            if (!result.Available)
+            {
+                if (!_updateLinkResult.Available) _updateLinkStatus.Text = result.Message;
+                return;
+            }
+            _updateLinkResult = result;
+            _updateLinkStatus.Text = result.Message;
+            _updateLinkButton.Visibility = Android.Views.ViewStates.Visible;
+            var connectivity = (Android.Net.ConnectivityManager?)GetSystemService(ConnectivityService);
+            bool metered = connectivity?.IsActiveNetworkMetered != false;
+            if (manual || !metered && !EnginesRunning())
+                await DownloadAndInstallGitHubUpdateAsync(manual);
+            else
+                _updateLinkStatus.Text = result.Message + (metered
+                    ? " Pulsa Instalar actualización para descargarla con datos móviles."
+                    : " Se instalará al detener los motores.");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidDataException or System.Text.Json.JsonException or
+                                   OperationCanceledException or IOException or KeyNotFoundException or InvalidOperationException)
+        {
+            if (manual && _active)
+                _updateLinkStatus.Text = "No se pudo consultar el repositorio de LINK Control (" + ex.GetType().Name + ").";
+        }
+        finally
+        {
+            _updateLinkGitHubChecking = false;
+            _updateLinkCheckButton.Enabled = true;
+        }
+    }
+
+    private async Task DownloadAndInstallGitHubUpdateAsync(bool manual)
+    {
+        if (_updateLinkInProgress) return;
+        if (_updateLinkGitHub is null) { await CheckUpdateLINKGitHubAsync(manual: true); return; }
+        if (_updateLinkGitHub is not { } release || GitHubUpdateResult() is not { Available: true }) return;
+        if (EnginesRunning() && !manual) return;
+        _updateLinkInProgress = true;
+        _updateLinkButton.Enabled = false;
+        _updateLinkStatus.Text = "Descargando LINK Control " + release.VersionName + " desde el repositorio…";
+        try
+        {
+            string apk = Path.Combine(CacheDir!.AbsolutePath, "LinkControl-" + release.VersionCode + ".apk");
+            using var client = UpdateLINKGitHub.CreateClient(release.VersionName);
+            var progress = new Progress<long>(bytes =>
+            {
+                if (_active) _updateLinkStatus.Text = "Descargando LINK Control " + release.VersionName + " · " +
+                    (bytes * 100 / Math.Max(1, release.Size)) + " %";
+            });
+            await UpdateLINKGitHub.DownloadAsync(client, release, apk, progress, CancellationToken.None);
+            if (!_active) return;
+            _updateLinkPendingApk = apk;
+            _updateLinkPendingSize = release.Size;
+            BeginUpdateLINKInstall(apk, release.Size);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidDataException or IOException or
+                                   OperationCanceledException or Java.Lang.Exception)
+        {
+            _updateLinkStatus.Text = "No se pudo descargar la actualización (" + ex.GetType().Name +
+                "). Pulsa Instalar actualización para reintentar.";
+        }
+        finally
+        {
+            _updateLinkInProgress = false;
+            _updateLinkButton.Enabled = true;
+        }
     }
 
     private async Task DownloadAndInstallUpdateLINKAsync()
@@ -157,8 +284,8 @@ public sealed partial class NLAndroidUIActivity
             string apk = await UpdateLINK.DownloadAsync(this, _service.Session, offer);
             if (!_active || _service.Session.Current.Generation != state.Generation) return;
             _updateLinkPendingApk = apk;
-            _updateLinkPendingOffer = offer;
-            BeginUpdateLINKInstall(apk, offer);
+            _updateLinkPendingSize = offer.Size;
+            BeginUpdateLINKInstall(apk, offer.Size);
         }
         catch (Exception ex)
         {
@@ -181,7 +308,7 @@ public sealed partial class NLAndroidUIActivity
         }
     }
 
-    private void BeginUpdateLINKInstall(string apk, NLControlAppUpdate offer)
+    private void BeginUpdateLINKInstall(string apk, long size)
     {
         if (PackageManager?.CanRequestPackageInstalls() != true)
         {
@@ -191,15 +318,15 @@ public sealed partial class NLAndroidUIActivity
             return;
         }
         _updateLinkPendingApk = null;
-        _updateLinkPendingOffer = null;
+        _updateLinkPendingSize = 0;
         var installer = PackageManager.PackageInstaller;
         using var parameters = new PackageInstaller.SessionParams(PackageInstallMode.FullInstall);
         parameters.SetAppPackageName(PackageName);
-        parameters.SetSize(offer.Size);
+        parameters.SetSize(size);
         int sessionId = installer.CreateSession(parameters);
         using var session = installer.OpenSession(sessionId);
         using (var input = File.OpenRead(apk))
-        using (var output = session.OpenWrite("LinkControl.apk", 0, offer.Size))
+        using (var output = session.OpenWrite("LinkControl.apk", 0, size))
         {
             input.CopyTo(output);
             session.Fsync(output);
@@ -214,9 +341,9 @@ public sealed partial class NLAndroidUIActivity
 
     private void ResumeUpdateLINKInstall()
     {
-        if (_updateLinkPendingApk is { } apk && _updateLinkPendingOffer is { } offer &&
+        if (_updateLinkPendingApk is { } apk && _updateLinkPendingSize > 0 &&
             PackageManager?.CanRequestPackageInstalls() == true)
-            BeginUpdateLINKInstall(apk, offer);
+            BeginUpdateLINKInstall(apk, _updateLinkPendingSize);
     }
 }
 

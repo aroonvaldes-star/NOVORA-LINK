@@ -128,11 +128,47 @@ await Test("Recovery callback bursts are coalesced by the existing keyframe gate
     codec.Emit(Nal(700_000, 5), key: true); codec.Emit(Nal(5_000, 1));
     Require(codec.SyncRequests == 1, "Observing IDR bypassed the one-second request gate.");
 });
+await Test("Legacy capture keeps CBR and the 250 kbit/s floor", async () =>
+{
+    await using var encoder = Create();
+    var format = MediaCodec.LastCreated.ConfiguredFormats[0];
+    Require(format["bitrate-mode"] == 2 && !encoder.UsesVbr && !encoder.MobileData,
+        "A capture without mobileDataV1 must keep CBR.");
+    Require(!encoder.TrySetTargetBitrate(120_000) && encoder.TrySetTargetBitrate(250_000),
+        "A legacy capture must keep the 250 kbit/s floor.");
+});
+await Test("Mobile capture uses VBR when supported and accepts 100 kbit/s", async () =>
+{
+    await using var encoder = CreateMobile();
+    var format = MediaCodec.LastCreated.ConfiguredFormats[0];
+    Require(format["bitrate-mode"] == 1 && encoder.UsesVbr && format["bitrate"] == 120_000 &&
+        format["frame-rate"] == 5, "Mobile Extreme must request VBR at 120 kbit/s and 5 fps.");
+    Require(encoder.TrySetTargetBitrate(100_000) && !encoder.TrySetTargetBitrate(99_999) &&
+        !encoder.TrySetTargetBitrate(250_000), "Mobile floor is 100 kbit/s and the initial bitrate is the ceiling.");
+});
+await Test("Mobile capture reports CBR fallback when VBR is unsupported", async () =>
+{
+    MediaCodec.SupportsVbr = false;
+    await using var encoder = CreateMobile();
+    Require(MediaCodec.LastCreated.ConfiguredFormats[0]["bitrate-mode"] == 2 && !encoder.UsesVbr,
+        "Without VBR the encoder must report the fallback instead of claiming VBR.");
+});
+await Test("Rejected VBR retries with the base format", async () =>
+{
+    MediaCodec.ConfigureFailure = f => f.ContainsKey("bitrate-mode") && f.GetInteger("bitrate-mode") == 1
+        ? new Java.Lang.IllegalArgumentException("VBR rejected") : null;
+    await using var encoder = CreateMobile();
+    var codec = MediaCodec.LastCreated;
+    Require(codec.ConfiguredFormats.Count == 2 && !codec.ConfiguredFormats[1].ContainsKey("bitrate-mode") &&
+        codec.ConfiguredFormats[1]["bitrate"] == 120_000 && !encoder.UsesVbr,
+        "A rejected VBR must fall back without raising bitrate or claiming VBR.");
+});
 foreach (var portable in PortableQueueTests.Cases()) await Test(portable.Name, portable.Run);
 Console.WriteLine($"RESULT {passed} PASS / {failed} FAIL");
 return failed == 0 ? 0 : 1;
 
 NLAndroidVideoEncoder Create() => new(2560, 1440, 20_000_000, 60, ex => throw new InvalidOperationException("Callback failed", ex));
+NLAndroidVideoEncoder CreateMobile() => new(480, 272, 120_000, 5, ex => throw new InvalidOperationException("Callback failed", ex), mobileData: true);
 async Task Test(string name, Func<Task> body)
 {
     // Preserve per-test setup that deliberately changes this JNI boundary.

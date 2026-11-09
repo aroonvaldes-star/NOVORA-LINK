@@ -12,6 +12,7 @@
     <Compile Include="$(QueueSource)" Link="Production/NLAndroidVideoPacketQueue.cs" />
     <Compile Include="$(ConfigurationSource)" Link="Production/NLAndroidVideoEncoderConfiguration.cs" />
     <Compile Include="../../src/NOVORA LINK/Control/NLControlCapturePolicy.cs" Link="Production/NLControlCapturePolicy.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlMobileData.cs" Link="Production/NLControlMobileData.cs" />
     <Compile Include="../../src/NOVORA LINK/Control/NLControlNetworkPolicy.cs" Link="Production/NLControlNetworkPolicy.cs" />
     <Compile Include="../../src/NOVORA LINK/VisionEngine/Protocol/VEProtocolConstants.cs" Link="Production/VEProtocolConstants.cs" />
   </ItemGroup>

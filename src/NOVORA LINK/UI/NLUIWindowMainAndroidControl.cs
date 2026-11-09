@@ -202,13 +202,6 @@ public partial class NLUIWindowMain
             ? audio.ActiveOutputVE : "Sin reproducción activa; salida solo configurada";
     }
 
-    private Task<NLControlReply> HandleAndroidControlAsync(NLControlRequest request, long generation, string transport) =>
-        Dispatcher.InvokeAsync(() => generation == _androidControlGeneration && AndroidControlSessionOpen &&
-            (transport == "USB" ? _androidControl?.IsAuthorized == true : _androidLanControl?.IsAuthorized == true)
-            ? ApplyAndroidControlAsync(request, transport)
-            : Task.FromResult(new NLControlReply(NLControlProtocol.Version, request.Id, false,
-                "Sesión revocada."))).Task.Unwrap();
-
     private async Task StopAutomaticUsbAsync()
     {
         ClearPcVideoAuthorizationRequest();
@@ -378,6 +371,12 @@ public partial class NLUIWindowMain
 
     private async Task StopAndroidControlAsync(bool preserveTrustListening = false)
     {
+        if (!preserveTrustListening)
+        {
+            // An explicit stop/revocation must not be undone by the recovery timer.
+            _automaticUsb.Pause();
+            _automaticUsbRecovery.Pause();
+        }
         _androidControlGeneration++;
         await StopAppControlVideoSourceAsync();
         await StopVeLanVideoAsync();

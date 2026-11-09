@@ -22,11 +22,34 @@ internal sealed record LinuxVisionSettings
     public string RecordingDirectory { get; init; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "NOVORA");
     public string ReceiveDirectory { get; init; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "NOVORA");
     public static LinuxVisionSettings Default => new();
-    public int BitrateBits => int.Parse(Bitrate[..^1], System.Globalization.CultureInfo.InvariantCulture) * 1_000_000;
+    public int BitrateBits => ParseBitrate(Bitrate);
+    /// <summary>Mobile-data profiles (values match NLControlMobileData: 120 kbit/s·5 fps·480 px and 250 kbit/s·30 fps·720 px).</summary>
+    public bool IsMobile => IsMobileProfile(Profile);
+    public static bool IsMobileProfile(string profile) => profile is "MobileExtreme" or "MobileEconomy";
+    public static readonly string[] MobileBitrates = ["120K", "250K"];
+    public static readonly string[] LegacyBitrates = Enumerable.Range(2, 14).Select(n => $"{n}M").ToArray();
+    public static readonly string[] AllBitrates = [.. MobileBitrates, .. LegacyBitrates];
+    public static readonly int[] MobileFrameRates = [5, 10, 15, 24, 30];
+    public static readonly int[] LegacyFrameRates = [15, 24, 30, 45, 60];
+    public static readonly int[] AllFrameRates = [5, 10, 15, 24, 30, 45, 60];
+    /// <summary>"120K" → 120000 bit/s, "8M" → 8000000 bit/s.</summary>
+    public static int ParseBitrate(string bitrate)
+    {
+        if (string.IsNullOrEmpty(bitrate) || bitrate.Length < 2)
+            throw new InvalidDataException("Bitrate no válido.");
+        int value = int.Parse(bitrate[..^1], System.Globalization.CultureInfo.InvariantCulture);
+        return bitrate[^1] switch
+        {
+            'K' => checked(value * 1_000),
+            'M' => checked(value * 1_000_000),
+            _ => throw new InvalidDataException("Bitrate no válido.")
+        };
+    }
     public static string ProfileId(string value) => value switch
     {
         "Automático" => "Automatic", "Competitivo" => "Competitive", "Equilibrado" or "Balanceado" => "Balanced",
-        "Calidad" => "Quality", "Fluidez" => "Smooth", _ => value
+        "Calidad" => "Quality", "Fluidez" => "Smooth",
+        "Móvil extremo" => "MobileExtreme", "Móvil ahorro" => "MobileEconomy", _ => value
     };
     public static LinuxVisionSettings ForProfile(string profile)
     {
@@ -38,6 +61,9 @@ internal sealed record LinuxVisionSettings
             "Quality" => settings with { Bitrate = "15M", MaxSize = 2160, Fps = 60, LowLatency = false, VSync = true },
             "Smooth" => settings with { Bitrate = "10M", MaxSize = 1920, Fps = 60, VSync = true },
             "Software" => settings with { Acceleration = "Software", MaxSize = 1280, Fps = 30 },
+            // Mobile data: audio off; Economy at 30 fps by user request (same bitrate, smoother motion).
+            "MobileExtreme" => settings with { Bitrate = "120K", MaxSize = 480, Fps = 5, AudioEnabled = false, LowLatency = true },
+            "MobileEconomy" => settings with { Bitrate = "250K", MaxSize = 720, Fps = 30, AudioEnabled = false, LowLatency = true },
             _ => settings
         };
         settings.Validate();
@@ -45,10 +71,13 @@ internal sealed record LinuxVisionSettings
     }
     public void Validate()
     {
-        if (Profile is not ("Automatic" or "Competitive" or "Balanced" or "Quality" or "Smooth" or "Software") ||
-            !Enumerable.Range(2, 14).Select(n => $"{n}M").Contains(Bitrate) ||
-            MaxSize is not (480 or 720 or 960 or 1080 or 1280 or 1440 or 1600 or 1920 or 2160) ||
-            Fps is not (15 or 24 or 30 or 45 or 60) ||
+        bool mobile = IsMobile;
+        if (Profile is not ("Automatic" or "Competitive" or "Balanced" or "Quality" or "Smooth" or "Software" or
+                "MobileExtreme" or "MobileEconomy") ||
+            !(mobile ? MobileBitrates : LegacyBitrates).Contains(Bitrate) ||
+            (mobile ? MaxSize is not (480 or 720) :
+                MaxSize is not (480 or 720 or 960 or 1080 or 1280 or 1440 or 1600 or 1920 or 2160)) ||
+            !(mobile ? MobileFrameRates : LegacyFrameRates).Contains(Fps) ||
             Acceleration is not ("Automatic" or "Software" or "Forced") ||
             HardwareBackend is not ("vaapi" or "cuda" or "qsv" or "vulkan") ||
             string.IsNullOrWhiteSpace(RecordingDirectory) || !Path.IsPathFullyQualified(RecordingDirectory) ||

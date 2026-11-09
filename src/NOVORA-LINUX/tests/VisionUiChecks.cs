@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Avalonia.LogicalTree;
 using NOVORA.Linux;
 using System.Reflection;
 
@@ -20,8 +21,8 @@ internal static class VisionUiChecks
             window.Show();
             typeof(MainWindow).GetMethod("ShowPage",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(window,["VisionEngine"]);
             Dispatcher.UIThread.RunJobs();
-            string[] required={"Solicitar pantalla a Android","Iniciar grabación MKV","Enviar archivos","Enviar carpeta","Cancelar envío"};
-            var labels=window.GetVisualDescendants().OfType<Button>().Select(b=>b.Content as string).ToArray();
+            string[] required={"VER PANTALLA","Iniciar grabación MKV","Enviar archivos","Enviar carpeta","Cancelar envío"};
+            var labels=window.GetLogicalDescendants().OfType<Button>().Select(b=>b.Content as string).ToArray();
             foreach(string label in required) if(!labels.Contains(label)) throw new Exception("Missing VE action: "+label);
             using var bitmap=new RenderTargetBitmap(new PixelSize(1280,960)); bitmap.Render(window); bitmap.Save("/tmp/novora-ve-ui.png");
             window.Close(); Dispatcher.UIThread.RunJobs();

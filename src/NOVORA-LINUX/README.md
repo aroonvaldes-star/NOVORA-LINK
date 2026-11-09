@@ -27,6 +27,36 @@ two minutes and is single-use. The certificate and trusted-device hashes are kep
 `$XDG_CONFIG_HOME/novora-link-linux` (or `~/.config/novora-link-linux`) with
 user-only file permissions.
 
+## Dynamic connectivity (USB or LAN, no route selection)
+
+When the application starts, `LinuxAutoConnector` keeps LINK Control reachable
+without asking the user to choose USB or LAN first:
+
+- **LAN** listens automatically on the active private network (physical interface
+  with a default gateway first; Docker/libvirt/VPN bridges are skipped) and moves
+  to the new address when the network changes. A manual «Detener control LAN»
+  keeps LAN off until it is prepared again.
+- **USB** follows ADB hotplug with `adb track-devices -l` (no polling). An
+  authorized USB phone is bootstrapped through `UsbBootstrapActivity`; a lost
+  session is bootstrapped again while the cable stays connected. Bootstraps that
+  LINK Control never confirms are bounded to 3 per plug-in (they open the app on the
+  phone); replugging or «Enlazar por USB» restores them. Two USB phones are never
+  chosen silently. ADB over Wi-Fi is not treated as USB.
+- A LAN session with running engines is not moved to a newly plugged cable; an
+  idle LAN session moves to USB.
+- Engines use whichever route is authorized (USB preferred). A running capture
+  keeps its route; a preferred but unauthorized route never blocks the other.
+  Engines still start only when the user (PC or Android) asks for them.
+- LINK Control 1.4.125+ stores the PC after an ADB-bootstrapped session, finds its
+  LAN address by certificate fingerprint and continues over Wi-Fi when the cable is
+  removed, retrying every 1, 2, 4, 8 and then 15 s while in foreground. A phone that
+  never linked over USB still needs the one-time LAN pairing code.
+
+Pure policy, ADB framing and the connector state machine are covered by
+`dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --auto-connect`.
+`--control-only` runs connection, trust, USB tunnel and LinkEngine LAN checks
+without the media fixtures.
+
 ## VisionEngine
 
 The VisionEngine page now connects its settings and actions to the USB/LAN runtime:

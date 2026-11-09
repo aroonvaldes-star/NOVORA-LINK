@@ -212,7 +212,16 @@ public sealed partial class NLAndroidServiceControl : Service
         _freshLanPeer = null;
         BeginForeground();
         long operation = _operation;
-        try { await Session.ConnectUsbAsync(invitation); if (operation == _operation) { _freshInvitation = invitation; _usbInvitation = null; } }
+        try
+        {
+            await Session.ConnectUsbAsync(invitation);
+            if (operation == _operation)
+            {
+                _freshInvitation = invitation;
+                _usbInvitation = null;
+                _ = PrepareLanFallbackAsync(invitation.Fingerprint, operation);
+            }
+        }
         finally { RenderNotification(); }
     }
     public async Task ConnectLanAsync(NLControlLanPeer peer, string pairingCode)
@@ -388,13 +397,14 @@ public sealed partial class NLAndroidServiceControl : Service
     {
         try
         {
-            int[] delays = [1, 3, 8];
-            for (int attempt = 0; attempt < delays.Length; attempt++)
+            // NOVORA_DYNAMIC_CONNECTION_V1: LINK Control keeps trying while it runs in foreground;
+            // «Desconectar», forgetting the PC or a rejected identity end the recovery.
+            for (int attempt = 0; ; attempt++)
             {
-                RecoveryMessage = $"Reconectando con {SafeName(peer.PcName)} · intento {attempt + 1}/3";
+                RecoveryMessage = $"Reconectando con {SafeName(peer.PcName)} · intento {attempt + 1}";
                 RenderNotification();
                 StatusChanged?.Invoke(this, EventArgs.Empty);
-                await Task.Delay(TimeSpan.FromSeconds(delays[attempt]), cancellation.Token);
+                await Task.Delay(RecoveryDelay(attempt), cancellation.Token);
                 if (operation != _operation || !_foreground || _destroyed) return;
                 try
                 {
@@ -410,7 +420,6 @@ public sealed partial class NLAndroidServiceControl : Service
                 catch (Exception ex) when (ex is IOException or System.Net.Sockets.SocketException or System.OperationCanceledException or ObjectDisposedException)
                 { if (cancellation.IsCancellationRequested) return; }
             }
-            RecoveryMessage = "No se recuperó el enlace después de 3 intentos. Revisa la red y conecta desde PC guardadas.";
         }
         catch (System.OperationCanceledException) { }
         catch (Exception)

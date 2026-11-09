@@ -403,7 +403,8 @@ internal sealed class NLAndroidServiceVeLanCapture : Service
             encodedSize.Width, encodedSize.Height, offer.Bitrate, offer.Fps);
         _encoder = new NLAndroidVideoEncoder(
             encodedSize.Width, encodedSize.Height, offer.Bitrate, offer.Fps,
-            failed, offer.CaptureGeneration, maximumFrameBytes);
+            failed, offer.CaptureGeneration, maximumFrameBytes,
+            mobileData: offer.CaptureCapabilities?.MobileData == true);
         _compositor = new NLAndroidVideoCompositor(
             _encoder.InputSurface, encodedSize.Width, encodedSize.Height,
             offer.CaptureGeneration > 0 && offer.CaptureCapabilities?.CaptureFramePacing == true ? offer.Fps : 0);
@@ -430,7 +431,7 @@ internal sealed class NLAndroidServiceVeLanCapture : Service
         var activeCompositor = _compositor;
         _capturePolicySession = new NLControlCapturePolicySession(offer.CaptureGeneration, offer.Bitrate,
             offer.Fps, offer.CaptureCapabilities ?? new(), activeEncoder.TrySetTargetBitrate,
-            activeCompositor.TrySetTargetFps);
+            activeCompositor.TrySetTargetFps, mobileData: offer.CaptureCapabilities?.MobileData == true);
         return encodedSize;
     }
 

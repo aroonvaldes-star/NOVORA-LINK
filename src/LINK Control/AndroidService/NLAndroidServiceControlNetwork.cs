@@ -10,7 +10,9 @@ public sealed partial class NLAndroidServiceControl
     internal static NLControlNetworkCapabilities CaptureNetworkCapabilities => new(
         StabilityTelemetry: true, LiveVideoBitrate: true, CaptureFramePacing: true,
         LiveGeometry: false,
-        FilesWireVersions: NLFileProtocolPolicy.AdvertisedVersions());
+        FilesWireVersions: NLFileProtocolPolicy.AdvertisedVersions(),
+        // mobileDataV1: this APK accepts mobile-data offers (100 kbit/s · 1 fps floors, VBR).
+        MobileData: true);
 
     private void TryAnnounceNetworkCapabilities(NLControlSessionState state)
     {

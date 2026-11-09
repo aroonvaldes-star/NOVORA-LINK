@@ -1,0 +1,64 @@
+name: Windows main preview
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/NOVORA LINK/**'
+      - 'tests/NOVORA.WindowsConnection.Tests/**'
+      - '.github/workflows/windows-main-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-main-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          dotnet-version: '8.0.x'
+      - name: Verify Windows tools
+        shell: pwsh
+        run: ./scripts/Setup-Tools.ps1 -ToolsDir 'src/NOVORA LINK/Tools'
+      - name: Test connection policy and queued commands
+        shell: pwsh
+        run: |
+          dotnet run --project tests/NOVORA.WindowsConnection.Tests -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'Windows connection tests failed.' }
+      - name: Publish standalone Windows x64 preview
+        shell: pwsh
+        run: |
+          dotnet publish 'src/NOVORA LINK/NLProjectDesktop.csproj' -c Release -r win-x64 --self-contained true -o artifacts/windows-main -p:NuGetAudit=false
+          if ($LASTEXITCODE -ne 0) { throw 'Windows publish failed.' }
+          if (-not (Test-Path artifacts/windows-main/NOVORA-LINK.exe)) { throw 'NOVORA-LINK.exe is missing.' }
+          @"
+          NOVORA-LINK Windows x64 - preview de main
+          Commit: $env:GITHUB_SHA
+          Extrae todo el ZIP en una carpeta y ejecuta NOVORA-LINK.exe.
+          Incluye el runtime .NET; no es un instalador ni una APK nueva.
+          Conserva LINK Control instalado. La preparacion automatica del respaldo LAN requiere una APK compatible; con versiones anteriores puedes vincular LAN manualmente.
+          Prueba USB, LAN, desconexion/reconexion y seleccion con varios telefonos.
+          "@ | Set-Content artifacts/windows-main/LEEME-PRUEBA.txt -Encoding utf8
+          Get-ChildItem artifacts/windows-main -File -Recurse |
+            Where-Object Name -ne SHA256SUMS.txt |
+            ForEach-Object {
+              $relative = [IO.Path]::GetRelativePath((Resolve-Path artifacts/windows-main).Path, $_.FullName)
+              "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $relative"
+            } | Set-Content artifacts/windows-main/SHA256SUMS.txt -Encoding utf8
+      - name: Upload downloadable preview
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: NOVORA-LINK-Windows-x64-${{ github.sha }}
+          path: artifacts/windows-main/
+          if-no-files-found: error
+          retention-days: 14

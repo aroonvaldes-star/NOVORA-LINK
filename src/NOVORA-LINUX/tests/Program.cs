@@ -10,10 +10,28 @@ using NOVORA.Linux;
 using NOVORA.Linux.Control;
 using NOVORA.Linux.VisionEngine;
 
+if (args is ["--windows-ui"]) { WindowsParityChecks.Run(); return; }
+if (args is ["--connection-selection"]) { await ConnectionSelectionChecks.RunAsync(); return; }
+if (args is ["--auto-connect"]) { await AutoConnectChecks.RunAsync(); return; }
+if (args is ["--mobile"]) { await MobileConnectionChecks.RunAsync(); return; }
+if (args is ["--update-github"]) { UpdateGitHubChecks.Run(); await UpdateGitHubChecks.RunLiveAsync(); return; }
 if (args is ["--ve-runtime-native"]) { VisionRuntimeChecks.RunNative(); return; }
 if (args is ["--outputs-native"]) { VisionInputChecks.RunOutputsNative(); return; }
 if (args is ["--ve-ui"]) { VisionUiChecks.Run(); return; }
 if (args is ["--input-native"]) { VisionInputChecks.RunNative(); return; }
+if (args is ["--exin-native"]) { await ExInChecks.RunNativeAsync(); return; }
+if (args is ["--link-native"]) { await LinkChecks.RunNativeAsync(); return; }
+if (args is ["--ve-exchange-native"]) { VisionExchangeChecks.RunNative(); return; }
+if (args is ["--ve-exchange-ui"]) { VisionExchangeChecks.RunUi(); return; }
+if (args is ["--exin-ui"]) { ExInChecks.RunUi(); return; }
+await ConnectionSelectionChecks.RunAsync();
+await AutoConnectChecks.RunAsync();
+await MobileConnectionChecks.RunAsync();
+UpdateGitHubChecks.Run();
+// --control-only: connection, trust, USB tunnel and LinkEngine LAN checks without media fixtures.
+bool controlOnly = args is ["--control-only"];
+if (!controlOnly)
+{
 await VisionInputChecks.RunAsync();
 AndroidKeyboardChecks.Run();
 VisionSettingsChecks.Run();
@@ -21,6 +39,7 @@ await VisionAccelerationChecks.RunAsync();
 await VisionFilesChecks.RunAsync();
 await VisionIntegrationChecks.RunAsync();
 await VisionRecordingChecks.RunAsync();
+}
 string directory = Path.Combine(Path.GetTempPath(), "novora-linux-protocol-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(directory);
 
@@ -41,6 +60,18 @@ try
         await TestLanLinkGatewayAsync(Path.Combine(directory, "le-lan-gateway"));
         await TestLanLinkControlRoutingAsync(Path.Combine(directory, "le-lan-control"));
         Console.WriteLine("LinkEngine LAN checks passed.");
+        return;
+    }
+
+    if (controlOnly)
+    {
+        TestAdbParsing();
+        await TestPairingAndResumeAsync(Path.Combine(directory, "trust"));
+        await TestActiveRevocationAsync(Path.Combine(directory, "revoke-trust"));
+        await TestUsbTunnelAsync(Path.Combine(directory, "usb-trust"));
+        await TestLanLinkGatewayAsync(Path.Combine(directory, "le-lan-gateway"));
+        await TestLanLinkControlRoutingAsync(Path.Combine(directory, "le-lan-control"));
+        Console.WriteLine("Linux control, trust-store, USB tunnel and LinkEngine LAN checks passed.");
         return;
     }
 

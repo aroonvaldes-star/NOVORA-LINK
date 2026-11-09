@@ -38,7 +38,8 @@ internal sealed record LinuxVisionLanOffer(
     bool MuteDeviceAudio,
     LinuxVisionLanEndpoint? Files = null,
     int FilesWireVersion = 0,
-    long CaptureGeneration = 0);
+    long CaptureGeneration = 0,
+    LinuxCaptureCapabilities? CaptureCapabilities = null);
 
 internal static class LinuxVisionLanProtocol
 {

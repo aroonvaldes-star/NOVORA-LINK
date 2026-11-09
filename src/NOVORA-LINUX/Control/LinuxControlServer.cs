@@ -20,7 +20,8 @@ internal sealed class LinuxControlServer : IAsyncDisposable
     private const int HandshakeTimeoutSeconds = 3;
     private const int MaxConcurrentClients = 32;
     private static readonly ControlOption[] BitrateOptions =
-        Enumerable.Range(2, 14).Select(value => new ControlOption($"{value}M", $"{value} Mb/s")).ToArray();
+        LinuxVisionSettings.AllBitrates.Select(value => new ControlOption(value,
+            value.EndsWith('K') ? $"{value[..^1]} kb/s (datos móviles)" : $"{value[..^1]} Mb/s")).ToArray();
     private static readonly ControlOption[] ProfileOptions =
     [
         new("Automatic", "Automático"),
@@ -28,13 +29,15 @@ internal sealed class LinuxControlServer : IAsyncDisposable
         new("Balanced", "Balanceado"),
         new("Quality", "Calidad"),
         new("Smooth", "Fluidez"),
-        new("Software", "Software")
+        new("Software", "Software"),
+        new("MobileExtreme", "Móvil extremo"),
+        new("MobileEconomy", "Móvil ahorro")
     ];
     private static readonly ControlOption[] ResolutionOptions =
         new[] { 480, 720, 960, 1080, 1280, 1440, 1600, 1920, 2160 }
             .Select(value => new ControlOption(value.ToString(), $"{value} px (lado mayor)")).ToArray();
     private static readonly ControlOption[] FrameRateOptions =
-        new[] { 15, 24, 30, 45, 60 }
+        LinuxVisionSettings.AllFrameRates
             .Select(value => new ControlOption(value.ToString(), $"{value} FPS")).ToArray();
 
     private sealed class PeerState
@@ -79,18 +82,42 @@ internal sealed class LinuxControlServer : IAsyncDisposable
     private long _revision = 1;
     private long _videoRequestId;
     private bool _videoRequested;
+    public bool VisionRequested => _authorized && Volatile.Read(ref _videoRequested);
     public void RequestVision()
     {
         if (!_authorized) throw new InvalidOperationException("Enlaza y autoriza LINK Control primero.");
-        if (HasVisionSession) throw new InvalidOperationException("Detén la sesión VE actual antes de solicitar otra.");
+        if (HasVisionSession || VisionRequested) throw new InvalidOperationException("Detén la sesión VE actual antes de solicitar otra.");
         _videoRequested = true; Interlocked.Increment(ref _videoRequestId);
         StatusChanged?.Invoke(this,"Autoriza la captura en LINK Control (mantén la app visible en Android).");
     }
     private volatile bool _authorized;
+    private volatile bool _peerMobileData;
+    /// <summary>The connected LINK Control negotiated «mobileDataV1».</summary>
+    public bool PeerSupportsMobileData => _authorized && _peerMobileData;
 
     public event EventHandler<string>? StatusChanged;
     public event EventHandler? InvitationChanged;
     public bool IsAuthorized => _authorized;
+
+    /// <summary>ExInEngine owned by the window; published in snapshots and driven by exin.* actions.</summary>
+    internal NOVORA.Linux.ExIn.ILinuxExInControl? ExIn { get; set; }
+
+    /// <summary>Current-session LinkEngine measurements; link.speedtest opens its SpeedTest.</summary>
+    internal LinuxLinkMeasurements? LinkMeasurements { get; set; }
+
+    /// <summary>Address of the authorized LINK Control peer (ExIn uses it for the ADB Wi-Fi fallback).</summary>
+    public IPAddress? AuthorizedPeerAddress
+    {
+        get
+        {
+            lock (_gate)
+            {
+                if (!_authorized) return null;
+                try { return (_activeClient?.Client.RemoteEndPoint as IPEndPoint)?.Address; }
+                catch (ObjectDisposedException) { return null; }
+            }
+        }
+    }
     public bool IsRunning => _started && Volatile.Read(ref _disposed) == 0;
     private bool UseLanVision => _transport == "LAN" && _visionLanEngine is not null;
     public bool IsVisionRunning => UseLanVision
@@ -113,12 +140,74 @@ internal sealed class LinuxControlServer : IAsyncDisposable
     public LinuxVisionRuntime? VisionRuntime => UseLanVision ? _visionLanEngine?.Runtime : _visionEngine?.Runtime;
     public bool VisionRecording => VisionRuntime?.Recorder.IsRecording == true;
 
-    public Task StopVisionAsync() => UseLanVision
-        ? _visionLanEngine?.StopAsync() ?? Task.CompletedTask
-        : _visionEngine?.StopAsync() ?? Task.CompletedTask;
+    public Task StopVisionAsync()
+    {
+        _videoRequested = false;
+        return UseLanVision
+            ? _visionLanEngine?.StopAsync() ?? Task.CompletedTask
+            : _visionEngine?.StopAsync() ?? Task.CompletedTask;
+    }
 
     public void ConfigureVisionSettings(string bitrate, string profile, int maxSize, int fps) =>
         ConfigureVisionSettings(_visionSettings with { Bitrate = bitrate, Profile = LinuxVisionSettings.ProfileId(profile), MaxSize = maxSize, Fps = fps });
+
+    /// <summary>Windows CaptureAndroidMedia: capture/record availability and the recorder's own status text.</summary>
+    private ControlMedia CaptureMedia()
+    {
+        LinuxVisionRuntime? runtime = VisionRuntime;
+        if (runtime is null) return new(false, false, false, "VisionEngine no está preparado.");
+        bool recording = runtime.Recorder.IsRecording;
+        string status = runtime.Recorder.Status;
+        string message = recording || status.StartsWith("Error", StringComparison.Ordinal) || status.Contains(".mkv", StringComparison.Ordinal)
+            ? status
+            : !runtime.IsStreaming ? "Para grabar: VE con H.264 activo; espera la primera imagen."
+            : $"Capturas y grabaciones en {_visionSettings.RecordingDirectory}.";
+        return new(runtime.IsStreaming, runtime.IsStreaming, recording, message,
+            Starting: recording && status.Contains("keyframe", StringComparison.Ordinal),
+            AudioIncluded: recording && runtime.AudioPlaying);
+    }
+
+    /// <summary>Windows NLControlCommands media validation + ApplyAndroidMediaAsync.</summary>
+    private async Task<ControlReply> HandleMediaAsync(ControlRequest request)
+    {
+        if (!_authorized || VisionRuntime is not { } runtime)
+            return new ControlReply(1, request.Id, false, "Inicia una sesión VE autorizada primero.", CreateSnapshot());
+        if (request.Revision != Interlocked.Read(ref _revision))
+            return new ControlReply(1, request.Id, false, "Los ajustes cambiaron en PC. Revisa el estado actualizado y vuelve a aplicar.", CreateSnapshot());
+        if (request.Value is not null)
+            return new ControlReply(1, request.Id, false, "La orden no acepta valores adicionales.", CreateSnapshot());
+        ControlMedia media = CaptureMedia();
+        bool available = request.Action switch
+        {
+            "capture" => media.CanCapture,
+            "startRecording" => media.CanRecord && !media.Recording,
+            _ => media.Recording
+        };
+        if (!available)
+            return new ControlReply(1, request.Id, false, "Captura o grabación no disponible en este estado.", CreateSnapshot());
+        try
+        {
+            string message;
+            switch (request.Action)
+            {
+                case "capture":
+                    message = "Captura guardada: " + await runtime.CaptureAsync().ConfigureAwait(false);
+                    break;
+                case "startRecording":
+                    lock (VisionSettingsGate) runtime.StartRecording();
+                    message = "Solicitud de grabación aceptada. Esperando la primera imagen; sin micrófono.";
+                    break;
+                default:
+                    await runtime.StopRecordingAsync().ConfigureAwait(false);
+                    message = runtime.Recorder.Status;
+                    break;
+            }
+            Interlocked.Increment(ref _revision);
+            return new ControlReply(1, request.Id, true, message, CreateSnapshot());
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or UnauthorizedAccessException or NotSupportedException)
+        { return new ControlReply(1, request.Id, false, "No se completó el cambio: " + ex.Message, CreateSnapshot()); }
+    }
 
     public void ConfigureVisionSettings(LinuxVisionSettings settings)
     {
@@ -128,7 +217,9 @@ internal sealed class LinuxControlServer : IAsyncDisposable
         lock (_gate)
         {
             if (VisionRecording) throw new InvalidOperationException("Detén la grabación antes de cambiar ajustes.");
+            bool vsyncChanged = settings.VSync != _visionSettings.VSync;
             _visionSettings = settings;
+            if (vsyncChanged) VisionRuntime?.SetVSync(settings.VSync);
             if (_visionEngine is not null) _visionEngine.Settings = settings;
             if (_visionLanEngine is not null) _visionLanEngine.Settings = settings;
             Interlocked.Increment(ref _revision);
@@ -486,6 +577,7 @@ internal sealed class LinuxControlServer : IAsyncDisposable
                     _activeSessionCancellation = null;
                     _authorized = false;
                     _videoRequested = false;
+                    _peerMobileData = false;
                     endedCurrentSession = true;
                 }
             }
@@ -580,6 +672,8 @@ internal sealed class LinuxControlServer : IAsyncDisposable
                 if (request.Action=="network.capabilities")
                 {
                     LinuxFilesNetwork.ValidateCapabilities(request.Value ?? "");
+                    // Additive «mobileDataV1»: only a LINK Control that announces it receives mobile offers.
+                    _peerMobileData = LinuxFilesNetwork.AdvertisesMobileData(request.Value ?? "");
                     return new ControlReply(1,request.Id,true,"Capacidades FILES confirmadas.",CreateSnapshot());
                 }
                 if (VisionRuntime?.Files.IsConnected!=true) throw new IOException("FILES V2 no está conectado.");
@@ -608,7 +702,13 @@ internal sealed class LinuxControlServer : IAsyncDisposable
                 {
                     var preset=LinuxVisionSettings.ForProfile(proposed.Profile);
                     proposed=proposed with { Acceleration=preset.Acceleration,LowLatency=preset.LowLatency,VSync=preset.VSync };
+                    // Mobile-data profiles fix bitrate, size, FPS and audio together.
+                    if (preset.IsMobile)
+                        proposed=proposed with { Bitrate=preset.Bitrate,MaxSize=preset.MaxSize,Fps=preset.Fps,AudioEnabled=false };
                 }
+                if (proposed.IsMobile && !_peerMobileData)
+                    throw new InvalidOperationException("Los perfiles de datos móviles requieren LINK Control 1.4.125 o superior.");
+                if (proposed.IsMobile) proposed=proposed with { AudioEnabled=false };
                 proposed.Validate();
                 if (VisionSettingsChanged is not null) VisionSettingsChanged.Invoke(proposed); else ConfigureVisionSettings(proposed);
                 return new ControlReply(1,request.Id,true,"Ajustes guardados para la siguiente captura.",CreateSnapshot());
@@ -619,7 +719,36 @@ internal sealed class LinuxControlServer : IAsyncDisposable
         }
     }
 
-        if (request.Action is "files.acquire" or "files.cancelLease" or "startRecording" or "stopRecording")
+        if (request.Action is "capture" or "startRecording" or "stopRecording")
+            return await HandleMediaAsync(request).ConfigureAwait(false);
+
+        if (request.Action == "audio")
+        {
+        lock(VisionSettingsGate)
+        {
+            // Windows NLControlCommands + ApplyAndroidControl "audio": options from the snapshot,
+            // same revision guard; Linux opens the audio device when the next VE session starts.
+            if (!_authorized)
+                return new ControlReply(1, request.Id, false, "VisionEngine requiere una sesión autorizada.", CreateSnapshot());
+            if (request.Revision != Interlocked.Read(ref _revision))
+                return new ControlReply(1, request.Id, false, "Los ajustes cambiaron en PC. Revisa el estado actualizado y vuelve a aplicar.", CreateSnapshot());
+            if (request.Value is not ("Pc" or "Disabled"))
+                return new ControlReply(1, request.Id, false, "Valor no admitido por esta PC.", CreateSnapshot());
+            if (VisionRecording)
+                return new ControlReply(1, request.Id, false, "Detén la grabación antes de cambiar ajustes.", CreateSnapshot());
+            try
+            {
+                var proposed = _visionSettings with { AudioEnabled = request.Value == "Pc" };
+                if (VisionSettingsChanged is not null) VisionSettingsChanged.Invoke(proposed); else ConfigureVisionSettings(proposed);
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or InvalidOperationException)
+            { return new ControlReply(1, request.Id, false, "No se completó el cambio: " + ex.Message, CreateSnapshot()); }
+            return new ControlReply(1, request.Id, true,
+                "Salida guardada; requiere iniciar o reiniciar el video para activar esta configuración de audio.", CreateSnapshot());
+        }
+        }
+
+        if (request.Action is "files.acquire" or "files.cancelLease")
         {
             if (!_authorized || VisionRuntime is not { } runtime)
                 return new ControlReply(1,request.Id,false,"Inicia una sesión VE autorizada primero.",CreateSnapshot());
@@ -630,8 +759,6 @@ internal sealed class LinuxControlServer : IAsyncDisposable
                 {
                     case "files.acquire": value=runtime.Files.Acquire(request.Value ?? ""); break;
                     case "files.cancelLease": value=runtime.Files.CancelLease(request.Value ?? ""); break;
-                    case "startRecording": lock(VisionSettingsGate) runtime.StartRecording(); break;
-                    case "stopRecording": await runtime.StopRecordingAsync(); break;
                 }
                 return new ControlReply(1,request.Id,true,"Acción VE completada.",CreateSnapshot(),Value:value);
             }
@@ -732,18 +859,25 @@ internal sealed class LinuxControlServer : IAsyncDisposable
             {
                 if (request.Action == "restartVideo" && HasVisionSession)
                     await StopVisionAsync();
+                bool mobile = _visionSettings.IsMobile;
+                // An older LINK Control would reject a mobile-data offer: never send one it did not negotiate.
+                if (mobile && !_peerMobileData)
+                    throw new InvalidOperationException(
+                        "El perfil de datos móviles requiere LINK Control 1.4.125 o superior. Elige otro perfil o actualiza la app.");
                 string offer = lanRequest
                     ? await _visionLanEngine!.StartAsync(
-                        audioEnabled: _visionSettings.AudioEnabled && request.Value != "video-only",
+                        audioEnabled: !mobile && _visionSettings.AudioEnabled && request.Value != "video-only",
                         cancellationToken: sessionToken,
                         bitrate: ParseBitrate(_bitrate),
                         maxSize: _maxSize,
-                        fps: _fps)
+                        fps: _fps,
+                        mobileData: mobile)
                     : await _visionEngine!.StartAsync(
                         sessionToken,
                         ParseBitrate(_bitrate),
                         _maxSize,
-                        _fps);
+                        _fps,
+                        mobileData: mobile);
                 _videoRequested = false;
                 return new ControlReply(ControlProtocol.Version, request.Id, true,
                     lanRequest
@@ -822,12 +956,38 @@ internal sealed class LinuxControlServer : IAsyncDisposable
             }
         }
 
+        if (request.Action == "link.speedtest")
+        {
+            // Windows NLControlCommands + StartLinkTunnelTest.
+            if (!_authorized || request.Value is not null || _linkEngine?.IsConnected != true || LinkMeasurements is null)
+                return new ControlReply(ControlProtocol.Version, request.Id, false,
+                    "Inicia LinkEngine antes de medir el túnel.", CreateSnapshot());
+            try
+            {
+                string url = LinkMeasurements.Begin(_linkEngine);
+                LinkMeasurements.SetTunnelStatus("SpeedTest preparado. Ejecútalo en el navegador de Android.");
+                return new ControlReply(ControlProtocol.Version, request.Id, true,
+                    "Abre la prueba del túnel en Android.", CreateSnapshot(), Value: url);
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or System.Net.Sockets.SocketException or ObjectDisposedException)
+            {
+                return new ControlReply(ControlProtocol.Version, request.Id, false,
+                    "No se pudo preparar la prueba del túnel: " + ex.Message, CreateSnapshot());
+            }
+        }
+
+        if (request.Action is "exin.start" or "exin.mode" or "exin.synchronize")
+        {
+            if (!_authorized || ExIn is null)
+                return new ControlReply(ControlProtocol.Version, request.Id, false,
+                    ExIn is null ? "ExInEngine todavía no está inicializado." : "Requiere sesión autorizada.",
+                    CreateSnapshot());
+            (bool success, string exInMessage) = await ExIn.HandleAsync(request.Action, request.Value, sessionToken);
+            return new ControlReply(ControlProtocol.Version, request.Id, success, exInMessage, CreateSnapshot());
+        }
+
         string message = request.Action switch
         {
-            "link.speedtest" =>
-                "La prueba de velocidad de LinkEngine aún no está integrada en la aplicación Linux.",
-            "exin.start" or "exin.mode" or "exin.synchronize" =>
-                "ExInEngine aún no está integrado en la aplicación Linux.",
             "file.begin" or "file.chunk" or "file.end" or "file.cancel" or
                 "files.acquire" or "files.cancelLease" =>
                 "La transferencia de archivos aún no está integrada en la aplicación Linux.",
@@ -872,7 +1032,10 @@ internal sealed class LinuxControlServer : IAsyncDisposable
             VideoMessage: VisionMessage,
             VisionTelemetry: VisionTelemetry,
             VideoAuthorizationRequested: _authorized && _videoRequested,
-            VideoAuthorizationRequestId: Interlocked.Read(ref _videoRequestId)),
+            VideoAuthorizationRequestId: Interlocked.Read(ref _videoRequestId),
+            ExInState: ExIn?.EngineState.State ?? "NotDetected",
+            ExInMessage: ExIn?.EngineState.Message ?? "ExInEngine todavía no está inicializado.",
+            ExInCanStart: _authorized && ExIn?.EngineState.CanStart == true),
         VideoSettings: new ControlVideoSettings(
             _maxSize.ToString(System.Globalization.CultureInfo.InvariantCulture),
             _fps.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -881,15 +1044,15 @@ internal sealed class LinuxControlServer : IAsyncDisposable
             Monitors: _visionSettings.MonitorId==0 ? [new("0","Predeterminado del sistema")] : [new("0","Predeterminado del sistema"),new(_visionSettings.MonitorId.ToString(),"Monitor seleccionado en Linux")],
             CanApplyTogether: true, PresentationMode: _visionSettings.Fullscreen ? "Fullscreen" : "Window",
             PresentationModes: [new("Window","Ventana"),new("Fullscreen","Pantalla completa")]),
-        Media: new ControlMedia(false, IsVisionRunning, VisionRecording, VisionRuntime?.Recorder.Status ?? "Sin sesión VE.", AudioIncluded: VisionRuntime?.AudioPlaying == true),
+        Media: CaptureMedia(),
         FileSharing: VisionRuntime?.Files.IsConnected == true,
-        Capabilities: new { Version=1, FilesWireVersions=new[]{2} });
+        Capabilities: new { Version=1, FilesWireVersions=new[]{2} },
+        ExIn: ExIn?.CaptureSnapshot());
 
         }
     }
 
-    private static int ParseBitrate(string bitrate) =>
-        checked(int.Parse(bitrate[..^1], System.Globalization.CultureInfo.InvariantCulture) * 1_000_000);
+    private static int ParseBitrate(string bitrate) => LinuxVisionSettings.ParseBitrate(bitrate);
 
     private void OnLinkStateChanged(object? sender, EventArgs e) =>
         StatusChanged?.Invoke(this, _linkEngine?.Message ?? "Estado de LinkEngine actualizado.");

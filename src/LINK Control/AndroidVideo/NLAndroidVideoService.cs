@@ -283,7 +283,7 @@ public sealed class NLAndroidVideoService : Service
             offer.Bitrate,
             offer.Fps,
             ex => encoderFailure.TrySetResult(ex), offer.CaptureGeneration,
-            maxPacketLength);
+            maxPacketLength, mobileData: offer.CaptureCapabilities?.MobileData == true);
         _compositor = new NLAndroidVideoCompositor(
             _encoder.InputSurface, encodedSize.Width, encodedSize.Height,
             offer.CaptureGeneration > 0 && offer.CaptureCapabilities?.CaptureFramePacing == true ? offer.Fps : 0);
@@ -315,7 +315,7 @@ public sealed class NLAndroidVideoService : Service
         var activeCompositor = _compositor;
         _capturePolicySession = new NLControlCapturePolicySession(offer.CaptureGeneration, offer.Bitrate,
             offer.Fps, offer.CaptureCapabilities ?? new(), activeEncoder.TrySetTargetBitrate,
-            activeCompositor.TrySetTargetFps);
+            activeCompositor.TrySetTargetFps, mobileData: offer.CaptureCapabilities?.MobileData == true);
 
         // ChannelReader.ReadAllAsync devuelve un enumerador cuya liberación
         // asíncrona no está implementada en este runtime Android. Los recursos
@@ -421,8 +421,9 @@ public sealed class NLAndroidVideoService : Service
             offer.ControlPort is < 1 or > 65535 || offer.ControlToken.Length != 64 ||
             (offer.AudioEnabled &&
                 (offer.AudioPort is < 1 or > 65535 || offer.AudioToken.Length != 64)) ||
-            offer.Bitrate is < 250_000 or > 100_000_000 || offer.MaxSize is < 240 or > 4320 ||
-            offer.Fps is < 10 or > 120)
+            offer.Bitrate < NLControlMobileData.MinimumBitrate(offer.CaptureCapabilities?.MobileData == true) ||
+            offer.Bitrate > 100_000_000 || offer.MaxSize is < 240 or > 4320 ||
+            offer.Fps < NLControlMobileData.MinimumFps(offer.CaptureCapabilities?.MobileData == true) || offer.Fps > 120)
             throw new InvalidDataException("Oferta de video LINK Control inválida.");
         if (offer.FilesWireVersion is not (0 or 2) || offer.FilesWireVersion == 2 &&
             (offer.CaptureGeneration <= 0 || offer.FilesPort is < 1 or > 65535 || offer.FilesToken.Length != 64))

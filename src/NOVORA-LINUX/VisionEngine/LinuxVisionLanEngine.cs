@@ -49,13 +49,11 @@ internal sealed class LinuxVisionLanEngine : IAsyncDisposable
         CancellationToken cancellationToken,
         int bitrate = 8_000_000,
         int maxSize = 1920,
-        int fps = 60)
+        int fps = 60,
+        bool mobileData = false)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-        if (bitrate is < 2_000_000 or > 15_000_000 ||
-            maxSize is not (480 or 720 or 960 or 1080 or 1280 or 1440 or 1600 or 1920 or 2160) ||
-            fps is not (15 or 24 or 30 or 45 or 60))
-            throw new InvalidDataException("Los ajustes de captura de VisionEngine LAN no son válidos.");
+        LinuxCaptureCapabilities.ValidateCapture(bitrate, maxSize, fps, mobileData);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -75,7 +73,7 @@ internal sealed class LinuxVisionLanEngine : IAsyncDisposable
                     bitrate,
                     maxSize,
                     fps,
-                    audioEnabled, Runtime.Generation);
+                    audioEnabled && !mobileData, Runtime.Generation, mobileData);
                 _session = session;
                 _sessionCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 _state = "Waiting";

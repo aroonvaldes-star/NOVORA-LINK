@@ -55,7 +55,8 @@ internal sealed class LinuxVisionLanSession : IAsyncDisposable
         _files = new LinuxVisionLanChannel(address, certificate, LinuxVisionLanChannelKind.Files, allowLoopback);
     }
 
-    public LinuxVisionLanOffer Prepare(int bitrate, int maxSize, int fps, bool audioEnabled, long generation = 0)
+    public LinuxVisionLanOffer Prepare(int bitrate, int maxSize, int fps, bool audioEnabled, long generation = 0,
+        bool mobileData = false)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_offer is not null)
@@ -82,7 +83,8 @@ internal sealed class LinuxVisionLanSession : IAsyncDisposable
             fps,
             MuteDeviceAudio: audioEnabled,
             Files: generation > 0 ? _files.Prepare(sessionId, _expiresAt) : null,
-            FilesWireVersion: generation > 0 ? 2 : 0, CaptureGeneration: generation);
+            FilesWireVersion: generation > 0 ? 2 : 0, CaptureGeneration: generation,
+            CaptureCapabilities: mobileData ? LinuxCaptureCapabilities.Mobile : null);
         _offer.Validate(DateTimeOffset.UtcNow, _allowLoopback);
         return _offer;
     }

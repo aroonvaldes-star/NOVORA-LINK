@@ -5,6 +5,7 @@
     <Compile Include="../../src/NOVORA LINK/Control/NLControlProtocol.cs" Link="NLControlProtocol.cs" />
     <Compile Include="../../src/NOVORA LINK/Control/NLControlNetworkPolicy.cs" Link="NLControlNetworkPolicy.cs" />
     <Compile Include="../../src/NOVORA LINK/Control/NLControlCapturePolicy.cs" Link="NLControlCapturePolicy.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlMobileData.cs" Link="NLControlMobileData.cs" />
     <Compile Include="../../src/NOVORA LINK/Control/NLControlTrustedPc.cs" Link="NLControlTrustedPc.cs" />
     <Compile Include="../../src/NOVORA LINK/Control/NLControlLanInvitation.cs" Link="NLControlLanInvitation.cs" />
     <Compile Include="../../src/NOVORA LINK/Control/NLControlLanDiscovery.cs" Link="NLControlLanDiscovery.cs" />

@@ -9,6 +9,76 @@ using System.Security.Cryptography.X509Certificates;
 
 var tests = new (string, Action)[]
 {
+    ("MobileProfilesHaveProposedLimits", () => {
+        var extreme = NLControlMobileData.Limits(NLControlMobileProfile.Extreme);
+        var economy = NLControlMobileData.Limits(NLControlMobileProfile.Economy);
+        var control = NLControlMobileData.Limits(NLControlMobileProfile.ControlOnly);
+        Check(extreme == new NLControlMobileLimits(true, 120_000, 5, 480, false));
+        Check(economy == new NLControlMobileLimits(true, 250_000, 30, 720, false));
+        Check(!control.Capture && !control.Audio);
+        Check(NLControlMobileData.NominalVideoMegabytesPerHour(120_000) == 54 &&
+            NLControlMobileData.NominalVideoMegabytesPerHour(250_000) == 112.5);
+    }),
+    ("LegacyPeerKeepsCaptureFloors", () => {
+        int bitrate=2_000_000, fps=60;
+        var session=NewSession(4,bitrate,fps,b=>{bitrate=b;return true;},f=>{fps=f;return true;});
+        Check(!session.Apply(new(4,1,120_000,5)).Accepted && bitrate==2_000_000 && fps==60);
+        Check(session.Apply(new(4,2,250_000,10)).Accepted && bitrate==250_000 && fps==10);
+    }),
+    ("MobileNegotiationLowersFloorsOnly", () => {
+        int bitrate=2_000_000, fps=60;
+        var session=NewMobileSession(4,bitrate,fps,b=>{bitrate=b;return true;},f=>{fps=f;return true;});
+        Check(session.Apply(new(4,1,120_000,5)).Accepted && bitrate==120_000 && fps==5);
+        Check(session.Apply(new(4,2,100_000,1)).Accepted && bitrate==100_000 && fps==1);
+        Check(!session.Apply(new(4,3,99_999,5)).Accepted && !session.Apply(new(4,4,120_000,0)).Accepted);
+        Check(!session.Apply(new(4,5,2_000_001,5)).Accepted && bitrate==100_000);
+    }),
+    ("MobilePolicyValidationAndOrdering", () => {
+        var session = new NLControlMobileSession(7);
+        bool Capture(NLControlMobileLimits _) => true;
+        Check(!session.Apply(new(7,1,NLControlMobileProfile.Extreme,0), Capture).Accepted);
+        Check(!session.Apply(new(7,0,NLControlMobileProfile.Extreme,null), Capture).Accepted);
+        Check(!session.Apply(new(6,1,NLControlMobileProfile.Extreme,null), Capture).Accepted);
+        Check(!session.Apply(new(7,1,(NLControlMobileProfile)9,null), Capture).Accepted);
+        var ack = session.Apply(new(7,2,NLControlMobileProfile.Extreme,null), Capture);
+        Check(ack.Accepted && ack.Effective == NLControlMobileProfile.Extreme && session.MediaAllowed);
+        // Old or repeated revisions never change the state.
+        Check(!session.Apply(new(7,2,NLControlMobileProfile.ControlOnly,null), Capture).Accepted &&
+            session.Profile == NLControlMobileProfile.Extreme);
+        var unsupported = session.Apply(new(7,3,NLControlMobileProfile.Economy,null), _ => false);
+        Check(!unsupported.Accepted && unsupported.Effective == NLControlMobileProfile.Extreme);
+        Check(session.Apply(new(7,4,NLControlMobileProfile.ControlOnly,null), Capture).Accepted && !session.MediaAllowed);
+    }),
+    ("MobileBudgetStopsMediaAndSurvivesReconnect", () => {
+        var session = new NLControlMobileSession(9);
+        NLControlMobileUsage? reached = null; int events = 0;
+        session.LimitReached += usage => { reached = usage; events++; };
+        Check(session.Apply(new(9,1,NLControlMobileProfile.Extreme,1_000), _ => true).Accepted);
+        session.RecordSent(600, NLControlMobileChannel.Video);
+        session.RecordReceived(300, NLControlMobileChannel.Control);
+        Check(session.MediaAllowed && events == 0);
+        session.RecordSent(150, NLControlMobileChannel.Audio);
+        Check(!session.MediaAllowed && events == 1 && reached!.LimitReached && reached.SentBytes == 750 &&
+            reached.ReceivedBytes == 300 && reached.VideoSentBytes == 600 && reached.AudioSentBytes == 150);
+        session.RecordSent(10, NLControlMobileChannel.Control);
+        Check(events == 1 && session.Snapshot().SentBytes == 760);
+        // A new socket of the same logical session keeps the counters: re-applying the policy
+        // cannot restore video once the budget is exhausted.
+        Check(!session.Apply(new(9,2,NLControlMobileProfile.Economy,1_000), _ => true).Accepted);
+        Check(session.Apply(new(9,3,NLControlMobileProfile.ControlOnly,1_000), _ => true).Accepted);
+        // Raising the budget does not forget used bytes.
+        Check(session.Apply(new(9,4,NLControlMobileProfile.Extreme,5_000), _ => true).Accepted && session.MediaAllowed &&
+            session.Snapshot().SentBytes == 760);
+        session.Close(); session.RecordSent(1_000_000, NLControlMobileChannel.Video);
+        Check(session.Snapshot().SentBytes == 760 && !session.MediaAllowed);
+    }),
+    ("MobileUsageIsCoherentUnderConcurrency", () => {
+        var session = new NLControlMobileSession(3);
+        Check(session.Apply(new(3,1,NLControlMobileProfile.Economy,null), _ => true).Accepted);
+        Parallel.For(0, 8, _ => { for (int i = 0; i < 10_000; i++) { session.RecordSent(3, NLControlMobileChannel.Files); session.RecordReceived(2, NLControlMobileChannel.Files); } });
+        var usage = session.Snapshot();
+        Check(usage.SentBytes == 240_000 && usage.ReceivedBytes == 160_000 && usage.FileBytes == 400_000);
+    }),
     ("OldPeerGetsNoActuation", () => {
         int bitrate = 2_000_000, fps = 60;
         var session = new NLControlCapturePolicySession(4, bitrate, fps, new(), b => {bitrate=b; return true;}, f => {fps=f; return true;});
@@ -160,6 +230,7 @@ static async Task TestTelemetryWriter()
 }
 static void Check(bool condition) { if(!condition) throw new InvalidOperationException("Behavior assertion failed."); }
 static NLControlCapturePolicySession NewSession(long generation,int b,int f,Func<int,bool> setB,Func<int,bool> setF) => new(generation,b,f,new(LiveVideoBitrate:true,CaptureFramePacing:true),setB,setF);
+static NLControlCapturePolicySession NewMobileSession(long generation,int b,int f,Func<int,bool> setB,Func<int,bool> setF) => new(generation,b,f,new(LiveVideoBitrate:true,CaptureFramePacing:true),setB,setF,mobileData:true);
 sealed class ManualClock : TimeProvider {private long _ticks; public override long TimestampFrequency=>TimeSpan.TicksPerSecond; public override long GetTimestamp()=>_ticks; public void Advance(TimeSpan elapsed)=>_ticks+=elapsed.Ticks;}
 sealed class DuplexCommands : Stream
 {

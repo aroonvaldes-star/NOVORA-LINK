@@ -1,3 +1,5 @@
+using NOVORA.LinkEngine.Network;
+
 namespace NOVORA.Linux.Control;
 
 /// <summary>
@@ -15,4 +17,16 @@ internal interface ILinuxLinkEngine
     string Message { get; }
     Task<string> StartAsync(CancellationToken cancellationToken);
     Task StopAsync();
+
+    /// <summary>"USB" or "LAN".</summary>
+    string Transport => "USB";
+    /// <summary>ADB serial for USB sessions; null for LAN.</summary>
+    string? Serial => null;
+    /// <summary>Identifies one connected session (Windows ActiveLinkSourceLE key); null while not connected.</summary>
+    string? SessionKey => null;
+    /// <summary>Android client id from HELLO (USB) or "-" when the transport has none.</summary>
+    string ClientId => "-";
+    long HeartbeatCount => 0;
+    int RelayRestarts => 0;
+    LERelayTrafficSnapshot? TrafficSnapshot => null;
 }

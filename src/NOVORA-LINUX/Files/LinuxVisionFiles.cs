@@ -12,6 +12,10 @@ internal sealed class LinuxVisionFiles(string receiveDirectory) : IAsyncDisposab
     public bool IsConnected => _engine is { IsClosed: false };
     public string Status { get; private set; } = "Archivos: esperando canal autenticado.";
     public event Action? Changed;
+    /// <summary>A file or folder finished sending; SHA-256 confirmed by Android for every file.</summary>
+    public event Action<string>? Sent;
+    /// <summary>Android delivered one verified file (destination, bytes).</summary>
+    public event Action<string, long>? ReceivedFile;
     private void Report(string text) { Status = text; Changed?.Invoke(); }
 
     public Task AttachAsync(Stream stream, long generation, CancellationToken token)
@@ -25,7 +29,11 @@ internal sealed class LinuxVisionFiles(string receiveDirectory) : IAsyncDisposab
         engine.BeginConfirmed += leases.ConfirmLocalBegin;
         engine.TerminalReceived += (id, kind) => leases.NotifyTerminal(id, kind);
         engine.TerminalSent += (id, kind) => leases.NotifyTerminal(id, kind);
-        engine.Received += result => Report($"Recibido: {result.Destination} ({result.Length:N0} bytes, SHA-256 verificado).");
+        engine.Received += result =>
+        {
+            Report($"Recibido: {result.Destination} ({result.Length:N0} bytes, SHA-256 verificado).");
+            if (result.Destination is { } destination) ReceivedFile?.Invoke(destination, result.Length);
+        };
         _cancellation = token.Register(() => { leases.CloseGeneration(generation); stream.Dispose(); });
         _ = ObserveAsync(engine);
         Report("Archivos: canal FILES V2 conectado.");
@@ -66,6 +74,7 @@ internal sealed class LinuxVisionFiles(string receiveDirectory) : IAsyncDisposab
                 }
             }
             else await SendFileAsync(path, null, token).ConfigureAwait(false);
+            Sent?.Invoke(path);
         }
         catch(OperationCanceledException) { Report("Envío cancelado."); throw; }
         catch(Exception ex) when(ex is IOException or InvalidOperationException or InvalidDataException) { Report("No se pudo enviar: "+ex.Message); throw; }

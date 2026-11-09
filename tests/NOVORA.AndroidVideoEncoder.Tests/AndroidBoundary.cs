@@ -77,7 +77,8 @@ namespace Android.Media
         }
         public sealed class EncoderCapabilities
         {
-            public bool IsBitrateModeSupported(BitrateMode mode) => MediaCodec.SupportsCbr;
+            public bool IsBitrateModeSupported(BitrateMode mode) =>
+                mode == BitrateMode.Vbr ? MediaCodec.SupportsVbr : MediaCodec.SupportsCbr;
         }
     }
     public sealed class ByteBuffer(byte[] bytes)
@@ -112,6 +113,7 @@ namespace Android.Media
             public string DiagnosticInfo => Message;
         }
         public static bool SupportsCbr { get; set; } = true;
+        public static bool SupportsVbr { get; set; } = true;
         public static Func<MediaFormat, bool> FormatSupported { get; set; } = _ => true;
         public static Func<MediaFormat, Exception?> ConfigureFailure { get; set; } = _ => null;
         public static Exception? SurfaceFailure { get; set; }
@@ -158,7 +160,7 @@ namespace Android.Media
         public void Dispose() { Disposed = true; if (DisposeFailure is Exception failure) throw failure; }
         public static void ResetBoundary()
         {
-            SupportsCbr = true; FormatSupported = _ => true;
+            SupportsCbr = true; SupportsVbr = true; FormatSupported = _ => true;
             ConfigureFailure = _ => null; SurfaceFailure = null; DisposeFailure = null;
         }
     }

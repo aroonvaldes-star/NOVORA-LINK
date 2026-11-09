@@ -56,12 +56,21 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
     private long _nextWheelAt;
     public event Action<byte[]>? Input;
     public event Action? Closed;
+    /// <summary>Ctrl+C (true) or Ctrl+V (false) in the video window; owned by ExchangeVE, never sent to Android as keys.</summary>
+    public event Action<bool>? ClipboardShortcut;
+    /// <summary>Files or folders dropped on the video window (SDL_EVENT_DROP_*), raised once per drop gesture.</summary>
+    public event Action<string[]>? FilesDropped;
     public string? InputError { get; private set; }
+    private sealed record PresentedFrame(byte[] Rgba, int Width, int Height);
+    private PresentedFrame? _lastFrame;
+    private readonly List<string> _drop = new();
+    private bool _vsync;
 
 
     public LinuxSdlVideoRenderer(LinuxVisionSettings? settings = null)
     {
         _settings = settings ?? LinuxVisionSettings.Default;
+        _vsync = _settings.VSync;
         _input.Frame += frame => Input?.Invoke(frame);
         _library = NativeLibrary.Load("libSDL3.so.0");
         var init = Load<SdlInitSubSystem>("SDL_InitSubSystem");
@@ -126,8 +135,30 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         if (width <= 0 || height <= 0 || rgba.Length != checked(width * height * 4))
             throw new InvalidDataException("El frame RGBA de VisionEngine tiene dimensiones inválidas.");
 
+        // The decoder allocates one array per frame and never mutates it after Present.
+        Volatile.Write(ref _lastFrame, new PresentedFrame(rgba, width, height));
         InvokeOnUi(() => PresentOnUi(rgba, width, height));
     }
+
+    /// <summary>Last decoded frame (RGBA, visible orientation) for still captures.</summary>
+    public bool TryGetLastFrame(out byte[] rgba, out int width, out int height)
+    {
+        PresentedFrame? frame = Volatile.Read(ref _lastFrame);
+        (rgba, width, height) = frame is null ? (Array.Empty<byte>(), 0, 0) : (frame.Rgba, frame.Width, frame.Height);
+        return frame is not null;
+    }
+
+    /// <summary>Dynamic presentation can change during the session, as on Windows.</summary>
+    public void SetVSync(bool enabled) => Dispatcher.UIThread.Post(() =>
+    {
+        if (_disposed || _vsync == enabled) return;
+        _vsync = enabled;
+        if (_renderer != IntPtr.Zero && !_setRenderVSync(_renderer, enabled ? 1 : 0))
+        {
+            _vsync = !enabled;
+            InputError = CreateException("SDL_SetRenderVSync").Message;
+        }
+    });
 
     public void UpdateSession(VideoSession session) => InvokeOnUi(() =>
     {
@@ -222,7 +253,7 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         if (_renderer == IntPtr.Zero)
             throw CreateException("SDL_CreateRenderer");
         Backend = Marshal.PtrToStringUTF8(_getRendererName(_renderer)) ?? "Unknown";
-        if (_settings.VSync && !_setRenderVSync(_renderer, 1))
+        if (_vsync && !_setRenderVSync(_renderer, 1))
             throw CreateException("El renderer seleccionado no admite sincronización de presentación");
 
         uint pixelFormat = _getPixelFormatForMasks(32,
@@ -287,6 +318,16 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
                     return;
                 }
                 if (e.WindowId != id) continue;
+                if (e.Type is 0x1000 or 0x1002 or 0x1003)
+                {
+                    HandleDrop(e);
+                    continue;
+                }
+                if (e.Type == 0x300 && IsClipboardShortcut(e.Scancode, e.Modifiers, out bool copy))
+                {
+                    if (e.Repeat == 0) ClipboardShortcut?.Invoke(copy);
+                    continue;
+                }
                 if (e.Type == 0x20f)
                 {
                     _input.ReleaseAll();
@@ -332,6 +373,29 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
             _closed = true;
             _eventTimer?.Stop();
             Closed?.Invoke();
+        }
+    }
+
+    // SDL scancodes 6/25 are the physical C/V keys; Ctrl without Alt/AltGr, as Windows ExchangeVE.
+    internal static bool IsClipboardShortcut(int scancode, ushort modifiers, out bool copy)
+    {
+        copy = scancode == 6;
+        return scancode is 6 or 25 && (modifiers & 0x00c0) != 0 && (modifiers & 0x0300) == 0;
+    }
+
+    private void HandleDrop(SdlEvent e)
+    {
+        switch (e.Type)
+        {
+            case 0x1002: _drop.Clear(); break;
+            case 0x1000:
+                // SDL owns the string only until the next poll; copy it now.
+                if (Marshal.PtrToStringUTF8(e.DropData) is { Length: > 0 } path && _drop.Count < 4096) _drop.Add(path);
+                break;
+            case 0x1003:
+                if (_drop.Count > 0) FilesDropped?.Invoke(_drop.ToArray());
+                _drop.Clear();
+                break;
         }
     }
 
@@ -393,6 +457,7 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         [FieldOffset(32)] public uint WheelDirection;
         [FieldOffset(36)] public float WheelMouseX;
         [FieldOffset(40)] public float WheelMouseY;
+        [FieldOffset(40)] public IntPtr DropData;
     }
     [StructLayout(LayoutKind.Sequential)] private struct SdlRect { public int X, Y, W, H; }
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlPollEvent(out SdlEvent e);

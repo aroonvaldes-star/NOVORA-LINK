@@ -20,5 +20,6 @@
   <ItemGroup>
     <Compile Include="../../src/NOVORA LINK/Control/NLControlNetworkPolicy.cs" Link="Production/NLControlNetworkPolicy.cs" />
     <Compile Include="../../src/NOVORA LINK/Control/NLControlCapturePolicy.cs" Link="Production/NLControlCapturePolicy.cs" />
+    <Compile Include="../../src/NOVORA LINK/Control/NLControlMobileData.cs" Link="Production/NLControlMobileData.cs" />
   </ItemGroup>
 </Project>

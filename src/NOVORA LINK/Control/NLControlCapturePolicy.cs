@@ -22,6 +22,7 @@ public sealed class NLControlCapturePolicySession
     private readonly object _gate = new();
     private readonly long _generation;
     private readonly int _maximumBitrate, _maximumFps;
+    private readonly int _minimumBitrate, _minimumFps;
     private readonly NLControlNetworkCapabilities _capabilities;
     private readonly Func<int, bool> _setBitrate, _setFps;
     private long _sequence;
@@ -29,9 +30,13 @@ public sealed class NLControlCapturePolicySession
     private bool _closed;
 
     public NLControlCapturePolicySession(long generation, int initialBitrate, int initialFps,
-        NLControlNetworkCapabilities capabilities, Func<int, bool> setBitrate, Func<int, bool> setFps)
+        NLControlNetworkCapabilities capabilities, Func<int, bool> setBitrate, Func<int, bool> setFps,
+        bool mobileData = false)
     {
         _generation = generation;
+        // Lower floors only when «mobileDataV1» was negotiated; legacy peers keep 250 kbit/s and 10 fps.
+        _minimumBitrate = NLControlMobileData.MinimumBitrate(mobileData);
+        _minimumFps = NLControlMobileData.MinimumFps(mobileData);
         _maximumBitrate = _currentBitrate = initialBitrate;
         _maximumFps = _currentFps = initialFps;
         _capabilities = capabilities;
@@ -51,8 +56,9 @@ public sealed class NLControlCapturePolicySession
                 return Reject("La adaptación de captura no fue negociada.");
             if (policy.Sequence <= _sequence || policy.Sequence <= 0)
                 return Reject("Orden de captura antigua.");
-            if (policy.TargetBitrate is < 250_000 or > 100_000_000 || policy.TargetBitrate > _maximumBitrate ||
-                policy.TargetFps is < 10 or > 120 || policy.TargetFps > _maximumFps)
+            if (policy.TargetBitrate < _minimumBitrate || policy.TargetBitrate > 100_000_000 ||
+                policy.TargetBitrate > _maximumBitrate ||
+                policy.TargetFps < _minimumFps || policy.TargetFps > 120 || policy.TargetFps > _maximumFps)
                 return Reject("El perfil solicitado excede los límites de la sesión.");
             if (policy.MaxSize is not null)
                 return Reject("El cambio vivo de resolución no está habilitado.");

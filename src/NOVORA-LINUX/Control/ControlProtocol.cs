@@ -49,7 +49,8 @@ internal sealed record ControlSnapshot(
     ControlOption[] Profiles,
     ControlOption[] AudioOutputs,
     ControlEngines? Engines = null,
-    ControlVideoSettings? VideoSettings = null, ControlMedia? Media = null, bool FileSharing = false, object? Capabilities = null);
+    ControlVideoSettings? VideoSettings = null, ControlMedia? Media = null, bool FileSharing = false, object? Capabilities = null,
+    NOVORA.Linux.ExIn.LinuxControlExIn? ExIn = null);
 internal sealed record ControlRequest(
     int Version,
     long Id,
