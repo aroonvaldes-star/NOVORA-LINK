@@ -221,7 +221,7 @@ public sealed partial class NLAndroidUIActivity
                     : " Se instalará al detener los motores.");
         }
         catch (Exception ex) when (ex is HttpRequestException or InvalidDataException or System.Text.Json.JsonException or
-                                   OperationCanceledException or IOException or KeyNotFoundException or InvalidOperationException)
+                                   System.OperationCanceledException or IOException or KeyNotFoundException or InvalidOperationException)
         {
             if (manual && _active)
                 _updateLinkStatus.Text = "No se pudo consultar el repositorio de LINK Control (" + ex.GetType().Name + ").";
@@ -258,7 +258,7 @@ public sealed partial class NLAndroidUIActivity
             BeginUpdateLINKInstall(apk, release.Size);
         }
         catch (Exception ex) when (ex is HttpRequestException or InvalidDataException or IOException or
-                                   OperationCanceledException or Java.Lang.Exception)
+                                   System.OperationCanceledException or Java.Lang.Exception)
         {
             _updateLinkStatus.Text = "No se pudo descargar la actualización (" + ex.GetType().Name +
                 "). Pulsa Instalar actualización para reintentar.";

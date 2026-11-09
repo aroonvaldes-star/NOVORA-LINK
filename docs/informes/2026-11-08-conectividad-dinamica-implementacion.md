@@ -112,3 +112,16 @@ instala sobre la app actual con la misma firma. Prueba real: encontró 1.4.124, 
 La 1.4.124 publicada está firmada con «CN=Android Debug», SHA-256 del certificado
 `0B:64:42:82:56:B7:B8:D2:6A:7E:A0:57:FD:0E:01:41:24:07:28:E9:18:9A:1B:CE:38:12:BA:5A:58:72:5A:22`
 (creada 2026-10-04). Ese keystore no está en este equipo ni en el disco montado.
+
+### Entrega 1.4.125 (2026-11-08)
+- Toolchain local en `~/.local/share/novora-toolchain` (.NET 10.0.403, workload Android 36.1.118,
+  Microsoft OpenJDK 17, Android SDK platform 36 / build-tools 36.0.0). `/tmp` es tmpfs con cuota:
+  el instalador usa `TMPDIR` en disco; los paquetes grandes se descargaron con reanudación.
+- La compilación real detectó una ambigüedad `OperationCanceledException` (Android.OS vs System)
+  que la verificación sintáctica no veía; corregida.
+- Firma: clave de release nueva (CN=LINK Control, O=NOVORA, C=MX, SHA-256 8294e639…ca5e030),
+  esquema v3. Guardar copia de `~/.local/share/novora-toolchain/signing/`.
+- Instalada en SM-A566E (desinstalando 1.4.124 por cambio de clave, autorizado por el usuario).
+  Prueba física: enlace automático por ADB Wi-Fi confirmado y `DYNAMIC_LAN_FALLBACK_READY`.
+- Publicada: https://github.com/aroonvaldes-star/LINK-CONTROL/releases/tag/v1.4.125
+  (APK SHA-256 4786FD58…32731E43). El actualizador la detecta, descarga y verifica.
