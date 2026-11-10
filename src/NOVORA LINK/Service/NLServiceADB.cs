@@ -336,7 +336,9 @@ public sealed class NLServiceADB
 
     public static IReadOnlyList<string> ParseWirelessDebuggingEndpoints(string output)
     {
-        return Regex.Matches(output, @"^\S+\s+_adb-tls-connect\._tcp\s+((?:\d{1,3}\.){3}\d{1,3}):([0-9]{1,5})\s*$",
+        // The instance name may contain spaces: Android renames a re-announced service
+        // "adb-<serial>-<id> (2)", and that is often the only endpoint still accepting.
+        return Regex.Matches(output, @"^.+?\s+_adb-tls-connect\._tcp\s+((?:\d{1,3}\.){3}\d{1,3}):([0-9]{1,5})\s*$",
                 RegexOptions.Multiline)
             .Select(match =>
             {

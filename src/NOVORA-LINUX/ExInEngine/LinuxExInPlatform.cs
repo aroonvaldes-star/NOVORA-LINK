@@ -222,7 +222,9 @@ public sealed class NLServiceADB
     /// <summary>Same parser as Windows NLServiceADB.ParseWirelessDebuggingEndpoints.</summary>
     public static IReadOnlyList<string> ParseWirelessDebuggingEndpoints(string output)
         => System.Text.RegularExpressions.Regex.Matches(output,
-                @"^\S+\s+_adb-tls-connect\._tcp\s+((?:\d{1,3}\.){3}\d{1,3}):([0-9]{1,5})\s*$",
+                // The instance name may contain spaces: Android renames a re-announced service
+                // "adb-<serial>-<id> (2)", and that is often the only endpoint still accepting.
+                @"^.+?\s+_adb-tls-connect\._tcp\s+((?:\d{1,3}\.){3}\d{1,3}):([0-9]{1,5})\s*$",
                 System.Text.RegularExpressions.RegexOptions.Multiline)
             .Select(match =>
                 IPAddress.TryParse(match.Groups[1].Value, out IPAddress? address) &&

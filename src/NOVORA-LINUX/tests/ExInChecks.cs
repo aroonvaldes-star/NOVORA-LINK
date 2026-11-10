@@ -56,6 +56,15 @@ internal static class ExInChecks
         Check(mdns is { IsUsb: false, IsWifiConnection: true }, "adb mDNS TLS is Wi-Fi");
         Check(unauthorized is { Connected: false }, "unauthorized device is not connected");
 
+        // Real `adb mdns services` output (tab separated): a re-announced instance gets " (2)".
+        string mdnsServices = "List of discovered mdns services\n" +
+            "adb-R5CY3118MEW-TPstYi (2)\t_adb-tls-connect._tcp\t10.0.0.18:37843\n" +
+            "adb-R5CY3118MEW-TPstYi\t_adb-tls-connect._tcp\t10.0.0.18:43989\n" +
+            "adb-R5CY3118MEW-TPstYi\t_adb-tls-pairing._tcp\t10.0.0.18:34187\n";
+        Check(NLServiceADB.ParseWirelessDebuggingEndpoints(mdnsServices)
+                .SequenceEqual(["10.0.0.18:37843", "10.0.0.18:43989"]),
+            "mDNS connect endpoints include renamed \"(2)\" instances and skip pairing");
+
         // ── Settings round trip ──────────────────────────────────────────────────────────
         string settingsPath = Path.Combine(temp, "cfg", "exin.json");
         new LinuxExInSettings(false, 33, 140).Save(settingsPath);

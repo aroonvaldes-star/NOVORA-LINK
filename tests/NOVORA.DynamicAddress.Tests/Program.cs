@@ -28,6 +28,12 @@ string discoveredServices = "List of discovered mdns services\n" +
     "adb-phone-y _adb-tls-connect._tcp 10.0.0.28:39001\n";
 Require(NLServiceADB.ParseWirelessDebuggingEndpoints(discoveredServices).SequenceEqual(["10.0.0.28:39001"]),
     "ADB debe usar el puerto de conexión y descartar el de vinculación.");
+string renamedServices = "List of discovered mdns services\n" +
+    "adb-R5CY3118MEW-TPstYi (2)\t_adb-tls-connect._tcp\t10.0.0.18:37843\n" +
+    "adb-R5CY3118MEW-TPstYi\t_adb-tls-connect._tcp\t10.0.0.18:43989\n";
+Require(NLServiceADB.ParseWirelessDebuggingEndpoints(renamedServices)
+        .SequenceEqual(["10.0.0.18:37843", "10.0.0.18:43989"]),
+    "ADB debe aceptar instancias mDNS renombradas con \" (2)\", que suelen ser el puerto vigente.");
 
 string root = Path.Combine(Path.GetTempPath(), "novora-dynamic-address-" + Guid.NewGuid().ToString("N"));
 string tools = Path.Combine(root, "Tools");
