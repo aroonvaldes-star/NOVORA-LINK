@@ -263,6 +263,7 @@ public sealed partial class MainWindow
             Width = 520,
             SizeToContent = SizeToContent.Height,
             CanResize = false,
+            Icon = LinuxTheme.AppIcon,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Background = Brush("#131f31"),
             FontFamily = FontFamily,

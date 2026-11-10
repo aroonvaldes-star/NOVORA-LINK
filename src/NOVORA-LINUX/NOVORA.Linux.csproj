@@ -7,6 +7,7 @@
     <RootNamespace>NOVORA.Linux</RootNamespace>
     <AssemblyName>NOVORA-LINK.Linux</AssemblyName>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>Assets/novora.ico</ApplicationIcon>
     <Version>0.1.0</Version>
   </PropertyGroup>
   <ItemGroup>

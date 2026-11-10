@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
 
@@ -131,6 +132,41 @@ internal static class LinuxTheme
 
     public static string GetAssetPath(string assetName) =>
         Path.Combine(AppContext.BaseDirectory, "Assets", assetName);
+
+    private static WindowIcon? _appIcon;
+    private static bool _appIconLoaded;
+
+    /// <summary>
+    /// Icon shared by every top-level window (main window and dialogs), loaded once from
+    /// <c>Assets/novora.ico</c>. Returns null when the asset is unavailable so a missing
+    /// icon never prevents the application from starting.
+    /// </summary>
+    public static WindowIcon? AppIcon
+    {
+        get
+        {
+            if (!_appIconLoaded)
+            {
+                _appIconLoaded = true;
+                try
+                {
+                    using var stream = File.OpenRead(GetAssetPath("novora.ico"));
+                    _appIcon = new WindowIcon(stream);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+                {
+                    _appIcon = null;
+                }
+            }
+            return _appIcon;
+        }
+    }
+
+    public static void ApplyIcon(Window window)
+    {
+        if (AppIcon is { } icon)
+            window.Icon = icon;
+    }
 
     private static void ApplyAvaloniaTheme()
     {

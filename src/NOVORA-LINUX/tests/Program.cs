@@ -13,6 +13,8 @@ using NOVORA.Linux.VisionEngine;
 if (args is ["--windows-ui"]) { WindowsParityChecks.Run(); return; }
 if (args is ["--connection-selection"]) { await ConnectionSelectionChecks.RunAsync(); return; }
 if (args is ["--auto-connect"]) { await AutoConnectChecks.RunAsync(); return; }
+if (args is ["--exin-device", var exInSerial]) { await ExInDeviceProbe.RunAsync(exInSerial); return; }
+if (args is ["--exin-device"]) { await ExInDeviceProbe.RunAsync(""); return; }
 if (args is ["--decoder-smoke"]) { await TestFfmpegDecoderAsync(); return; }
 if (args is ["--mobile"]) { await MobileConnectionChecks.RunAsync(); return; }
 if (args is ["--update-github"]) { UpdateGitHubChecks.Run(); await UpdateGitHubChecks.RunLiveAsync(); return; }

@@ -258,7 +258,12 @@ public sealed partial class MainWindow
         StyleSelector(_exInPhoneComboBox);
         _exInPhoneComboBox.SelectionChanged += ExInPhoneSelectionChangedVE;
         phone.Children.Add(_exInPhoneComboBox);
-        StyleExInCaption(_exInPhoneText, "Automático: USB primero, después ADB Wi-Fi.");
+        var adbWifi = FlatButton("CONECTAR ADB WI-FI");
+        adbWifi.Margin = new Thickness(0, 4, 0, 4);
+        adbWifi.HorizontalAlignment = HorizontalAlignment.Left;
+        adbWifi.Click += async (_, _) => await ConnectExInAdbWifiAsync(adbWifi);
+        phone.Children.Add(adbWifi);
+        StyleExInCaption(_exInPhoneText, "Sin teléfono ADB. Conéctalo por USB o activa la Depuración inalámbrica.");
         phone.Children.Add(_exInPhoneText);
 
         var controller = new StackPanel();
@@ -820,6 +825,7 @@ public sealed partial class MainWindow
             Width = 420,
             SizeToContent = SizeToContent.Height,
             CanResize = false,
+            Icon = LinuxTheme.AppIcon,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Background = Brush("#131f31"),
             FontFamily = FontFamily,
@@ -884,11 +890,19 @@ public sealed partial class MainWindow
         _exInPhoneComboBox.IsEnabled = enabled && options.Count > 1;
 
         string? active = _exInControlSession?.Serial;
-        _exInPhoneText.Text = _exInManualSerialVE is null
-            ? "Automático: USB primero, después ADB Wi-Fi."
-            : active is not null && string.Equals(active, _exInManualSerialVE, StringComparison.OrdinalIgnoreCase)
+        _exInPhoneText.Text = _exInManualSerialVE is not null
+            ? active is not null && string.Equals(active, _exInManualSerialVE, StringComparison.OrdinalIgnoreCase)
                 ? "ExIn envía al teléfono elegido."
-                : "ExIn se está conectando al teléfono elegido.";
+                : "ExIn se está conectando al teléfono elegido."
+            : options.Count > 1
+                ? "Automático: USB primero, después ADB Wi-Fi."
+                : _exInPhonesVE.Any(device =>
+                        string.Equals(device.State, "unauthorized", StringComparison.OrdinalIgnoreCase))
+                    ? "Teléfono sin autorizar: acepta «Permitir depuración USB» en el teléfono."
+                    : _exInPhonesVE.Any(device =>
+                            string.Equals(device.State, "offline", StringComparison.OrdinalIgnoreCase))
+                        ? "El teléfono aparece sin conexión ADB; reconéctalo por USB o reinicia la depuración inalámbrica."
+                        : "Sin teléfono ADB. Conéctalo por USB o activa la Depuración inalámbrica.";
     }
 
     private void ApplyExInControllerOptionsVE(bool enabled)
@@ -900,6 +914,64 @@ public sealed partial class MainWindow
         uint? selected = _exInEngine?.Manager.SelectedControllerVE;
         _exInControllerComboBox.SelectedItem = controllers.FirstOrDefault(choice => choice.InstanceId == selected);
         _exInControllerComboBox.IsEnabled = enabled && controllers.Count > 1;
+    }
+
+    // adb connect only succeeds for a phone already paired with this PC (adb pair).
+    private const string ExInAdbWifiPairingHint =
+        " Si es la primera vez, empareja el teléfono: en Depuración inalámbrica toca " +
+        "«Vincular dispositivo con código de vinculación» y ejecuta en la PC «adb pair IP:puerto» con ese código.";
+
+    private bool _exInAdbWifiConnecting;
+
+    private async Task ConnectExInAdbWifiAsync(Button button)
+    {
+        if (_exInAdb is null || _exInClosing || _exInAdbWifiConnecting) return;
+        _exInAdbWifiConnecting = true;
+        button.IsEnabled = false;
+        SetMessage("Buscando teléfonos con Depuración inalámbrica…", "#60a5fa");
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+            IReadOnlyList<string> endpoints = await _exInAdb.GetWirelessDebuggingEndpointsAsync(timeout.Token);
+            if (endpoints.Count == 0)
+            {
+                SetMessage("No hay teléfonos anunciando Depuración inalámbrica. Actívala en el teléfono y vuelve a intentarlo.", "#fbbf24");
+                return;
+            }
+            string? serial = null;
+            Exception? lastError = null;
+            foreach (string endpoint in endpoints)
+            {
+                try
+                {
+                    serial = await _exInAdb.ConnectWirelessDebuggingAsync(endpoint, timeout.Token);
+                    break;
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or IOException or OperationCanceledException)
+                {
+                    lastError = ex;
+                }
+            }
+            if (serial is null)
+            {
+                SetMessage("ADB Wi-Fi: " + (lastError?.Message ?? "el teléfono no respondió.") +
+                    ExInAdbWifiPairingHint, "#f87171");
+                return;
+            }
+            _exInManualSerialVE = serial;
+            _exInPhonesVE = await _exInAdb.GetDevicesAsync(forceRefresh: true);
+            SetMessage("Teléfono ADB Wi-Fi conectado. ExIn ya puede enviar el control.", "#22c55e");
+            await EnsureExInStandaloneAsync();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            if (!_exInClosing) SetMessage("ADB Wi-Fi: " + ex.Message, "#f87171");
+        }
+        finally
+        {
+            _exInAdbWifiConnecting = false;
+            button.IsEnabled = true;
+        }
     }
 
     private void ExInPhoneSelectionChangedVE(object? sender, SelectionChangedEventArgs e)

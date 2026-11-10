@@ -35,6 +35,7 @@ public sealed partial class MainWindow
                 var dialog=new Window
                 {
                     Title="Tipo de conexión · NOVORA-LINK",Width=700,Height=570,MinWidth=570,MinHeight=420,
+                    Icon=LinuxTheme.AppIcon,
                     WindowStartupLocation=WindowStartupLocation.CenterOwner,
                     FontFamily=FontFamily,FontSize=15,
                     Content=new ScrollViewer

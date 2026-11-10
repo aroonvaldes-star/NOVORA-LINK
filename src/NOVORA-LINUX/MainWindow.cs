@@ -111,8 +111,7 @@ public sealed partial class MainWindow : Window
         FontSize = 15;
         SystemDecorations = SystemDecorations.None;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        using (var iconStream = File.OpenRead(LinuxTheme.GetAssetPath("novora.ico")))
-            Icon = new WindowIcon(iconStream);
+        LinuxTheme.ApplyIcon(this);
 
         _hostStatus.Text = "El control LAN está detenido.";
         _settingsHostStatus.Text = _hostStatus.Text;

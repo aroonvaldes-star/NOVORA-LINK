@@ -58,6 +58,9 @@ public sealed record NLServiceADBDevice(string Serial, string State, string Mode
 public sealed class NLServiceADB
 {
     private static readonly TimeSpan DeviceCacheLifetime = TimeSpan.FromSeconds(1);
+    // A stuck adb server must never freeze the two-second ExIn refresh (it would leave
+    // _exInRefreshing true forever and the phone would never be detected again).
+    private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(15);
     private readonly NLServiceNovoraPaths _paths;
     private readonly SemaphoreSlim _serverGate = new(1, 1);
     private readonly SemaphoreSlim _deviceGate = new(1, 1);
@@ -269,7 +272,15 @@ public sealed class NLServiceADB
         {
             Task<string> stdout = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
             Task<string> stderr = process.StandardError.ReadToEndAsync(CancellationToken.None);
-            try { await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false); }
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deadline.CancelAfter(CommandTimeout);
+            try { await process.WaitForExitAsync(deadline.Token).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+                throw new OperationCanceledException(
+                    $"ADB no respondió en {CommandTimeout.TotalSeconds:0} s. Se reintentará.", deadline.Token);
+            }
             catch (OperationCanceledException)
             {
                 try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
