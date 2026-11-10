@@ -65,6 +65,11 @@ public sealed partial class MainWindow
     private bool _exInSelectionApplyingVE;
     private bool _exInRefreshing;
     private string? _exInManualSerialVE;
+    // True when _exInManualSerialVE was set by the ADB Wi-Fi button rather than chosen by the
+    // user: that pin is released (back to automatic, USB first) once the phone leaves ADB.
+    private bool _exInManualFromAdbWifiVE;
+    private int _exInManualMissingRefreshesVE;
+    private const int ExInAdbWifiReleaseAfterMissingRefreshes = 3;
     private IReadOnlyList<NLServiceADBDevice> _exInPhonesVE = [];
     private ExInLiveSnapshot? _pendingExInLiveSnapshotVE;
     private int _exInLiveUpdateQueuedVE;
@@ -459,6 +464,7 @@ public sealed partial class MainWindow
             {
                 _exInPhonesVE = [];
             }
+            await ReleaseLostAdbWifiPinVEAsync();
             if (_exInEngine is not null) ApplyGamepadShellVE(_exInEngine.Status);
             string? running = _exInControlSession.IsRunning ? _exInControlSession.Serial : null;
             bool targetChanged = _exInManualSerialVE is not null &&
@@ -467,6 +473,37 @@ public sealed partial class MainWindow
                 await EnsureExInStandaloneAsync();
         }
         finally { _exInRefreshing = false; }
+    }
+
+    /// <summary>
+    /// The phone pinned by the ADB Wi-Fi button left ADB for several refreshes in a row
+    /// (a single missing poll is tolerated): return to automatic so a USB phone is used again.
+    /// </summary>
+    private async Task ReleaseLostAdbWifiPinVEAsync()
+    {
+        if (!_exInManualFromAdbWifiVE || _exInManualSerialVE is not { } pinned || _exInControlSession is null) return;
+        if (_exInPhonesVE.Any(device => device.Connected &&
+                string.Equals(device.Serial, pinned, StringComparison.OrdinalIgnoreCase)))
+        {
+            _exInManualMissingRefreshesVE = 0;
+            return;
+        }
+        if (++_exInManualMissingRefreshesVE < ExInAdbWifiReleaseAfterMissingRefreshes) return;
+
+        _exInManualSerialVE = null;
+        _exInManualFromAdbWifiVE = false;
+        _exInManualMissingRefreshesVE = 0;
+        // The session already follows the same phone onto another transport by hardware serial;
+        // only when it is not running does it still hold the Wi-Fi serial as its target.
+        await _exInConnectionGate.WaitAsync();
+        try
+        {
+            if (_exInManualSerialVE is null && !_exInControlSession.IsRunning)
+                await _exInControlSession.StopAsync();
+        }
+        finally { _exInConnectionGate.Release(); }
+        if (!_exInClosing)
+            SetMessage("ADB Wi-Fi se desconectó. ExIn vuelve a elegir el teléfono automáticamente (USB primero).", "#fbbf24");
     }
 
     /// <summary>Windows ResolveExInSerialVE: the first connected ADB route, never a LAN marker.</summary>
@@ -959,6 +996,8 @@ public sealed partial class MainWindow
                 return;
             }
             _exInManualSerialVE = serial;
+            _exInManualFromAdbWifiVE = true;
+            _exInManualMissingRefreshesVE = 0;
             _exInPhonesVE = await _exInAdb.GetDevicesAsync(forceRefresh: true);
             SetMessage("Teléfono ADB Wi-Fi conectado. ExIn ya puede enviar el control.", "#22c55e");
             await EnsureExInStandaloneAsync();
@@ -979,6 +1018,8 @@ public sealed partial class MainWindow
         if (_exInSelectionApplyingVE || _exInPhoneComboBox.SelectedItem is not ExInPhoneOption option) return;
         if (string.Equals(option.Serial, _exInManualSerialVE, StringComparison.OrdinalIgnoreCase)) return;
         _exInManualSerialVE = option.Serial;
+        _exInManualFromAdbWifiVE = false;
+        _exInManualMissingRefreshesVE = 0;
         SetMessage(option.Serial is null
             ? "ExIn elegirá el teléfono automáticamente."
             : $"ExIn enviará el control a {option.Label}.", "#22c55e");
