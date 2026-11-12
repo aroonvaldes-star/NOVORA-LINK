@@ -111,3 +111,5 @@ NOVORA-LINK se distribuye bajo la **NOVORA-LINK PROPRIETARY LICENSE (NLPL) v1.1*
 - [Legal/LICENSES/](Legal/LICENSES/) — textos íntegros de licencias de terceros.
 
 El instalador incluye el EULA, la licencia y la carpeta `Legal/` completa. Los componentes de terceros conservan sus propias licencias; consulte el inventario para el detalle de versiones y atribuciones.
+
+<img width="1113" height="941" alt="screencapture-claude-ai-artifact-1184RZbf8voU6H3YQWPkw4-2026-11-12-02_26_25" src="https://github.com/user-attachments/assets/c1a6b695-d716-4b95-8e8c-1a6fa2117c46" />
