@@ -20,7 +20,15 @@ internal sealed record LinuxVisionSettings
     public bool LowLatency { get; init; } = true;
     public bool VSync { get; init; }
     public string RecordingDirectory { get; init; } = Path.Combine(UserFolder(Environment.SpecialFolder.MyVideos, "Videos"), "NOVORA");
-    public string ReceiveDirectory { get; init; } = Path.Combine(UserFolder(Environment.SpecialFolder.UserProfile, ""), "Downloads", "NOVORA");
+    public string ReceiveDirectory { get; init; } = DefaultReceiveDirectory;
+    /// <summary>What the phone sends as audio: device playback ("Output") or its microphone ("Microphone").</summary>
+    public string AudioSource { get; init; } = LinuxAudioSource.Output;
+
+    /// <summary>Public NOVORA-Files folder on the desktop; received files are sorted into type subfolders here.</summary>
+    public static string DefaultReceiveDirectory => Path.Combine(UserFolder(Environment.SpecialFolder.DesktopDirectory, "Desktop"), "NOVORA-Files");
+
+    /// <summary>Folder used before NOVORA-Files became the default; migrated only when still unchanged.</summary>
+    internal static string LegacyReceiveDirectory => Path.Combine(UserFolder(Environment.SpecialFolder.UserProfile, ""), "Downloads", "NOVORA");
 
     /// <summary>
     /// GetFolderPath returns "" on Linux when the folder does not exist yet (fresh profile, CI runner),
@@ -94,9 +102,18 @@ internal sealed record LinuxVisionSettings
             Acceleration is not ("Automatic" or "Software" or "Forced") ||
             HardwareBackend is not ("vaapi" or "cuda" or "qsv" or "vulkan") ||
             string.IsNullOrWhiteSpace(RecordingDirectory) || !Path.IsPathFullyQualified(RecordingDirectory) ||
-            string.IsNullOrWhiteSpace(ReceiveDirectory) || !Path.IsPathFullyQualified(ReceiveDirectory))
+            string.IsNullOrWhiteSpace(ReceiveDirectory) || !Path.IsPathFullyQualified(ReceiveDirectory) ||
+            !LinuxAudioSource.IsValid(AudioSource))
             throw new InvalidDataException("Los ajustes de VisionEngine no son válidos.");
     }
+}
+
+/// <summary>Values match NOVORA.Control.NLControlAudioSource in the shared Windows/Android contract.</summary>
+internal static class LinuxAudioSource
+{
+    public const string Output = "Output";
+    public const string Microphone = "Microphone";
+    public static bool IsValid(string? value) => value is Output or Microphone;
 }
 
 internal sealed class LinuxVisionSettingsStore
@@ -113,6 +130,9 @@ internal sealed class LinuxVisionSettingsStore
         if (!File.Exists(_path)) return LinuxVisionSettings.Default;
         var settings = JsonSerializer.Deserialize<LinuxVisionSettings>(File.ReadAllText(_path))
             ?? throw new InvalidDataException("La configuración de VE está vacía.");
+        if (!string.IsNullOrWhiteSpace(settings.ReceiveDirectory) && Path.IsPathFullyQualified(settings.ReceiveDirectory) &&
+            Path.GetFullPath(settings.ReceiveDirectory) == Path.GetFullPath(LinuxVisionSettings.LegacyReceiveDirectory))
+            settings = settings with { ReceiveDirectory = LinuxVisionSettings.DefaultReceiveDirectory };
         settings.Validate();
         return settings;
     }

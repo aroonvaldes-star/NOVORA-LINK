@@ -42,6 +42,8 @@ internal sealed class LinuxVisionRuntime : IAsyncDisposable
         Files=new(settings.ReceiveDirectory);
         Recorder=new(settings.RecordingDirectory, settings.Fps);
         Files.Changed += Notify;
+        // The VE window title mirrors the FILES state so drops are answered next to the video.
+        Files.Changed += () => _renderer?.SetStatus(Files.Status);
         Files.Sent += Transfers.RecordSent;
         Files.ReceivedFile += (destination,bytes)=>Transfers.RecordReceived(1,bytes,destination);
         Recorder.Changed += Notify;
@@ -102,6 +104,8 @@ internal sealed class LinuxVisionRuntime : IAsyncDisposable
 
     /// <summary>Applies "Presentación dinámica" to the open window without restarting VE.</summary>
     public void SetVSync(bool enabled) => _renderer?.SetVSync(enabled);
+    /// <summary>Shows a refused drop in the VE window title (the main window shows it too).</summary>
+    public void ReportFilesRejected(string text) => _renderer?.SetStatus(text);
 
     public void StartRecording()
     {

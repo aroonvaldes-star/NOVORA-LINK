@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using NOVORA.Linux.Files;
 using NOVORA.Linux.VisionEngine;
 using AvaloniaControl = Avalonia.Controls.Control;
 
@@ -22,6 +23,8 @@ public sealed partial class MainWindow
     private bool _veSending;
     private Button? _veReceiveFolderButton;
     private bool _veReceivingFolder;
+    private TextBlock? _integrationFilesStatus;
+    private Button? _integrationRestartButton;
     private (long At, long Frames, long Bytes)? _veTelemetrySample;
     private (double Fps, double Mbps) _veTelemetryRates;
 
@@ -37,6 +40,42 @@ public sealed partial class MainWindow
         LinuxVisionRuntime? runtime = _host.VisionRuntime;
         if (!ReferenceEquals(runtime, _veExchangeRuntime)) AttachVisionExchangeVE(runtime);
         if (_veReceiveFolderButton is not null) _veReceiveFolderButton.IsEnabled = !_veReceivingFolder;
+        UpdateFilesStatusVE();
+    }
+
+    /// <summary>Shows the FILES channel state in Integración: healthy, waiting, or closed with its real cause.</summary>
+    private void UpdateFilesStatusVE()
+    {
+        LinuxVisionRuntime? runtime = _host.VisionRuntime;
+        bool closed = runtime?.Files.ClosedAfterFailure == true;
+        bool capturing = _host.HasVisionSession || _host.VisionRequested;
+        if (_integrationFilesStatus is { } status)
+        {
+            status.Text = runtime is null ? "Archivos: inicia VisionEngine para enviar o recibir." : runtime.Files.Status;
+            status.Foreground = Brush(closed ? "#f87171" : runtime?.Files.IsConnected == true ? "#22c55e" : "#a8b7ca");
+        }
+        if (_integrationRestartButton is { } restart)
+        {
+            restart.IsEnabled = capturing;
+            restart.Content = closed ? "REINICIAR CAPTURA (ARCHIVOS CERRADOS)" : "REINICIAR CAPTURA";
+        }
+    }
+
+    /// <summary>Stops and restarts capture so the phone opens a fresh FILES channel. The phone must authorize again.</summary>
+    private async Task RestartCaptureVEAsync()
+    {
+        try
+        {
+            SetMessage("Reiniciando captura para reconectar archivos…", "#fbbf24");
+            await _host.StopVisionAsync();
+            _host.RequestVision();
+            SetMessage("Captura reiniciada: autoriza la captura en el teléfono para reconectar archivos.");
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException)
+        {
+            SetMessage("No se pudo reiniciar la captura: " + ex.Message, "#f87171");
+        }
+        UpdateFilesStatusVE();
     }
 
     private void AttachVisionExchangeVE(LinuxVisionRuntime? runtime)
@@ -194,7 +233,13 @@ public sealed partial class MainWindow
     {
         if (_host.VisionRuntime is not { } runtime || !runtime.Files.IsConnected)
         {
-            SetMessage("VisionEngine debe estar activo para transferir archivos.", "#fbbf24");
+            // Dropped files are refused, not queued: say why and what to do, next to the VE window too.
+            bool closed = _host.VisionRuntime?.Files.ClosedAfterFailure == true;
+            string text = closed
+                ? "El canal de archivos se cerró; el archivo no se envió. Pulsa REINICIAR CAPTURA en Integración."
+                : "VisionEngine debe estar activo para transferir archivos; el archivo no se envió.";
+            SetMessage(text, "#fbbf24");
+            _host.VisionRuntime?.ReportFilesRejected(text);
             return;
         }
         foreach (string path in paths) _veSendQueue.Enqueue(path);
@@ -223,7 +268,7 @@ public sealed partial class MainWindow
         catch (Exception ex) when (ex is IOException or InvalidOperationException or InvalidDataException or UnauthorizedAccessException)
         {
             _veSendQueue.Clear();
-            SetMessage("Archivos NOVORA: " + ex.Message, "#f87171");
+            SetMessage("Archivos NOVORA: " + LinuxFileDiagnostics.Describe(ex), "#f87171");
         }
         finally
         {

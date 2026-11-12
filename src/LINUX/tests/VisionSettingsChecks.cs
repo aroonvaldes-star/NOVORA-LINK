@@ -22,6 +22,14 @@ internal static class VisionSettingsChecks
             Check(store.Load()==host.VisionSettings,"Concurrent settings persistence diverged from live state");
         }
         finally { File.Delete(path); }
+        Check(LinuxVisionSettings.Default.AudioSource == "Output", "Default audio source must stay playback");
+        try { (LinuxVisionSettings.Default with { AudioSource = "Bluetooth" }).Validate(); throw new Exception("Invalid audio source accepted"); }
+        catch (InvalidDataException) { }
+        (LinuxVisionSettings.Default with { AudioSource = "Microphone" }).Validate();
+        var offer = new LinuxVisionLanOffer(1, "s", "10.0.0.2", new string('a', 64), 0,
+            new LinuxVisionLanEndpoint(1, new string('1', 64), "VIDEO"), new LinuxVisionLanEndpoint(2, new string('2', 64), "CONTROL"),
+            null, 8_000_000, 1920, 60, true, AudioSource: LinuxAudioSource.Microphone);
+        Check(System.Text.Json.JsonSerializer.Serialize(offer).Contains("\"AudioSource\":\"Microphone\""), "Offer must carry the audio source");
         Console.WriteLine("VisionEngine settings checks passed.");
     }
     private static void Check(bool ok, string message) { if (!ok) throw new Exception(message); }

@@ -5,7 +5,7 @@ namespace NOVORA.Linux.Files;
 /// <summary>One public destination by content type, independent of transfer feature.</summary>
 public static class NLControlFileStorage
 {
-    public static string PcRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "NOVORA-Files");
+    public static string PcRoot => NOVORA.Linux.VisionEngine.LinuxVisionSettings.DefaultReceiveDirectory;
     public static string Category(string name) => Path.GetExtension(name).ToLowerInvariant() switch
     {
         ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp" or ".bmp" or ".heic" or ".heif" or ".avif" or ".tiff" => "Imagenes",

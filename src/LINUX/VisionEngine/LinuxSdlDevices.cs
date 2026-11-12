@@ -34,7 +34,8 @@ internal static class LinuxSdlDevices
             {
                 if (!(video ? _videoInitialized : _audioInitialized))
                 {
-                    if (!init(flags)) throw new InvalidOperationException(Marshal.PtrToStringUTF8(error()) ?? "SDL no pudo enumerar salidas.");
+                    bool ready = video ? LinuxSdlVideoDriver.InitVideo(Library, () => init(flags)) : init(flags);
+                    if (!ready) throw new InvalidOperationException(Marshal.PtrToStringUTF8(error()) ?? "SDL no pudo enumerar salidas.");
                     if (video) _videoInitialized = true;
                     else _audioInitialized = true;
                 }

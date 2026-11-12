@@ -11,6 +11,10 @@ internal sealed class LinuxVisionFiles(string receiveDirectory) : IAsyncDisposab
     public long Generation { get; private set; }
     public bool IsConnected => _engine is { IsClosed: false };
     public string Status { get; private set; } = "Archivos: esperando canal autenticado.";
+    /// <summary>Full cause of the last channel failure (null while healthy); shown in Integración and the VE title.</summary>
+    public string? LastError { get; private set; }
+    /// <summary>True once the channel existed and then closed: the only way back is a new capture session.</summary>
+    public bool ClosedAfterFailure => _engine is not null && !IsConnected;
     public event Action? Changed;
     /// <summary>A file or folder finished sending; SHA-256 confirmed by Android for every file.</summary>
     public event Action<string>? Sent;
@@ -18,10 +22,19 @@ internal sealed class LinuxVisionFiles(string receiveDirectory) : IAsyncDisposab
     public event Action<string, long>? ReceivedFile;
     private void Report(string text) { Status = text; Changed?.Invoke(); }
 
+    /// <summary>Records the real cause (inner chain) in the log and in the status shown to the user.</summary>
+    private void Fail(string context, Exception ex)
+    {
+        LinuxFileDiagnostics.Record(context, ex);
+        LastError = LinuxFileDiagnostics.Describe(ex);
+        Report($"Archivos: {context}. Causa: {LastError}. Pulsa REINICIAR CAPTURA para reconectar.");
+    }
+
     public Task AttachAsync(Stream stream, long generation, CancellationToken token)
     {
         if (_engine is not null || generation <= 0) throw new InvalidOperationException("Canal FILES inválido o duplicado.");
         Generation = generation;
+        LastError = null;
         var leases = new NLControlFileLeaseCoordinatorV2(generation);
         var engine = new NLControlFileTransferV2(stream, new NLControlFileStorageV2(receiveDirectory), generation,
             receiveAuthorization: leases.ConfirmIncomingBegin);
@@ -42,7 +55,7 @@ internal sealed class LinuxVisionFiles(string receiveDirectory) : IAsyncDisposab
     private async Task ObserveAsync(NLControlFileTransferV2 engine)
     {
         try { await engine.Completion.ConfigureAwait(false); }
-        catch (Exception ex) { Report("Archivos: " + ex.Message); }
+        catch (Exception ex) { Fail("El canal de archivos se cerró", ex); }
     }
     public string Acquire(string json)
     {
@@ -77,7 +90,12 @@ internal sealed class LinuxVisionFiles(string receiveDirectory) : IAsyncDisposab
             Sent?.Invoke(path);
         }
         catch(OperationCanceledException) { Report("Envío cancelado."); throw; }
-        catch(Exception ex) when(ex is IOException or InvalidOperationException or InvalidDataException) { Report("No se pudo enviar: "+ex.Message); throw; }
+        catch(Exception ex) when(ex is IOException or InvalidOperationException or InvalidDataException)
+        {
+            LinuxFileDiagnostics.Record("envío de " + Path.GetFileName(path), ex);
+            Report("No se pudo enviar: " + LinuxFileDiagnostics.Describe(ex));
+            throw;
+        }
         finally { _send.Release(); }
     }
     private async Task SendFileAsync(string path, string? relativePath, CancellationToken token)

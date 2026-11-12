@@ -73,7 +73,7 @@ internal sealed class LinuxVisionLanEngine : IAsyncDisposable
                     bitrate,
                     maxSize,
                     fps,
-                    audioEnabled && !mobileData, Runtime.Generation, mobileData);
+                    audioEnabled && !mobileData, Runtime.Generation, mobileData, Settings.AudioSource);
                 _session = session;
                 _sessionCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 _state = "Waiting";

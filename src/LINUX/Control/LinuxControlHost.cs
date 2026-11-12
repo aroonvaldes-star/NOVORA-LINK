@@ -21,6 +21,8 @@ internal sealed class LinuxControlHost : IAsyncDisposable, IAutoConnectTarget
         try { VisionSettings = _visionStore.Load(); }
         catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or InvalidDataException or UnauthorizedAccessException)
         { VisionSettings = LinuxVisionSettings.Default; }
+        try { Directory.CreateDirectory(VisionSettings.ReceiveDirectory); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
     private LinuxTrustStore? _store;
     private LinuxControlServer? _lanServer;

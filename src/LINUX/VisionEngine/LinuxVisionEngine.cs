@@ -17,7 +17,7 @@ internal sealed record LinuxVideoSourceOffer(
     bool MuteDeviceAudio,
     bool AudioEnabled,
     int FilesPort = 0, string FilesToken = "", int FilesWireVersion = 0, long CaptureGeneration = 0,
-    LinuxCaptureCapabilities? CaptureCapabilities = null);
+    LinuxCaptureCapabilities? CaptureCapabilities = null, string AudioSource = LinuxAudioSource.Output);
 
 /// <summary>
 /// JSON-compatible with NLControlNetworkCapabilities. Only sent for mobile-data captures: frame pacing
@@ -160,7 +160,8 @@ internal sealed class LinuxVisionEngine : IAsyncDisposable
                     MuteDeviceAudio: true,
                     AudioEnabled: Settings.AudioEnabled && !mobileData, FilesPort: DeviceFilesPort, FilesToken: filesOffer.Token,
                     FilesWireVersion: 2, CaptureGeneration: Runtime.Generation,
-                    CaptureCapabilities: mobileData ? LinuxCaptureCapabilities.Mobile : null);
+                    CaptureCapabilities: mobileData ? LinuxCaptureCapabilities.Mobile : null,
+                    AudioSource: Settings.AudioSource);
                 return JsonSerializer.Serialize(offer);
             }
             catch

@@ -39,7 +39,8 @@ internal sealed record LinuxVisionLanOffer(
     LinuxVisionLanEndpoint? Files = null,
     int FilesWireVersion = 0,
     long CaptureGeneration = 0,
-    LinuxCaptureCapabilities? CaptureCapabilities = null);
+    LinuxCaptureCapabilities? CaptureCapabilities = null,
+    string AudioSource = LinuxAudioSource.Output);
 
 internal static class LinuxVisionLanProtocol
 {

@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using Avalonia.Platform;
 using AvaloniaControl = Avalonia.Controls.Control;
 using NOVORA.Linux.Control;
+using NOVORA.Linux.VisionEngine;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
@@ -17,7 +18,7 @@ namespace NOVORA.Linux;
 
 public sealed partial class MainWindow : Window
 {
-    private static readonly string[] Navigation = ["Inicio", "VisionEngine", "LinkEngine", "ExInEngine", "Integración", "Configuración"];
+    private static readonly string[] Navigation = ["Inicio", "VisionEngine", "LinkEngine", "ExInEngine", "Integración", "Streaming", "Configuración"];
     private static readonly string[] VisionProfiles =
         ["Automático", "Competitivo", "Equilibrado", "Calidad", "Fluidez", "Software", "Móvil extremo", "Móvil ahorro"];
     private static readonly string[] CaptureResolutions =
@@ -51,7 +52,6 @@ public sealed partial class MainWindow : Window
     private readonly Button _visionStopButton = new() { Content = "Detener VisionEngine", IsEnabled = false };
     private readonly TextBlock _homeNextStep = new();
     private readonly Button _homeScreenButton = new() { Content = "VER PANTALLA" };
-    private readonly Button _homeConnectionButton = new() { Content = "TIPO DE CONEXIÓN ▾" };
     private readonly CheckBox _performanceSession = new()
     {
         Content = "Sesión de rendimiento: cierra mediciones en vivo, desactiva red experimental y pausa actualizaciones automáticas",
@@ -282,7 +282,7 @@ public sealed partial class MainWindow : Window
                 {
                     "Inicio" => 112,
                     "VisionEngine" or "LinkEngine" or "ExInEngine" => 144,
-                    "Integración" => 150,
+                    "Integración" or "Streaming" => 150,
                     _ => 164
                 },
                 Height = 44,
@@ -309,6 +309,7 @@ public sealed partial class MainWindow : Window
             "LinkEngine" => "M25,47 A21,21 0 1 1 47,25 M5,26 L45,26 M10,13 L42,13 M10,39 L25,39 M26,5 C13,16 13,36 26,47 M26,5 C34,12 38,19 37,27 M36,43 L32,47 C24,55 14,45 22,37 L30,29 C38,21 48,31 40,39 M43,36 L47,32 C55,24 65,34 57,42 L49,50 C41,58 31,48 39,40 M32,44 L47,35",
             "ExInEngine" => "M10,8 C5,8 4,12 2,23 C1,29 5,30 9,25 L12,21 20,21 23,25 C27,30 31,29 30,23 L27,12 C26,8 23,8 20,8Z M10,12 L10,19 M7,15.5 L13,15.5 M22,12 L22,14 M25,15 L25,17",
             "Integración" => "M8,3 L24,3 24,12 8,12Z M3,18 L13,18 13,28 3,28Z M19,18 L29,18 29,28 19,28Z M12,12 L12,16 M24,12 L24,16 M8,16 L24,16",
+            "Streaming" => "M16,12 A4,4 0 1 1 16,20 A4,4 0 1 1 16,12Z M9,5 A15,15 0 0 0 9,27 M23,5 A15,15 0 0 1 23,27",
             _ => "M16,2 A14,14 0 1 1 16,30 A14,14 0 1 1 16,2Z M16,9 L16,23 M9,16 L23,16"
         };
         var path = new Avalonia.Controls.Shapes.Path
@@ -371,6 +372,7 @@ public sealed partial class MainWindow : Window
         "LinkEngine" => BuildLinkPage(),
         "ExInEngine" => BuildExInPage(),
         "Integración" => BuildIntegrationPage(),
+        "Streaming" => BuildStreamingPage(),
         _ => BuildSettingsPage()
     };
 
@@ -435,17 +437,57 @@ public sealed partial class MainWindow : Window
         filesCard.Children.Add(SectionTitle("Archivos / Share"));
         filesCard.Children.Add(Caption("Suelta aquí archivos o carpetas para enviarlos al teléfono."));
         var receiveFolder = FlatButton("RECIBIR CARPETA NOVORA");
-        filesCard.Children.Add(receiveFolder);
+        var changeFolder = FlatButton("CAMBIAR CARPETA");
+        var folderPath = Caption("Carpeta actual: " + _host.VisionSettings.ReceiveDirectory);
+        changeFolder.Click += async (_, _) =>
+        {
+            await ChooseVisionDirectoryAsync(false);
+            folderPath.Text = "Carpeta actual: " + _host.VisionSettings.ReceiveDirectory;
+        };
+        var folderButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        folderButtons.Children.Add(receiveFolder);
+        folderButtons.Children.Add(changeFolder);
+        filesCard.Children.Add(folderButtons);
+        filesCard.Children.Add(folderPath);
+        // Channel state and its real cause; restarting capture is the only way to reopen a closed FILES channel.
+        _integrationFilesStatus = Caption("Archivos: inicia VisionEngine para enviar o recibir.");
+        _integrationRestartButton = FlatButton("REINICIAR CAPTURA");
+        _integrationRestartButton.Click += async (_, _) => await RestartCaptureVEAsync();
+        filesCard.Children.Add(_integrationFilesStatus);
+        filesCard.Children.Add(_integrationRestartButton);
         var filesBorder = Card(filesCard);
         ConfigureIntegrationExchangeVE(filesBorder, receiveFolder);
         PlaceIntegrationCard(cards, filesBorder, 2, 0);
         AddIntegrationCard(cards, "Apps y notificaciones", "Infraestructura de integración aún no disponible en Linux.", 0, 2);
         AddIntegrationCard(cards, "Display / ventanas", "Virtual display, resize y ventanas sólo cuando el backend las soporte.", 2, 2);
-        AddIntegrationCard(cards, "Micrófono Android", "La capacidad Android → PC no está disponible en esta compilación.", 0, 4);
+        var micStack = new StackPanel { Spacing = 6 };
+        micStack.Children.Add(SectionTitle("Micrófono Android"));
+        var micCaption = Caption(MicrophoneCardText(_host.VisionSettings));
+        var micButton = FlatButton(MicrophoneButtonText(_host.VisionSettings));
+        micButton.Click += (_, _) =>
+        {
+            var current = _host.VisionSettings;
+            bool enable = current.AudioSource != LinuxAudioSource.Microphone;
+            VeAction(() => _host.ConfigureVisionSettings(enable
+                ? current with { AudioSource = LinuxAudioSource.Microphone, AudioEnabled = true }
+                : current with { AudioSource = LinuxAudioSource.Output }));
+            micCaption.Text = MicrophoneCardText(_host.VisionSettings);
+            micButton.Content = MicrophoneButtonText(_host.VisionSettings);
+        };
+        micStack.Children.Add(micCaption);
+        micStack.Children.Add(micButton);
+        PlaceIntegrationCard(cards, Card(micStack), 0, 4);
         AddIntegrationCard(cards, "Cámara / PC → Android", "Se mostrará cuando exista soporte real; no se simula la función.", 2, 4);
         content.Children.Add(cards);
         return ScrollPage(content);
     }
+
+    private static string MicrophoneCardText(LinuxVisionSettings settings) => settings.AudioSource == LinuxAudioSource.Microphone
+        ? "Activo: el micrófono del teléfono se escucha en esta PC al iniciar VisionEngine. Android debe tener permiso de micrófono."
+        : "Desactivado. Al activarlo, el micrófono del teléfono se envía a esta PC al iniciar VisionEngine.";
+
+    private static string MicrophoneButtonText(LinuxVisionSettings settings) =>
+        settings.AudioSource == LinuxAudioSource.Microphone ? "DESACTIVAR MICRÓFONO" : "ACTIVAR MICRÓFONO";
 
     private static void AddIntegrationCard(Panel grid, string title, string description, int column, int row)
     {

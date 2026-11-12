@@ -10,6 +10,9 @@ namespace NOVORA.Linux.Files;
 
 public sealed record NLFileTransferResultV2(Guid TransferId, long Length, byte[] Sha256, string? Destination = null);
 
+/// <summary>The peer refused one Begin with a diagnostic. Unlike a protocol failure, the channel stays usable.</summary>
+public sealed class NLFileTransferRejectedV2(string message) : IOException(message);
+
 /// <summary>The provider confines metadata to the selected local root/SAF tree; remote metadata is never an absolute path.</summary>
 public interface INLFileReceiveStorageV2
 {
@@ -147,7 +150,7 @@ public sealed class NLControlFileTransferV2 : IAsyncDisposable
             await WriteSenderAsync(new(NLFileFrameKindV2.Begin, transferId, 0, begin), false, linked.Token).ConfigureAwait(false);
             began = true;
             NLFileFrameV2 initial = await ReadReplyAsync(sender, ResponseTimeout, linked.Token).ConfigureAwait(false);
-            if (initial.Kind == NLFileFrameKindV2.Error) { ReceivedTerminal(sender, initial.Kind); throw new IOException("FILES receiver rejected Begin: " + NLControlFileProtocolV2.ReadError(initial)); }
+            if (initial.Kind == NLFileFrameKindV2.Error) { ReceivedTerminal(sender, initial.Kind); throw new NLFileTransferRejectedV2("FILES receiver rejected Begin: " + NLControlFileProtocolV2.ReadError(initial)); }
             if (initial.Kind != NLFileFrameKindV2.Ack || initial.Offset != 0) throw new InvalidDataException("Expected Begin acknowledgement.");
             int credit = ValidateCredit(initial);
             BeginConfirmed?.Invoke(transferId);
@@ -222,6 +225,8 @@ public sealed class NLControlFileTransferV2 : IAsyncDisposable
         }
         catch (Exception ex)
         {
+            // The peer refused this Begin with a diagnostic: nothing was written and the channel is healthy.
+            if (ex is NLFileTransferRejectedV2) throw;
             bool current; lock (_gate) current = !_closed && _sender == sender;
             if (current && began && (ex is BudgetPauseTimeoutException || ex is not (InvalidDataException or TimeoutException)))
             {
@@ -342,9 +347,20 @@ public sealed class NLControlFileTransferV2 : IAsyncDisposable
     {
         if (_receiver is null)
         {
-            if (frame.Kind != NLFileFrameKindV2.Begin || _storage is null) throw new InvalidDataException("No FILES receive owner/provider.");
+            if (frame.Kind != NLFileFrameKindV2.Begin) throw new InvalidDataException("No FILES receive owner/provider.");
+            // A Begin that cannot be accepted is refused with an Error frame; the channel stays open for the next file.
+            if (_storage is null)
+            {
+                _ = QueueResponse(NLControlFileProtocolV2.Error(frame.TransferId, 0,
+                    "El receptor no tiene autorizada una carpeta de recepción."));
+                return;
+            }
             if (_receiveAuthorization is not null && !_receiveAuthorization(frame.TransferId, _generation))
-                throw new InvalidDataException("FILES Begin has no current receive lease.");
+            {
+                _ = QueueResponse(NLControlFileProtocolV2.Error(frame.TransferId, 0,
+                    "No hay turno de recepción vigente para este archivo."));
+                return;
+            }
 
             var receiver = new Receiver(frame.TransferId, NLControlFileProtocolV2.DecodeMetadata(frame.Payload), _stop.Token);
             _receiver = receiver;
