@@ -26,8 +26,9 @@ internal static class WindowsParityChecks
             Dispatcher.UIThread.RunJobs();
             var home = (Avalonia.Controls.Control)((Dictionary<string,Avalonia.Controls.Control>)Field(window,"_pages"))["Inicio"];
             var buttons = home.GetVisualDescendants().OfType<Button>().ToArray();
-            var connection = buttons.Single(b => b.Content as string == "TIPO DE CONEXIÓN ▾");
-            if (connection.ContextMenu is null) throw new Exception("Windows Home requires a real USB/LAN connection menu.");
+            // Conexión dinámica: Inicio no tiene selector de ruta; USB/LAN se enlazan solos.
+            if (buttons.Any(b => b.Content as string == "TIPO DE CONEXIÓN ▾"))
+                throw new Exception("Home must not expose a manual USB/LAN route selector.");
             var screen = buttons.First(b => b.Content as string == "VER PANTALLA");
             screen.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             if ((string)Field(window,"_currentPage") != "Inicio")
@@ -123,8 +124,6 @@ internal static class WindowsParityChecks
             await usb.DisposeAsync();
             RefreshConnection(window);
             // Dynamic connectivity: losing USB moves to the still-authorized LAN route.
-            if(((Button)Field(window,"_homeConnectionButton")).Content as string != "CONEXIÓN: LAN ▾")
-                throw new Exception("The route button did not follow the authorized LAN route after USB was lost.");
             if(((TextBlock)Field(window,"_deviceStatus")).Text != "Android conectado por LAN.")
                 throw new Exception("The connection summary did not report the authorized LAN route.");
             if(((TextBlock)Field(window,"_homeConnectionStatus")).Text != "Conectado por LAN")

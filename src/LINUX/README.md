@@ -15,7 +15,7 @@ The Linux build requires .NET 8, Rust/Cargo, Android platform-tools (`adb`),
 FFmpeg (`ffmpeg` executable), and SDL3 (`libSDL3.so.0`).
 
 ```sh
-dotnet run --project src/NOVORA-LINUX/NOVORA.Linux.csproj
+dotnet run --project src/LINUX/NOVORA.Linux.csproj
 ```
 
 The app discovers private IPv4 interfaces, selects authorized physical USB
@@ -53,7 +53,7 @@ without asking the user to choose USB or LAN first:
   never linked over USB still needs the one-time LAN pairing code.
 
 Pure policy, ADB framing and the connector state machine are covered by
-`dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --auto-connect`.
+`dotnet run --project src/LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --auto-connect`.
 `--control-only` runs connection, trust, USB tunnel and LinkEngine LAN checks
 without the media fixtures.
 
@@ -120,24 +120,24 @@ the speed test remain unavailable.
 ## Protocol and trust checks
 
 ```sh
-cargo test --manifest-path src/NOVORA-LINUX/LinkRelay/Cargo.toml --locked
-dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj
-dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -- --le-lan-only
+cargo test --manifest-path src/LINUX/LinkRelay/Cargo.toml --locked
+dotnet run --project src/LINUX/tests/NOVORA.Linux.ProtocolTests.csproj
+dotnet run --project src/LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -- --le-lan-only
 ```
 
 With an authorized physical Android device attached and LINK Control 1.4.124
 installed, the optional hardware check can be run with
-`dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -- --device <adb-serial>`.
+`dotnet run --project src/LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -- --device <adb-serial>`.
 
 ## Focused native VE checks
 
 After building the test project, run each mode in a separate process:
 
 ```sh
-dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --input-native
-dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --outputs-native
-dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --ve-ui
-SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy NOVORA_SDL_RENDERER=software dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --ve-runtime-native
+dotnet run --project src/LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --input-native
+dotnet run --project src/LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --outputs-native
+dotnet run --project src/LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --ve-ui
+SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy NOVORA_SDL_RENDERER=software dotnet run --project src/LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --ve-runtime-native
 ```
 
 The runtime fixture currently requires the `libopenh264` encoder. Main protocol

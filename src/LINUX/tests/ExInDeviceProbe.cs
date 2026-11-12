@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 /// <summary>
 /// Physical diagnostic: runs the same ExIn stack as the app (SDL controllers, ADB, Android HID)
 /// against one phone and prints each step and the exact failure.
-/// Run: dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --exin-device [adb-serial]
+/// Run: dotnet run --project src/LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release -- --exin-device [adb-serial]
 /// </summary>
 internal static class ExInDeviceProbe
 {

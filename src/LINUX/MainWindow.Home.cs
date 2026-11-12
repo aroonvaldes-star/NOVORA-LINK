@@ -50,10 +50,7 @@ public sealed partial class MainWindow
         var actions = new StackPanel { Orientation=Orientation.Horizontal,VerticalAlignment=VerticalAlignment.Center };
         StylePrimaryButton(_homeScreenButton); _homeScreenButton.MinWidth=140; _homeScreenButton.Height=42;
         _homeScreenButton.Click += async (_,_) => await ToggleHomeVisionAsync();
-        StyleFlatButton(_homeConnectionButton); _homeConnectionButton.Margin=new Thickness(12,0,0,0);
-        ConfigureConnectionMenu();
-        _homeConnectionButton.Click += (_,_) => _homeConnectionButton.ContextMenu!.Open(_homeConnectionButton);
-        actions.Children.Add(_homeScreenButton); actions.Children.Add(_homeConnectionButton);
+        actions.Children.Add(_homeScreenButton);
         Grid.SetColumn(actions,1); connection.Children.Add(actions);
         var connectionCard=Card(connection); connectionCard.Margin=new Thickness(0,0,0,16); content.Children.Add(connectionCard);
         content.Children.Add(Label("MOTORES DISPONIBLES","BlueBrush",12,true,new Thickness(0,2,0,10)));

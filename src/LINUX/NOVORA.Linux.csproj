@@ -26,7 +26,7 @@
        behaves exactly like Windows. Only ExInSdl (native SDL3 loading/event model) and the
        paths/ADB services are Linux-specific, in ExInEngine/. -->
   <PropertyGroup>
-    <NovoraWindowsSource>$(MSBuildProjectDirectory)/../NOVORA LINK</NovoraWindowsSource>
+    <NovoraWindowsSource>$(MSBuildProjectDirectory)/../WINDOWS</NovoraWindowsSource>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(NovoraWindowsSource)/ExInEngine/*.cs"
@@ -42,6 +42,9 @@
     <!-- VisionEngine Exchange: same NOVORA folder import (category layout, collision-safe names). -->
     <Compile Include="$(NovoraWindowsSource)/Control/NLControlFileStorage.cs"
              Link="VisionEngine/Shared/%(Filename)%(Extension)" />
+    <!-- Streaming: RTMP (ffmpeg) and OBS WebSocket v5 backend, identical to Windows. -->
+    <Compile Include="$(NovoraWindowsSource)/Streaming/NLStreamingService.cs"
+             Link="Streaming/Shared/%(Filename)%(Extension)" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
   </ItemGroup>
   <Target Name="BuildLinuxLinkRelay" BeforeTargets="PrepareForBuild">

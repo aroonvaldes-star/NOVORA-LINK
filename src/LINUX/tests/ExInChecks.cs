@@ -40,7 +40,7 @@ internal static class ExInChecks
         }
 
         string repo = FindRepositoryRoot();
-        string windowsProtocolPath = Path.Combine(repo, "src", "NOVORA LINK", "Control", "NLControlProtocol.cs");
+        string windowsProtocolPath = Path.Combine(repo, "src", "WINDOWS", "Control", "NLControlProtocol.cs");
         string temp = Path.Combine(Path.GetTempPath(), "novora-exin-linux-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temp);
         Environment.SetEnvironmentVariable("XDG_DATA_HOME", Path.Combine(temp, "data"));
@@ -313,7 +313,7 @@ internal static class ExInChecks
     private static string FindRepositoryRoot()
     {
         for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
-            if (Directory.Exists(Path.Combine(directory.FullName, "src", "NOVORA LINK", "Control")))
+            if (Directory.Exists(Path.Combine(directory.FullName, "src", "WINDOWS", "Control")))
                 return directory.FullName;
         throw new DirectoryNotFoundException("No se encontró la raíz del repositorio NOVORA.");
     }

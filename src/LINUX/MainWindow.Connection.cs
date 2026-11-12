@@ -12,16 +12,6 @@ public sealed partial class MainWindow
     private StackPanel? _connectionPanel;
     private StackPanel? _usbSetupPanel;
     private StackPanel? _lanSetupPanel;
-    private readonly MenuItem _usbRouteItem = new() { Header="USB (cable)" };
-    private readonly MenuItem _lanRouteItem = new() { Header="LAN / Wi-Fi" };
-
-    private void ConfigureConnectionMenu()
-    {
-        _usbRouteItem.Click += async (_,_)=>await OpenConnectionSetupAsync("USB");
-        _lanRouteItem.Click += async (_,_)=>await OpenConnectionSetupAsync("LAN");
-        _homeConnectionButton.ContextMenu = new ContextMenu { ItemsSource = new[]{_usbRouteItem,_lanRouteItem} };
-    }
-
     private async Task OpenConnectionSetupAsync(string transport)
     {
         try
@@ -98,7 +88,6 @@ public sealed partial class MainWindow
         _homeDeviceName.Text=authorized
             ? route=="USB" ? _adbDevices.ItemsSource?.OfType<AdbDevice>().FirstOrDefault(d=>d.Serial==_host.UsbSerial)?.Model ?? _host.UsbSerial ?? "Android" : "Android · LAN"
             : "Sin dispositivo";
-        _homeConnectionButton.Content=route is null ? "TIPO DE CONEXIÓN ▾" : $"CONEXIÓN: {route} ▾";
         bool capturing=_host.HasVisionSession || _host.VisionRequested;
         _homeScreenButton.Content=capturing ? "DETENER PANTALLA" : "VER PANTALLA";
         _homeVisionButton.Content=_homeScreenButton.Content;
