@@ -54,27 +54,27 @@ Set-StrictMode -Version Latest
 $RepoPath = [System.IO.Path]::GetFullPath($RepoPath)
 
 $SolutionPath = Join-Path $RepoPath "NOVORA.sln"
-$ProjectPath = Join-Path $RepoPath "src\NOVORA\NOVORA.csproj"
+$ProjectPath = Join-Path $RepoPath "src\WINDOWS\NOVORA.csproj"
 $TestsProject = Join-Path $RepoPath "tests\NOVORA.Tests\NOVORA.Tests.csproj"
 
-$SettingsWindowXaml = Join-Path $RepoPath "src\NOVORA\SettingsWindow.xaml"
-$SettingsWindowCode = Join-Path $RepoPath "src\NOVORA\SettingsWindow.xaml.cs"
-$SettingsServicePath = Join-Path $RepoPath "src\NOVORA\Services\SettingsService.cs"
+$SettingsWindowXaml = Join-Path $RepoPath "src\WINDOWS\SettingsWindow.xaml"
+$SettingsWindowCode = Join-Path $RepoPath "src\WINDOWS\SettingsWindow.xaml.cs"
+$SettingsServicePath = Join-Path $RepoPath "src\WINDOWS\Services\SettingsService.cs"
 
-$GamepadRoot = Join-Path $RepoPath "src\NOVORA\VisionEngine\Gamepad"
+$GamepadRoot = Join-Path $RepoPath "src\WINDOWS\VisionEngine\Gamepad"
 $ManagerGamepadPath = Join-Path $GamepadRoot "ManagerGamepadVE.cs"
 $SdlGamepadPath = Join-Path $GamepadRoot "SdlGamepadVE.cs"
 $ConfigGamepadPath = Join-Path $GamepadRoot "ConfigGamepadVE.cs"
 
-$GamepadWindowXaml = Join-Path $RepoPath "src\NOVORA\GamepadSettingsWindow.xaml"
-$GamepadWindowCode = Join-Path $RepoPath "src\NOVORA\GamepadSettingsWindow.xaml.cs"
+$GamepadWindowXaml = Join-Path $RepoPath "src\WINDOWS\GamepadSettingsWindow.xaml"
+$GamepadWindowCode = Join-Path $RepoPath "src\WINDOWS\GamepadSettingsWindow.xaml.cs"
 
 $GamepadTestsPath = Join-Path $RepoPath "tests\NOVORA.Tests\GamepadSettingsTests.cs"
 
-$LinkEngineRoot = Join-Path $RepoPath "src\NOVORA\LinkEngine"
+$LinkEngineRoot = Join-Path $RepoPath "src\WINDOWS\LinkEngine"
 $AndroidLinkEngineRoot = Join-Path $RepoPath "NOVORA.linkEngine.Android\LinkEngine"
 
-$NovoraObjRoot = Join-Path $RepoPath "src\NOVORA\obj"
+$NovoraObjRoot = Join-Path $RepoPath "src\WINDOWS\obj"
 $TestsObjRoot = Join-Path $RepoPath "tests\NOVORA.Tests\obj"
 
 # =====================================================================
@@ -2001,7 +2001,7 @@ Tests:
 GamepadSettingsTests = OK
 
 Build:
-src\NOVORA\NOVORA.csproj Release Rebuild = OK
+src\WINDOWS\NOVORA.csproj Release Rebuild = OK
 
 Nota:
 NOVORA.linkEngine.Android no se compila como gate de esta integracion

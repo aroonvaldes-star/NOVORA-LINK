@@ -1,0 +1,10 @@
+{
+  "SchemaVersion": 1,
+  "PackageId": "com.linkcontrol.novora",
+  "VersionCode": 128,
+  "VersionName": "1.4.128",
+  "MinSdk": 30,
+  "ControlProtocol": 1,
+  "PcSeries": "1.4",
+  "Sha256": "7D6010014CEAFCB92E1AC5E7B0F606DEA666DC0FA21BD9A65277D65385948713"
+}

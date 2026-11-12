@@ -10,12 +10,12 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$WindowsProject = Join-Path $RepoRoot 'src\NOVORA\NOVORA.csproj'
+$WindowsProject = Join-Path $RepoRoot 'src\WINDOWS\NOVORA.csproj'
 $AndroidProject = Join-Path $RepoRoot 'NOVORA.linkEngine.Android\NOVORA.linkEngine.Android.csproj'
 $TestsProject = Join-Path $RepoRoot 'tests\NOVORA.Tests\NOVORA.Tests.csproj'
 $HarnessProject = Join-Path $RepoRoot 'tests\NOVORA.VisionEngine.HeadlessHarness\NOVORA.VisionEngine.HeadlessHarness.csproj'
 $NamingScript = Join-Path $PSScriptRoot 'Verify-EngineNaming.ps1'
-$Adb = Join-Path $RepoRoot 'src\NOVORA\Tools\adb.exe'
+$Adb = Join-Path $RepoRoot 'src\WINDOWS\Tools\adb.exe'
 
 Write-Host ''
 Write-Host '============================================================' -ForegroundColor Cyan

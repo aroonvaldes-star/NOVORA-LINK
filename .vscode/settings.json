@@ -4,5 +4,6 @@
         "{**/.c4z/.extsrcs/*.PROTSYM.cbl,**/.c4z/.extsrcs/*.PROTSYM.listing}": true
     },
     "csharp-dev-tools.build.configuration": "Release",
-    "atlascode.bitbucket.enabled": false
+    "atlascode.bitbucket.enabled": false,
+    "dotnet.defaultSolution": "NOVORA.sln"
 }

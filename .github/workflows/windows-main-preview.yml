@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'src/NOVORA LINK/**'
+      - 'src/WINDOWS/**'
       - 'tests/NOVORA.WindowsConnection.Tests/**'
       - '.github/workflows/windows-main-preview.yml'
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Verify Windows tools
         shell: pwsh
-        run: ./scripts/Setup-Tools.ps1 -ToolsDir 'src/NOVORA LINK/Tools'
+        run: ./scripts/Setup-Tools.ps1 -ToolsDir 'src/WINDOWS/Tools'
       - name: Test connection policy and queued commands
         shell: pwsh
         run: |
@@ -38,7 +38,7 @@ jobs:
       - name: Publish standalone Windows x64 preview
         shell: pwsh
         run: |
-          dotnet publish 'src/NOVORA LINK/NLProjectDesktop.csproj' -c Release -r win-x64 --self-contained true -o artifacts/windows-main -p:NuGetAudit=false
+          dotnet publish 'src/WINDOWS/NLProjectDesktop.csproj' -c Release -r win-x64 --self-contained true -o artifacts/windows-main -p:NuGetAudit=false
           if ($LASTEXITCODE -ne 0) { throw 'Windows publish failed.' }
           if (-not (Test-Path artifacts/windows-main/NOVORA-LINK.exe)) { throw 'NOVORA-LINK.exe is missing.' }
           @"

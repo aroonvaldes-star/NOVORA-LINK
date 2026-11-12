@@ -36,7 +36,7 @@ jobs:
         }\n"
     - name: Restore
       shell: pwsh
-      run: 'dotnet restore src/NOVORA/NLProjectDesktop.csproj
+      run: 'dotnet restore src/WINDOWS/NLProjectDesktop.csproj
 
         if ($LASTEXITCODE -ne 0) { throw "Restore failed." }'
     - name: Analyze and emit SARIF 2.1

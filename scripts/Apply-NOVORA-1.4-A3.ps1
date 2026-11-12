@@ -42,12 +42,12 @@ $backedUpFiles = New-Object 'System.Collections.Generic.List[string]'
 $removedFiles = New-Object 'System.Collections.Generic.List[string]'
 
 $legacyFiles = @(
-    'src\NOVORA\LinkEngine\Device\PollingDeviceLE.cs',
-    'src\NOVORA\Services\PollingCenter.cs',
-    'src\NOVORA\Services\PollingCoordinatorService.cs',
-    'src\NOVORA\LinkEngine\Device\PollingDeviceLE.txt',
-    'src\NOVORA\LinkEngine\Device\ProvisioningDeviceLE.txt',
-    'src\NOVORA\LinkEngine\Failover\AdbFailoverLE.txt'
+    'src\WINDOWS\LinkEngine\Device\PollingDeviceLE.cs',
+    'src\WINDOWS\Services\PollingCenter.cs',
+    'src\WINDOWS\Services\PollingCoordinatorService.cs',
+    'src\WINDOWS\LinkEngine\Device\PollingDeviceLE.txt',
+    'src\WINDOWS\LinkEngine\Device\ProvisioningDeviceLE.txt',
+    'src\WINDOWS\LinkEngine\Failover\AdbFailoverLE.txt'
 )
 
 function Backup-ExistingNV([string]$Relative) {

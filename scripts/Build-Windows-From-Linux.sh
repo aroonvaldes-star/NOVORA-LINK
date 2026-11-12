@@ -41,7 +41,7 @@ cd -- "$repo_dir"
 "$sdk_dir/dotnet" --info
 # Restore fresh assets rather than using NuGet paths generated on Windows.
 # An empty fallback-folder property avoids inherited Windows-only fallback paths.
-"$sdk_dir/dotnet" build 'src/NOVORA LINK/NLProjectDesktop.csproj' \
+"$sdk_dir/dotnet" build 'src/WINDOWS/NLProjectDesktop.csproj' \
     --configuration Release \
     --runtime win-x64 --self-contained false \
     -p:EnableWindowsTargeting=true \

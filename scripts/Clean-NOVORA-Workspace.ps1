@@ -16,7 +16,7 @@ if (-not (Test-Path -LiteralPath $RepoPath -PathType Container)) {
 }
 
 $Solution = Join-Path $RepoPath "NOVORA.sln"
-$WindowsProject = Join-Path $RepoPath "src\NOVORA\NOVORA.csproj"
+$WindowsProject = Join-Path $RepoPath "src\WINDOWS\NOVORA.csproj"
 $AndroidProject = Join-Path $RepoPath "NOVORA.linkEngine.Android\NOVORA.linkEngine.Android.csproj"
 
 foreach ($Required in @($Solution, $WindowsProject, $AndroidProject)) {
@@ -56,11 +56,11 @@ Write-Host ""
 # Directorios de IDE y build totalmente reproducibles.
 $GeneratedDirectories = @(
     (Join-Path $RepoPath ".vs"),
-    (Join-Path $RepoPath "src\NOVORA\bin"),
-    (Join-Path $RepoPath "src\NOVORA\obj"),
+    (Join-Path $RepoPath "src\WINDOWS\bin"),
+    (Join-Path $RepoPath "src\WINDOWS\obj"),
     (Join-Path $RepoPath "NOVORA.linkEngine.Android\bin"),
     (Join-Path $RepoPath "NOVORA.linkEngine.Android\obj"),
-    (Join-Path $RepoPath "src\NOVORA\LinkEngine\Network\Native\NovoraRelay\target"),
+    (Join-Path $RepoPath "src\WINDOWS\LinkEngine\Network\Native\NovoraRelay\target"),
     (Join-Path $RepoPath "Installer\output"),
     (Join-Path $RepoPath "artifacts")
 )

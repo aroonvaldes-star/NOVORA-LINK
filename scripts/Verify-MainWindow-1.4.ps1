@@ -49,11 +49,11 @@ function Assert-NotContains {
 Write-Section "NOVORA-LINK 1.4 - MAINWINDOW VERIFICATION"
 
 $RepoPath = [System.IO.Path]::GetFullPath($RepoPath)
-$XamlPath = Join-Path $RepoPath "src\NOVORA\MainWindow.xaml"
-$MainCodePath = Join-Path $RepoPath "src\NOVORA\MainWindow.xaml.cs"
-$VisionCodePath = Join-Path $RepoPath "src\NOVORA\MainWindow.VisionEngineVE.cs"
-$InterfaceCodePath = Join-Path $RepoPath "src\NOVORA\MainWindow.Interface14.cs"
-$ProjectPath = Join-Path $RepoPath "src\NOVORA\NOVORA.csproj"
+$XamlPath = Join-Path $RepoPath "src\WINDOWS\MainWindow.xaml"
+$MainCodePath = Join-Path $RepoPath "src\WINDOWS\MainWindow.xaml.cs"
+$VisionCodePath = Join-Path $RepoPath "src\WINDOWS\MainWindow.VisionEngineVE.cs"
+$InterfaceCodePath = Join-Path $RepoPath "src\WINDOWS\MainWindow.Interface14.cs"
+$ProjectPath = Join-Path $RepoPath "src\WINDOWS\NOVORA.csproj"
 
 foreach ($Path in @(
     $XamlPath,

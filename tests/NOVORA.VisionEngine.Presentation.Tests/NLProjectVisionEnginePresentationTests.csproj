@@ -7,6 +7,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/NOVORA LINK/VisionEngine/Renderer/VERendererPresentationTiming.cs" Link="Production/VERendererPresentationTiming.cs" />
+    <Compile Include="../../src/WINDOWS/VisionEngine/Renderer/VERendererPresentationTiming.cs" Link="Production/VERendererPresentationTiming.cs" />
   </ItemGroup>
 </Project>

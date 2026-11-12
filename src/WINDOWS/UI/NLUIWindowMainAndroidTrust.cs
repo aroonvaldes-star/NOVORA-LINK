@@ -1,0 +1,208 @@
+using System.IO;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Windows;
+using System.Windows.Controls;
+using NOVORA.Control;
+
+namespace NOVORA;
+
+public partial class NLUIWindowMain
+{
+    private NLControlTrustStore? _androidTrustStore;
+    private NLControlTrustStore? _androidUsbTrustStore;
+    private bool _androidLanNetworkSubscribed;
+    private bool _androidLanRebinding;
+    private int _androidLanFailures;
+    private DateTimeOffset _androidLanRetryAfter;
+    private NLControlTrustStore GetAndroidUsbTrustStore() => _androidUsbTrustStore ??= new NLControlTrustStore(Path.Combine(AndroidTrustDirectory, "USB"));
+    private static string AndroidTrustDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NOVORA", "AndroidControl");
+
+    private NLControlTrustStore GetAndroidTrustStore() =>
+        _androidTrustStore ??= new NLControlTrustStore(AndroidTrustDirectory);
+
+    private static bool IsAvailableAndroidLanAddress(IPAddress address) => IsPrivateLanAddress(address) &&
+        AndroidLanInterfaces().Any(n => n.GetIPProperties().UnicastAddresses.Any(a => a.Address.Equals(address)));
+
+    private async Task RestoreAndroidTrustAsync()
+    {
+        if (_closing) return;
+        if (!_androidLanNetworkSubscribed)
+        {
+            NetworkChange.NetworkAddressChanged += AndroidLanNetworkAddressChanged;
+            _androidLanNetworkSubscribed = true;
+        }
+        if (_closing || _androidLanRebinding || _androidControlPreparing || DateTimeOffset.UtcNow < _androidLanRetryAfter) return;
+        _androidLanRebinding = true;
+        try
+        {
+            var store = GetAndroidTrustStore();
+            // A saved disabled listener represents an explicit stop, not missing setup.
+            if (!store.ListenEnabled && store.LastHost is not null) return;
+            string? current = _androidLanControl is { IsClosed: false } ? store.LastHost : null;
+            string? chosen = NLControlLanAutoPolicy.ChooseAddress(
+                GetAndroidLanAddresses().Select(address => address.ToString()), current);
+            if (chosen == current && current is not null)
+            {
+                // UDP can fail independently of TLS (for example, a temporary port conflict).
+                // Retry discovery without replacing an authorized TCP/USB session.
+                if (_androidLanDiscovery is null && _androidLanControl is { } listening)
+                {
+                    var discovery = new NLControlLanDiscovery(
+                        new(Environment.MachineName, current, listening.Port, store.Fingerprint), persistent: true);
+                    try { discovery.Start(); _androidLanDiscovery = discovery; }
+                    catch { await discovery.DisposeAsync(); throw; }
+                }
+                _androidLanFailures = 0;
+                _androidLanRetryAfter = default;
+                return;
+            }
+            if (chosen is null)
+            {
+                if (_androidLanControl is not null) await StopAndroidLanListenerAsync();
+                return;
+            }
+            await StartAndroidTrustedListenerAsync(IPAddress.Parse(chosen));
+            _androidLanFailures = 0;
+            _androidLanRetryAfter = default;
+        }
+        catch (Exception ex)
+        {
+            _androidLanFailures = Math.Min(_androidLanFailures + 1, 5);
+            _androidLanRetryAfter = DateTimeOffset.UtcNow + NLControlLanAutoPolicy.RetryDelay(_androidLanFailures);
+            if (!_closing) AndroidControlStatus.Text = "No se pudo preparar la conexión LAN: " + ex.Message;
+        }
+        finally { _androidLanRebinding = false; }
+    }
+
+    private void AndroidLanNetworkAddressChanged(object? sender, EventArgs e)
+    {
+        _ = Dispatcher.InvokeAsync(async () =>
+        {
+            _androidLanRetryAfter = default;
+            await RestoreAndroidTrustAsync();
+        });
+    }
+
+    // Rebinding LAN must not invalidate a healthy USB session or its generation.
+    private async Task StopAndroidLanListenerAsync()
+    {
+        var server = _androidLanControl;
+        var discovery = _androidLanDiscovery;
+        _androidLanControl = null;
+        _androidLanDiscovery = null;
+        if (discovery is not null) await discovery.DisposeAsync();
+        if (server is not null) await server.DisposeAsync();
+        try { await StopVeLanVideoAsync(); }
+        finally { await StopAndroidLanLinkAsync(); }
+    }
+
+    private void StopAndroidLanNetworkWatch()
+    {
+        _automaticConnectionTimer?.Stop();
+        _automaticUsbRecovery.Pause();
+        if (!_androidLanNetworkSubscribed) return;
+        NetworkChange.NetworkAddressChanged -= AndroidLanNetworkAddressChanged;
+        _androidLanNetworkSubscribed = false;
+    }
+
+    private async Task StartAndroidTrustedListenerAsync(IPAddress address)
+    {
+        await StopAndroidLanListenerAsync();
+        if (_closing) return;
+        var store = GetAndroidTrustStore();
+        long generation = _androidControlGeneration;
+        NLControlTrustServer? server = null;
+        server = new NLControlTrustServer(address, request => ReferenceEquals(_androidLanControl, server)
+            ? HandleAndroidControlAsync(request, generation, "LAN", server)
+            : Task.FromResult(new NLControlReply(NLControlProtocol.Version, request.Id, false, "Sesión revocada.")), store, allowPairing: false);
+        _androidLanControl = server;
+        server.StatusChanged += (_, status) => Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (ReferenceEquals(_androidLanControl, server)) {
+                AndroidControlStatus.Text = _androidControl?.IsAuthorized == true
+                    ? "USB activo; LAN permanece disponible como respaldo."
+                    : status;
+                if (!server.IsAuthorized && !AndroidControlAuthorized) { ResetAndroidFileTransfer(); _ = FinishAndroidRecordingAsync(); }
+                if (server.IsAuthorized) RequestWaitingExternalVisionFromAndroid();
+                else QueueAutomaticUsb();
+                UpdateRuntimeButtons();
+                AndroidEngineStateChanged();
+            }
+        }));
+        try
+        {
+            server.Start();
+            store.SetListening(address.ToString(), true);
+            var discovery = new NLControlLanDiscovery(
+                new(Environment.MachineName, address.ToString(), server.Port, store.Fingerprint),
+                persistent: true);
+            bool discoverable = true;
+            try { discovery.Start(); _androidLanDiscovery = discovery; }
+            catch
+            {
+                discoverable = false;
+                await discovery.DisposeAsync();
+            }
+            AndroidControlStatus.Text = discoverable
+                ? "Reconexión LAN activa para teléfonos autorizados. No hay código temporal abierto."
+                : "Reconexión LAN activa; el descubrimiento no está disponible en esta red.";
+        }
+        catch { if (ReferenceEquals(_androidLanControl, server)) await StopAndroidLanListenerAsync(); throw; }
+    }
+
+    private async void ActivateAndroidTrust_Click(object sender, RoutedEventArgs e)
+    {
+        if (_androidControlPreparing || _androidLanRebinding || _closing) return;
+        _androidControlPreparing = true;
+        try
+        {
+            var store = GetAndroidTrustStore();
+            if (store.Devices.Count == 0)
+            {
+                AndroidControlStatus.Text = "Primero enlaza mediante el código LAN de seis dígitos.";
+                return;
+            }
+            IPAddress? address = ChooseAndroidLanAddress(createInvitation: false);
+            if (address is not null) await StartAndroidTrustedListenerAsync(address);
+        }
+        catch (Exception ex) { AndroidControlStatus.Text = "No se pudo activar la reconexión: " + ex.Message; }
+        finally { _androidControlPreparing = false; }
+    }
+
+    private async void ManageAndroidTrust_Click(object sender, RoutedEventArgs e)
+    {
+        if (_closing || _androidControlPreparing || _androidLanRebinding) return;
+        _androidControlPreparing = true;
+        try
+        {
+            var store = GetAndroidTrustStore();
+            var usbStore = GetAndroidUsbTrustStore();
+            var devices = store.Devices.Concat(usbStore.Devices.Select(d => d with { Name = d.Name + " · USB" })).ToArray();
+            if (devices.Length == 0) { AndroidControlStatus.Text = "No hay teléfonos con confianza guardada."; return; }
+            var body = new StackPanel();
+            var intro = new TextBlock { Text = "Revocar elimina la autorización guardada en PC y cierra la sesión LAN actual. El teléfono necesitará un código LAN nuevo.", TextWrapping = TextWrapping.Wrap };
+            ApplyNovoraText(intro);
+            body.Children.Add(intro);
+            var list = new System.Windows.Controls.ListBox { ItemsSource = devices, DisplayMemberPath = "Name", SelectedIndex = 0, Height = 180, Margin = new Thickness(0, 12, 0, 12) };
+            ApplyNovoraInput(list);
+            body.Children.Add(list);
+            var dialog = CreateNovoraDialog("Teléfonos autorizados", 510, body);
+            var revoke = new System.Windows.Controls.Button { Content = "REVOCAR TELÉFONO SELECCIONADO", Padding = new Thickness(10) };
+            ApplyNovoraActionButton(revoke);
+            revoke.Click += (_, _) => { if (list.SelectedItem is not null) dialog.DialogResult = true; };
+            body.Children.Add(revoke);
+            if (dialog.ShowDialog() != true || list.SelectedItem is not NLControlTrustedDevice selected) return;
+            bool enabled = store.ListenEnabled;
+            string? host = store.LastHost;
+            if (usbStore.Contains(selected.DeviceId)) usbStore.Revoke(selected.DeviceId); else store.Revoke(selected.DeviceId);
+            await StopAndroidControlAsync();
+            if (enabled && store.Devices.Count > 0 && IPAddress.TryParse(host, out var address) && IsAvailableAndroidLanAddress(address))
+                await StartAndroidTrustedListenerAsync(address);
+            AndroidControlStatus.Text = "Teléfono revocado. Su autorización anterior ya no permite conectar.";
+        }
+        catch (Exception ex) { AndroidControlStatus.Text = "No se pudo revocar la autorización: " + ex.Message; }
+        finally { _androidControlPreparing = false; }
+    }
+}

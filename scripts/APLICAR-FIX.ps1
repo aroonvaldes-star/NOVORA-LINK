@@ -4,8 +4,8 @@ $Repo = "C:\Users\Aroon\Desktop\NOVORA-LINK"
 $Patch = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $Files = @(
-    @{ Source = Join-Path $Patch "ProvisioningDeviceLE.cs"; Destination = Join-Path $Repo "src\NOVORA\LinkEngine\Device\ProvisioningDeviceLE.cs" },
-    @{ Source = Join-Path $Patch "MainWindow.LinkEngineLE.cs"; Destination = Join-Path $Repo "src\NOVORA\MainWindow.LinkEngineLE.cs" }
+    @{ Source = Join-Path $Patch "ProvisioningDeviceLE.cs"; Destination = Join-Path $Repo "src\WINDOWS\LinkEngine\Device\ProvisioningDeviceLE.cs" },
+    @{ Source = Join-Path $Patch "MainWindow.LinkEngineLE.cs"; Destination = Join-Path $Repo "src\WINDOWS\MainWindow.LinkEngineLE.cs" }
 )
 
 Write-Host "=== NOVORA LE A15 WIFI RESTORE FIX ===" -ForegroundColor Cyan
@@ -27,7 +27,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Falló build Android." }
 
     Write-Host "`n=== BUILD NOVORA RELEASE ===" -ForegroundColor Cyan
-    dotnet build ".\src\NOVORA\NOVORA.csproj" -c Release
+    dotnet build ".\src\WINDOWS\NOVORA.csproj" -c Release
     if ($LASTEXITCODE -ne 0) { throw "Falló build NOVORA." }
 
     Write-Host "`nFIX COMPILADO CORRECTAMENTE." -ForegroundColor Green

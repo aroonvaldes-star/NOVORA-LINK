@@ -58,21 +58,21 @@ jobs:
     - name: Restore Android workload
       if: matrix.language == 'csharp'
       shell: pwsh
-      run: dotnet workload restore .\src\NOVORA.Android\NLProjectAndroid.csproj
+      run: dotnet workload restore .\src\ANDROID\NLProjectAndroid.csproj
     - name: Restore
       if: matrix.language == 'csharp'
       shell: pwsh
-      run: 'dotnet restore src/NOVORA/NLProjectDesktop.csproj
+      run: 'dotnet restore src/WINDOWS/NLProjectDesktop.csproj
 
         if ($LASTEXITCODE -ne 0) { throw "Restore failed." }'
     - name: Build
       if: matrix.language == 'csharp'
       shell: pwsh
-      run: 'dotnet build src/NOVORA/NLProjectDesktop.csproj -c Release --no-restore
+      run: 'dotnet build src/WINDOWS/NLProjectDesktop.csproj -c Release --no-restore
 
         if ($LASTEXITCODE -ne 0) { throw "Windows build failed." }
 
-        dotnet build src/NOVORA.Android/NLProjectAndroid.csproj -c Release -r android-arm64 -t:Compile -p:AndroidBuildApplicationPackage=false
+        dotnet build src/ANDROID/NLProjectAndroid.csproj -c Release -r android-arm64 -t:Compile -p:AndroidBuildApplicationPackage=false
 
         if ($LASTEXITCODE -ne 0) { throw "Android compile failed." }'
     - name: Analyze

@@ -2,11 +2,11 @@ name: NOVORA Linux
 'on':
   push:
     paths:
-      - 'src/NOVORA-LINUX/**'
+      - 'src/LINUX/**'
       - '.github/workflows/linux.yml'
   pull_request:
     paths:
-      - 'src/NOVORA-LINUX/**'
+      - 'src/LINUX/**'
       - '.github/workflows/linux.yml'
   workflow_dispatch:
 
@@ -41,7 +41,7 @@ jobs:
         run: rustc --version && cargo --version
 
       - name: Test Linux LinkEngine relay
-        run: cargo test --manifest-path src/NOVORA-LINUX/LinkRelay/Cargo.toml --locked
+        run: cargo test --manifest-path src/LINUX/LinkRelay/Cargo.toml --locked
 
       - name: Install FFmpeg
         run: |
@@ -67,11 +67,11 @@ jobs:
           sudo ldconfig
 
       - name: Build NOVORA-LINK Linux
-        run: dotnet build src/NOVORA-LINUX/NOVORA.Linux.csproj -c Release --verbosity quiet
+        run: dotnet build src/LINUX/NOVORA.Linux.csproj -c Release --verbosity quiet
 
       - name: Run Linux protocol and native smoke tests
         # The runner has no display or sound card: SDL3 must use its dummy drivers.
         env:
           SDL_VIDEO_DRIVER: dummy
           SDL_AUDIO_DRIVER: dummy
-        run: dotnet run --project src/NOVORA-LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release --verbosity quiet
+        run: dotnet run --project src/LINUX/tests/NOVORA.Linux.ProtocolTests.csproj -c Release --verbosity quiet

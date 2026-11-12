@@ -4,17 +4,17 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ExInManagerSource Condition="'$(ExInManagerSource)' == ''">../../src/NOVORA LINK/ExInEngine/ExInManager.cs</ExInManagerSource>
-    <ExInCoreSource Condition="'$(ExInCoreSource)' == ''">../../src/NOVORA LINK/ExInEngine/ExInCoreEngine.cs</ExInCoreSource>
-    <ExInGenerationSource Condition="'$(ExInGenerationSource)' == ''">../../src/NOVORA LINK/ExInEngine/ExInOutputGeneration.cs</ExInGenerationSource>
+    <ExInManagerSource Condition="'$(ExInManagerSource)' == ''">../../src/WINDOWS/ExInEngine/ExInManager.cs</ExInManagerSource>
+    <ExInCoreSource Condition="'$(ExInCoreSource)' == ''">../../src/WINDOWS/ExInEngine/ExInCoreEngine.cs</ExInCoreSource>
+    <ExInGenerationSource Condition="'$(ExInGenerationSource)' == ''">../../src/WINDOWS/ExInEngine/ExInOutputGeneration.cs</ExInGenerationSource>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/NOVORA LINK/ExInEngine/*.cs" Exclude="../../src/NOVORA LINK/ExInEngine/ExInSdl.cs;../../src/NOVORA LINK/ExInEngine/ExInManager.cs;../../src/NOVORA LINK/ExInEngine/ExInCoreEngine.cs;../../src/NOVORA LINK/ExInEngine/ExInOutputGeneration.cs" Link="Production/%(Filename)%(Extension)" />
+    <Compile Include="../../src/WINDOWS/ExInEngine/*.cs" Exclude="../../src/WINDOWS/ExInEngine/ExInSdl.cs;../../src/WINDOWS/ExInEngine/ExInManager.cs;../../src/WINDOWS/ExInEngine/ExInCoreEngine.cs;../../src/WINDOWS/ExInEngine/ExInOutputGeneration.cs" Link="Production/%(Filename)%(Extension)" />
     <Compile Include="$(ExInManagerSource)" Link="Production/ExInManager.cs" />
-    <Compile Include="../../src/NOVORA LINK/Service/NLServiceTimerResolution.cs" Link="Production/NLServiceTimerResolution.cs" />
+    <Compile Include="../../src/WINDOWS/Service/NLServiceTimerResolution.cs" Link="Production/NLServiceTimerResolution.cs" />
     <Compile Include="$(ExInCoreSource)" Link="Production/ExInCoreEngine.cs" />
     <Compile Include="$(ExInGenerationSource)" Link="Production/ExInOutputGeneration.cs" />
-    <Compile Include="../../src/NOVORA LINK/Contracts/Input/NLInputOutput.cs" Link="Production/NLInputOutput.cs" />
+    <Compile Include="../../src/WINDOWS/Contracts/Input/NLInputOutput.cs" Link="Production/NLInputOutput.cs" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
   </ItemGroup>
 </Project>

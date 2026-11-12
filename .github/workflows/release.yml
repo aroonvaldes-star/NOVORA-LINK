@@ -56,7 +56,7 @@ jobs:
         if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
             throw 'Configure APPCONTROL_RELEASE_TOKEN with read access to the private NOVORA-AppControl repository.'
         }
-        $destination = 'src/NOVORA/Android'
+        $destination = 'artifacts/android-release'
         gh release download $env:ANDROID_TAG --repo aroonvaldes-star/NOVORA-AppControl --dir $destination --clobber --pattern LinkControl.apk --pattern NLAndroidRelease.json
         if ($LASTEXITCODE -ne 0) { throw 'Signed Android release download failed.' }
         $descriptor = Get-Content "$destination/NLAndroidRelease.json" -Raw | ConvertFrom-Json
@@ -76,7 +76,7 @@ jobs:
     - name: Publish Windows
       shell: pwsh
       run: |-
-        dotnet publish src/NOVORA/NLProjectDesktop.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -o artifacts/publish/win-x64
+        dotnet publish src/WINDOWS/NLProjectDesktop.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -o artifacts/publish/win-x64
         if ($LASTEXITCODE -ne 0) { throw 'Windows publish failed.' }
         if (-not (Test-Path artifacts/publish/win-x64/NOVORA-LINK.exe)) { throw 'NOVORA-LINK.exe was not produced.' }
     - name: Prepare compliance
@@ -101,9 +101,9 @@ jobs:
         path: |-
           Installer/output/*.exe
           Installer/output/*.sha256
-          src/NOVORA/Android/LinkControl.apk
-          src/NOVORA/Android/NLAndroidRelease.json
-          src/NOVORA/Android/SHA256SUMS.txt
+          artifacts/android-release/LinkControl.apk
+          artifacts/android-release/NLAndroidRelease.json
+          artifacts/android-release/SHA256SUMS.txt
         if-no-files-found: error
     - name: Publish tagged Windows and LINK Control release
       if: github.ref_type == 'tag'
@@ -116,7 +116,7 @@ jobs:
         files: |-
           Installer/output/*.exe
           Installer/output/*.sha256
-          src/NOVORA/Android/LinkControl.apk
-          src/NOVORA/Android/NLAndroidRelease.json
-          src/NOVORA/Android/SHA256SUMS.txt
+          artifacts/android-release/LinkControl.apk
+          artifacts/android-release/NLAndroidRelease.json
+          artifacts/android-release/SHA256SUMS.txt
         prerelease: ${{ env.IS_PRERELEASE == 'true' }}

@@ -2,11 +2,11 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
-    <DispatchSource Condition="'$(DispatchSource)' == ''">../../src/NOVORA LINK/UI/NLUIWindowMainAndroidDispatch.cs</DispatchSource>
+    <DispatchSource Condition="'$(DispatchSource)' == ''">../../src/WINDOWS/UI/NLUIWindowMainAndroidDispatch.cs</DispatchSource>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/NOVORA LINK/Control/NLControlUsbAutoPolicy.cs" Link="NLControlUsbAutoPolicy.cs" />
-    <Compile Include="../../src/NOVORA LINK/Control/NLControlDynamicConnectionPolicy.cs" Link="NLControlDynamicConnectionPolicy.cs" />
+    <Compile Include="../../src/WINDOWS/Control/NLControlUsbAutoPolicy.cs" Link="NLControlUsbAutoPolicy.cs" />
+    <Compile Include="../../src/WINDOWS/Control/NLControlDynamicConnectionPolicy.cs" Link="NLControlDynamicConnectionPolicy.cs" />
     <Compile Include="$(DispatchSource)" Link="NLUIWindowMainAndroidDispatch.cs" />
   </ItemGroup>
 </Project>

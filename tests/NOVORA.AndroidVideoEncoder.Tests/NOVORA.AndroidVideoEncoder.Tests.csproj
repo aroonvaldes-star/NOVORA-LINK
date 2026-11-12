@@ -2,18 +2,18 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
-    <EncoderSource Condition="'$(EncoderSource)' == ''">../../src/LINK Control/AndroidVideo/NLAndroidVideoEncoder.cs</EncoderSource>
-    <QueueSource Condition="'$(QueueSource)' == ''">../../src/LINK Control/AndroidVideo/NLAndroidVideoPacketQueue.cs</QueueSource>
-    <ConfigurationSource Condition="'$(ConfigurationSource)' == ''">../../src/LINK Control/AndroidVideo/NLAndroidVideoEncoderConfiguration.cs</ConfigurationSource>
+    <EncoderSource Condition="'$(EncoderSource)' == ''">../../src/ANDROID/AndroidVideo/NLAndroidVideoEncoder.cs</EncoderSource>
+    <QueueSource Condition="'$(QueueSource)' == ''">../../src/ANDROID/AndroidVideo/NLAndroidVideoPacketQueue.cs</QueueSource>
+    <ConfigurationSource Condition="'$(ConfigurationSource)' == ''">../../src/ANDROID/AndroidVideo/NLAndroidVideoEncoderConfiguration.cs</ConfigurationSource>
     <NoWarn>$(NoWarn);CS9113</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(EncoderSource)" Link="Production/NLAndroidVideoEncoder.cs" />
     <Compile Include="$(QueueSource)" Link="Production/NLAndroidVideoPacketQueue.cs" />
     <Compile Include="$(ConfigurationSource)" Link="Production/NLAndroidVideoEncoderConfiguration.cs" />
-    <Compile Include="../../src/NOVORA LINK/Control/NLControlCapturePolicy.cs" Link="Production/NLControlCapturePolicy.cs" />
-    <Compile Include="../../src/NOVORA LINK/Control/NLControlMobileData.cs" Link="Production/NLControlMobileData.cs" />
-    <Compile Include="../../src/NOVORA LINK/Control/NLControlNetworkPolicy.cs" Link="Production/NLControlNetworkPolicy.cs" />
-    <Compile Include="../../src/NOVORA LINK/VisionEngine/Protocol/VEProtocolConstants.cs" Link="Production/VEProtocolConstants.cs" />
+    <Compile Include="../../src/WINDOWS/Control/NLControlCapturePolicy.cs" Link="Production/NLControlCapturePolicy.cs" />
+    <Compile Include="../../src/WINDOWS/Control/NLControlMobileData.cs" Link="Production/NLControlMobileData.cs" />
+    <Compile Include="../../src/WINDOWS/Control/NLControlNetworkPolicy.cs" Link="Production/NLControlNetworkPolicy.cs" />
+    <Compile Include="../../src/WINDOWS/VisionEngine/Protocol/VEProtocolConstants.cs" Link="Production/VEProtocolConstants.cs" />
   </ItemGroup>
 </Project>

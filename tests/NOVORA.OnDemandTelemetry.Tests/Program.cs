@@ -7,10 +7,10 @@ static void Check(bool condition, string message)
 }
 
 var root = new DirectoryInfo(AppContext.BaseDirectory);
-while (root is not null && !File.Exists(Path.Combine(root.FullName, "src/NOVORA LINK/UI/NLUIWindowMain.xaml")))
+while (root is not null && !File.Exists(Path.Combine(root.FullName, "src/WINDOWS/UI/NLUIWindowMain.xaml")))
     root = root.Parent;
 Check(root is not null, "Cannot locate source checkout.");
-var xaml = XDocument.Load(Path.Combine(root!.FullName, "src/NOVORA LINK/UI/NLUIWindowMain.xaml"));
+var xaml = XDocument.Load(Path.Combine(root!.FullName, "src/WINDOWS/UI/NLUIWindowMain.xaml"));
 XNamespace names = "http://schemas.microsoft.com/winfx/2006/xaml";
 var panel = xaml.Descendants().SingleOrDefault(e => (string?)e.Attribute(names + "Name") == "VisionTelemetryExpander14");
 Check(panel is not null && (string?)panel.Attribute("IsExpanded") == "False",
@@ -78,7 +78,7 @@ string usb = (string)summary.Invoke(null, ["USB", true, false, false, true, true
 Check(usb.Contains("USB") && usb.Contains("Grabación activa") && usb.Contains("LinkEngine activo"), "USB, recording and Internet states are missing.");
 string lost = (string)summary.Invoke(null, ["LAN", false, true, true, true, false, false])!;
 Check(lost.Contains("perdido") && !lost.Contains("activo"), "Lost link must not claim active motors.");
-var service = File.ReadAllText(Path.Combine(root.FullName, "src/LINK Control/AndroidService/NLAndroidServiceControl.cs"));
+var service = File.ReadAllText(Path.Combine(root.FullName, "src/ANDROID/AndroidService/NLAndroidServiceControl.cs"));
 Check(service.Contains("_notificationPolicy.NeedsPublish(") && service.Contains(".SetContentText(presentation.PublicMessage)"),
     "FAIL: the actual Android notification builder still republishes unchanged or generic-only notifications.");
 Console.WriteLine("PASS useful public summaries and actual Android service integration.");

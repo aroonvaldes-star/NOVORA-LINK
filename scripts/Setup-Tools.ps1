@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 if ([string]::IsNullOrWhiteSpace($ToolsDir)) {
-    $ToolsDir = Join-Path $PSScriptRoot "..\src\NOVORA\Tools"
+    $ToolsDir = Join-Path $PSScriptRoot "..\src\WINDOWS\Tools"
 }
 $resolvedToolsDir = [IO.Path]::GetFullPath($ToolsDir)
 $required = @(

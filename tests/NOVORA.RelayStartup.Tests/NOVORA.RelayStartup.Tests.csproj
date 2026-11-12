@@ -6,11 +6,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/NOVORA LINK/LinkEngine/Network/LENetworkRelay.cs" Link="Production/LENetworkRelay.cs" />
-    <Compile Include="../../src/NOVORA LINK/LinkEngine/Network/ILENetworkRelay.cs" Link="Production/ILENetworkRelay.cs" />
-    <Compile Include="../../src/NOVORA LINK/LinkEngine/Network/LERelayPolicyProtocol.cs" Link="Production/LERelayPolicyProtocol.cs" />
-    <Compile Include="../../src/NOVORA LINK/LinkEngine/Network/LERelayPolicySession.cs" Link="Production/LERelayPolicySession.cs" />
-    <Compile Include="../../src/NOVORA LINK/Control/NLControlNetworkPolicy.cs" Link="Production/NLControlNetworkPolicy.cs" />
-    <Compile Include="../../src/NOVORA LINK/Control/NLControlVpnProtocol.cs" Link="Production/NLControlVpnProtocol.cs" />
+    <Compile Include="../../src/WINDOWS/LinkEngine/Network/LENetworkRelay.cs" Link="Production/LENetworkRelay.cs" />
+    <Compile Include="../../src/WINDOWS/LinkEngine/Network/ILENetworkRelay.cs" Link="Production/ILENetworkRelay.cs" />
+    <Compile Include="../../src/WINDOWS/LinkEngine/Network/LERelayPolicyProtocol.cs" Link="Production/LERelayPolicyProtocol.cs" />
+    <Compile Include="../../src/WINDOWS/LinkEngine/Network/LERelayPolicySession.cs" Link="Production/LERelayPolicySession.cs" />
+    <Compile Include="../../src/WINDOWS/Control/NLControlNetworkPolicy.cs" Link="Production/NLControlNetworkPolicy.cs" />
+    <Compile Include="../../src/WINDOWS/Control/NLControlVpnProtocol.cs" Link="Production/NLControlVpnProtocol.cs" />
   </ItemGroup>
 </Project>

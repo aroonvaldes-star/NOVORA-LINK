@@ -8,10 +8,10 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $RepoPath = [IO.Path]::GetFullPath($RepoPath)
-$NovoraRelay = Join-Path $RepoPath "src\NOVORA\LinkEngine\Network\Native\NovoraRelay"
+$NovoraRelay = Join-Path $RepoPath "src\WINDOWS\LinkEngine\Network\Native\NovoraRelay"
 $Manifest = Join-Path $NovoraRelay "Cargo.toml"
 $BuiltExe = Join-Path $NovoraRelay "target\release\novora-linkengine-relay.exe"
-$ToolsDir = Join-Path $RepoPath "src\NOVORA\Tools\LinkEngine"
+$ToolsDir = Join-Path $RepoPath "src\WINDOWS\Tools\LinkEngine"
 $RuntimeExe = Join-Path $ToolsDir "LENetworkRelay.exe"
 
 if (-not (Test-Path -LiteralPath $Manifest -PathType Leaf)) {

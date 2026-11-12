@@ -167,17 +167,17 @@
     $PcProtocol =
         Join-Path `
             $RepoPath `
-            'src\NOVORA\Remote\ProtocolRemoteNV.cs'
+            'src\WINDOWS\Remote\ProtocolRemoteNV.cs'
 
     $PcCommands =
         Join-Path `
             $RepoPath `
-            'src\NOVORA\Remote\CommandRemoteNV.cs'
+            'src\WINDOWS\Remote\CommandRemoteNV.cs'
 
     $PcRouter =
         Join-Path `
             $RepoPath `
-            'src\NOVORA\MainWindow.RemoteAndroidNV.cs'
+            'src\WINDOWS\MainWindow.RemoteAndroidNV.cs'
 
     $AndroidProtocol =
         Join-Path `
@@ -539,7 +539,7 @@ $AndroidBin
     $ToolsApk =
         Join-Path `
             $RepoPath `
-            'src\NOVORA\Tools\com.novora.linkengine-Signed.apk'
+            'src\WINDOWS\Tools\com.novora.linkengine-Signed.apk'
 
     Copy-Item `
         -LiteralPath $SignedApk.FullName `
@@ -572,7 +572,7 @@ $AndroidBin
     $Adb =
         Join-Path `
             $RepoPath `
-            'src\NOVORA\Tools\adb.exe'
+            'src\WINDOWS\Tools\adb.exe'
 
     Require-File $Adb
 
@@ -726,7 +726,7 @@ $AndroidBin
     $NovoraExe =
         Join-Path `
             $RepoPath `
-            'src\NOVORA\bin\Release\net8.0-windows10.0.26100.0\NOVORA-LINK.exe'
+            'src\WINDOWS\bin\Release\net8.0-windows10.0.26100.0\NOVORA-LINK.exe'
 
     if (
         Test-Path `

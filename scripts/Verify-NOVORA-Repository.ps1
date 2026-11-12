@@ -13,17 +13,17 @@ Set-StrictMode -Version Latest
 if ([string]::IsNullOrWhiteSpace($RepoPath)) { $RepoPath = Split-Path -Parent $PSScriptRoot }
 
 $RepoPath = [IO.Path]::GetFullPath($RepoPath)
-$NovoraProject = Join-Path $RepoPath 'src\NOVORA LINK\NLProjectDesktop.csproj'
-$AndroidProject = Join-Path $RepoPath 'src\LINK Control\NLProjectAndroid.csproj'
+$NovoraProject = Join-Path $RepoPath 'src\WINDOWS\NLProjectDesktop.csproj'
+$AndroidProject = Join-Path $RepoPath 'src\ANDROID\NLProjectAndroid.csproj'
 # Se descubren todas las suites: una lista fija dejaba proyectos rotos fuera de la verificación.
 $TestsProjects = @(Get-ChildItem -LiteralPath (Join-Path $RepoPath 'tests') -Directory |
     Where-Object { $_.Name -ne 'NOVORA.PhysicalRelayHarness' } |
     ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Filter '*.csproj' | Where-Object { $_.Name -notmatch '_wpftmp' } } |
     ForEach-Object { $_.FullName })
 $PhysicalHarnessProject = Join-Path $RepoPath 'tests\NOVORA.PhysicalRelayHarness\NOVORA.PhysicalRelayHarness.csproj'
-$NovoraRelay = Join-Path $RepoPath 'src\NOVORA LINK\LinkEngine\Network\Native\NovoraRelay'
+$NovoraRelay = Join-Path $RepoPath 'src\WINDOWS\LinkEngine\Network\Native\NovoraRelay'
 $CargoManifest = Join-Path $NovoraRelay 'Cargo.toml'
-$ProtocolPath = Join-Path $RepoPath 'src\NOVORA LINK\Control\NLControlProtocol.cs'
+$ProtocolPath = Join-Path $RepoPath 'src\WINDOWS\Control\NLControlProtocol.cs'
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $OutputRoot = Join-Path $RepoPath ('artifacts\verification\' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 }
@@ -73,7 +73,7 @@ $forbiddenPolling = @(
     'RequiredInfrastructureFailuresLE'
 )
 
-$linkFiles = Get-ChildItem -LiteralPath (Join-Path $RepoPath 'src\NOVORA LINK\LinkEngine') -Recurse -File -Filter '*.cs'
+$linkFiles = Get-ChildItem -LiteralPath (Join-Path $RepoPath 'src\WINDOWS\LinkEngine') -Recurse -File -Filter '*.cs'
 foreach ($token in $forbiddenPolling) {
     $hit = $linkFiles | Select-String -SimpleMatch $token | Select-Object -First 1
     if ($hit) {

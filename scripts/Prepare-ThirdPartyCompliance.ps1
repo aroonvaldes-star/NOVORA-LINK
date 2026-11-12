@@ -69,7 +69,7 @@ function Copy-FirstMatchingLicense {
 $resolvedPublishDir = [IO.Path]::GetFullPath($PublishDir)
 $resolvedOutputDir = [IO.Path]::GetFullPath($OutputDir)
 $legalDir = Join-Path $resolvedPublishDir "Tools\Legal"
-$tcpIpLicense = Join-Path $PSScriptRoot "..\src\NOVORA\LinkEngine\Network\Native\NovoraRelay\tcp_ip-LICENSE.txt"
+$tcpIpLicense = Join-Path $PSScriptRoot "..\src\WINDOWS\LinkEngine\Network\Native\NovoraRelay\tcp_ip-LICENSE.txt"
 
 if (-not (Test-Path -LiteralPath $resolvedPublishDir -PathType Container)) {
     throw "PublishDir no existe: $resolvedPublishDir"

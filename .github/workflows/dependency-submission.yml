@@ -40,7 +40,7 @@ jobs:
       - name: Install Android workload
         shell: pwsh
         run: |
-          dotnet workload restore src/NOVORA.Android/NLProjectAndroid.csproj
+          dotnet workload restore src/ANDROID/NLProjectAndroid.csproj
           if ($LASTEXITCODE -ne 0) { throw "Android workload restore failed." }
 
       - name: Restore solution and tests
