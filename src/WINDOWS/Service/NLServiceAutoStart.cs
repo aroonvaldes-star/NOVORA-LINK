@@ -55,6 +55,14 @@ public static class NLServiceAutoStart
             throw new InvalidOperationException(
                 "NOVORA no pudo resolver su ejecutable.");
 
+<<<<<<< Updated upstream
+=======
+        // Ejecutado como DLL gestionada, ProcessPath es «dotnet»: no se registra el host en vez de la app.
+        if (string.Equals(Path.GetFileNameWithoutExtension(executable), "dotnet", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "El autoarranque requiere el ejecutable NOVORA-LINK.exe instalado, no el host «dotnet».");
+
+>>>>>>> Stashed changes
         string command =
             $"\"{executable}\" {AutoStartArgumentNV}";
 

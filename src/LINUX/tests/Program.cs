@@ -16,6 +16,10 @@ if (args is ["--auto-connect"]) { await AutoConnectChecks.RunAsync(); return; }
 if (args is ["--exin-device", var exInSerial]) { await ExInDeviceProbe.RunAsync(exInSerial); return; }
 if (args is ["--exin-device"]) { await ExInDeviceProbe.RunAsync(""); return; }
 if (args is ["--decoder-smoke"]) { await TestFfmpegDecoderAsync(); return; }
+<<<<<<< Updated upstream
+=======
+if (args is ["--lan-live-pair", var liveAddress]) { await LanLivePairProbe.RunAsync(liveAddress); return; }
+>>>>>>> Stashed changes
 if (args is ["--mobile"]) { await MobileConnectionChecks.RunAsync(); return; }
 if (args is ["--update-github"]) { UpdateGitHubChecks.Run(); await UpdateGitHubChecks.RunLiveAsync(); return; }
 if (args is ["--ve-runtime-native"]) { VisionRuntimeChecks.RunNative(); return; }

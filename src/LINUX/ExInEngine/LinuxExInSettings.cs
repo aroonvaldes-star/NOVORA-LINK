@@ -6,7 +6,11 @@ namespace NOVORA.Linux.ExIn;
 /// The three ExIn values Windows keeps in NLServiceNovoraSettings (ExInEnabled,
 /// ExInPointerSensitivity, ExInGameStickSensitivity), stored next to the Linux trust store.
 /// </summary>
+<<<<<<< Updated upstream
 internal sealed record LinuxExInSettings(bool Enabled = true, int PointerSensitivity = 20, int GameStickSensitivity = 100)
+=======
+internal sealed record LinuxExInSettings(bool Enabled = true, int PointerSensitivity = 20, int GameStickSensitivity = 85)
+>>>>>>> Stashed changes
 {
     public static LinuxExInSettings Default { get; } = new();
 

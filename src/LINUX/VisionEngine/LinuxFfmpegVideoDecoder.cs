@@ -126,6 +126,10 @@ internal sealed class LinuxFfmpegVideoDecoder : IAsyncDisposable
             _ => ""
         };
         var arguments = new List<string> { "-hide_banner", "-loglevel", "error" };
+<<<<<<< Updated upstream
+=======
+        // -fflags nobuffer dejaba sin salida un stream H.264 de 3 fotogramas (smoke test): no se usa hasta medirlo con stream real.
+>>>>>>> Stashed changes
         if (lowLatency) arguments.AddRange(["-flags", "low_delay"]);
         if (backend != "software") arguments.AddRange(["-hwaccel", backend, "-hwaccel_output_format", backend]);
         arguments.AddRange(["-probesize", "32", "-analyzeduration", "0", "-f", demuxer, "-i", "pipe:0"]);

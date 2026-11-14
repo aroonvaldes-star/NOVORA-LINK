@@ -25,8 +25,11 @@ public sealed partial class MainWindow
     private bool _veReceivingFolder;
     private TextBlock? _integrationFilesStatus;
     private Button? _integrationRestartButton;
+<<<<<<< Updated upstream
     private (long At, long Frames, long Bytes)? _veTelemetrySample;
     private (double Fps, double Mbps) _veTelemetryRates;
+=======
+>>>>>>> Stashed changes
 
     private void InitializeVisionExchangeVE()
     {
@@ -333,6 +336,7 @@ public sealed partial class MainWindow
         finally { _veReceivingFolder = false; SyncVisionExchangeVE(); }
     }
 
+<<<<<<< Updated upstream
     // ============================================================
     // LIVE MEASUREMENTS (Windows UpdateVisionTelemetryText14)
     // ============================================================
@@ -366,4 +370,6 @@ public sealed partial class MainWindow
         $"Monitor VE: salida {t.OutputWidth} × {t.OutputHeight} · {fps:F1} FPS · {mbps:F1} Mbps · " +
         $"paquetes {t.VideoPacketsReceived:N0}, renderizados {t.FramesRendered:N0}, sin presentar aprox. {t.FramesDroppedEstimate:N0}.\n" +
         $"Decoder: {t.DecoderBackend} · SDL: {t.RendererBackend} · audio: {(t.AudioPlaying ? "activo" : "sin reproducción")}\n{t.InputStatus}";
+=======
+>>>>>>> Stashed changes
 }
