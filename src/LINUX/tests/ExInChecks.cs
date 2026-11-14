@@ -176,12 +176,17 @@ internal static class ExInChecks
             enginePad = AttachGamepad(attach, "NOVORA engine pad");
             Check(await Until(() => engine.Status.ConnectedGamepads == 1), "engine detects pad");
             await engine.AttachOutputAsync(output);
-            Check(await Until(() => output.Created.Count == 1), "engine registers HID device on the output");
+            // Todos los mandos se presentan con el mismo descriptor X-Box 360 (mismo nombre y VID/PID), así que se comprueba
+            // que cada mando conectado tenga su dispositivo HID, no un nombre ni un total fijo.
+            Check(await Until(() => { lock (output.Created) return output.Created.Count > 0 && output.Created.Count >= engine.Status.ConnectedGamepads; }),
+                "engine registers an HID device for every connected pad");
             IntPtr joystick = openJoystick(enginePad);
             int before = output.Reports;
             setAxis(joystick, 0, 30000);
             setButton(joystick, 0, true);
             Check(await Until(() => output.Reports > before), "engine sends HID reports for input");
+            // Con un mando físico conectado, el motor sigue el de menor instancia; la prueba debe seguir su propio pad virtual.
+            Check(engine.Manager.SelectControllerVE(enginePad), "engine selects the virtual pad");
             Check(await Until(() => engine.LiveSnapshot.State.LeftX == 30000 && engine.LiveSnapshot.State.Buttons.HasFlag(ExInButtons.South)),
                 "live snapshot follows pad");
             ExInModeResult mode = await engine.Manager.SetModeAsync(ExInInputMode.Ui);
