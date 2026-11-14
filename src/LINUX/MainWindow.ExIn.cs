@@ -104,11 +104,7 @@ public sealed partial class MainWindow
     private readonly TextBlock _exInIdentityText = new();
     private readonly Slider _exInPointerSensitivitySlider = new() { Minimum = 5, Maximum = 40, Value = 20, TickFrequency = 1, IsSnapToTickEnabled = true };
     private readonly TextBlock _exInPointerSensitivityText = new();
-<<<<<<< Updated upstream
-    private readonly Slider _exInGameStickSensitivitySlider = new() { Minimum = 25, Maximum = 150, Value = 100, TickFrequency = 5, IsSnapToTickEnabled = true };
-=======
     private readonly Slider _exInGameStickSensitivitySlider = new() { Minimum = 25, Maximum = 150, Value = 100, TickFrequency = 1, IsSnapToTickEnabled = true };
->>>>>>> Stashed changes
     private readonly TextBlock _exInGameStickSensitivityText = new();
     private readonly TextBlock _exInPaddleSupportText = new();
     private readonly ComboBox[] _exInPaddleMappingComboBoxes = [new() { Tag = "P1" }, new() { Tag = "P2" }, new() { Tag = "P3" }, new() { Tag = "P4" }];

@@ -25,11 +25,6 @@ public sealed partial class MainWindow
     private bool _veReceivingFolder;
     private TextBlock? _integrationFilesStatus;
     private Button? _integrationRestartButton;
-<<<<<<< Updated upstream
-    private (long At, long Frames, long Bytes)? _veTelemetrySample;
-    private (double Fps, double Mbps) _veTelemetryRates;
-=======
->>>>>>> Stashed changes
 
     private void InitializeVisionExchangeVE()
     {
@@ -336,40 +331,4 @@ public sealed partial class MainWindow
         finally { _veReceivingFolder = false; SyncVisionExchangeVE(); }
     }
 
-<<<<<<< Updated upstream
-    // ============================================================
-    // LIVE MEASUREMENTS (Windows UpdateVisionTelemetryText14)
-    // ============================================================
-
-    private string VisionLiveTelemetryTextVE()
-    {
-        LinuxVisionTelemetry? t = _host.VisionTelemetry;
-        if (t is null || t.FramesRendered == 0)
-        {
-            _veTelemetrySample = null;
-            return _host.VisionState is "Waiting" or "Streaming" || _host.HasVisionSession
-                ? "La pantalla se está preparando."
-                : "La pantalla aún no se está mostrando.";
-        }
-        long now = Stopwatch.GetTimestamp();
-        if (_veTelemetrySample is { } previous && now > previous.At)
-        {
-            double seconds = (now - previous.At) / (double)Stopwatch.Frequency;
-            if (seconds >= 0.5)
-            {
-                _veTelemetryRates = (Math.Max(0, t.FramesRendered - previous.Frames) / seconds,
-                    Math.Max(0, t.VideoBytesReceived - previous.Bytes) * 8 / seconds / 1_000_000d);
-                _veTelemetrySample = (now, t.FramesRendered, t.VideoBytesReceived);
-            }
-        }
-        else _veTelemetrySample = (now, t.FramesRendered, t.VideoBytesReceived);
-        return VisionLiveTelemetryFormatVE(t, _veTelemetryRates.Fps, _veTelemetryRates.Mbps);
-    }
-
-    internal static string VisionLiveTelemetryFormatVE(LinuxVisionTelemetry t, double fps, double mbps) =>
-        $"Monitor VE: salida {t.OutputWidth} × {t.OutputHeight} · {fps:F1} FPS · {mbps:F1} Mbps · " +
-        $"paquetes {t.VideoPacketsReceived:N0}, renderizados {t.FramesRendered:N0}, sin presentar aprox. {t.FramesDroppedEstimate:N0}.\n" +
-        $"Decoder: {t.DecoderBackend} · SDL: {t.RendererBackend} · audio: {(t.AudioPlaying ? "activo" : "sin reproducción")}\n{t.InputStatus}";
-=======
->>>>>>> Stashed changes
 }

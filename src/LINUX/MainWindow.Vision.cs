@@ -101,13 +101,6 @@ public sealed partial class MainWindow
         diagnostics.Children.Add(probe);
         var refresh=FlatButton("Actualizar monitores y audio"); refresh.Click += (_,_)=>RefreshVeOutputs(); diagnostics.Children.Add(refresh);
         content.Children.Add(VeExpander("Diagnóstico técnico de VisionEngine",diagnostics));
-<<<<<<< Updated upstream
-        var telemetry=new StackPanel { Spacing=8 };
-        telemetry.Children.Add(Caption("Se mide solo mientras este panel está abierto."));
-        telemetry.Children.Add(_visionMetrics);
-        content.Children.Add(VeExpander("Mediciones en vivo",telemetry));
-=======
->>>>>>> Stashed changes
 
         var recording=new StackPanel { Spacing=8 };
         var mediaButtons=new WrapPanel {  };
@@ -251,10 +244,6 @@ public sealed partial class MainWindow
         _veCancelSend.IsEnabled=_veTransfer is not null;
         _veRecording.Text=runtime?.Recorder.Status ?? "Grabación detenida.";
         _veFiles.Text=runtime?.Files.Status ?? "Archivos: inicia una sesión VE.";
-<<<<<<< Updated upstream
-        _visionMetrics.Text=VisionLiveTelemetryTextVE();
-=======
->>>>>>> Stashed changes
     }
     private async Task ChooseVisionDirectoryAsync(bool recording)
     {

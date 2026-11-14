@@ -36,11 +36,8 @@ public sealed partial class MainWindow : Window
     private readonly Button _renewButton = new();
     private readonly TextBlock _hostStatus = new();
     private readonly TextBlock _pairingCode = new();
-<<<<<<< Updated upstream
-=======
     // Línea visible en LinkEngine con el código de enlace LAN, para no depender de la ventana «Tipo de conexión».
     private readonly TextBlock _linkPairingHint = new();
->>>>>>> Stashed changes
     private readonly TextBlock _countdown = new();
     private readonly TextBox _fingerprint = new();
     private readonly TextBlock _deviceStatus = new();
@@ -53,10 +50,6 @@ public sealed partial class MainWindow : Window
     private readonly TextBlock _linkPageMessage = new();
     private readonly TextBlock _visionState = new();
     private readonly TextBlock _visionMessage = new();
-<<<<<<< Updated upstream
-    private readonly TextBlock _visionMetrics = new();
-=======
->>>>>>> Stashed changes
     private readonly Button _visionStopButton = new() { Content = "Detener VisionEngine", IsEnabled = false };
     private readonly TextBlock _homeNextStep = new();
     private readonly Button _homeScreenButton = new() { Content = "VER PANTALLA" };
@@ -954,10 +947,7 @@ public sealed partial class MainWindow : Window
             _startButton.Content = "Preparar control LAN";
             _renewButton.IsEnabled = false;
             _pairingCode.Text = "------";
-<<<<<<< Updated upstream
-=======
             _linkPairingHint.Text = "";
->>>>>>> Stashed changes
             _fingerprint.Text = "";
             _countdown.Text = "Válido durante 2 minutos";
             _settingsHostStatus.Text = _hostStatus.Text;
@@ -974,12 +964,9 @@ public sealed partial class MainWindow : Window
         long seconds = Math.Max(0, invitation.ExpiresUnix - DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         _pairingCode.Text = invitation.Code;
         _countdown.Text = seconds > 0 ? $"Caduca en {seconds / 60:D2}:{seconds % 60:D2}" : "Código vencido · genera uno nuevo";
-<<<<<<< Updated upstream
-=======
         _linkPairingHint.Text = seconds > 0
             ? $"Código de enlace LAN: {invitation.Code} · caduca en {seconds / 60:D2}:{seconds % 60:D2}"
             : "El código de enlace LAN caducó. Genera uno nuevo en «Preparar ruta».";
->>>>>>> Stashed changes
         _fingerprint.Text = string.Join(' ', Enumerable.Range(0, invitation.Fingerprint.Length / 4)
             .Select(index => invitation.Fingerprint.Substring(index * 4, 4)));
         UpdateDeviceStatus();
@@ -1032,17 +1019,6 @@ public sealed partial class MainWindow : Window
             _ => "Detenido"
         };
         _visionMessage.Text = _host.VisionMessage;
-<<<<<<< Updated upstream
-        NOVORA.Linux.VisionEngine.LinuxVisionTelemetry? telemetry = _host.VisionTelemetry;
-        _visionMetrics.Text = telemetry is null
-            ? "Renderer SDL: sin datos."
-            : $"SDL {telemetry.RendererBackend} · {telemetry.FramesRendered} presentados · " +
-              $"{telemetry.VideoPacketsReceived} paquetes · {telemetry.FramesDroppedEstimate} sin presentar aprox. · " +
-              $"salida {telemetry.OutputWidth}×{telemetry.OutputHeight}";
-        _visionMetrics.Foreground = Brush(
-            telemetry?.RendererBackend == "software" ? "#fbbf24" : "#8fa3bd");
-=======
->>>>>>> Stashed changes
         _visionStopButton.IsEnabled = _host.HasVisionSession;
         RefreshFunctionalVisionState();
         UpdateHomeConnection();

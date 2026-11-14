@@ -25,13 +25,8 @@ internal static class LinuxVisionAcceleration
             if (!result.Available) throw new InvalidOperationException($"Aceleración forzada {result.Name} no disponible: {result.Diagnostic}");
             return result.Name;
         }
-<<<<<<< Updated upstream
-        foreach (string backend in Backends)
-            if (ProbeBackendAsync(backend, CancellationToken.None).GetAwaiter().GetResult().Available) return backend;
-=======
         // Automática prefiere software: en las medidas de Linux (RTX 3050, FFmpeg 8.1.3) NVDEC tardó el doble.
         // La aceleración por hardware se usa solo con el modo Forzada.
->>>>>>> Stashed changes
         return "software";
     }
     public static async Task<LinuxAccelerationBackend> ProbeBackendAsync(string backend, CancellationToken token)

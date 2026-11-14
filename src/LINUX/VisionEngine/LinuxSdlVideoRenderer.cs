@@ -42,13 +42,10 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
     private readonly LinuxVisionSettings _settings;
     private readonly LinuxVisionInput _input = new();
     private readonly SdlPollEvent _pollEvent;
-<<<<<<< Updated upstream
-=======
     private readonly SdlGetWindowProperties _getWindowProperties;
     private readonly SdlGetPointerProperty _getPointerProperty;
     private readonly SdlAddEventWatch _addEventWatch;
     private readonly SdlRemoveEventWatch _removeEventWatch;
->>>>>>> Stashed changes
     private readonly SdlGetWindowId _getWindowId;
     private readonly SdlGetWindowSize _getWindowSize;
     private readonly SdlStartTextInput _startTextInput;
@@ -62,16 +59,12 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
     // Position is saved only after SDL reports a real move; Wayland never does, so 0,0 is never stored.
     private bool _positionKnown, _placementDirty;
     private long _lastMoveTicks;
-<<<<<<< Updated upstream
-    private DispatcherTimer? _eventTimer;
-=======
     private DispatcherTimer? _eventTimer;   // fallback only when no display fd is exposed
     private LinuxDisplayWakeWatcher? _displayWake;
     private SdlEventFilter? _eventFilter;   // kept alive: SDL holds the native pointer
     private int _pumpQueued;
     private int _placementRecheckQueued;
     private bool _eventPumpStarted;
->>>>>>> Stashed changes
     private VideoSession? _session;
     private bool _closed;
     private float _wheelHorizontal, _wheelVertical, _wheelX, _wheelY;
@@ -83,15 +76,10 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
     /// <summary>Files or folders dropped on the video window (SDL_EVENT_DROP_*), raised once per drop gesture.</summary>
     public event Action<string[]>? FilesDropped;
     public string? InputError { get; private set; }
-<<<<<<< Updated upstream
-    private sealed record PresentedFrame(byte[] Rgba, int Width, int Height);
-    private PresentedFrame? _lastFrame;
-=======
     // Copia propia del último fotograma para capturas: el decoder reutiliza su buffer entre fotogramas.
     private readonly object _snapshotGate = new();
     private byte[]? _snapshot;
     private int _snapshotWidth, _snapshotHeight;
->>>>>>> Stashed changes
     private readonly List<string> _drop = new();
     private bool _vsync;
 
@@ -122,13 +110,10 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         _getPixelFormatForMasks = Load<SdlGetPixelFormatForMasks>("SDL_GetPixelFormatForMasks");
 
         _pollEvent = Load<SdlPollEvent>("SDL_PollEvent");
-<<<<<<< Updated upstream
-=======
         _getWindowProperties = Load<SdlGetWindowProperties>("SDL_GetWindowProperties");
         _getPointerProperty = Load<SdlGetPointerProperty>("SDL_GetPointerProperty");
         _addEventWatch = Load<SdlAddEventWatch>("SDL_AddEventWatch");
         _removeEventWatch = Load<SdlRemoveEventWatch>("SDL_RemoveEventWatch");
->>>>>>> Stashed changes
         _getWindowId = Load<SdlGetWindowId>("SDL_GetWindowID");
         _getWindowSize = Load<SdlGetWindowSize>("SDL_GetWindowSize");
         _startTextInput = Load<SdlStartTextInput>("SDL_StartTextInput");
@@ -173,10 +158,6 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         if (width <= 0 || height <= 0 || rgba.Length != checked(width * height * 4))
             throw new InvalidDataException("El frame RGBA de VisionEngine tiene dimensiones inválidas.");
 
-<<<<<<< Updated upstream
-        // The decoder allocates one array per frame and never mutates it after Present.
-        Volatile.Write(ref _lastFrame, new PresentedFrame(rgba, width, height));
-=======
         // El decoder reutiliza su buffer: se guarda una copia para las capturas, sin asignar memoria por fotograma.
         lock (_snapshotGate)
         {
@@ -186,18 +167,12 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
             _snapshotWidth = width;
             _snapshotHeight = height;
         }
->>>>>>> Stashed changes
         InvokeOnUi(() => PresentOnUi(rgba, width, height));
     }
 
     /// <summary>Last decoded frame (RGBA, visible orientation) for still captures.</summary>
     public bool TryGetLastFrame(out byte[] rgba, out int width, out int height)
     {
-<<<<<<< Updated upstream
-        PresentedFrame? frame = Volatile.Read(ref _lastFrame);
-        (rgba, width, height) = frame is null ? (Array.Empty<byte>(), 0, 0) : (frame.Rgba, frame.Width, frame.Height);
-        return frame is not null;
-=======
         lock (_snapshotGate)
         {
             if (_snapshot is null)
@@ -210,7 +185,6 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
             height = _snapshotHeight;
             return true;
         }
->>>>>>> Stashed changes
     }
 
     /// <summary>Dynamic presentation can change during the session, as on Windows.</summary>
@@ -257,9 +231,6 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
     /// <summary>Saves the position once the user stops dragging, so a drag does not write the file per event.</summary>
     private void FlushWindowPlacement()
     {
-<<<<<<< Updated upstream
-        if (!_placementDirty || Environment.TickCount64 - _lastMoveTicks < 500) return;
-=======
         if (!_placementDirty) return;
         long quietFor = Environment.TickCount64 - _lastMoveTicks;
         if (quietFor < 500)
@@ -273,7 +244,6 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
                 }, TaskScheduler.Default);
             return;
         }
->>>>>>> Stashed changes
         SaveWindowPlacement();
     }
 
@@ -364,16 +334,6 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
                 throw CreateException("SDL_SetWindowFullscreen");
             if (_settings.RemoteInput && !_startTextInput(_window))
                 throw CreateException("SDL_StartTextInput");
-<<<<<<< Updated upstream
-            _eventTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(8), DispatcherPriority.Input,
-                (_, _) =>
-                {
-                    PollEvents();
-                    FlushWindowPlacement();
-                });
-            _eventTimer.Start();
-=======
->>>>>>> Stashed changes
         }
         string? rendererName = Environment.GetEnvironmentVariable("NOVORA_SDL_RENDERER");
         if (string.IsNullOrWhiteSpace(rendererName))
@@ -400,15 +360,12 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         _height = height;
         _session ??= new VideoSession(width, height, 0, 16 * 1024 * 1024);
         RefreshViewport();
-<<<<<<< Updated upstream
-=======
         // La bomba arranca solo cuando el renderer ya existe: si la creación falla, no queda una bomba sin renderer.
         if (!_eventPumpStarted)
         {
             _eventPumpStarted = true;
             StartEventPump();
         }
->>>>>>> Stashed changes
     }
 
     /// <summary>
@@ -458,8 +415,6 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         finally { destroyProperties(properties); }
     }
 
-<<<<<<< Updated upstream
-=======
     /// <summary>
     /// Event-driven pump: the display fd wakes the UI thread when data arrives, and an SDL event
     /// watch wakes it when SDL queues an event read during another call (e.g. presentation).
@@ -535,7 +490,6 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         }
     }
 
->>>>>>> Stashed changes
     private void PollEvents()
     {
         if (_disposed || _closed || _window == IntPtr.Zero) return;
@@ -544,23 +498,15 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
             uint id = _getWindowId(_window);
             RefreshViewport();
             // Bound work per UI tick, preserving queued events for the next tick.
-<<<<<<< Updated upstream
-            for (int count = 0; count < 256 && _pollEvent(out SdlEvent e); count++)
-=======
             int count = 0;
             for (; count < 256 && _pollEvent(out SdlEvent e); count++)
->>>>>>> Stashed changes
             {
                 if (e.Type == 0x100 || e.WindowId == id && e.Type == 0x210)
                 {
                     SaveWindowPlacement();
                     _input.ReleaseAll();
                     _closed = true;
-<<<<<<< Updated upstream
-                    _eventTimer?.Stop();
-=======
                     StopEventPump();
->>>>>>> Stashed changes
                     Closed?.Invoke();
                     return;
                 }
@@ -618,11 +564,8 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
                         break;
                 }
             }
-<<<<<<< Updated upstream
-=======
             // Si se llegó al límite puede quedar cola en SDL; sin otra vuelta esperaría al siguiente aviso.
             if (count == 256) RequestPump();
->>>>>>> Stashed changes
             // Accessibility consumes gestures, not raw HID deltas. Coalesce touchpad updates
             // into one gesture window without truncating the fractional delta to an integer.
             if ((_wheelHorizontal != 0 || _wheelVertical != 0) && Environment.TickCount64 >= _nextWheelAt)
@@ -636,11 +579,7 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         {
             InputError = ex.Message;
             _closed = true;
-<<<<<<< Updated upstream
-            _eventTimer?.Stop();
-=======
             StopEventPump();
->>>>>>> Stashed changes
             Closed?.Invoke();
         }
     }
@@ -690,20 +629,6 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
     {
         if (_disposed)
             return;
-<<<<<<< Updated upstream
-        InvokeOnUi(() =>
-        {
-            if (_disposed) return;
-            _eventTimer?.Stop();
-            _input.ReleaseAll();
-            _disposed = true;
-            if (_window != IntPtr.Zero && _settings.RemoteInput) _stopTextInput(_window);
-            if (_texture != IntPtr.Zero) _destroyTexture(_texture);
-            if (_renderer != IntPtr.Zero) _destroyRenderer(_renderer);
-            if (_window != IntPtr.Zero) _destroyWindow(_window);
-            if (_initialized) _quitSubSystem(SdlInitVideo);
-        });
-=======
         // Espera acotada: si la UI no responde en 2 s (apagándose o bloqueada), no se espera indefinidamente.
         // En ese caso NO se libera nada aquí: la biblioteca SDL y los recursos nativos pueden seguir en uso
         // por trabajo ya encolado en la UI. _closed impide nuevos presentados y sondeos; el hilo de watcher se
@@ -715,13 +640,10 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
             _displayWake?.Dispose();
             return;
         }
->>>>>>> Stashed changes
         Marshal.FreeHGlobal(_destinationRect);
         NativeLibrary.Free(_library);
     }
 
-<<<<<<< Updated upstream
-=======
     private void ReleaseOnUiVE()
     {
         if (_disposed) return;
@@ -753,7 +675,6 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         return done.Wait(timeout);
     }
 
->>>>>>> Stashed changes
     // SDL 3.2 ABI: fixed-size event union; text pointer is copied before the next poll.
     [StructLayout(LayoutKind.Explicit, Size = 128)]
     private struct SdlEvent
@@ -778,14 +699,11 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
     }
     [StructLayout(LayoutKind.Sequential)] private struct SdlRect { public int X, Y, W, H; }
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlPollEvent(out SdlEvent e);
-<<<<<<< Updated upstream
-=======
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate uint SdlGetWindowProperties(IntPtr window);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate IntPtr SdlGetPointerProperty(uint props, [MarshalAs(UnmanagedType.LPUTF8Str)] string name, IntPtr defaultValue);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlAddEventWatch(SdlEventFilter filter, IntPtr userdata);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlEventFilter(IntPtr userdata, IntPtr evt);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void SdlRemoveEventWatch(SdlEventFilter filter, IntPtr userdata);
->>>>>>> Stashed changes
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate uint SdlGetWindowId(IntPtr window);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlGetWindowSize(IntPtr window, out int w, out int h);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlStartTextInput(IntPtr window);

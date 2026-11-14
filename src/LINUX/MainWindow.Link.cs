@@ -55,11 +55,8 @@ public sealed partial class MainWindow
         var routeActions=new WrapPanel {  };
         _linkPrepareButton.Margin=new Thickness(10,0,0,0);
         routeActions.Children.Add(_linkRouteSelector); routeActions.Children.Add(_linkPrepareButton); route.Children.Add(routeActions);
-<<<<<<< Updated upstream
-=======
         _linkPairingHint.FontWeight=Avalonia.Media.FontWeight.SemiBold; _linkPairingHint.Foreground=Brush("#f1f5f9"); _linkPairingHint.Margin=new Thickness(0,10,0,0);
         route.Children.Add(_linkPairingHint);
->>>>>>> Stashed changes
         var routeCard=Card(route); routeCard.Margin=new Thickness(0,16,0,0); content.Children.Add(routeCard);
 
         var tests=new StackPanel { Spacing=6 };

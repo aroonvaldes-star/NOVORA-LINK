@@ -100,11 +100,7 @@ internal static class VisionExchangeChecks
             Dispatcher.UIThread.RunJobs();
             Check(Message() == "ExchangeVE requiere VisionEngine activo.", "Ctrl+V without VE reports the Windows message");
             Call("OnVisionFilesDroppedVE", (object)new[] { "/tmp/a.txt" });
-<<<<<<< Updated upstream
-            Check(Message() == "VisionEngine debe estar activo para transferir archivos.", "dropping without VE reports the Windows message");
-=======
             Check(Message() == "VisionEngine debe estar activo para transferir archivos; el archivo no se envió.", "dropping without VE reports the Windows message");
->>>>>>> Stashed changes
 
             Call("ShowPage", "VisionEngine");
             Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
@@ -112,13 +108,6 @@ internal static class VisionExchangeChecks
             var vision = ((Dictionary<string, Avalonia.Controls.Control>)Field("_pages")!)["VisionEngine"];
             Check(Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(vision).OfType<Avalonia.Controls.TextBlock>().Any(t => t.Text == "Ajusta la presentación al refresco de la pantalla. Puede cambiarse durante la sesión."),
                 "Presentación dinámica is described as live, like Windows");
-<<<<<<< Updated upstream
-            Check(((Avalonia.Controls.TextBlock)Field("_visionMetrics")!).Text == "La pantalla aún no se está mostrando.", "idle live measurements use the Windows text");
-            string live = MainWindow.VisionLiveTelemetryFormatVE(new LinuxVisionTelemetry("opengl", 120, 118, 2, 1280, 720, "FFmpeg h264", true, "Control remoto activo."), 59.94, 8.25);
-            Check(live.StartsWith($"Monitor VE: salida 1280 × 720 · {59.94:F1} FPS · {8.25:F1} Mbps · paquetes 120, renderizados 118, sin presentar aprox. 2.", StringComparison.Ordinal),
-                "live measurements report FPS and Mbps");
-=======
->>>>>>> Stashed changes
 
             string output = Path.Combine(Path.GetTempPath(), "novora-ve-exchange-ui");
             Directory.CreateDirectory(output);
