@@ -217,6 +217,9 @@ public sealed class LENetworkRelay :
             info.Environment["NOVORA_RELAY_TOKEN"] =
                 AuthenticationTokenLE;
 
+            // stdin está redirigido: si esta app cae, el relay debe salir en lugar de quedar con el puerto ocupado.
+            info.Environment["NOVORA_RELAY_EXIT_ON_STDIN_EOF"] = "1";
+
             Process process =
                 new()
                 {

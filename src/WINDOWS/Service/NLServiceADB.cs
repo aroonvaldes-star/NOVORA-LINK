@@ -22,6 +22,12 @@ public sealed class NLServiceADB
     private static readonly TimeSpan DeviceCacheLifetime =
         TimeSpan.FromSeconds(2);
 
+    private static readonly TimeSpan AdbCommandTimeout =
+        TimeSpan.FromSeconds(30);
+
+    private static readonly TimeSpan AdbLongCommandTimeout =
+        TimeSpan.FromSeconds(120);
+
     private readonly NLServiceNovoraPaths _paths;
     private readonly SemaphoreSlim _serverGate = new(1, 1);
     private readonly SemaphoreSlim _deviceGate = new(1, 1);
@@ -1517,6 +1523,12 @@ public sealed class NLServiceADB
             CreateStartInfo(
                 argumentList);
 
+        // Un comando colgado no debe bloquear _deviceGate ni dejar adb.exe huérfano.
+        var timeout =
+            argumentList.Any(a => string.Equals(a, "install", StringComparison.OrdinalIgnoreCase))
+                ? AdbLongCommandTimeout
+                : AdbCommandTimeout;
+
         using var process =
             Process.Start(info)
             ?? throw new InvalidOperationException(
@@ -1524,16 +1536,35 @@ public sealed class NLServiceADB
 
         var stdout =
             process.StandardOutput
-                .ReadToEndAsync(
-                    cancellationToken);
+                .ReadToEndAsync();
 
         var stderr =
             process.StandardError
-                .ReadToEndAsync(
-                    cancellationToken);
+                .ReadToEndAsync();
 
-        await process.WaitForExitAsync(
-            cancellationToken);
+        using var deadline =
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(timeout);
+
+        try
+        {
+            await process.WaitForExitAsync(
+                deadline.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Mata solo este cliente ADB; el servidor compartido sigue intacto.
+            try { if (!process.HasExited) process.Kill(); } catch (Exception) { /* Ya terminó: nada que matar. */ }
+            try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch (Exception) { }
+            _ = stdout.ContinueWith(t => { _ = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
+            _ = stderr.ContinueWith(t => { _ = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
+
+            if (cancellationToken.IsCancellationRequested)
+                throw;
+
+            throw new TimeoutException(
+                $"ADB no respondió en {timeout.TotalSeconds:0} s para el comando '{argumentList.FirstOrDefault()}'.");
+        }
 
         var output =
             await stdout;

@@ -64,6 +64,8 @@ public sealed class LERecoveryMonitor : IAsyncDisposable
     private readonly LERecoveryManager _recovery;
     private readonly NLServiceADB _adb;
 
+    private static readonly TimeSpan FailureRearmDelayLE = TimeSpan.FromSeconds(10);
+
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim _signalLE = new(0, 1);
 
@@ -260,8 +262,27 @@ public sealed class LERecoveryMonitor : IAsyncDisposable
                     LERecoveryMonitorState.Failed,
                     $"LERecoveryMonitor: {ex.Message}",
                     ex.Message);
+                await RearmAfterFailureLEAsync(cancellationToken).ConfigureAwait(false);
             }
         }
+    }
+
+    /// <summary>
+    /// Tras un fallo el worker debe volver a evaluar sin esperar otro evento de transporte,
+    /// que puede no llegar nunca si el teléfono sigue ausente.
+    /// </summary>
+    private async Task RearmAfterFailureLEAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(FailureRearmDelayLE, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        SignalMonitorLE();
     }
 
     private async Task EvaluateTransportEventLEAsync(
@@ -341,6 +362,7 @@ public sealed class LERecoveryMonitor : IAsyncDisposable
                         LERecoveryMonitorState.Failed,
                         "ADB wait-for-device terminó sin recuperar el dispositivo.",
                         "ADB wait-for-device ended unexpectedly.");
+                    await RearmAfterFailureLEAsync(cancellationToken).ConfigureAwait(false);
                     return;
                 }
 

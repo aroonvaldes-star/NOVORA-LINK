@@ -417,11 +417,24 @@ public sealed class NLServiceUpdate
         // Crear helper
         // --------------------------------------------------------
 
+        // El hash se vuelve a comprobar en el helper justo antes de ejecutar el instalador.
+        string expectedSha256 = update.ExpectedSha256 ?? string.Empty;
+        if (!System.Text.RegularExpressions.Regex.IsMatch(
+                expectedSha256,
+                "^[0-9a-fA-F]{64}$"))
+        {
+            TryDelete(installerPath);
+
+            throw new InvalidDataException(
+                "La huella SHA-256 de la actualización no tiene un formato válido.");
+        }
+
         var helperPath =
             CreateUpdateHelper(
                 installerPath,
                 currentExePath,
-                processId);
+                processId,
+                expectedSha256);
 
         try
         {
@@ -491,7 +504,8 @@ public sealed class NLServiceUpdate
     private static string CreateUpdateHelper(
         string installerPath,
         string currentExePath,
-        int processId)
+        int processId,
+        string expectedSha256)
     {
         var folder =
             Path.Combine(
@@ -627,6 +641,21 @@ try {
             'No se encontró el instalador descargado: ' +
             $installer
         )
+    }
+
+    # ============================================================
+    # VOLVER A VERIFICAR EL HASH JUSTO ANTES DE EJECUTAR
+    # El archivo pudo sustituirse después de la comprobación de la app.
+    # ============================================================
+
+    $actualSha256 =
+        (Get-FileHash `
+            -LiteralPath $installer `
+            -Algorithm SHA256).Hash
+
+    if ($actualSha256 -ine '__EXPECTED_SHA256__') {
+
+        throw 'El instalador no coincide con la huella SHA-256 publicada; no se ejecuta.'
     }
 
     # ============================================================
@@ -780,6 +809,13 @@ finally {
             script.Replace(
                 "__HELPER__",
                 helper,
+                StringComparison.Ordinal);
+
+        // Validado como 64 hex antes de llegar aquí; nunca se inserta texto libre en el script.
+        script =
+            script.Replace(
+                "__EXPECTED_SHA256__",
+                expectedSha256.ToLowerInvariant(),
                 StringComparison.Ordinal);
 
         File.WriteAllText(

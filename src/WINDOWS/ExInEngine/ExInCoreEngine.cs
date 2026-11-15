@@ -222,17 +222,15 @@ public sealed class ExInCoreEngine : IAsyncDisposable
         await Task.Yield();
         try
         {
-            int attempt = 0;
-            const int MaxRetriesVE = 10; // ⭐ NUEVO: Límite de reintentos
-            
-            while (attempt < MaxRetriesVE) // ⭐ FIJO: Condición de salida
+            const int MaxRetriesVE = 10; // Límite de reintentos antes de dejar el estado en Failed
+
+            for (int attempt = 1; attempt <= MaxRetriesVE; attempt++)
             {
                 recovery.Token.ThrowIfCancellationRequested();
-                
-                // Continue unattended while enabled, with a bounded retry frequency.
-                double delaySeconds = attempt switch { 0 => 1, 1 => 3, 2 => 5, _ => 15 };
-                if (attempt < 3) attempt++;
-                
+
+                // Backoff acotado: 1, 3, 5 y después 15 segundos por intento.
+                double delaySeconds = attempt switch { 1 => 1, 2 => 3, 3 => 5, _ => 15 };
+
                 _logger.LogInformation($"[ExIn Recovery] Intento #{attempt}/{MaxRetriesVE} después de {delaySeconds}s"); // ⭐ NUEVO: Logging
                 
                 await Task.Delay(TimeSpan.FromSeconds(delaySeconds), recovery.Token).ConfigureAwait(false);
