@@ -91,7 +91,9 @@ public static class LERelayPolicyProtocol
         using (doc)
         {
             var root = doc!.RootElement;
-            if (!Long(root,"revision",out long revision) || revision <= 0 || !Long(root,"generation",out long generation) || generation <= 0 || !Bool(root,"accepted",out var accepted)) return false;
+            if (!Bool(root,"accepted",out var accepted) ||
+                !Long(root,"revision",out long revision) || (accepted ? revision <= 0 : revision < 0) ||
+                !Long(root,"generation",out long generation) || (accepted ? generation <= 0 : generation < 0)) return false;
             string? reason = null;
             if (root.TryGetProperty("reason", out var why) && why.ValueKind != JsonValueKind.Null)
             { if (why.ValueKind != JsonValueKind.String || why.GetString()!.Length > 256) return false; reason = why.GetString(); }
@@ -115,7 +117,7 @@ public static class LERelayPolicyProtocol
         {
             var root=doc!.RootElement;
             if (!Long(root,"revision",out long revision) || revision<=0 || !Long(root,"generation",out long generation) || generation<=0 ||
-                !Long(root,"sequence",out long sequence) || sequence<=0 || !Text(root,"linkKey",128,out var key) || string.IsNullOrWhiteSpace(key) ||
+                !Long(root,"sequence",out long sequence) || sequence<=0 || !Text(root,"linkKey",256,out var key) || string.IsNullOrWhiteSpace(key) ||
                 !Text(root,"mode",16,out var modeName) || !Enum.TryParse<NLNetworkPolicyMode>(modeName,out var mode) || !Enum.IsDefined(mode) ||
                 !Number(root,"windowSeconds",out double window) || window<=0 || window>60 ||
                 !root.TryGetProperty("samples",out var samples) || samples.ValueKind!=JsonValueKind.Array || samples.GetArrayLength() is <1 or >4) return false;

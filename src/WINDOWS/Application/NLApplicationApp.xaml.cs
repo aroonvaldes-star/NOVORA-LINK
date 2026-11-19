@@ -10,12 +10,6 @@ public partial class NLApplicationApp :
     private NLServiceTray? _trayServiceNV;
     private NLServiceSingleInstance? _singleInstanceNV;
 
-    internal static bool IsExplicitExitNV
-    {
-        get;
-        private set;
-    }
-
     protected override async void OnStartup(
         StartupEventArgs e)
     {
@@ -159,9 +153,6 @@ public partial class NLApplicationApp :
                             .ApplyRegistrationNV(
                                 enabled: false);
 
-                        IsExplicitExitNV =
-                            true;
-
                         _trayServiceNV?.HideNV();
 
                         mainWindowNV.Close();
@@ -169,16 +160,6 @@ public partial class NLApplicationApp :
             };
 
         _trayServiceNV.ShowNV();
-    }
-
-    protected override void OnSessionEnding(
-        SessionEndingCancelEventArgs e)
-    {
-        IsExplicitExitNV =
-            true;
-
-        base.OnSessionEnding(
-            e);
     }
 
     protected override void OnExit(

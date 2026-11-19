@@ -329,12 +329,12 @@ public sealed class ExInManager : IAsyncDisposable
 
     public bool FinishCalibrationVE()
     {
-        bool saved;
+        ExInCalibrationProfile? profile;
         lock (_gateVE)
         {
             if (!_calibratingVE) return false;
             _calibratingVE = false;
-            ExInCalibrationProfile? profile = _calibrationProfileKeyVE is null
+            profile = _calibrationProfileKeyVE is null
                 ? null
                 : ExInCalibrationProfile.CreateVE(
                     _calibrationProfileKeyVE,
@@ -342,17 +342,24 @@ public sealed class ExInManager : IAsyncDisposable
                     _calibrationMinVE,
                     _calibrationMaxVE);
 
-            saved = profile is not null && profile.IsValidVE(profile.ProfileKey) && _profilesVE.SaveVE(profile);
-            if (saved && profile is not null)
-                _loadedProfilesVE[profile.ProfileKey] = profile;
-
-            _calibratedVE = saved;
+            _calibratedVE = false;
             _calibrationProfileKeyVE = null;
             _calibrationInstanceIdVE = null;
             _calibrationOutputGenerationVE++;
             _inputEpochVE++;
             foreach (ExInSlot current in _slotsVE.Values) current.ButtonEdges.Clear();
         }
+
+        bool saved = profile is not null && profile.IsValidVE(profile.ProfileKey) && _profilesVE.SaveVE(profile);
+        if (saved && profile is not null)
+        {
+            lock (_gateVE)
+            {
+                _loadedProfilesVE[profile.ProfileKey] = profile;
+                if (!_calibratingVE) _calibratedVE = true;
+            }
+        }
+
         RequestCalibrationOutputSyncVE();
         PublishVE(ExInStates.Running, null);
         PublishLiveSnapshotVE();
@@ -373,8 +380,8 @@ public sealed class ExInManager : IAsyncDisposable
             _inputEpochVE++;
             foreach (ExInSlot current in _slotsVE.Values) current.ButtonEdges.Clear();
             if (profileKey is not null) _loadedProfilesVE.Remove(profileKey);
-            if (profileKey is not null) _profilesVE.DeleteAllVE(profileKey);
         }
+        if (profileKey is not null) _profilesVE.DeleteAllVE(profileKey);
         RequestCalibrationOutputSyncVE();
         PublishVE(ExInStates.Running, null);
         PublishLiveSnapshotVE();
@@ -1215,8 +1222,8 @@ public sealed class ExInManager : IAsyncDisposable
 
             if (!IsPrivacyProtectedVE && !_calibratingVE && _output.IsReady)
             {
-                if (slot.ButtonEdges.Count >= MaxPendingButtonEdgesVE)
-                    throw new InvalidOperationException("La salida ExIn no pudo consumir los flancos del control.");
+                while (slot.ButtonEdges.Count >= MaxPendingButtonEdgesVE)
+                    slot.ButtonEdges.Dequeue();
                 slot.ButtonEdges.Enqueue(next);
             }
 

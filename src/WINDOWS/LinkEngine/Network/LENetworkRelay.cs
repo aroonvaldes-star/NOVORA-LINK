@@ -400,9 +400,15 @@ public sealed class LENetworkRelay :
             return;
         }
 
-        ExitedLE?.Invoke(
-            this,
-            EventArgs.Empty);
+        try
+        {
+            ExitedLE?.Invoke(
+                this,
+                EventArgs.Empty);
+        }
+        catch
+        {
+        }
     }
 
     private void RelayOutputReceivedLE(
@@ -719,7 +725,7 @@ public sealed class LENetworkRelay :
                         true);
 
                 process.WaitForExit(
-                    1500);
+                    300);
             }
             catch
             {
@@ -755,7 +761,7 @@ public sealed class LENetworkRelay :
                         true);
 
                 process.WaitForExit(
-                    2000);
+                    500);
             }
         }
         catch

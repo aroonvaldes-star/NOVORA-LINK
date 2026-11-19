@@ -155,6 +155,12 @@ public partial class NLUIWindowMain
 
     internal async Task StopDiscoveryLifecycleNVAsync()
     {
+        if (_adbWatchdogNV is { } watchdogNV)
+        {
+            _adbWatchdogNV = null;
+            watchdogNV.Stop();
+        }
+
         NLDiscoveryADBTrackDevices? discoveryNV =
             _adbDiscoveryNV;
 

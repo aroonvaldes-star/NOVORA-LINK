@@ -39,8 +39,11 @@ public sealed class LERelayPolicySession
         if (line.StartsWith("LE_CONFIG_ACK ", StringComparison.Ordinal))
         {
             if (LERelayPolicyProtocol.TryReadAcknowledgement(line, out var ack))
-                lock (_sync) if(_pending is { } pending && pending.Revision==ack!.Revision && pending.Generation==ack.Generation)
-                    pending.Completion.TrySetResult(ack);
+                lock (_sync)
+                    if (_pending is { } pending &&
+                        ((pending.Revision == ack!.Revision && pending.Generation == ack.Generation) ||
+                         (!ack.Accepted && ack.Revision == 0)))
+                        pending.Completion.TrySetResult(ack);
             return true;
         }
         return false;

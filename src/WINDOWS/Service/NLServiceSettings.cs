@@ -105,7 +105,9 @@ public sealed class NLServiceNovoraSettings
 
 public sealed class NLServiceSettings
 {
+    private const long MaxSettingsFileBytes = 1024 * 1024;
     private readonly string _settingsPath;
+    private bool _lastLoadFailed;
 
     private static readonly JsonSerializerOptions JsonOptions =
         new()
@@ -138,36 +140,79 @@ public sealed class NLServiceSettings
 
     public NLServiceNovoraSettings Load()
     {
+        string backupPath = _settingsPath + ".bak";
+        if (!File.Exists(_settingsPath))
+        {
+            _lastLoadFailed = false;
+            return TryReadSettingsFile(backupPath, out var recovered)
+                ? recovered!
+                : new NLServiceNovoraSettings();
+        }
+
+        if (TryReadSettingsFile(_settingsPath, out var settings))
+        {
+            _lastLoadFailed = false;
+            return settings!;
+        }
+
+        _lastLoadFailed = true;
+        System.Diagnostics.Debug.WriteLine($"NLServiceSettings: error leyendo '{_settingsPath}'; preservando archivo y buscando respaldo.");
+        TryCopyBestEffort(_settingsPath, _settingsPath + ".corrupt");
+
+        if (TryReadSettingsFile(backupPath, out var backup))
+        {
+            _lastLoadFailed = false;
+            return backup!;
+        }
+
+        return new NLServiceNovoraSettings();
+    }
+
+    private static bool TryReadSettingsFile(string path, out NLServiceNovoraSettings? settings)
+    {
+        settings = null;
         try
         {
-            if (!File.Exists(_settingsPath))
-                return new NLServiceNovoraSettings();
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length > MaxSettingsFileBytes)
+                return false;
 
-            var json = File.ReadAllText(_settingsPath);
+            var json = File.ReadAllText(path);
+            var parsed = JsonSerializer.Deserialize<NLServiceNovoraSettings>(json, JsonOptions);
+            if (parsed is null)
+                return false;
 
-            var settings =
-                JsonSerializer.Deserialize<NLServiceNovoraSettings>(
-                    json,
-                    JsonOptions)
-                ?? new NLServiceNovoraSettings();
-
-            settings.DeviceNames =
+            parsed.DeviceNames =
                 new Dictionary<string, string>(
-                    settings.DeviceNames ?? new(),
+                    parsed.DeviceNames ?? new(),
                     StringComparer.OrdinalIgnoreCase);
 
-            settings.MonitorNames =
+            parsed.MonitorNames =
                 new Dictionary<string, string>(
-                    settings.MonitorNames ?? new(),
+                    parsed.MonitorNames ?? new(),
                     StringComparer.OrdinalIgnoreCase);
 
-            ApplyLowJitterDefaults(settings);
-
-            return settings;
+            ApplyLowJitterDefaults(parsed);
+            settings = parsed;
+            return true;
         }
-        catch
+        catch (Exception ex)
         {
-            return new NLServiceNovoraSettings();
+            System.Diagnostics.Debug.WriteLine($"NLServiceSettings read error ({path}): {ex.Message}");
+            return false;
+        }
+    }
+
+    private static void TryCopyBestEffort(string sourcePath, string destinationPath)
+    {
+        try
+        {
+            if (File.Exists(sourcePath))
+                File.Copy(sourcePath, destinationPath, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"NLServiceSettings backup error ({destinationPath}): {ex.Message}");
         }
     }
 
@@ -200,7 +245,14 @@ public sealed class NLServiceSettings
         try
         {
             File.WriteAllText(temporaryPath, json);
+            if (File.Exists(_settingsPath))
+            {
+                TryCopyBestEffort(
+                    _settingsPath,
+                    _lastLoadFailed ? _settingsPath + ".corrupt" : _settingsPath + ".bak");
+            }
             File.Move(temporaryPath, _settingsPath, overwrite: true);
+            _lastLoadFailed = false;
         }
         finally
         {

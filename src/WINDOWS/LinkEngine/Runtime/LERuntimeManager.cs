@@ -67,6 +67,8 @@ public sealed class LERuntimeManager :
 
     private LERuntimeSession? _session;
 
+    private long _sessionPublishSequence;
+
     private bool _disposed;
 
     public LERuntimeManager(
@@ -1021,26 +1023,41 @@ public sealed class LERuntimeManager :
     private void SetSessionLE(
         LERuntimeSession session)
     {
-        // The handler runs under the same gate as the write: observers then receive
-        // updates in the same order that _session holds them. The UI only posts
-        // to its dispatcher, so this cannot block on the gate.
+        long sequence;
+
         lock (_sessionGate)
         {
             _session =
                 session;
+            sequence =
+                ++_sessionPublishSequence;
+        }
 
-            try
-            {
-                StatusChangedLE?.Invoke(
-                    this,
-                    session);
-            }
-            catch
-            {
-                /*
-                 * Una UI nunca debe romper LERuntimeManager.
-                 */
-            }
+        PublishSessionLE(
+            session,
+            sequence);
+    }
+
+    private void PublishSessionLE(
+        LERuntimeSession session,
+        long sequence)
+    {
+        if (Volatile.Read(ref _sessionPublishSequence) != sequence)
+        {
+            return;
+        }
+
+        try
+        {
+            StatusChangedLE?.Invoke(
+                this,
+                session);
+        }
+        catch
+        {
+            /*
+             * Una UI nunca debe romper LERuntimeManager.
+             */
         }
     }
 
@@ -1052,66 +1069,81 @@ public sealed class LERuntimeManager :
         string serial,
         string message)
     {
-        // Read and publish under one lock, released before the cleanup awaits.
+        LERuntimeSession? failedSession = null;
+        long sequence = 0;
+
+        // Read and update under one lock, publish and clean up after releasing it.
         lock (_sessionGate)
         {
-        LERuntimeSession? current =
-            _session;
+            LERuntimeSession? current =
+                _session;
 
-        if (current is not null)
-        {
-            SetSessionLE(
-                current with
-                {
-                    State =
-                        LERuntimeState.Failed,
+            if (current is not null)
+            {
+                failedSession =
+                    current with
+                    {
+                        State =
+                            LERuntimeState.Failed,
 
-                    DeviceOnline =
-                        false,
+                        DeviceOnline =
+                            false,
 
-                    TransportOpen =
-                        false,
+                        TransportOpen =
+                            false,
 
-                    TransportState =
-                        LETransportState.Failed,
+                        TransportState =
+                            LETransportState.Failed,
 
-                    ReverseConfigured =
-                        false,
+                        ReverseConfigured =
+                            false,
 
-                    ReverseVerified =
-                        false,
+                        ReverseVerified =
+                            false,
 
-                    ListenerStarted =
-                        false,
+                        ListenerStarted =
+                            false,
 
-                    ClientConnected =
-                        false,
+                        ClientConnected =
+                            false,
 
-                    HandshakeVerified =
-                        false,
+                        HandshakeVerified =
+                            false,
 
-                    SessionHealthy =
-                        false,
+                        SessionHealthy =
+                            false,
 
-                    ClientId =
-                        null,
+                        ClientId =
+                            null,
 
-                    HeartbeatSequence =
-                        0,
+                        HeartbeatSequence =
+                            0,
 
-                    HeartbeatCount =
-                        0,
+                        HeartbeatCount =
+                            0,
 
-                    UpdatedAtUtc =
-                        DateTimeOffset.UtcNow,
+                        UpdatedAtUtc =
+                            DateTimeOffset.UtcNow,
 
-                    Message =
-                        message,
+                        Message =
+                            message,
 
-                    LastError =
-                        message
-                });
+                        LastError =
+                            message
+                    };
+
+                _session =
+                    failedSession;
+                sequence =
+                    ++_sessionPublishSequence;
+            }
         }
+
+        if (failedSession is not null)
+        {
+            PublishSessionLE(
+                failedSession,
+                sequence);
         }
 
         await CleanupRuntimeLEAsync(
