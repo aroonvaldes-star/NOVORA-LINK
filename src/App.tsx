@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ScreenType } from './types/index.ts';
 import { Header } from './components/Header.tsx';
 import { BottomNav } from './components/BottomNav.tsx';
@@ -20,7 +20,7 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('inicio');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [toastTimeout, setToastTimeout] = useState<number | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
   // Global Engine / App States
@@ -42,37 +42,36 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  // Sin efectos dentro de los updaters de estado: StrictMode los ejecuta dos veces.
+  useEffect(() => () => {
+    if (toastTimeoutRef.current !== null) clearTimeout(toastTimeoutRef.current);
+  }, []);
+
   const showToast = (message: string) => {
-    if (toastTimeout) clearTimeout(toastTimeout);
+    if (toastTimeoutRef.current !== null) clearTimeout(toastTimeoutRef.current);
     setToastMessage(message);
-    const id = window.setTimeout(() => {
+    toastTimeoutRef.current = window.setTimeout(() => {
       setToastMessage(null);
+      toastTimeoutRef.current = null;
     }, 3000);
-    setToastTimeout(id);
   };
 
   const handleToggleTheme = () => {
-    setIsDarkMode((prev) => {
-      const next = !prev;
-      showToast(next ? 'Modo Oscuro Activado' : 'Modo Claro Activado');
-      return next;
-    });
+    const next = !isDarkMode;
+    setIsDarkMode(next);
+    showToast(next ? 'Modo Oscuro Activado' : 'Modo Claro Activado');
   };
 
   const handleToggleRecord = () => {
-    setIsRecording((prev) => {
-      const next = !prev;
-      showToast(next ? 'Grabación remota iniciada (1080p 60FPS)' : 'Grabación detenida y guardada');
-      return next;
-    });
+    const next = !isRecording;
+    setIsRecording(next);
+    showToast(next ? 'Grabación remota iniciada (1080p 60FPS)' : 'Grabación detenida y guardada');
   };
 
   const handleToggleStEngine = () => {
-    setStEngineActive((prev) => {
-      const next = !prev;
-      showToast(next ? 'STEngine activado y sincronizado' : 'STEngine desactivado');
-      return next;
-    });
+    const next = !stEngineActive;
+    setStEngineActive(next);
+    showToast(next ? 'STEngine activado y sincronizado' : 'STEngine desactivado');
   };
 
   return (

@@ -12,7 +12,7 @@ internal static class LinuxSdlDevices
 {
     // SDL instance IDs are valid only while their subsystem remains initialized.
     // Hold one process-wide reference; individual sessions retain/release their own references.
-    private static readonly IntPtr Library = NativeLibrary.Load("libSDL3.so.0");
+    private static readonly IntPtr Library = PlatformRuntime.LoadSdl3("VisionEngine");
     private static readonly object InitializationGate = new();
     private static bool _videoInitialized, _audioInitialized;
 

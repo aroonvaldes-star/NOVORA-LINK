@@ -16,33 +16,15 @@ public sealed class NLServiceNovoraPaths
         string tools = Path.Combine(BaseDirectory, "Tools");
         // The shared HID output uses this as the adb working directory; it must exist.
         ToolsDirectory = Directory.Exists(tools) ? tools : BaseDirectory;
-        string? dataHome = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
-        string dataRoot = !string.IsNullOrWhiteSpace(dataHome) && Path.IsPathRooted(dataHome)
-            ? dataHome
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share");
-        ExInProfilesDirectory = Path.Combine(dataRoot, "NOVORA-LINK", "ExInProfiles");
+        ExInProfilesDirectory = Path.Combine(NOVORA.Linux.PlatformRuntime.GetDataDirectory(), "ExInProfiles");
     }
 
     public string BaseDirectory { get; }
     public string ToolsDirectory { get; }
     public string ExInProfilesDirectory { get; }
 
-    /// <summary>adb del sistema (android-tools), igual que AdbBridge.</summary>
-    public string Adb => ResolveAdb();
-
-    private static string ResolveAdb()
-    {
-        string? path = Environment.GetEnvironmentVariable("PATH");
-        if (!string.IsNullOrWhiteSpace(path))
-        {
-            foreach (string directory in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
-            {
-                string candidate = Path.Combine(directory, "adb");
-                if (File.Exists(candidate)) return candidate;
-            }
-        }
-        return "adb";
-    }
+    /// <summary>adb del sistema (android-tools / Homebrew), igual que AdbBridge.</summary>
+    public string Adb => NOVORA.Linux.PlatformRuntime.ResolveTool("adb");
 }
 
 /// <summary>Dispositivo ADB con los campos que consulta la sesión ExIn.</summary>

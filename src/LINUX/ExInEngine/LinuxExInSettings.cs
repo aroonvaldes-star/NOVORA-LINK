@@ -10,17 +10,8 @@ internal sealed record LinuxExInSettings(bool Enabled = true, int PointerSensiti
 {
     public static LinuxExInSettings Default { get; } = new();
 
-    public static string FilePath
-    {
-        get
-        {
-            string? configHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-            string root = !string.IsNullOrWhiteSpace(configHome) && Path.IsPathFullyQualified(configHome)
-                ? configHome
-                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config");
-            return Path.Combine(root, "novora-link-linux", "exin.json");
-        }
-    }
+    public static string FilePath =>
+        Path.Combine(PlatformRuntime.GetConfigDirectory(), "exin.json");
 
     public static LinuxExInSettings Load(string? path = null)
     {

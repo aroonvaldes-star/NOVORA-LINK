@@ -44,8 +44,7 @@ internal sealed class LinuxTrustStore : IDisposable
             {
                 if (new FileInfo(_path).Length > 131072)
                     throw new InvalidDataException("El almacén de confianza excede el tamaño permitido.");
-                if (OperatingSystem.IsLinux())
-                    File.SetUnixFileMode(_path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+                PlatformRuntime.ApplyPrivateFilePermissions(_path);
                 byte[] saved = File.ReadAllBytes(_path);
                 try
                 {
@@ -162,8 +161,7 @@ internal sealed class LinuxTrustStore : IDisposable
                 file.Flush(true);
             }
             File.Move(temporary, _path, true);
-            if (OperatingSystem.IsLinux())
-                File.SetUnixFileMode(_path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            PlatformRuntime.ApplyPrivateFilePermissions(_path);
         }
         finally
         {
@@ -176,11 +174,8 @@ internal sealed class LinuxTrustStore : IDisposable
     private static string Hash(string token) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
-    private static void SetPrivateDirectoryPermissions(string directory)
-    {
-        if (OperatingSystem.IsLinux())
-            File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-    }
+    private static void SetPrivateDirectoryPermissions(string directory) =>
+        PlatformRuntime.ApplyPrivateDirectoryPermissions(directory);
 
     private static FileStreamOptions CreatePrivateFileOptions(
         FileMode mode, FileAccess access, FileShare share, FileOptions options = FileOptions.None)
@@ -192,8 +187,7 @@ internal sealed class LinuxTrustStore : IDisposable
             Share = share,
             Options = options
         };
-        if (OperatingSystem.IsLinux())
-            result.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        PlatformRuntime.ApplyPrivateFileMode(result);
         return result;
     }
 

@@ -79,10 +79,11 @@ public partial class NLUIWindowMain
         var cancellation = new CancellationTokenSource();
         long generation = _androidControlGeneration;
         long captureGeneration=NewExperimentalCaptureGeneration("LAN");
-        offer=offer with { CaptureGeneration=captureGeneration,
+        long filesGeneration = captureGeneration > 0 ? captureGeneration : Interlocked.Increment(ref _experimentalGeneration);
+        offer=offer with { CaptureGeneration=filesGeneration,
             CaptureCapabilities=captureGeneration>0 ? ExperimentalPeer("LAN") : null,
-            FilesWireVersion=captureGeneration>0 && ExperimentalPeer("LAN")?.FilesWireVersions?.Contains(2)==true ? 2 : 1 };
-        SetExperimentalVisionSession(captureGeneration,"VE:LAN:"+offer.Host,offer.Bitrate,offer.Fps);
+            FilesWireVersion=ExperimentalPeer("LAN")?.FilesWireVersions?.Contains(2)==true ? 2 : 1 };
+        SetExperimentalVisionSession(filesGeneration,"VE:LAN:"+offer.Host,offer.Bitrate,offer.Fps);
         _veLanSessionVE = session;
         _veLanOfferVE = offer;
         _veLanCancellationVE = cancellation;

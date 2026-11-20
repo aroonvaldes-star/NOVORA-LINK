@@ -755,6 +755,14 @@ public sealed class VEAudioPlayer : IDisposable
 
     private void EnsureTelemetryVE()
     {
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable("NOVORA_AUDIO_TELEMETRY_CSV"),
+                "1",
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
         if (
             _telemetryWriterVE is not null
         )

@@ -811,16 +811,22 @@ public sealed class NLServiceADB
         android = android.Trim();
         build = build.Trim();
 
-        var display =
+        var displayProbe =
             await GetDisplayModesAsync(
                 serial,
                 cancellationToken);
+
+        var display =
+            displayProbe.Modes;
 
         var capabilities =
             await GetDeviceCapabilitiesAsync(
                 serial,
                 display,
-                cancellationToken);
+                cancellationToken,
+                displayProbe.DumpsysDisplay,
+                displayProbe.WmSize,
+                displayProbe.PeakRefreshRate);
 
         return new NLModelDeviceInfo
         {
@@ -866,7 +872,10 @@ public sealed class NLServiceADB
     private async Task<NLModelDeviceCapabilities> GetDeviceCapabilitiesAsync(
         string serial,
         IReadOnlyList<NLModelDisplayModeInfo> detectedModes,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? cachedDumpsysDisplay = null,
+        string? cachedWmSize = null,
+        string? cachedPeakRefreshRate = null)
     {
         int nativeWidth = 0;
         int nativeHeight = 0;
@@ -878,6 +887,7 @@ public sealed class NLServiceADB
         try
         {
             var wmSize =
+                cachedWmSize ??
                 await ShellAsync(
                     serial,
                     "wm size",
@@ -918,6 +928,7 @@ public sealed class NLServiceADB
         try
         {
             var dumpsysDisplay =
+                cachedDumpsysDisplay ??
                 await ShellAsync(
                     serial,
                     "dumpsys display",
@@ -934,11 +945,27 @@ public sealed class NLServiceADB
 
         // 3. Peak/min definidos por Android. Peak es especialmente útil
         //    en teléfonos de 90/120/144/165 Hz.
-        await TryAddRefreshSettingAsync(
-            serial,
-            "peak_refresh_rate",
-            refreshRates,
-            cancellationToken);
+        if (cachedPeakRefreshRate is not null)
+        {
+            if (double.TryParse(
+                    cachedPeakRefreshRate.Trim(),
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out var peakValue))
+            {
+                AddRefreshRate(
+                    refreshRates,
+                    peakValue);
+            }
+        }
+        else
+        {
+            await TryAddRefreshSettingAsync(
+                serial,
+                "peak_refresh_rate",
+                refreshRates,
+                cancellationToken);
+        }
 
         await TryAddRefreshSettingAsync(
             serial,
@@ -1111,13 +1138,16 @@ public sealed class NLServiceADB
         destination.Add(normalized);
     }
 
-    private async Task<IReadOnlyList<NLModelDisplayModeInfo>>
+    private async Task<(IReadOnlyList<NLModelDisplayModeInfo> Modes, string? DumpsysDisplay, string? WmSize, string? PeakRefreshRate)>
     GetDisplayModesAsync(
         string serial,
         CancellationToken cancellationToken)
     {
         var modes =
             new HashSet<NLModelDisplayModeInfo>();
+        string? cachedDumpsysDisplay = null;
+        string? cachedWmSize = null;
+        string? cachedPeakRefreshRate = null;
 
         // ============================================================
         // 1. DUMPSYS DISPLAY
@@ -1130,6 +1160,7 @@ public sealed class NLServiceADB
                     serial,
                     "dumpsys display",
                     cancellationToken);
+            cachedDumpsysDisplay = dumpsys;
 
             foreach (var line in dumpsys.Split(
                          '\n',
@@ -1325,6 +1356,7 @@ public sealed class NLServiceADB
                     serial,
                     "wm size",
                     cancellationToken);
+            cachedWmSize = size;
 
             var match =
                 Regex.Match(
@@ -1370,6 +1402,7 @@ public sealed class NLServiceADB
                     serial,
                     "settings get system peak_refresh_rate",
                     cancellationToken);
+            cachedPeakRefreshRate = refresh;
 
             if (!double.TryParse(
                     refresh.Trim(),
@@ -1425,7 +1458,7 @@ public sealed class NLServiceADB
         // 7. FILTRADO FINAL
         // ============================================================
 
-        return modes
+        var filteredModes = modes
             .Where(
                 m =>
                     m.Width >= 320 &&
@@ -1439,6 +1472,12 @@ public sealed class NLServiceADB
             .ThenByDescending(
                 m => m.RefreshRateHz)
             .ToArray();
+
+        return (
+            filteredModes,
+            cachedDumpsysDisplay,
+            cachedWmSize,
+            cachedPeakRefreshRate);
     }
 
     private ProcessStartInfo CreateStartInfo(

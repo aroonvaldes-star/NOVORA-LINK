@@ -618,11 +618,17 @@ public sealed class LETransportManager : IAsyncDisposable
 
             if (!verified)
             {
+                bool listenerActiveNow =
+                    IsListenerActiveLE(serial);
+
                 LETransportSession failed =
                     session with
                     {
-                        State = LETransportState.Failed,
+                        State = listenerActiveNow
+                            ? LETransportState.Degraded
+                            : LETransportState.Failed,
                         ReverseVerified = false,
+                        ListenerStarted = listenerActiveNow,
                         UpdatedAtUtc = now,
                         LastVerifiedAtUtc = now,
                         LastError =
@@ -697,11 +703,17 @@ public sealed class LETransportManager : IAsyncDisposable
         }
         catch (Exception ex)
         {
+            bool listenerActiveNow =
+                IsListenerActiveLE(serial);
+
             LETransportSession failed =
                 session with
                 {
-                    State = LETransportState.Failed,
+                    State = listenerActiveNow
+                        ? LETransportState.Degraded
+                        : LETransportState.Failed,
                     ReverseVerified = false,
+                    ListenerStarted = listenerActiveNow,
                     UpdatedAtUtc = DateTimeOffset.UtcNow,
                     LastVerifiedAtUtc = DateTimeOffset.UtcNow,
                     LastError =

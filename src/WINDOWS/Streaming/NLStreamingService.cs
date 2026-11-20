@@ -107,31 +107,39 @@ public sealed class NLStreamingService : IAsyncDisposable
         // Drain stderr so ffmpeg never blocks on a full pipe during a long stream.
         _ffmpeg.ErrorDataReceived += (_, _) => { };
         _ffmpeg.BeginErrorReadLine();
-        _ffmpeg.Exited += (_, _) =>
+        var currentProcess = _ffmpeg;
+        IsLive = true;
+        currentProcess.Exited += (_, _) =>
         {
-            if (IsLive)
+            if (IsLive && ReferenceEquals(_ffmpeg, currentProcess))
             {
                 IsLive = false;
                 Report("ffmpeg terminó la transmisión.");
             }
         };
-        IsLive = true;
+        if (currentProcess.HasExited && IsLive && ReferenceEquals(_ffmpeg, currentProcess))
+        {
+            IsLive = false;
+            Report("ffmpeg terminó la transmisión.");
+            return;
+        }
         Report("RTMP: transmisión iniciada.");
     }
 
     private async Task StopFfmpegAsync()
     {
-        if (_ffmpeg is null || _ffmpeg.HasExited) return;
+        if (_ffmpeg is null) return;
         try
         {
+            if (_ffmpeg.HasExited) return;
             // "q" asks ffmpeg to finish the stream cleanly.
             await _ffmpeg.StandardInput.WriteLineAsync("q");
             await _ffmpeg.StandardInput.FlushAsync();
             if (!_ffmpeg.WaitForExit(5000)) _ffmpeg.Kill(entireProcessTree: true);
         }
-        catch (InvalidOperationException)
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or System.ComponentModel.Win32Exception)
         {
-            // Process already exited.
+            // Process already exited or pipe closed.
         }
         Report("RTMP: transmisión detenida.");
     }

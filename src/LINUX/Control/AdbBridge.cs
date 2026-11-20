@@ -203,7 +203,7 @@ internal sealed class AdbBridge
     {
         var start = new ProcessStartInfo
         {
-            FileName = "adb",
+            FileName = PlatformRuntime.ResolveTool("adb"),
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,

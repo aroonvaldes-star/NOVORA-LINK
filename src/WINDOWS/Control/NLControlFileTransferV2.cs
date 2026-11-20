@@ -275,7 +275,19 @@ public sealed class NLControlFileTransferV2 : IAsyncDisposable
         Task<NLFileFrameV2> read = sender.Replies.Reader.ReadAsync(wait.Token).AsTask();
         Task deadline = Task.Delay(timeout, _clock, wait.Token);
         Task winner = await Task.WhenAny(read, deadline).ConfigureAwait(false);
-        if (winner != read) { wait.Cancel(); ct.ThrowIfCancellationRequested(); throw new TimeoutException("FILES response/progress deadline exceeded."); }
+        if (winner != read)
+        {
+            wait.Cancel();
+            try
+            {
+                await read.ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+            }
+            ct.ThrowIfCancellationRequested();
+            throw new TimeoutException("FILES response/progress deadline exceeded.");
+        }
         wait.Cancel();
         return await read.ConfigureAwait(false);
     }
@@ -489,9 +501,12 @@ public sealed class NLControlFileTransferV2 : IAsyncDisposable
             lock (_gate)
             {
                 if (_closed || _receiver != receiver) return;
+                string diagnostic = error is NLFileTransferRejectedV2 rejected && !string.IsNullOrWhiteSpace(rejected.Message)
+                    ? rejected.Message
+                    : "FILES storage or integrity failed; partial aborted.";
                 terminal = QueueResponse(cancelled && error is null
                     ? new(NLFileFrameKindV2.Cancelled, receiver.Id, receiver.Written, Array.Empty<byte>())
-                    : NLControlFileProtocolV2.Error(receiver.Id, receiver.Written, "FILES storage or integrity failed; partial aborted."));
+                    : NLControlFileProtocolV2.Error(receiver.Id, receiver.Written, diagnostic));
             }
             await terminal.ConfigureAwait(false);
             lock (_gate) { if (_receiver == receiver) _receiver = null; }

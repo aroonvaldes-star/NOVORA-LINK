@@ -52,6 +52,9 @@ public partial class NLUIWindowMain : Window
     private CancellationTokenSource? _refreshCts14;
     private bool _exInUiApplyingVE;
     private bool _exInPaddleMappingsApplyingVE;
+    private bool _exInSensitivityUiApplyingVE;
+    private bool _exInSensitivitySavePendingVE;
+    private System.Windows.Threading.DispatcherTimer? _exInSensitivitySaveTimerVE;
     private ExInLiveSnapshot? _pendingExInLiveSnapshotVE;
     private int _exInLiveUpdateQueuedVE;
 
@@ -94,7 +97,11 @@ public partial class NLUIWindowMain : Window
 
         DataContext = _viewModel;
 
-        NLServiceTheme.Apply(_viewModel.Theme);
+        _viewModel.Theme = _settingsService.Load().Theme;
+        if (!string.Equals(NLServiceTheme.CurrentTheme, _viewModel.Theme, StringComparison.Ordinal))
+        {
+            NLServiceTheme.Apply(_viewModel.Theme);
+        }
 
         InitializeLinkEngineRuntimeLE();
         InitializeVisionEngineRuntimeVE();
@@ -111,11 +118,25 @@ public partial class NLUIWindowMain : Window
         object sender,
         RoutedEventArgs e)
     {
+        Closed -= ShellWindow_Closed14;
+        Closed += ShellWindow_Closed14;
+
         try
         {
             _ = CheckOfficialReleaseOnce14Async();
 
-            LoadSettingsToViewModel14();
+            try
+            {
+                LoadSettingsToViewModel14();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"LoadSettingsToViewModel14 error: {ex}");
+                ShowTopMessage14(
+                    "No se pudieron cargar todos los ajustes iniciales; revisa el diagnóstico.",
+                    NLUIMessageKind14.Warning);
+            }
+
             // SelectionChanged fires while bindings are restored. Do not persist
             // partially loaded defaults over the user's saved configuration.
             _shellInitialized14 = true;
@@ -123,10 +144,10 @@ public partial class NLUIWindowMain : Window
             UpdateRuntimeButtons();
             ShowPage14(_selectedPage14);
 
+            _viewModel.PropertyChanged -=
+                ShellViewModel_PropertyChanged14;
             _viewModel.PropertyChanged +=
                 ShellViewModel_PropertyChanged14;
-
-            Closed += ShellWindow_Closed14;
 
             await RefreshDevicesAsync(
                 force: true);
@@ -164,6 +185,7 @@ public partial class NLUIWindowMain : Window
         }
 
         _closing = true;
+        FlushExInSensitivitySaveVE();
         _androidVisionTelemetry.SetRequested(false);
         StopAndroidLanNetworkWatch();
         _officialReleaseCts14.Cancel();
@@ -175,7 +197,15 @@ public partial class NLUIWindowMain : Window
 
         try
         {
-            await CleanupBeforeClose14Async();
+            await CleanupBeforeClose14Async().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        catch (TimeoutException)
+        {
+            Debug.WriteLine("NOVORA close cleanup timed out after 5s; forcing window close.");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"NOVORA close cleanup error: {ex}");
         }
         finally
         {
@@ -918,13 +948,21 @@ public partial class NLUIWindowMain : Window
         ExInGameModeButton14.IsEnabled = available && !calibrating;
         ExInUiModeButton14.IsEnabled = available && !calibrating;
         int pointerSensitivity = (int)Math.Round((_exInEngine?.Manager.PointerSensitivityVE ?? .5d) * 100d);
-        if (Math.Abs(ExInPointerSensitivitySlider14.Value - pointerSensitivity) >= .5)
-            ExInPointerSensitivitySlider14.Value = pointerSensitivity;
+        int gameStickSensitivity = (int)Math.Round((_exInEngine?.Manager.GameStickSensitivityVE ?? 1d) * 100d);
+        _exInSensitivityUiApplyingVE = true;
+        try
+        {
+            if (Math.Abs(ExInPointerSensitivitySlider14.Value - pointerSensitivity) >= .5)
+                ExInPointerSensitivitySlider14.Value = pointerSensitivity;
+            if (Math.Abs(ExInGameStickSensitivitySlider14.Value - gameStickSensitivity) >= .5)
+                ExInGameStickSensitivitySlider14.Value = gameStickSensitivity;
+        }
+        finally
+        {
+            _exInSensitivityUiApplyingVE = false;
+        }
         ExInPointerSensitivityText14.Text = $"{pointerSensitivity}% · UI";
         ExInPointerSensitivitySlider14.IsEnabled = available && !calibrating;
-        int gameStickSensitivity = (int)Math.Round((_exInEngine?.Manager.GameStickSensitivityVE ?? 1d) * 100d);
-        if (Math.Abs(ExInGameStickSensitivitySlider14.Value - gameStickSensitivity) >= .5)
-            ExInGameStickSensitivitySlider14.Value = gameStickSensitivity;
         ExInGameStickSensitivityText14.Text = $"{gameStickSensitivity}% · Juego";
         ExInGameStickSensitivitySlider14.IsEnabled = available && !calibrating;
         ExInWindowsCalibrationButton14.IsEnabled = available && !calibrating;
@@ -1039,25 +1077,52 @@ public partial class NLUIWindowMain : Window
 
     private void ExInPointerSensitivity_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_exInEngine is null) return;
+        if (_exInSensitivityUiApplyingVE || _exInEngine is null) return;
         double value = e.NewValue / 100d;
         _exInEngine.Manager.SetPointerSensitivityVE(value);
-        NLServiceSettings settings = new();
-        NLServiceNovoraSettings snapshot = settings.Load();
-        snapshot.ExInPointerSensitivity = (int)Math.Round(e.NewValue);
-        settings.Save(snapshot);
         ExInPointerSensitivityText14.Text = $"{e.NewValue:0}% · UI";
+        QueueExInSensitivitySaveVE();
     }
 
     private void ExInGameStickSensitivity_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_exInEngine is null) return;
+        if (_exInSensitivityUiApplyingVE || _exInEngine is null) return;
         _exInEngine.Manager.SetGameStickSensitivityVE(e.NewValue / 100d);
-        NLServiceSettings settings = new();
-        NLServiceNovoraSettings snapshot = settings.Load();
-        snapshot.ExInGameStickSensitivity = (int)Math.Round(e.NewValue);
-        settings.Save(snapshot);
         ExInGameStickSensitivityText14.Text = $"{e.NewValue:0}% · Juego";
+        QueueExInSensitivitySaveVE();
+    }
+
+    private void QueueExInSensitivitySaveVE()
+    {
+        _exInSensitivitySavePendingVE = true;
+        if (_exInSensitivitySaveTimerVE is null)
+        {
+            _exInSensitivitySaveTimerVE = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(250)
+            };
+            _exInSensitivitySaveTimerVE.Tick += (_, _) => FlushExInSensitivitySaveVE();
+        }
+        _exInSensitivitySaveTimerVE.Stop();
+        _exInSensitivitySaveTimerVE.Start();
+    }
+
+    private void FlushExInSensitivitySaveVE()
+    {
+        _exInSensitivitySaveTimerVE?.Stop();
+        if (!_exInSensitivitySavePendingVE || _exInEngine is null) return;
+        _exInSensitivitySavePendingVE = false;
+        try
+        {
+            NLServiceNovoraSettings snapshot = _settingsService.Load();
+            snapshot.ExInPointerSensitivity = Math.Clamp((int)Math.Round(_exInEngine.Manager.PointerSensitivityVE * 100d), 5, 40);
+            snapshot.ExInGameStickSensitivity = Math.Clamp((int)Math.Round(_exInEngine.Manager.GameStickSensitivityVE * 100d), 25, 150);
+            _settingsService.Save(snapshot);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"ExIn sensitivity save error: {ex}");
+        }
     }
 
     private void ExInWindowsCalibration_Click(object sender, RoutedEventArgs e)
@@ -1186,12 +1251,20 @@ public partial class NLUIWindowMain : Window
     private void ShellGamepad_StatusChangedVE(
         object? sender,
         ExInStatus status)
-        => Dispatcher.Invoke(() =>
+    {
+        if (_closing || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
         {
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_closing) return;
             ApplyGamepadShell14(status);
             AndroidEngineStateChanged();
             QueueAndroidControlSnapshot();
-        });
+        }));
+    }
 
     private void ShellGamepad_LiveSnapshotChangedVE(object? sender, ExInLiveSnapshot snapshot)
     {
@@ -1222,27 +1295,53 @@ public partial class NLUIWindowMain : Window
     private void ShellGamepad_BatteryAlertVE(
         object? sender,
         ExInBatteryAlert alert)
-        => Dispatcher.Invoke(() =>
+    {
+        if (_closing || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
         {
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_closing) return;
             _androidExInBatteryAlert = alert;
             _androidExInBatteryAlertSequence++;
             _androidControlRevision++;
             QueueAndroidControlSnapshot();
-        });
+        }));
+    }
 
     private void ShellIntegration_StatusChangedVE(
         object? sender,
         VEIntegrationStatus status)
-        => Dispatcher.Invoke(
-            () =>
-                ApplyIntegrationShell14(status));
+    {
+        if (_closing || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+        {
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_closing) return;
+            ApplyIntegrationShell14(status);
+        }));
+    }
 
     private void ShellNvidia_StatusChangedVE(
         object? sender,
         NLNVIDIAStatus status)
-        => Dispatcher.Invoke(
-            () =>
-                ApplyNvidiaShell14(status));
+    {
+        if (_closing || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+        {
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_closing) return;
+            ApplyNvidiaShell14(status);
+        }));
+    }
 
     private async void WifiAdb_Click(
         object sender,

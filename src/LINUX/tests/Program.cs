@@ -42,6 +42,7 @@ VisionSettingsChecks.Run();
 await VisionAccelerationChecks.RunAsync();
 await VisionFilesChecks.RunAsync();
 await VisionIntegrationChecks.RunAsync();
+await VisionExchangeChecks.RunHeadlessAsync();
 await VisionRecordingChecks.RunAsync();
 }
 string directory = Path.Combine(Path.GetTempPath(), "novora-linux-protocol-" + Guid.NewGuid().ToString("N"));

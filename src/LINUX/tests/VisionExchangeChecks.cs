@@ -28,6 +28,16 @@ internal static class VisionExchangeChecks
         else { _fail++; Console.WriteLine("FAIL " + name); }
     }
 
+    public static async Task RunHeadlessAsync()
+    {
+        _pass = _fail = 0;
+        Units();
+        await NovoraFolderAsync();
+        await ControlActionsAsync();
+        Console.WriteLine($"VisionEngine Exchange Headless: {_pass} PASS / {_fail} FAIL");
+        if (_fail != 0) throw new InvalidOperationException($"VisionEngine Exchange headless checks failed: {_fail}.");
+    }
+
     public static void RunNative()
     {
         _pass = _fail = 0;
@@ -147,6 +157,9 @@ internal static class VisionExchangeChecks
         Check(MainWindow.ParseUriListVE("hola\nfile:///tmp/a.png", true).Count == 0, "ordinary text is never treated as files");
         Check(MainWindow.ParseUriListVE("https://example.org/a", true).Count == 0, "remote URIs are not local files");
         Check(MainWindow.ClipboardDataPathsVE(Encoding.UTF8.GetBytes("file:///tmp/z.pdf\n")) is ["/tmp/z.pdf"], "uri-list bytes are decoded");
+        Check(LinuxSdlVideoRenderer.NormalizeDropPath("file:///tmp/mi%20archivo.pdf\r\n") == "/tmp/mi archivo.pdf" &&
+              LinuxSdlVideoRenderer.NormalizeDropPath("/tmp/directo.txt") == "/tmp/directo.txt",
+            "SDL drop paths normalize file:// URIs and plain paths");
 
         Check(LinuxVisionTransferSummary.Format(1, 500) == "1 archivo · 500 B" &&
               LinuxVisionTransferSummary.Format(3, 2048) == $"3 archivos · {2.0:0.0} KB", "summary uses the Windows format");
@@ -312,6 +325,11 @@ internal static class VisionExchangeChecks
             {
                 await Dispatcher.UIThread.InvokeAsync(() => SdlEvents.Drop(window, dropped));
                 Check(await Until(() => drops.Count == 1) && drops[0] is ["/tmp/uno.txt", "/tmp/carpeta dos"], "a drop gesture delivers all paths once");
+            }
+            using (var droppedZero = new SdlEvents.Strings("file:///tmp/tres%20uri.txt"))
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => SdlEvents.Drop(0, droppedZero));
+                Check(await Until(() => drops.Count == 2) && drops[1] is ["/tmp/tres uri.txt"], "drop events with windowID=0 and file:// URIs are accepted and decoded");
             }
 
             // Presentación dinámica can change during the session.

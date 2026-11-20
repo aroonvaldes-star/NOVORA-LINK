@@ -156,7 +156,7 @@ internal sealed class LinuxControlHost : IAsyncDisposable, IAutoConnectTarget
     public bool HasVisionSession => VisionServer?.HasVisionSession == true;
     public string VisionState => VisionServer?.VisionState ?? "Unavailable";
     public string VisionMessage => VisionServer?.VisionMessage ??
-        "VisionEngine Linux requiere una sesión autorizada por USB o LAN.";
+        $"VisionEngine {PlatformRuntime.PlatformName} requiere una sesión autorizada por USB o LAN.";
     public NOVORA.Linux.VisionEngine.LinuxVisionTelemetry? VisionTelemetry => VisionServer?.VisionTelemetry;
     public IReadOnlyList<TrustedDevice> TrustedDevices => _store?.Devices ?? [];
 
@@ -444,14 +444,8 @@ internal sealed class LinuxControlHost : IAsyncDisposable, IAutoConnectTarget
     }
     private void OnInvitationChanged(object? sender, EventArgs e) => InvitationChanged?.Invoke(this, EventArgs.Empty);
 
-    private static string GetConfigurationDirectory()
-    {
-        string? configHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-        string root = !string.IsNullOrWhiteSpace(configHome) && Path.IsPathFullyQualified(configHome)
-            ? configHome
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config");
-        return Path.Combine(root, "novora-link-linux");
-    }
+    private static string GetConfigurationDirectory() =>
+        PlatformRuntime.GetConfigDirectory();
 
     public async ValueTask DisposeAsync()
     {
