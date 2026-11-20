@@ -1,0 +1,19 @@
+version: 2.1
+
+jobs:
+  smoke-test:
+    machine:
+      image: 'windows-server-2022-gui:current'
+    resource_class: windows.medium
+    shell: powershell.exe -NoProfile -ExecutionPolicy Bypass
+    steps:
+      - checkout
+      - run:
+          name: Validate NOVORA launcher
+          command: .\tests\Smoke.Tests.ps1
+
+workflows:
+  version: 2
+  verify-v1:
+    jobs:
+      - smoke-test

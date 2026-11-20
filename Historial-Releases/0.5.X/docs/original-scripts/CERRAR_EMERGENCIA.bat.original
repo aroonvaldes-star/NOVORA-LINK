@@ -1,0 +1,8 @@
+@echo off
+
+taskkill /F /IM scrcpy.exe
+taskkill /F /IM gnirehtet.exe
+
+adb kill-server
+
+exit

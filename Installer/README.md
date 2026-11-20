@@ -16,3 +16,14 @@ Para generar un solo ejecutable con Windows autónomo, APK, herramientas, licenc
 La edición experimental 1.4/1.4.66 corresponde a la [pre-release 1.4.66-pre.1](https://github.com/aroonvaldes-star/NOVORA-LINK/releases/tag/1.4.66-pre.1). El instalador único local es `Installer/output/NOVORA-LINK-1.4.66-UNIFIED-Setup.exe` (SHA-256 `00a4c29566563157a291f2d16806afcbce2d813fc419f522c1f62476f99b37c6`); incluye Windows autónomo y la APK, sin requerir .NET 8 Desktop Runtime x64 por separado. Las instrucciones están en `docs/releases/1.4.66-pre.1.md`. La APK integrada se valida con `Android/LinkControl.apk` y `Android/NLAndroidRelease.json`; cada nueva compilación de LINK Control debe aumentar `ApplicationVersion` N+1 y actualizar APK y descriptor juntos.
 
 Para una pre-release con el workflow actual, usa una versión numérica con sufijo separado por guion: al ejecutarlo manualmente, `1.4.0-pre`; al publicar mediante tag, `v1.4.0-pre`. El workflow reconoce el sufijo como pre-release; `v1.4.0` sin sufijo es estable. La ejecución manual fallida del 4 de noviembre de 2026 recibió `v1.4.0 pre` (espacio y prefijo `v`) y terminó en la validación de versión, antes de compilar o publicar. El resultado está documentado en [el informe de revisión de Dev_Local](../docs/informes/2026-11-04-revision-dev-local.md).
+
+## Enlaces oficiales y compatibilidad de actualización
+
+- Portal: https://novora-link.aroonvaldes.workers.dev/
+- Repositorio y releases: https://github.com/aroonvaldes-star/NOVORA-LINK
+- Descarga estable: https://github.com/aroonvaldes-star/NOVORA-LINK/releases/latest
+- Soporte: https://github.com/aroonvaldes-star/NOVORA-LINK/issues
+
+El instalador Windows mantiene el `AppId` y la carpeta de instalación de los instaladores NOVORA históricos. Al actualizar, elimina los ejecutables antiguos `NOVORA.exe` y `NOVORA.Launcher.exe`, reemplaza el acceso directo de Inicio y redirige el acceso directo de escritorio previo a `NOVORA-LINK.exe`. La compatibilidad se revisó estáticamente; no se ejecutó un upgrade real en Windows durante esta revisión.
+
+El archivo de snapshots está en [`Historial-Releases/README.md`](../Historial-Releases/README.md). No uses sus scripts antiguos para producir releases nuevas.

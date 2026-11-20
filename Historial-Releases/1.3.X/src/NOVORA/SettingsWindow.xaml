@@ -1,0 +1,238 @@
+<Window x:Class="NOVORA.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Configuración — NOVORA"
+        Width="620"
+        Height="720"
+        MinWidth="560"
+        MinHeight="620"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        Background="{DynamicResource WindowBrush}">
+
+    <Border
+        BorderBrush="{DynamicResource WindowBorderBrush}"
+        BorderThickness="1"
+        CornerRadius="12"
+        Padding="22"
+        Background="{DynamicResource WindowBrush}">
+
+        <Grid>
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- TÍTULO -->
+            <TextBlock
+                Grid.Row="0"
+                Text="CONFIGURACIÓN DE NOVORA"
+                FontSize="20"
+                FontWeight="Bold"
+                Foreground="{DynamicResource TextBrush}"/>
+
+            <!-- CONTENIDO -->
+            <ScrollViewer
+                Grid.Row="1"
+                Margin="0,18,0,18"
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled">
+
+                <StackPanel>
+
+                    <!-- APARIENCIA -->
+                    <TextBlock Text="APARIENCIA" Style="{StaticResource SmallLabel}"/>
+
+                    <Grid Margin="0,8,0,18">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="170"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                                   Text="Tema"
+                                   VerticalAlignment="Center"
+                                   FontSize="14"
+                                   Foreground="{DynamicResource TextBrush}"/>
+
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding ThemeOptions}"
+                                  SelectedValue="{Binding Theme, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Value"
+                                  Margin="0"
+                                  Foreground="{DynamicResource TextBrush}"
+                                  Background="{DynamicResource PanelBrush2}"
+                                  SelectionChanged="Theme_SelectionChanged">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Label}"
+                                               Foreground="{DynamicResource TextBrush}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- SALIDA DE VIDEO -->
+                    <TextBlock Text="SALIDA DE VIDEO" Style="{StaticResource SmallLabel}"/>
+
+                    <Grid Margin="0,8,0,16">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="170"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- BITRATE -->
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Bitrate" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}"/>
+                        <ComboBox Grid.Row="0" Grid.Column="1"
+                                  ItemsSource="{Binding BitrateOptions}"
+                                  SelectedValue="{Binding Bitrate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Value"
+                                  Margin="0,0,0,8"
+                                  Foreground="{DynamicResource TextBrush}"
+                                  Background="{DynamicResource PanelBrush2}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextBrush}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <!-- FPS -->
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="FPS" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}"/>
+                        <ComboBox Grid.Row="1" Grid.Column="1"
+                                  ItemsSource="{Binding FpsOptions}"
+                                  SelectedValue="{Binding TargetFps, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Value"
+                                  Margin="0,0,0,8"
+                                  Foreground="{DynamicResource TextBrush}"
+                                  Background="{DynamicResource PanelBrush2}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextBrush}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <!-- RESOLUCIÓN -->
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Resolución" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}"/>
+                        <ComboBox Grid.Row="2" Grid.Column="1"
+                                  ItemsSource="{Binding ResolutionOptions}"
+                                  SelectedValue="{Binding MaxSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Value"
+                                  Margin="0,0,0,8"
+                                  Foreground="{DynamicResource TextBrush}"
+                                  Background="{DynamicResource PanelBrush2}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextBrush}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <!-- AUDIO -->
+                        <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                                  IsChecked="{Binding AudioEnabled, Mode=TwoWay}"
+                                  Content="Audio de scrcpy"
+                                  Foreground="{DynamicResource TextBrush}"
+                                  Margin="0,4,0,0"/>
+                    </Grid>
+
+                    <!-- WIDGETS (CON SCROLL) -->
+                    <TextBlock Text="WIDGETS" Style="{StaticResource SmallLabel}"/>
+
+                    <ScrollViewer MaxHeight="220"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Margin="0,8,0,12">
+                        <UniformGrid Columns="2">
+                            <CheckBox IsChecked="{Binding ShowRefWidget, Mode=TwoWay}" Content="REF" Margin="0,5" Foreground="{DynamicResource TextBrush}"/>
+                            <CheckBox IsChecked="{Binding ShowRedWidget, Mode=TwoWay}" Content="RED" Margin="0,5" Foreground="{DynamicResource TextBrush}"/>
+                            <CheckBox IsChecked="{Binding ShowVideoWidget, Mode=TwoWay}" Content="Salida de video" Margin="0,5" Foreground="{DynamicResource TextBrush}"/>
+                            <CheckBox IsChecked="{Binding ShowStatisticsWidget, Mode=TwoWay}" Content="Estadísticas" Margin="0,5" Foreground="{DynamicResource TextBrush}"/>
+                            <CheckBox IsChecked="{Binding ShowPerformanceWidget, Mode=TwoWay}" Content="Rendimiento" Margin="0,5" Foreground="{DynamicResource TextBrush}"/>
+                            <CheckBox IsChecked="{Binding ShowCaptureWidget, Mode=TwoWay}" Content="Captura" Margin="0,5" Foreground="{DynamicResource TextBrush}"/>
+                            <CheckBox IsChecked="{Binding ShowFilesWidget, Mode=TwoWay}" Content="Archivos" Margin="0,5" Foreground="{DynamicResource TextBrush}"/>
+                            <CheckBox IsChecked="{Binding ShowApplicationsWidget, Mode=TwoWay}" Content="Aplicaciones" Margin="0,5" Foreground="{DynamicResource TextBrush}"/>
+                            <CheckBox IsChecked="{Binding ShowConsoleWidget, Mode=TwoWay}" Content="Consola" Margin="0,5" Foreground="{DynamicResource TextBrush}"/>
+                        </UniformGrid>
+                    </ScrollViewer>
+
+                    <!-- ============================================================ -->
+                    <!-- NUEVA SECCIÓN: WIDGETS MODULARES                             -->
+                    <!-- ============================================================ -->
+                    <TextBlock Text="WIDGETS MODULARES" Style="{StaticResource SmallLabel}" Margin="0,16,0,0"/>
+
+                    <Grid Margin="0,8,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Lista de widgets activos -->
+                        <ListBox x:Name="ActiveWidgetsList" 
+                                 Grid.Column="0"
+                                 Height="120"
+                                 DisplayMemberPath="Config.WidgetType" 
+                                 Background="{DynamicResource PanelBrush}"
+                                 Foreground="{DynamicResource TextBrush}"/>
+
+                        <!-- Botones para agregar/quitar -->
+                        <StackPanel Grid.Column="1" Orientation="Vertical" Margin="8,0,0,0">
+                            <Button Content="➕ Añadir"
+                                    Style="{StaticResource ActionButton}"
+                                    Click="AddWidget_Click"
+                                    Margin="0,0,0,4"/>
+                            <Button Content="➖ Quitar"
+                                    Style="{StaticResource DangerButton}"
+                                    Click="RemoveWidget_Click"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Selector de tipo de widget al añadir -->
+                    <ComboBox x:Name="WidgetTypeCombo"
+                              Margin="0,4,0,12"
+                              DisplayMemberPath="DisplayName"/>
+
+                    <!-- INFORMACIÓN -->
+                    <TextBlock Text="Los widgets comparten servicios centrales para evitar consultas ADB duplicadas."
+                               Foreground="{DynamicResource MutedBrush}"
+                               TextWrapping="Wrap"
+                               FontSize="12"/>
+
+                </StackPanel>
+
+            </ScrollViewer>
+
+            <!-- BOTONES -->
+            <StackPanel
+                Grid.Row="2"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right">
+
+                <Button Content="Cancelar"
+                        Width="100"
+                        Margin="0,0,8,0"
+                        Style="{StaticResource ActionButton}"
+                        Click="Cancel_Click"/>
+
+                <Button Content="Guardar"
+                        Width="110"
+                        Style="{StaticResource ActionButton}"
+                        Click="Save_Click"/>
+
+            </StackPanel>
+
+        </Grid>
+
+    </Border>
+
+</Window>

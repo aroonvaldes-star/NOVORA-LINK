@@ -1,0 +1,16 @@
+{
+  "General": {
+    "Language": "es-MX",
+    "Theme": "Dark",
+    "Debug": false
+  },
+  "Paths": {
+    "ADB": "tools\\adb",
+    "Scrcpy": "tools\\scrcpy",
+    "Gnirehtet": "tools\\gnirehtet",
+    "NirCmd": "tools\\nircmd"
+  },
+  "Device": {
+    "AutoDetect": true
+  }
+}

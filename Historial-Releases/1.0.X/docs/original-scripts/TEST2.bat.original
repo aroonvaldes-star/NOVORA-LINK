@@ -1,0 +1,339 @@
+@echo off
+setlocal EnableExtensions EnableDelayedExpansion
+
+REM ============================================================
+REM NOVORA TEST 2 - VERSION SIMPLE Y ESTABLE
+REM ============================================================
+
+if "%~1"=="__monitor" goto MONITOR
+if "%~1"=="__cleanup" goto CLEANUP
+
+title NOVORA TEST 2 - Control
+cd /d "%~dp0"
+
+set "DEVICE_SERIAL="
+set "DEVICE_MODEL="
+set "USE_GNIREHTET=0"
+set "WIFI_STATE="
+set "DATA_STATE="
+
+echo.
+echo ============================================================
+echo                    NOVORA TEST 2
+echo ============================================================
+echo.
+echo.
+echo NOVORA activo — scrcpy lanzado. Conecta y prueba.
+echo Dispositivo: !DEVICE_MODEL!  Serial: !DEVICE_SERIAL!
+echo.
+
+REM ------------------------------------------------------------
+REM INICIAR ADB
+REM ------------------------------------------------------------
+
+echo Iniciando ADB...
+adb start-server
+
+REM ------------------------------------------------------------
+REM DETECTAR DISPOSITIVOS
+REM ------------------------------------------------------------
+
+:DEVICES
+
+echo.
+echo ============================================================
+echo              DISPOSITIVOS DISPONIBLES
+echo ============================================================
+echo.
+
+set "COUNT=0"
+
+for /f "skip=1 tokens=1,2" %%A in ('adb devices') do (
+if "%%B"=="device" (
+set /a COUNT+=1
+set "SERIAL_!COUNT!=%%A"
+
+```
+    for /f "delims=" %%M in ('adb -s "%%A" shell getprop ro.product.model') do (
+        set "MODEL_!COUNT!=%%M"
+    )
+
+    echo [!COUNT!] !MODEL_!COUNT!
+    echo     Serial: %%A
+    echo.
+)
+```
+
+)
+
+if "!COUNT!"=="0" (
+echo.
+echo No hay dispositivos disponibles.
+echo.
+pause
+exit /b
+)
+
+REM ------------------------------------------------------------
+REM SELECCIONAR
+REM ------------------------------------------------------------
+
+:SELECT
+
+set "SELECTION="
+set /p "SELECTION=Selecciona dispositivo [R=Actualizar]: "
+
+if /I "!SELECTION!"=="R" goto DEVICES
+
+set "DEVICE_SERIAL=!SERIAL_%SELECTION%!"
+set "DEVICE_MODEL=!MODEL_%SELECTION%!"
+
+if not defined DEVICE_SERIAL (
+echo Seleccion invalida.
+goto SELECT
+)
+
+echo.
+echo Dispositivo seleccionado:
+echo Modelo: !DEVICE_MODEL!
+echo Serial: !DEVICE_SERIAL!
+echo.
+
+REM ------------------------------------------------------------
+REM GNIREHTET
+REM ------------------------------------------------------------
+
+:ASK_GNIREHTET
+
+set "ANSWER="
+set /p "ANSWER=Usar Gnirehtet? [S/N]: "
+
+if /I "!ANSWER!"=="S" set "USE_GNIREHTET=1"
+if /I "!ANSWER!"=="N" set "USE_GNIREHTET=0"
+
+if /I "!ANSWER!"=="S" goto GNIREHTET
+if /I "!ANSWER!"=="N" goto START_SCRCPY
+
+echo Responde S o N.
+goto ASK_GNIREHTET
+
+:GNIREHTET
+
+echo.
+echo Preparando Gnirehtet...
+
+REM Limpiar posible VPN anterior
+gnirehtet.exe stop "!DEVICE_SERIAL!" >nul 2>&1
+
+REM Guardar Wi-Fi
+for /f "delims=" %%A in ('adb -s "!DEVICE_SERIAL!" shell settings get global wifi_on') do (
+set "WIFI_STATE=%%A"
+)
+
+REM Guardar datos
+for /f "delims=" %%A in ('adb -s "!DEVICE_SERIAL!" shell settings get global mobile_data') do (
+set "DATA_STATE=%%A"
+)
+
+echo Wi-Fi original: !WIFI_STATE!
+echo Datos originales: !DATA_STATE!
+
+REM Desactivar solamente si estaban activos
+if "!WIFI_STATE!"=="1" (
+adb -s "!DEVICE_SERIAL!" shell svc wifi disable
+)
+
+if "!DATA_STATE!"=="1" (
+adb -s "!DEVICE_SERIAL!" shell svc data disable
+)
+
+timeout /t 1 >nul
+
+REM Relay oculto
+start "" /min cmd /c "gnirehtet.exe relay"
+
+timeout /t 2 >nul
+
+REM IMPORTANTE: usar solo el serial elegido
+gnirehtet.exe start "!DEVICE_SERIAL!"
+
+echo.
+echo Gnirehtet iniciado.
+echo.
+
+goto START_SCRCPY
+
+REM ------------------------------------------------------------
+REM SCRCPY
+REM ------------------------------------------------------------
+
+:START_SCRCPY
+
+echo.
+echo Iniciando SCRCPY...
+echo.
+
+REM Se usa el serial seleccionado
+REM Mantener 60 FPS en juego, pero con bitrate más equilibrado para bajar el retraso.
+REM Se usa el serial seleccionado
+REM Configuración optimizada para LATENCIA MÍNIMA conservando 60 FPS.
+REM Ejecutar sin abrir una nueva consola para mantener la pantalla limpia.
+start "" /b scrcpy.exe ^
+--serial="!DEVICE_SERIAL!" ^
+--video-codec=h264 ^
+--video-bit-rate=8M ^
+--max-fps=60 ^
+--max-size=1280 ^
+--gamepad=uhid ^
+--stay-awake ^
+--render-driver=opengl
+
+timeout /t 3 >nul
+
+echo.
+echo ============================================================
+echo                    NOVORA ACTIVO
+echo ============================================================
+echo.
+echo Dispositivo: !DEVICE_MODEL!
+echo Serial:      !DEVICE_SERIAL!
+echo.
+
+REM ------------------------------------------------------------
+REM MONITOR SECUNDARIO
+REM ------------------------------------------------------------
+
+REM El monitor no bloquea esta consola — ejecutado en background sin nueva ventana
+start "" /b cmd /c call "%~f0" __monitor "!DEVICE_SERIAL!" "!USE_GNIREHTET!" "!WIFI_STATE!" "!DATA_STATE!" >nul 2>&1
+
+echo Puedes usar comandos aqui.
+echo.
+echo Ejemplo:
+echo adb devices
+echo adb -s !DEVICE_SERIAL! shell
+echo.
+echo Para salir escribe:
+echo exit
+echo cleanup
+echo.
+
+REM ------------------------------------------------------------
+REM CONSOLA INTERACTIVA
+REM ------------------------------------------------------------
+
+:COMMAND
+
+set "CMD_INPUT="
+set /p "CMD_INPUT=NOVORA^> "
+
+if /I "!CMD_INPUT!"=="exit" goto MAIN_CLEANUP
+if /I "!CMD_INPUT!"=="cleanup" goto MAIN_CLEANUP
+if /I "!CMD_INPUT!"=="quit" goto MAIN_CLEANUP
+
+if not defined CMD_INPUT goto COMMAND
+
+call !CMD_INPUT!
+
+goto COMMAND
+
+REM ============================================================
+REM LIMPIEZA MANUAL
+REM ============================================================
+
+:MAIN_CLEANUP
+
+echo.
+echo Cerrando NOVORA...
+
+taskkill /F /IM scrcpy.exe >nul 2>&1
+
+if "!USE_GNIREHTET!"=="1" (
+gnirehtet.exe stop "!DEVICE_SERIAL!" >nul 2>&1
+taskkill /F /IM gnirehtet.exe >nul 2>&1
+
+```
+if "!WIFI_STATE!"=="1" (
+    adb -s "!DEVICE_SERIAL!" shell svc wifi enable
+)
+
+if "!DATA_STATE!"=="1" (
+    adb -s "!DEVICE_SERIAL!" shell svc data enable
+)
+```
+
+)
+
+exit /b
+
+REM ============================================================
+REM MONITOR
+REM ============================================================
+
+:MONITOR
+
+set "MONITOR_SERIAL=%~2"
+set "MONITOR_GNIREHTET=%~3"
+set "MONITOR_WIFI=%~4"
+set "MONITOR_DATA=%~5"
+
+:MONITOR_LOOP
+
+timeout /t 2 >nul
+
+REM Si scrcpy sigue vivo, continuar
+tasklist /FI "IMAGENAME eq scrcpy.exe" | find /I "scrcpy.exe" >nul
+
+if errorlevel 1 goto MONITOR_STOP
+
+REM Si el dispositivo sigue conectado, continuar
+adb -s "%MONITOR_SERIAL%" get-state >nul 2>&1
+
+if errorlevel 1 goto MONITOR_STOP
+
+goto MONITOR_LOOP
+
+:MONITOR_STOP
+
+REM ------------------------------------------------------------
+REM SCRCPY CERRO O EL DISPOSITIVO SE DESCONECTO
+REM ------------------------------------------------------------
+
+call "%~f0" __cleanup "%MONITOR_SERIAL%" "%MONITOR_GNIREHTET%" "%MONITOR_WIFI%" "%MONITOR_DATA%"
+
+REM Cerrar todas las ventanas cmd de NOVORA no es seguro aqui.
+REM La siguiente prueba es confirmar primero la deteccion.
+
+exit /b
+
+REM ============================================================
+REM LIMPIEZA AUTOMATICA
+REM ============================================================
+
+:CLEANUP
+
+set "CLEAN_SERIAL=%~2"
+set "CLEAN_GNIREHTET=%~3"
+set "CLEAN_WIFI=%~4"
+set "CLEAN_DATA=%~5"
+
+if "%CLEAN_GNIREHTET%"=="1" (
+
+```
+gnirehtet.exe stop "%CLEAN_SERIAL%" >nul 2>&1
+
+timeout /t 2 >nul
+
+taskkill /F /IM gnirehtet.exe >nul 2>&1
+
+if "%CLEAN_WIFI%"=="1" (
+    adb -s "%CLEAN_SERIAL%" shell svc wifi enable
+)
+
+if "%CLEAN_DATA%"=="1" (
+    adb -s "%CLEAN_SERIAL%" shell svc data enable
+)
+```
+
+)
+
+exit /b

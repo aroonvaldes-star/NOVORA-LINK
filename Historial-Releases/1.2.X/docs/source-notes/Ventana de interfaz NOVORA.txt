@@ -1,0 +1,17 @@
+Sí 😎. **Ventana de interfaz NOVORA.**
+
+Ya tenemos el archivo de revisión cargado y puedo tomarlo como base para trabajar **directamente sobre la interfaz que ya tienes**, sin cambiar la arquitectura. fileciteturn0file0
+
+Si lo que vamos a hacer ahora es **la ventana principal de NOVORA**, seguimos con:
+
+1. **MainWindow.xaml** → diseño visual.
+2. **MainWindow.xaml.cs** → lógica de la ventana.
+3. Barra superior / título NOVORA.
+4. Menú lateral.
+5. Área central de herramientas.
+6. Estados de ADB, dispositivo, Internet, etc.
+7. Botones para **Scrcpy / Gnirehtet / ADB / herramientas**.
+8. Estilo visual coherente con NOVORA.
+
+**Nada de Python.**  
+**WPF + XAML + C#**, respetando la estructura que ya llevamos.

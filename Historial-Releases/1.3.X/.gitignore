@@ -1,0 +1,27 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# .NET build output
+**/bin/
+**/obj/
+
+# Test / coverage output
+TestResults/
+coverage/
+
+# Publish / CI artifacts
+artifacts/
+Installer/output/
+
+# Local tooling / caches
+.nuget/
+packages/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store

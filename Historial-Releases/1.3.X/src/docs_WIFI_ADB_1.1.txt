@@ -1,0 +1,4 @@
+NOVORA 1.1 - ADB Wi-Fi
+
+Flujo: USB -> obtener IP Wi-Fi -> adb tcpip 5555 -> adb connect IP:5555 -> seleccionar conexión Wi-Fi.
+No cambia los binarios de Tools/Runtime.
