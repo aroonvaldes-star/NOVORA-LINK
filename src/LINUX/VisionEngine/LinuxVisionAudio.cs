@@ -89,8 +89,7 @@ internal sealed class LinuxFfmpegAudioDecoder : IDisposable
 
         try
         {
-            _avutil = NativeLibrary.Load("libavutil.so.60");
-            _avcodec = NativeLibrary.Load("libavcodec.so.62");
+            (_avutil, _avcodec) = PlatformRuntime.LoadFfmpegAudioLibraries();
             LoadExports();
             string name = codec switch
             {
@@ -335,7 +334,7 @@ internal sealed class LinuxSdlAudioPlayer : IDisposable
     {
         uint resolvedDevice = deviceId == 0 && string.IsNullOrWhiteSpace(deviceName)
             ? 0 : LinuxSdlDevices.ResolveAudioDeviceId(deviceId, deviceName);
-        _library = NativeLibrary.Load("libSDL3.so.0");
+        _library = PlatformRuntime.LoadSdl3("VisionEngine audio");
         bool initialized = false;
         try
         {

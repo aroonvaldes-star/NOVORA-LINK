@@ -535,8 +535,8 @@ public partial class NLUIWindowMain
                             /*
                              * Nunca mostramos ni registramos el contenido.
                              */
-                            _viewModel.ConnectionStatus =
-                                "Clipboard Android → Windows actualizado.";
+                            PublishVisionExchangeStatusVE(
+                                "Clipboard Android → Windows actualizado.");
                         }
                         catch (
                             System.Runtime.InteropServices.ExternalException)
@@ -549,8 +549,8 @@ public partial class NLUIWindowMain
                              * el próximo cambio real de Android volverá
                              * a producir su propio evento.
                              */
-                            _viewModel.ConnectionStatus =
-                                "Clipboard Windows ocupado; cambio no aplicado.";
+                            PublishVisionExchangeStatusVE(
+                                "Clipboard Windows ocupado; cambio no aplicado.");
                         }
                     }));
     }
@@ -904,6 +904,12 @@ public partial class NLUIWindowMain
     // DRAG & DROP
     // ============================================================
 
+    private void PublishVisionExchangeStatusVE(string message)
+    {
+        _viewModel.ConnectionStatus = message;
+        _visionPresentationWindowVE?.SetStatusVE(message);
+    }
+
     private void IntegrationFiles_DragOver(
         object sender,
         System.Windows.DragEventArgs e)
@@ -986,6 +992,18 @@ public partial class NLUIWindowMain
             return;
         }
 
+        if (!_viewModel.IntegrationDragDropEnabled)
+        {
+            PublishVisionExchangeStatusVE("Activa Drag & Drop en Configuración.");
+            return;
+        }
+
+        if (!_viewModel.IntegrationFileTransferEnabled)
+        {
+            PublishVisionExchangeStatusVE("Activa Archivos en Configuración para enviar.");
+            return;
+        }
+
         /*
          * NO consultamos:
          *
@@ -1003,8 +1021,8 @@ public partial class NLUIWindowMain
 
         if (string.IsNullOrWhiteSpace(serial))
         {
-            _viewModel.ConnectionStatus =
-                "VisionEngine: no hay dispositivo activo para transferir.";
+            PublishVisionExchangeStatusVE(
+                "VisionEngine: no hay dispositivo activo para transferir.");
 
             return;
         }
@@ -1014,25 +1032,25 @@ public partial class NLUIWindowMain
             _integrationRuntime is null ||
             !_visionEngineVE.IsRunningVE)
         {
-            _viewModel.ConnectionStatus =
-                "VisionEngine debe estar activo para transferir archivos.";
+            PublishVisionExchangeStatusVE(
+                "VisionEngine debe estar activo para transferir archivos.");
 
             return;
         }
 
         if (_integrationRuntime.Privacy.IsProtectedVE)
         {
-            _viewModel.ConnectionStatus =
-                "PrivacyVE: transferencia bloqueada mientras el contenido está protegido.";
+            PublishVisionExchangeStatusVE(
+                "PrivacyVE: transferencia bloqueada mientras el contenido está protegido.");
             return;
         }
 
         try
         {
-            _viewModel.ConnectionStatus =
+            PublishVisionExchangeStatusVE(
                 e.CountVE == 1
                     ? "VisionEngine: archivo recibido para transferencia."
-                    : $"VisionEngine: {e.CountVE} elementos recibidos para transferencia.";
+                    : $"VisionEngine: {e.CountVE} elementos recibidos para transferencia.");
 
             /*
              * QueueAsync únicamente introduce la solicitud
@@ -1044,8 +1062,8 @@ public partial class NLUIWindowMain
         }
         catch (Exception ex)
         {
-            _viewModel.ConnectionStatus =
-                $"ExchangeVE: {ex.Message}";
+            PublishVisionExchangeStatusVE(
+                $"ExchangeVE: {ex.Message}");
         }
     }
 
@@ -1058,8 +1076,8 @@ public partial class NLUIWindowMain
             return;
         }
 
-        _viewModel.ConnectionStatus =
-            "VisionEngine: suelta para enviar a /sdcard/NOVORA/";
+        PublishVisionExchangeStatusVE(
+            "VisionEngine: suelta para enviar a /sdcard/NOVORA/");
     }
 
     private void VisionPresentation_DragEndedVE(
@@ -1102,8 +1120,8 @@ public partial class NLUIWindowMain
                                 e.LocalPathVE;
                         }
 
-                        _viewModel.ConnectionStatus =
-                            $"Enviando {name} → /sdcard/NOVORA/";
+                        PublishVisionExchangeStatusVE(
+                            $"Enviando {name} → /sdcard/NOVORA/");
                     }));
     }
 
@@ -1139,8 +1157,8 @@ public partial class NLUIWindowMain
                         RecordSentFilesVE(
                             e.LocalPathVE);
 
-                        _viewModel.ConnectionStatus =
-                            $"{name} enviado a /sdcard/NOVORA/ en {seconds:0.00}s";
+                        PublishVisionExchangeStatusVE(
+                            $"{name} enviado a /sdcard/NOVORA/ en {seconds:0.00}s");
                     }));
     }
 
@@ -1168,8 +1186,8 @@ public partial class NLUIWindowMain
                                 e.LocalPathVE;
                         }
 
-                        _viewModel.ConnectionStatus =
-                            $"Error enviando {name}: {e.ErrorVE}";
+                        PublishVisionExchangeStatusVE(
+                            $"Error enviando {name}: {e.ErrorVE}");
                     }));
     }
 
@@ -1369,7 +1387,7 @@ public partial class NLUIWindowMain
             }
             catch (Exception ex)
             {
-                _viewModel.ConnectionStatus = $"Clipboard Android → Windows: {ex.Message}";
+                PublishVisionExchangeStatusVE($"Clipboard Android → Windows: {ex.Message}");
             }
             return;
         }
@@ -1386,8 +1404,8 @@ public partial class NLUIWindowMain
 
         if (string.IsNullOrWhiteSpace(serial))
         {
-            _viewModel.ConnectionStatus =
-                "ExchangeVE: no hay dispositivo VisionEngine activo.";
+            PublishVisionExchangeStatusVE(
+                "ExchangeVE: no hay dispositivo VisionEngine activo.");
 
             return;
         }
@@ -1397,23 +1415,23 @@ public partial class NLUIWindowMain
             _integrationRuntime is null ||
             !_visionEngineVE.IsRunningVE)
         {
-            _viewModel.ConnectionStatus =
-                "ExchangeVE requiere VisionEngine activo.";
+            PublishVisionExchangeStatusVE(
+                "ExchangeVE requiere VisionEngine activo.");
 
             return;
         }
 
         if (!HasExchangeClipboardSessionVE())
         {
-            _viewModel.ConnectionStatus =
-                "Portapapeles VE: no hay sesión Exchange con canal de control.";
+            PublishVisionExchangeStatusVE(
+                "Portapapeles VE: no hay sesión Exchange con canal de control.");
             return;
         }
 
         if (_integrationRuntime.Privacy.IsProtectedVE)
         {
-            _viewModel.ConnectionStatus =
-                "PrivacyVE: portapapeles bloqueado mientras el contenido está protegido.";
+            PublishVisionExchangeStatusVE(
+                "PrivacyVE: portapapeles bloqueado mientras el contenido está protegido.");
             return;
         }
 
@@ -1445,21 +1463,21 @@ public partial class NLUIWindowMain
 
             if (count == 0)
             {
-                _viewModel.ConnectionStatus =
-                    "ExchangeVE: el portapapeles no contiene contenido compatible.";
+                PublishVisionExchangeStatusVE(
+                    "ExchangeVE: el portapapeles no contiene contenido compatible.");
 
                 return;
             }
 
-            _viewModel.ConnectionStatus =
+            PublishVisionExchangeStatusVE(
                 count == 1
                     ? "ExchangeVE: contenido del portapapeles enviado."
-                    : $"ExchangeVE: {count} elementos del portapapeles procesados.";
+                    : $"ExchangeVE: {count} elementos del portapapeles procesados.");
         }
         catch (Exception ex)
         {
-            _viewModel.ConnectionStatus =
-                $"ExchangeVE: {ex.Message}";
+            PublishVisionExchangeStatusVE(
+                $"ExchangeVE: {ex.Message}");
         }
     }
 

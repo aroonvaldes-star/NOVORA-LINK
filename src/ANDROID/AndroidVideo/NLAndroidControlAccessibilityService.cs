@@ -126,9 +126,25 @@ public sealed class NLAndroidControlAccessibilityService : AccessibilityService
         var completion = new TaskCompletionSource<NLControlInputResponse?>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         cancellationToken.Register(() => completion.TrySetCanceled(cancellationToken));
-        new Handler(Looper.MainLooper!).Post(() =>
+        var handler = new Handler(Looper.MainLooper!);
+        handler.Post(() =>
         {
-            try { completion.TrySetResult(ReadClipboard(copyFocusedSelection)); }
+            try
+            {
+                string? selectedText = null;
+                bool copied = copyFocusedSelection && TryCopyFocusedSelection(out selectedText);
+                if (copied)
+                {
+                    // PerformAction(Action.Copy) updates the target app's PrimaryClip asynchronously across IPC.
+                    handler.PostDelayed(() =>
+                    {
+                        try { completion.TrySetResult(ReadClipboardResponse(selectedText)); }
+                        catch (Exception ex) { completion.TrySetException(ex); }
+                    }, 60);
+                    return;
+                }
+                completion.TrySetResult(ReadClipboardResponse(selectedText));
+            }
             catch (Exception ex) { completion.TrySetException(ex); }
         });
         return completion.Task;
@@ -174,7 +190,7 @@ public sealed class NLAndroidControlAccessibilityService : AccessibilityService
                 return;
             case 9:
                 SetClipboard(command.Text ?? string.Empty);
-                if (command.Paste) SetFocusedText(command.Text ?? string.Empty);
+                if (command.Paste) PasteOrSetFocusedText(command.Text ?? string.Empty);
                 completion.SetResult();
                 return;
             case 15:
@@ -406,6 +422,49 @@ public sealed class NLAndroidControlAccessibilityService : AccessibilityService
 
     private void SetFocusedText(string text) => EditFocusedText(text);
 
+    private void PasteOrSetFocusedText(string text)
+    {
+        using AccessibilityNodeInfo? root = RootInActiveWindow;
+        if (root is null) return;
+
+        using AccessibilityNodeInfo? inputFocus = root.FindFocus(NodeFocus.Input);
+        if (TryEditNode(inputFocus, text) || (inputFocus?.PerformAction(Android.Views.Accessibility.Action.Paste) == true))
+            return;
+
+        using AccessibilityNodeInfo? accessibilityFocus = root.FindFocus(NodeFocus.Accessibility);
+        if (TryEditNode(accessibilityFocus, text) || (accessibilityFocus?.PerformAction(Android.Views.Accessibility.Action.Paste) == true))
+            return;
+
+        if (TryEditFocusedDescendant(root, text) || TryPasteFocusedDescendant(root))
+            return;
+    }
+
+    private static bool TryPasteFocusedDescendant(AccessibilityNodeInfo root)
+    {
+        var pending = new Queue<AccessibilityNodeInfo>();
+        for (int index = 0; index < root.ChildCount; index++)
+        {
+            AccessibilityNodeInfo? child = root.GetChild(index);
+            if (child is not null) pending.Enqueue(child);
+        }
+        while (pending.Count > 0)
+        {
+            using AccessibilityNodeInfo node = pending.Dequeue();
+            if ((node.Focused || node.AccessibilityFocused || node.Editable) &&
+                node.PerformAction(Android.Views.Accessibility.Action.Paste))
+            {
+                while (pending.TryDequeue(out AccessibilityNodeInfo? remaining)) remaining.Dispose();
+                return true;
+            }
+            for (int index = 0; index < node.ChildCount; index++)
+            {
+                AccessibilityNodeInfo? child = node.GetChild(index);
+                if (child is not null) pending.Enqueue(child);
+            }
+        }
+        return false;
+    }
+
     private void EditFocusedText(string input)
     {
         using AccessibilityNodeInfo? root = RootInActiveWindow;
@@ -499,15 +558,66 @@ public sealed class NLAndroidControlAccessibilityService : AccessibilityService
         clipboard.PrimaryClip = ClipData.NewPlainText("NOVORA", text);
     }
 
-    private NLControlInputResponse ReadClipboard(bool copyFocusedSelection)
+    private bool TryCopyFocusedSelection(out string? selectedText)
     {
-        if (copyFocusedSelection)
+        selectedText = null;
+        using AccessibilityNodeInfo? root = RootInActiveWindow;
+        if (root is null) return false;
+
+        using AccessibilityNodeInfo? node = root.FindFocus(NodeFocus.Input) ?? root.FindFocus(NodeFocus.Accessibility);
+        if (node is not null)
         {
-            using AccessibilityNodeInfo? node = RootInActiveWindow?.FindFocus(NodeFocus.Input);
-            node?.PerformAction(Android.Views.Accessibility.Action.Copy);
+            selectedText = ExtractNodeSelectedText(node);
+            if (node.PerformAction(Android.Views.Accessibility.Action.Copy)) return true;
         }
+
+        var pending = new Queue<AccessibilityNodeInfo>();
+        for (int i = 0; i < root.ChildCount; i++)
+            if (root.GetChild(i) is { } child) pending.Enqueue(child);
+        while (pending.Count > 0)
+        {
+            using AccessibilityNodeInfo current = pending.Dequeue();
+            if (current.Focused || current.AccessibilityFocused ||
+                (current.TextSelectionStart >= 0 && current.TextSelectionEnd > current.TextSelectionStart))
+            {
+                selectedText ??= ExtractNodeSelectedText(current);
+                if (current.PerformAction(Android.Views.Accessibility.Action.Copy))
+                {
+                    while (pending.TryDequeue(out AccessibilityNodeInfo? rem)) rem.Dispose();
+                    return true;
+                }
+            }
+            for (int i = 0; i < current.ChildCount; i++)
+                if (current.GetChild(i) is { } child) pending.Enqueue(child);
+        }
+        return false;
+    }
+
+    private static string? ExtractNodeSelectedText(AccessibilityNodeInfo node)
+    {
+        string text = NLControlAndroidInput.GetEditableText(
+            node.Text?.ToString(), node.HintText?.ToString(), node.ShowingHintText);
+        if (string.IsNullOrEmpty(text)) return null;
+        int start = node.TextSelectionStart;
+        int end = node.TextSelectionEnd;
+        if (start >= 0 && end >= 0 && start != end)
+        {
+            int min = Math.Clamp(Math.Min(start, end), 0, text.Length);
+            int max = Math.Clamp(Math.Max(start, end), 0, text.Length);
+            if (max > min) return text[min..max];
+        }
+        return null;
+    }
+
+    private NLControlInputResponse ReadClipboardResponse(string? fallbackSelection)
+    {
         var clipboard = (ClipboardManager)GetSystemService(ClipboardService)!;
         string text = clipboard.PrimaryClip?.GetItemAt(0)?.CoerceToText(this)?.ToString() ?? string.Empty;
+        if (string.IsNullOrEmpty(text) && !string.IsNullOrEmpty(fallbackSelection))
+        {
+            SetClipboard(fallbackSelection);
+            text = fallbackSelection;
+        }
         return new NLControlInputResponse(NLControlInputResponse.ClipboardType, Text: text);
     }
 

@@ -16,6 +16,13 @@ public sealed class VERendererDevice : IDisposable
 
     private const uint SdlInitVideoVE = 0x00000020;
     private const string Win32HwndPropertyVE = "SDL.window.create.win32.hwnd";
+    private const int GwlpWndprocVE = -4;
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtrVE(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtrVE(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
     private readonly string _sdlPathVE;
     private IntPtr _libraryVE;
@@ -85,6 +92,7 @@ public sealed class VERendererDevice : IDisposable
             if (properties == 0)
                 throw CreateSdlExceptionVE("SDL_CreateProperties");
 
+            IntPtr originalWndProc = GetWindowLongPtrVE(hwnd, GwlpWndprocVE);
             try
             {
                 EnsureVE(
@@ -96,6 +104,13 @@ public sealed class VERendererDevice : IDisposable
             finally
             {
                 _destroyPropertiesVE!(properties);
+            }
+
+            if (originalWndProc != IntPtr.Zero && GetWindowLongPtrVE(hwnd, GwlpWndprocVE) != originalWndProc)
+            {
+                // WinForms owns keyboard, mouse, focus and OLE Drag & Drop on this HWND;
+                // keep the original WinForms WndProc active so SDL does not swallow input events.
+                SetWindowLongPtrVE(hwnd, GwlpWndprocVE, originalWndProc);
             }
 
             if (_windowVE == IntPtr.Zero)

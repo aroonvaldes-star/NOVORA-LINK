@@ -36,9 +36,11 @@ internal static class NLAndroidServiceFilesV2
     {
         if (generation <= 0) throw new InvalidDataException("Generación FILES v2 inválida.");
         captureCt.ThrowIfCancellationRequested();
-        // Without the persisted NOVORA grant every PC Begin is refused with a diagnostic (the channel stays open).
-        if (!NLAndroidFileStorageV2.TryCreate(context, out var storage))
-            Android.Util.Log.Warn("NOVORA-FILES", "Carpeta NOVORA no autorizada: los archivos del PC se rechazarán hasta elegirla.");
+        // Dynamic storage checks the SAF grant on each incoming Begin, so granting /sdcard/NOVORA
+        // while VisionEngine is already running takes effect immediately without restarting capture.
+        if (!NLAndroidStorageNovoraFolder.TryGet(context, out _))
+            Android.Util.Log.Warn("NOVORA-FILES", "Carpeta NOVORA no autorizada aún: se comprobará al recibir cada archivo.");
+        var storage = NLAndroidFileStorageV2.CreateDynamic(context);
         Attachment? created = null;
         ValueTask Pacer(int bytes, CancellationToken ct) => Volatile.Read(ref created!.Pacer)?.Invoke(bytes, ct) ?? ValueTask.CompletedTask;
         var engine = new NLControlFileTransferV2(authenticatedFiles, storage, generation, pacer: Pacer);

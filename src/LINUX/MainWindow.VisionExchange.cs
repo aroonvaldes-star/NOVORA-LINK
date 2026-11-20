@@ -124,17 +124,19 @@ public sealed partial class MainWindow
 
     private void OnVisionClipboardReceivedVE(string text) => Dispatcher.UIThread.Post(async () =>
     {
-        if (Clipboard is not { } clipboard) return;
-        try
+        bool applied = _veExchangeRuntime?.TrySetNativeClipboardText(text) == true;
+        if (Clipboard is { } clipboard)
         {
-            if (string.IsNullOrEmpty(text)) await clipboard.ClearAsync();
-            else await clipboard.SetTextAsync(text);
-            SetMessage("Clipboard Android → Linux actualizado.");
+            try
+            {
+                if (string.IsNullOrEmpty(text)) await clipboard.ClearAsync();
+                else await clipboard.SetTextAsync(text);
+                applied = true;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { }
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            SetMessage("Clipboard Linux ocupado; cambio no aplicado.", "#fbbf24");
-        }
+        if (applied) SetMessage("Clipboard Android → Linux actualizado.");
+        else SetMessage("Clipboard Linux ocupado; cambio no aplicado.", "#fbbf24");
     });
 
     private async Task PasteToAndroidVEAsync()
@@ -144,16 +146,19 @@ public sealed partial class MainWindow
             SetMessage("ExchangeVE requiere VisionEngine activo.", "#fbbf24");
             return;
         }
-        if (Clipboard is not { } clipboard) return;
         try
         {
-            IReadOnlyList<string> paths = await ReadClipboardPathsVEAsync(clipboard);
+            IReadOnlyList<string> paths = ReadNativeClipboardPathsVE(runtime);
+            if (paths.Count == 0 && Clipboard is { } avaloniaClipboard)
+                paths = await ReadClipboardPathsVEAsync(avaloniaClipboard);
             if (paths.Count > 0)
             {
                 QueueVisionPathsVE(paths);
                 return;
             }
-            string? text = await clipboard.GetTextAsync();
+            string? text = runtime.TryGetNativeClipboardText();
+            if (string.IsNullOrEmpty(text) && Clipboard is { } clipboard)
+                text = await clipboard.GetTextAsync();
             if (string.IsNullOrEmpty(text))
             {
                 SetMessage("ExchangeVE: el portapapeles no contiene contenido compatible.", "#fbbf24");
@@ -166,6 +171,24 @@ public sealed partial class MainWindow
         {
             SetMessage("ExchangeVE: " + ex.Message, "#f87171");
         }
+    }
+
+    private static IReadOnlyList<string> ReadNativeClipboardPathsVE(LinuxVisionRuntime runtime)
+    {
+        foreach (string mime in new[] { "text/uri-list", "x-special/gnome-copied-files" })
+        {
+            if (runtime.TryGetNativeClipboardData(mime) is { Length: > 0 } data)
+            {
+                List<string> paths = ClipboardDataPathsVE(data);
+                if (paths.Count > 0) return paths;
+            }
+        }
+        if (runtime.TryGetNativeClipboardText() is { Length: > 0 } text)
+        {
+            List<string> paths = ParseUriListVE(text, requireAll: true);
+            if (paths.Count > 0) return paths;
+        }
+        return [];
     }
 
     /// <summary>Copied files from Linux file managers: Avalonia Files, text/uri-list or GNOME's copied-files list.</summary>
@@ -213,6 +236,19 @@ public sealed partial class MainWindow
                 return [];
         }
         return paths;
+    }
+
+    internal static string[] ExtractDropPathsVE(IDataObject data)
+    {
+        string[] files = data.GetFiles()?.Select(item => item.TryGetLocalPath()).OfType<string>().Where(Path.IsPathFullyQualified).ToArray() ?? [];
+        if (files.Length > 0) return files;
+        foreach (string format in new[] { DataFormats.Files, "text/uri-list", "x-special/gnome-copied-files" })
+        {
+            if (!data.Contains(format)) continue;
+            List<string> parsed = ClipboardDataPathsVE(data.Get(format));
+            if (parsed.Count > 0) return parsed.ToArray();
+        }
+        return [];
     }
 
     // ============================================================
@@ -282,13 +318,15 @@ public sealed partial class MainWindow
         DragDrop.SetAllowDrop(dropTarget, true);
         dropTarget.AddHandler(DragDrop.DragOverEvent, (_, e) =>
         {
-            e.DragEffects = e.Data.Contains(DataFormats.Files) ? DragDropEffects.Copy : DragDropEffects.None;
+            e.DragEffects = e.Data.Contains(DataFormats.Files) || e.Data.Contains("text/uri-list")
+                ? DragDropEffects.Copy
+                : DragDropEffects.None;
             e.Handled = true;
         });
         dropTarget.AddHandler(DragDrop.DropEvent, (_, e) =>
         {
             e.Handled = true;
-            string[] paths = e.Data.GetFiles()?.Select(item => item.TryGetLocalPath()).OfType<string>().ToArray() ?? [];
+            string[] paths = ExtractDropPathsVE(e.Data);
             if (paths.Length == 0) return;
             QueueVisionPathsVE(paths);
             if (paths.Length == 1 && _host.VisionRuntime?.Files.IsConnected == true) SetMessage("Archivo agregado a la transferencia.");

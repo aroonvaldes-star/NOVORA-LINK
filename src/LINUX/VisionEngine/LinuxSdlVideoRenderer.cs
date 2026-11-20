@@ -89,7 +89,7 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         _settings = settings ?? LinuxVisionSettings.Default;
         _vsync = _settings.VSync;
         _input.Frame += frame => Input?.Invoke(frame);
-        _library = NativeLibrary.Load("libSDL3.so.0");
+        _library = PlatformRuntime.LoadSdl3("VisionEngine");
         var init = Load<SdlInitSubSystem>("SDL_InitSubSystem");
         _quitSubSystem = Load<SdlQuitSubSystem>("SDL_QuitSubSystem");
         _destroyWindow = Load<SdlDestroyWindow>("SDL_DestroyWindow");
@@ -123,6 +123,10 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         _getWindowPosition = Load<SdlGetWindowPosition>("SDL_GetWindowPosition");
         _setWindowTitle = Load<SdlSetWindowTitle>("SDL_SetWindowTitle");
         _setRenderVSync = Load<SdlSetRenderVSync>("SDL_SetRenderVSync");
+        _setClipboardText = Load<SdlSetClipboardText>("SDL_SetClipboardText");
+        _getClipboardText = Load<SdlGetClipboardText>("SDL_GetClipboardText");
+        _getClipboardData = Load<SdlGetClipboardData>("SDL_GetClipboardData");
+        _free = Load<SdlFree>("SDL_free");
 
         _destinationRect = Marshal.AllocHGlobal(Marshal.SizeOf<SdlFRect>());
         try
@@ -145,6 +149,10 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
     private readonly SdlCreateWindow _createWindow;
     private readonly SdlCreateRenderer _createRenderer;
     private readonly SdlGetPixelFormatForMasks _getPixelFormatForMasks;
+    private readonly SdlSetClipboardText _setClipboardText;
+    private readonly SdlGetClipboardText _getClipboardText;
+    private readonly SdlGetClipboardData _getClipboardData;
+    private readonly SdlFree _free;
 
     public string Backend { get; private set; } = "Unavailable";
     public long FramesPresented => Interlocked.Read(ref _framesPresented);
@@ -510,6 +518,12 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
                     Closed?.Invoke();
                     return;
                 }
+                if (e.Type is 0x1000 or 0x1002 or 0x1003)
+                {
+                    if (e.WindowId == id || e.WindowId == 0)
+                        HandleDrop(e);
+                    continue;
+                }
                 if (e.WindowId != id) continue;
                 // Exposed, moved, resized and pixel-size changes: refit the image and mapping now.
                 if (e.Type is 0x204 or 0x205 or 0x206 or 0x207)
@@ -522,11 +536,6 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
                     }
                     RefreshViewport();
                     DrawCurrentFrame();
-                    continue;
-                }
-                if (e.Type is 0x1000 or 0x1002 or 0x1003)
-                {
-                    HandleDrop(e);
                     continue;
                 }
                 if (e.Type == 0x300 && IsClipboardShortcut(e.Scancode, e.Modifiers, out bool copy))
@@ -584,11 +593,12 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         }
     }
 
-    // SDL scancodes 6/25 are the physical C/V keys; Ctrl without Alt/AltGr, as Windows ExchangeVE.
+    // SDL scancodes 6/25 are the physical C/V keys; Ctrl (or Cmd on macOS) without Alt/AltGr.
     internal static bool IsClipboardShortcut(int scancode, ushort modifiers, out bool copy)
     {
         copy = scancode == 6;
-        return scancode is 6 or 25 && (modifiers & 0x00c0) != 0 && (modifiers & 0x0300) == 0;
+        ushort primaryMask = PlatformRuntime.IsMacOS ? (ushort)0x0cc0 : (ushort)0x00c0;
+        return scancode is 6 or 25 && (modifiers & primaryMask) != 0 && (modifiers & 0x0300) == 0;
     }
 
     private void HandleDrop(SdlEvent e)
@@ -597,14 +607,76 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
         {
             case 0x1002: _drop.Clear(); break;
             case 0x1000:
-                // SDL owns the string only until the next poll; copy it now.
-                if (Marshal.PtrToStringUTF8(e.DropData) is { Length: > 0 } path && _drop.Count < 4096) _drop.Add(path);
+                // SDL owns the string only until the next poll; copy and normalize file:// URIs now.
+                if (Marshal.PtrToStringUTF8(e.DropData) is { Length: > 0 } raw && _drop.Count < 4096)
+                {
+                    string path = NormalizeDropPath(raw);
+                    if (path.Length > 0) _drop.Add(path);
+                }
                 break;
             case 0x1003:
                 if (_drop.Count > 0) FilesDropped?.Invoke(_drop.ToArray());
                 _drop.Clear();
                 break;
         }
+    }
+
+    internal static string NormalizeDropPath(string raw)
+    {
+        string trimmed = raw.Trim().TrimEnd('\0');
+        if (trimmed.StartsWith("file://", StringComparison.OrdinalIgnoreCase) &&
+            Uri.TryCreate(trimmed, UriKind.Absolute, out Uri? uri) && uri.IsFile)
+            return uri.LocalPath;
+        return trimmed;
+    }
+
+    /// <summary>Sets the clipboard through SDL while the SDL video window holds Wayland/X11 focus.</summary>
+    public bool TrySetClipboardText(string text)
+    {
+        if (_disposed || _closed) return false;
+        bool ok = false;
+        if (!TryInvokeOnUi(() => { if (!_disposed && !_closed) ok = _setClipboardText(text ?? string.Empty); }, TimeSpan.FromMilliseconds(500)))
+            return false;
+        return ok;
+    }
+
+    /// <summary>Reads clipboard text through SDL while the SDL video window holds Wayland/X11 focus.</summary>
+    public string? TryGetClipboardText()
+    {
+        if (_disposed || _closed) return null;
+        string? result = null;
+        TryInvokeOnUi(() =>
+        {
+            if (_disposed || _closed) return;
+            IntPtr ptr = _getClipboardText();
+            if (ptr == IntPtr.Zero) return;
+            try { result = Marshal.PtrToStringUTF8(ptr); }
+            finally { _free(ptr); }
+        }, TimeSpan.FromMilliseconds(500));
+        return result;
+    }
+
+    /// <summary>Reads raw MIME data (e.g. text/uri-list or x-special/gnome-copied-files) through SDL.</summary>
+    public byte[]? TryGetClipboardData(string mimeType)
+    {
+        if (_disposed || _closed || string.IsNullOrWhiteSpace(mimeType)) return null;
+        byte[]? result = null;
+        TryInvokeOnUi(() =>
+        {
+            if (_disposed || _closed) return;
+            IntPtr ptr = _getClipboardData(mimeType, out nuint size);
+            if (ptr == IntPtr.Zero) return;
+            try
+            {
+                if (size is > 0 and <= 1_048_576)
+                {
+                    result = new byte[(int)size];
+                    Marshal.Copy(ptr, result, 0, (int)size);
+                }
+            }
+            finally { _free(ptr); }
+        }, TimeSpan.FromMilliseconds(500));
+        return result;
     }
 
     private static void InvokeOnUi(Action action)
@@ -719,6 +791,10 @@ internal sealed class LinuxSdlVideoRenderer : ILinuxVideoRenderer, IDisposable
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlSetRenderVSync(IntPtr renderer, int vsync);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlGetWindowPosition(IntPtr window, out int x, out int y);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlSetWindowTitle(IntPtr window, [MarshalAs(UnmanagedType.LPUTF8Str)] string title);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] [return: MarshalAs(UnmanagedType.I1)] private delegate bool SdlSetClipboardText([MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate IntPtr SdlGetClipboardText();
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate IntPtr SdlGetClipboardData([MarshalAs(UnmanagedType.LPUTF8Str)] string mimeType, out nuint size);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void SdlFree(IntPtr mem);
 
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct SdlFRect(float X, float Y, float W, float H);

@@ -10,15 +10,8 @@ internal sealed record LinuxVisionWindowPlacement(int X, int Y)
 {
     private const int MaxCoordinate = 100_000;
 
-    public static string FilePath
-    {
-        get
-        {
-            string root = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") is { Length: > 0 } xdg
-                ? xdg : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config");
-            return Path.Combine(root, "novora-link-linux", "vision-window.json");
-        }
-    }
+    public static string FilePath =>
+        Path.Combine(PlatformRuntime.GetConfigDirectory(), "vision-window.json");
 
     /// <summary>Returns the saved position, or null when none exists or the file is unreadable.</summary>
     public static LinuxVisionWindowPlacement? Load()

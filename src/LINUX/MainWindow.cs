@@ -103,7 +103,7 @@ public sealed partial class MainWindow : Window
             _themeLoadError = $"No se pudo leer el tema guardado: {ex.Message}";
         }
         Title = "NOVORA-LINK 1.4";
-        FontFamily = new FontFamily("avares://NOVORA-LINK.Linux/Assets/Fonts#Montserrat");
+        FontFamily = new FontFamily(PlatformRuntime.AvaresUri("Assets/Fonts#Montserrat").ToString());
         Width = 1180;
         Height = 800;
         MinWidth = 1000;
@@ -392,7 +392,7 @@ public sealed partial class MainWindow : Window
     private AvaloniaControl BuildIntegrationPage()
     {
         var content = PageContent();
-        AddPageHeading(content, "", "Integración Android ↔ Linux",
+        AddPageHeading(content, "", $"Integración Android ↔ {PlatformRuntime.PlatformName}",
             "Funciones que hacen que Android se comporte como una extensión de NOVORA.");
         var files = new Grid { ColumnDefinitions = new ColumnDefinitions("*,1,*") };
         var sent = new StackPanel { Spacing = 6, Margin = new Thickness(0, 0, 16, 0) };
@@ -433,7 +433,7 @@ public sealed partial class MainWindow : Window
         }));
 
         var cards = new UniformGrid { Columns=2,Rows=3 };
-        AddIntegrationCard(cards, "Clipboard", "Android ↔ Linux con Ctrl+C / Ctrl+V en la ventana de VisionEngine, sin historial sensible.", 0, 0);
+        AddIntegrationCard(cards, "Clipboard", $"Android ↔ {PlatformRuntime.PlatformName} con {(PlatformRuntime.IsMacOS ? "Cmd+C / Cmd+V" : "Ctrl+C / Ctrl+V")} en la ventana de VisionEngine, sin historial sensible.", 0, 0);
         var filesCard = new StackPanel { Spacing = 8 };
         filesCard.Children.Add(SectionTitle("Archivos / Share"));
         filesCard.Children.Add(Caption("Suelta aquí archivos o carpetas para enviarlos al teléfono."));
@@ -459,7 +459,7 @@ public sealed partial class MainWindow : Window
         var filesBorder = Card(filesCard);
         ConfigureIntegrationExchangeVE(filesBorder, receiveFolder);
         PlaceIntegrationCard(cards, filesBorder, 2, 0);
-        AddIntegrationCard(cards, "Apps y notificaciones", "Infraestructura de integración aún no disponible en Linux.", 0, 2);
+        AddIntegrationCard(cards, "Apps y notificaciones", $"Infraestructura de integración aún no disponible en {PlatformRuntime.PlatformName}.", 0, 2);
         AddIntegrationCard(cards, "Display / ventanas", "Virtual display, resize y ventanas sólo cuando el backend las soporte.", 2, 2);
         var micStack = new StackPanel { Spacing = 6 };
         micStack.Children.Add(SectionTitle("Micrófono Android"));
@@ -617,7 +617,7 @@ public sealed partial class MainWindow : Window
         StyleFlatButton(_renewButton);
         codeRow.Children.Add(_renewButton);
         panel.Children.Add(codeRow);
-        panel.Children.Add(Caption("Verifica la huella completa en NOVORA-LINK para Linux y en el teléfono antes de enviar el código."));
+        panel.Children.Add(Caption($"Verifica la huella completa en NOVORA-LINK para {PlatformRuntime.PlatformName} y en el teléfono antes de enviar el código."));
         panel.Children.Add(_fingerprint);
         return panel;
     }
@@ -1178,7 +1178,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            SetMessage($"Error al cerrar los servicios Linux: {ex.Message}", "#f87171");
+            SetMessage($"Error al cerrar los servicios {PlatformRuntime.PlatformName}: {ex.Message}", "#f87171");
         }
     }
 }

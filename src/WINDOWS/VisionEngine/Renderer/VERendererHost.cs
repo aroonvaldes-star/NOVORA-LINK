@@ -177,6 +177,14 @@ public sealed class VERendererHost : WindowsFormsHost
     public event EventHandler<Forms.KeyPressEventArgs>?
         KeyPressVE;
 
+    internal void RaiseKeyDownVE(Forms.KeyEventArgs e) => KeyDownVE?.Invoke(this, e);
+
+    internal void RaiseFilesDroppedVE(VEExchangeFilesDroppedEventArgs e)
+    {
+        FilesDroppedVE?.Invoke(this, e);
+        FocusInputVE();
+    }
+
     public event EventHandler?
         InputFocusLostVE;
 

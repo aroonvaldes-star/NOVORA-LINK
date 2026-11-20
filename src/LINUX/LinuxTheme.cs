@@ -83,8 +83,7 @@ internal static class LinuxTheme
         string directory = Path.GetDirectoryName(path)
             ?? throw new InvalidOperationException("No se pudo resolver el directorio de configuración del tema.");
         Directory.CreateDirectory(directory);
-        if (OperatingSystem.IsLinux())
-            File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        PlatformRuntime.ApplyPrivateDirectoryPermissions(directory);
 
         string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
@@ -96,8 +95,7 @@ internal static class LinuxTheme
                 Share = FileShare.None,
                 Options = FileOptions.WriteThrough
             };
-            if (OperatingSystem.IsLinux())
-                options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            PlatformRuntime.ApplyPrivateFileMode(options);
 
             using (var file = new FileStream(temporary, options))
             using (var writer = new StreamWriter(file))
@@ -107,8 +105,7 @@ internal static class LinuxTheme
                 file.Flush(true);
             }
             File.Move(temporary, path, true);
-            if (OperatingSystem.IsLinux())
-                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            PlatformRuntime.ApplyPrivateFilePermissions(path);
         }
         finally
         {
@@ -177,12 +174,6 @@ internal static class LinuxTheme
         }
     }
 
-    private static string GetThemePath()
-    {
-        string? configHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-        string root = !string.IsNullOrWhiteSpace(configHome) && Path.IsPathFullyQualified(configHome)
-            ? configHome
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config");
-        return Path.Combine(root, "novora-link-linux", "theme");
-    }
+    private static string GetThemePath() =>
+        Path.Combine(PlatformRuntime.GetConfigDirectory(), "theme");
 }

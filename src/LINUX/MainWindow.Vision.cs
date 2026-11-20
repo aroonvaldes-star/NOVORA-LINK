@@ -13,11 +13,10 @@ public sealed partial class MainWindow
     private bool _veLoading;
     private bool _veBuilt;
     private readonly ComboBox _veAcceleration = new() { ItemsSource = new[]{"Automática", "Software", "Forzada"} };
-    private readonly ComboBox _veBackend = new() { ItemsSource = new[]{"vaapi","cuda","qsv","vulkan"} };
+    private readonly ComboBox _veBackend = new() { ItemsSource = LinuxVisionAcceleration.SupportedBackends };
     private readonly ComboBox _vePresentation = new() { ItemsSource=new[]{"Ventana", "Pantalla completa"} };
     private readonly ComboBox _veMonitor = new();
     private readonly ComboBox _veAudio = new();
-    private readonly CheckBox _veFullscreen = new() { Content="Pantalla completa en el monitor seleccionado" };
     private readonly CheckBox _veAudioEnabled = new() { Content="Reproducir y capturar audio Android" };
     private readonly CheckBox _veInput = new() { Content="Teclado, ratón y touchpad de la laptop" };
     private readonly CheckBox _veLatency = new() { Content="Decoder de baja latencia" };
@@ -135,7 +134,7 @@ public sealed partial class MainWindow
             });
         };
         StyleSelector(_visionProfileSelector);
-        foreach (var check in new[]{_veFullscreen,_veAudioEnabled,_veInput,_veLatency,_veVsync}) check.IsCheckedChanged += (_,_)=>SaveVisionFromUi();
+        foreach (var check in new[]{_veAudioEnabled,_veInput,_veLatency,_veVsync}) check.IsCheckedChanged += (_,_)=>SaveVisionFromUi();
         _host.VisionSettingsChanged += ()=>Dispatcher.UIThread.Post(SyncVisionUi);
         RefreshVeOutputs(); SyncVisionUi(); _veLoading=false;
         RefreshFunctionalVisionState();
@@ -203,7 +202,7 @@ public sealed partial class MainWindow
             _visionResolutionSelector.SelectedItem=s.MaxSize.ToString(); _visionFpsSelector.SelectedItem=s.Fps.ToString(); _visionBitrateSelector.SelectedItem=s.Bitrate;
             _veAcceleration.SelectedItem=s.Acceleration switch {"Forced"=>"Forzada","Software"=>"Software",_=>"Automática"};
             _veBackend.SelectedItem=s.HardwareBackend; _veBackend.IsEnabled=s.Acceleration=="Forced";
-            _veFullscreen.IsChecked=s.Fullscreen; _vePresentation.SelectedIndex=s.Fullscreen?1:0; _veAudioEnabled.IsChecked=s.AudioEnabled; _veInput.IsChecked=s.RemoteInput;
+            _vePresentation.SelectedIndex=s.Fullscreen?1:0; _veAudioEnabled.IsChecked=s.AudioEnabled; _veInput.IsChecked=s.RemoteInput;
             _veLatency.IsChecked=s.LowLatency; _veVsync.IsChecked=s.VSync;
             if (_veMonitor.ItemsSource is IEnumerable<LinuxOutputDevice> monitors) _veMonitor.SelectedItem=VeOutputSelection(monitors,s.MonitorId,s.MonitorName);
             if (_veAudio.ItemsSource is IEnumerable<LinuxOutputDevice> audio) _veAudio.SelectedItem=VeOutputSelection(audio,s.AudioDeviceId,s.AudioDeviceName);
@@ -225,7 +224,7 @@ public sealed partial class MainWindow
         VeAction(()=>_host.ConfigureVisionSettings(_host.VisionSettings with {
             Profile=profileId,Bitrate=bitrate,MaxSize=size,Fps=fps,
             Acceleration=(_veAcceleration.SelectedItem as string) switch {"Forzada"=>"Forced","Software"=>"Software",_=>"Automatic"},
-            HardwareBackend=_veBackend.SelectedItem as string ?? "vaapi",MonitorId=(_veMonitor.SelectedItem as LinuxOutputDevice)?.Id ?? 0,
+            HardwareBackend=_veBackend.SelectedItem as string ?? LinuxVisionAcceleration.DefaultBackend,MonitorId=(_veMonitor.SelectedItem as LinuxOutputDevice)?.Id ?? 0,
             AudioDeviceId=(_veAudio.SelectedItem as LinuxOutputDevice)?.Id ?? 0,
             MonitorName=(_veMonitor.SelectedItem as LinuxOutputDevice) is { Id: not 0 } monitor ? monitor.Name : "",
             AudioDeviceName=(_veAudio.SelectedItem as LinuxOutputDevice) is { Id: not 0 } output ? output.Name : "",Fullscreen=_vePresentation.SelectedIndex==1,

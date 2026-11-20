@@ -26,7 +26,7 @@ public sealed partial class MainWindow
         Grid.SetColumn(_themeSelector,1); appearance.Children.Add(_themeSelector); content.Children.Add(Card(appearance));
 
         var updates=new StackPanel(); updates.Children.Add(SectionTitle("Actualizaciones"));
-        updates.Children.Add(Caption("La descarga e instalación de actualizaciones todavía no está disponible en Linux.",new Thickness(0,7,0,0)));
+        updates.Children.Add(Caption($"La descarga e instalación de actualizaciones todavía no está disponible en {PlatformRuntime.PlatformName}.",new Thickness(0,7,0,0)));
         StylePrimaryButton(_checkPcUpdateButton); StyleFlatButton(_checkAndroidUpdateButton);
         updates.Children.Add(ActionRow(new Thickness(0,14,0,0),_checkPcUpdateButton,_checkAndroidUpdateButton));
         content.Children.Add(Card(updates));
@@ -39,7 +39,7 @@ public sealed partial class MainWindow
 
         var android=new StackPanel(); android.Children.Add(SectionTitle("LINK Control · Android"));
         android.Children.Add(Caption("LinkControl.apk · Descarga en tu teléfono",new Thickness(0,8,0,0)));
-        android.Children.Add(Caption("La descarga y el código QR todavía no están integrados en Linux.",new Thickness(0,8,0,12)));
+        android.Children.Add(Caption($"La descarga y el código QR todavía no están integrados en {PlatformRuntime.PlatformName}.",new Thickness(0,8,0,12)));
         var qr=FlatButton("Mostrar QR"); qr.IsEnabled=false; StylePrimaryButton(qr);
         var link=FlatButton("Copiar enlace directo"); link.IsEnabled=false;
         android.Children.Add(ActionRow(new Thickness(0),qr,link)); content.Children.Add(Card(android));
@@ -77,7 +77,7 @@ public sealed partial class MainWindow
         }
         var metricsCard=Card(metrics); Grid.SetColumn(metricsCard,2); grid.Children.Add(metricsCard); content.Children.Add(grid);
         var optimization=new Grid { ColumnDefinitions=new ColumnDefinitions("*,220") };
-        optimization.Children.Add(new StackPanel { Spacing=6,Children={SectionTitle("Optimización segura del dispositivo"),Caption("La consulta y optimización del dispositivo todavía no están integradas en Linux.")} });
+        optimization.Children.Add(new StackPanel { Spacing=6,Children={SectionTitle("Optimización segura del dispositivo"),Caption($"La consulta y optimización del dispositivo todavía no están integradas en {PlatformRuntime.PlatformName}.")} });
         var optimize=FlatButton("OPTIMIZAR AHORA"); StylePrimaryButton(optimize); optimize.IsEnabled=false;
         Grid.SetColumn(optimize,1); optimization.Children.Add(optimize);
         var card=Card(optimization); card.Margin=new Thickness(0,14,0,0); content.Children.Add(card);

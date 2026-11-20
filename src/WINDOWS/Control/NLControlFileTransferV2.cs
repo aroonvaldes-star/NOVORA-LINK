@@ -501,9 +501,12 @@ public sealed class NLControlFileTransferV2 : IAsyncDisposable
             lock (_gate)
             {
                 if (_closed || _receiver != receiver) return;
+                string diagnostic = error is NLFileTransferRejectedV2 rejected && !string.IsNullOrWhiteSpace(rejected.Message)
+                    ? rejected.Message
+                    : "FILES storage or integrity failed; partial aborted.";
                 terminal = QueueResponse(cancelled && error is null
                     ? new(NLFileFrameKindV2.Cancelled, receiver.Id, receiver.Written, Array.Empty<byte>())
-                    : NLControlFileProtocolV2.Error(receiver.Id, receiver.Written, "FILES storage or integrity failed; partial aborted."));
+                    : NLControlFileProtocolV2.Error(receiver.Id, receiver.Written, diagnostic));
             }
             await terminal.ConfigureAwait(false);
             lock (_gate) { if (_receiver == receiver) _receiver = null; }

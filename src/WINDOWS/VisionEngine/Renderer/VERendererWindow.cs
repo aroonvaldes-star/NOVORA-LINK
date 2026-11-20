@@ -154,8 +154,22 @@ public sealed class VERendererWindow : System.Windows.Window
         // WINDOW EVENTS
         // ========================================================
 
+        AllowDrop = true;
+
         PreviewKeyDown +=
             WindowRendererVE_PreviewKeyDown;
+
+        DragEnter +=
+            WindowRendererVE_DragEnter;
+
+        DragOver +=
+            WindowRendererVE_DragOver;
+
+        DragLeave +=
+            WindowRendererVE_DragLeave;
+
+        Drop +=
+            WindowRendererVE_Drop;
 
         Closing +=
             WindowRendererVE_Closing;
@@ -480,10 +494,39 @@ public sealed class VERendererWindow : System.Windows.Window
     // WPF KEYBOARD
     // ============================================================
 
+    private const string BaseTitleVE = "NOVORA-LINK — VisionEngine";
+
+    /// <summary>
+    /// Shows a short state line in the VisionEngine title (FILES state, refused drops, clipboard status),
+    /// matching LinuxSdlVideoRenderer.SetStatus so feedback is visible while the main window is minimized.
+    /// </summary>
+    public void SetStatusVE(string? text)
+    {
+        string line = string.IsNullOrWhiteSpace(text) ? string.Empty : text.Trim();
+        if (line.Length > 160) line = line[..160] + "…";
+        void Apply()
+        {
+            Title = line.Length == 0 ? BaseTitleVE : BaseTitleVE + " — " + line;
+        }
+        if (Dispatcher.CheckAccess()) Apply();
+        else _ = Dispatcher.BeginInvoke(Apply);
+    }
+
     private void WindowRendererVE_PreviewKeyDown(
         object sender,
         System.Windows.Input.KeyEventArgs e)
     {
+        if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0 &&
+            (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) == 0 &&
+            e.Key is System.Windows.Input.Key.C or System.Windows.Input.Key.V)
+        {
+            Forms.Keys key = e.Key == System.Windows.Input.Key.C ? Forms.Keys.C : Forms.Keys.V;
+            var args = new Forms.KeyEventArgs(key | Forms.Keys.Control);
+            HostVE.RaiseKeyDownVE(args);
+            e.Handled = true;
+            return;
+        }
+
         if (
             e.Key !=
             System.Windows.Input.Key.Escape)
@@ -505,6 +548,68 @@ public sealed class VERendererWindow : System.Windows.Window
         CloseRequestedVE?.Invoke(
             this,
             EventArgs.Empty);
+    }
+
+    private void WindowRendererVE_DragEnter(
+        object sender,
+        System.Windows.DragEventArgs e)
+    {
+        bool supported = e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop);
+        e.Effects = supported
+            ? System.Windows.DragDropEffects.Copy
+            : System.Windows.DragDropEffects.None;
+        e.Handled = true;
+        if (supported)
+            DragEnteredVE?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void WindowRendererVE_DragOver(
+        object sender,
+        System.Windows.DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop)
+            ? System.Windows.DragDropEffects.Copy
+            : System.Windows.DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void WindowRendererVE_DragLeave(
+        object sender,
+        System.Windows.DragEventArgs e)
+    {
+        e.Handled = true;
+        DragEndedVE?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void WindowRendererVE_Drop(
+        object sender,
+        System.Windows.DragEventArgs e)
+    {
+        e.Handled = true;
+        try
+        {
+            if (!e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop) ||
+                e.Data.GetData(System.Windows.DataFormats.FileDrop) is not string[] rawPaths ||
+                rawPaths.Length == 0)
+            {
+                e.Effects = System.Windows.DragDropEffects.None;
+                return;
+            }
+
+            var dropped = new VEExchangeFilesDroppedEventArgs(rawPaths);
+            if (dropped.CountVE == 0)
+            {
+                e.Effects = System.Windows.DragDropEffects.None;
+                return;
+            }
+
+            e.Effects = System.Windows.DragDropEffects.Copy;
+            HostVE.RaiseFilesDroppedVE(dropped);
+        }
+        finally
+        {
+            DragEndedVE?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     // ============================================================
@@ -605,6 +710,18 @@ public sealed class VERendererWindow : System.Windows.Window
 
         PreviewKeyDown -=
             WindowRendererVE_PreviewKeyDown;
+
+        DragEnter -=
+            WindowRendererVE_DragEnter;
+
+        DragOver -=
+            WindowRendererVE_DragOver;
+
+        DragLeave -=
+            WindowRendererVE_DragLeave;
+
+        Drop -=
+            WindowRendererVE_Drop;
 
         Closing -=
             WindowRendererVE_Closing;

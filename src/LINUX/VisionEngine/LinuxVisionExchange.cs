@@ -183,7 +183,7 @@ internal static class LinuxNovoraFolder
 
     private static async Task<(int ExitCode, string Output)> RunAdbAsync(string serial, IReadOnlyList<string> arguments, CancellationToken cancellationToken)
     {
-        var start = new ProcessStartInfo("adb") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+        var start = new ProcessStartInfo(PlatformRuntime.ResolveTool("adb")) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
         start.ArgumentList.Add("-s"); start.ArgumentList.Add(serial);
         foreach (string argument in arguments) start.ArgumentList.Add(argument);
         using var process = Process.Start(start) ?? throw new IOException("No se pudo iniciar adb.");

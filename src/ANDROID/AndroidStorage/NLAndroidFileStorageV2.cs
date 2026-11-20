@@ -8,10 +8,17 @@ namespace NOVORA.AndroidStorage;
 /// <summary>FILES v2 uses only the persisted grant for primary:NOVORA. No direct filesystem/all-files bypass.</summary>
 internal sealed class NLAndroidFileStorageV2 : INLFileReceiveStorageV2
 {
+    private readonly Context _context;
     private readonly ContentResolver _resolver;
-    private readonly Uri _tree;
-    private NLAndroidFileStorageV2(Context context, Uri tree)
-    { _resolver = context.ContentResolver ?? throw new InvalidOperationException("Android no entregó ContentResolver."); _tree = tree; }
+    private readonly Uri? _tree;
+    private NLAndroidFileStorageV2(Context context, Uri? tree = null)
+    {
+        _context = context.ApplicationContext ?? context;
+        _resolver = _context.ContentResolver ?? throw new InvalidOperationException("Android no entregó ContentResolver.");
+        _tree = tree;
+    }
+
+    internal static NLAndroidFileStorageV2 CreateDynamic(Context context) => new(context);
 
     internal static bool TryCreate(Context context, out NLAndroidFileStorageV2? storage)
     {
@@ -22,11 +29,15 @@ internal sealed class NLAndroidFileStorageV2 : INLFileReceiveStorageV2
     public async ValueTask<INLFileReceiveTargetV2> OpenAsync(Guid transferId, long generation, NLFileMetadataV2 metadata, CancellationToken ct)
     {
         if (transferId == Guid.Empty || generation < 0) throw new InvalidDataException("Identidad FILES inválida.");
+        Uri tree;
+        if (_tree is not null) tree = _tree;
+        else if (!NLAndroidStorageNovoraFolder.TryGet(_context, out tree))
+            throw new NLFileTransferRejectedV2("Autoriza la carpeta /sdcard/NOVORA en la pestaña Archivos de LINK Control en tu teléfono.");
         string[] directories = NLControlFileStorageV2.GetDirectories(metadata);
         return await Task.Run<INLFileReceiveTargetV2>(() =>
         {
             ct.ThrowIfCancellationRequested();
-            Uri directory = NLAndroidStorageNovoraFolder.GetOrCreateDirectory(_resolver, _tree, directories);
+            Uri directory = NLAndroidStorageNovoraFolder.GetOrCreateDirectory(_resolver, tree, directories);
             ct.ThrowIfCancellationRequested();
             Uri temporary = DocumentsContract.CreateDocument(_resolver, directory, "application/octet-stream",
                 ".novora-" + Guid.NewGuid().ToString("N") + ".partial") ?? throw new IOException("No se pudo preparar el archivo NOVORA.");
@@ -42,7 +53,7 @@ internal sealed class NLAndroidFileStorageV2 : INLFileReceiveStorageV2
                 ct.ThrowIfCancellationRequested();
                 output = _resolver.OpenOutputStream(temporary, "w") ?? throw new IOException("No se pudo abrir el archivo NOVORA.");
                 ct.ThrowIfCancellationRequested();
-                return new Target(_resolver, _tree, directory, temporary, output, metadata);
+                return new Target(_resolver, tree, directory, temporary, output, metadata);
             }
             catch
             {

@@ -23,7 +23,12 @@ internal sealed class LinuxFfmpegVideoDecoder : IAsyncDisposable
     public LinuxFfmpegVideoDecoder(
         VideoCodec codec, VideoSession session, ILinuxVideoRenderer renderer, LinuxVisionSettings? settings = null)
     {
-        ActiveBackend = settings is null ? "software" : LinuxVisionAcceleration.Select(settings);
+        LinuxAccelerationBackend selection = settings is null
+            ? new LinuxAccelerationBackend("software", true, "Decodificación por software.")
+            : LinuxVisionAcceleration.SelectBackend(settings);
+        ActiveBackend = selection.Device is null
+            ? selection.Name
+            : $"{selection.Name} ({selection.Device})";
         _codec = codec;
         _session = session;
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
@@ -32,14 +37,15 @@ internal sealed class LinuxFfmpegVideoDecoder : IAsyncDisposable
 
         var start = new ProcessStartInfo
         {
-            FileName = "ffmpeg",
+            FileName = PlatformRuntime.ResolveTool("ffmpeg"),
             UseShellExecute = false,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             CreateNoWindow = true
         };
-        foreach (string argument in BuildArguments(codec, session, ActiveBackend, settings?.LowLatency ?? true))
+        foreach (string argument in BuildArguments(
+                     codec, session, selection.Name, settings?.LowLatency ?? true, selection.Device))
             start.ArgumentList.Add(argument);
 
         _process = new Process { StartInfo = start, EnableRaisingEvents = true };
@@ -108,7 +114,8 @@ internal sealed class LinuxFfmpegVideoDecoder : IAsyncDisposable
         }
     }
 
-    internal static IReadOnlyList<string> BuildArguments(VideoCodec codec, VideoSession session, string backend = "software", bool lowLatency = true)
+    internal static IReadOnlyList<string> BuildArguments(
+        VideoCodec codec, VideoSession session, string backend = "software", bool lowLatency = true, string? device = null)
     {
         string demuxer = codec switch
         {
@@ -128,9 +135,18 @@ internal sealed class LinuxFfmpegVideoDecoder : IAsyncDisposable
         var arguments = new List<string> { "-hide_banner", "-loglevel", "error" };
         // -fflags nobuffer dejaba sin salida un stream H.264 de 3 fotogramas (smoke test): no se usa hasta medirlo con stream real.
         if (lowLatency) arguments.AddRange(["-flags", "low_delay"]);
-        if (backend != "software") arguments.AddRange(["-hwaccel", backend, "-hwaccel_output_format", backend]);
+        LinuxVisionAcceleration.AddHardwareDeviceArguments(arguments, backend, device);
+        if (backend == "videotoolbox")
+            arguments.AddRange(["-hwaccel", "videotoolbox"]);
+        else if (backend != "software")
+        {
+            arguments.AddRange(["-hwaccel", backend]);
+            if (device is not null)
+                arguments.AddRange(["-hwaccel_device", LinuxVisionAcceleration.DeviceName(backend)]);
+            arguments.AddRange(["-hwaccel_output_format", backend]);
+        }
         arguments.AddRange(["-probesize", "32", "-analyzeduration", "0", "-f", demuxer, "-i", "pipe:0"]);
-        string download = backend == "software" ? "" : "hwdownload,format=nv12,";
+        string download = backend is "software" or "videotoolbox" ? "" : "hwdownload,format=nv12,";
         arguments.AddRange(["-an", "-vf", $"{download}scale={session.Width}:{session.Height}:flags=fast_bilinear{rotation}",
             "-flush_packets", "1", "-fps_mode", "passthrough", "-pix_fmt", "rgba", "-f", "rawvideo", "pipe:1"]);
         return arguments;

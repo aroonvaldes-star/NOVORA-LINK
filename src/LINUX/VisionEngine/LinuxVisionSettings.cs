@@ -9,7 +9,7 @@ internal sealed record LinuxVisionSettings
     public int MaxSize { get; init; } = 1920;
     public int Fps { get; init; } = 60;
     public string Acceleration { get; init; } = "Automatic";
-    public string HardwareBackend { get; init; } = "vaapi";
+    public string HardwareBackend { get; init; } = LinuxVisionAcceleration.DefaultBackend;
     public string MonitorName { get; init; } = "";
     public string AudioDeviceName { get; init; } = "";
     public uint MonitorId { get; init; }
@@ -19,7 +19,7 @@ internal sealed record LinuxVisionSettings
     public bool RemoteInput { get; init; } = true;
     public bool LowLatency { get; init; } = true;
     public bool VSync { get; init; }
-    public string RecordingDirectory { get; init; } = Path.Combine(UserFolder(Environment.SpecialFolder.MyVideos, "Videos"), "NOVORA");
+    public string RecordingDirectory { get; init; } = Path.Combine(UserFolder(Environment.SpecialFolder.MyVideos, PlatformRuntime.DefaultRecordingFolderName), "NOVORA");
     public string ReceiveDirectory { get; init; } = DefaultReceiveDirectory;
     /// <summary>What the phone sends as audio: device playback ("Output") or its microphone ("Microphone").</summary>
     public string AudioSource { get; init; } = LinuxAudioSource.Output;
@@ -100,7 +100,7 @@ internal sealed record LinuxVisionSettings
                 MaxSize is not (480 or 720 or 960 or 1080 or 1280 or 1440 or 1600 or 1920 or 2160)) ||
             !(mobile ? MobileFrameRates : LegacyFrameRates).Contains(Fps) ||
             Acceleration is not ("Automatic" or "Software" or "Forced") ||
-            HardwareBackend is not ("vaapi" or "cuda" or "qsv" or "vulkan") ||
+            HardwareBackend is not ("vaapi" or "cuda" or "qsv" or "vulkan" or "videotoolbox") ||
             string.IsNullOrWhiteSpace(RecordingDirectory) || !Path.IsPathFullyQualified(RecordingDirectory) ||
             string.IsNullOrWhiteSpace(ReceiveDirectory) || !Path.IsPathFullyQualified(ReceiveDirectory) ||
             !LinuxAudioSource.IsValid(AudioSource))
@@ -121,9 +121,7 @@ internal sealed class LinuxVisionSettingsStore
     private readonly string _path;
     public LinuxVisionSettingsStore(string? path = null)
     {
-        string root = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") is { Length: > 0 } xdg
-            ? xdg : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config");
-        _path = path ?? Path.Combine(root, "novora-link-linux", "vision.json");
+        _path = path ?? Path.Combine(PlatformRuntime.GetConfigDirectory(), "vision.json");
     }
     public LinuxVisionSettings Load()
     {

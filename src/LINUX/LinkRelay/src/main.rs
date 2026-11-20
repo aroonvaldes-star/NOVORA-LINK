@@ -39,6 +39,10 @@ const AUTH_MAX_FRAME: usize = 1024;
 const AUTH_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_PENDING_AUTH: usize = 4;
 const TOKEN_ENV: &str = "NOVORA_RELAY_TOKEN";
+const ACCEPT_RETRY: Duration = Duration::from_millis(100);
+// Opt-in: the Windows launcher redirects stdin and sets this, so a closed pipe means its owner is gone.
+// Other launchers leave stdin inherited (often /dev/null), so EOF must not stop them.
+const EXIT_ON_STDIN_EOF_ENV: &str = "NOVORA_RELAY_EXIT_ON_STDIN_EOF";
 
 fn udp_activity_millis() -> u64 {
     static ORIGIN: OnceLock<Instant> = OnceLock::new();
@@ -80,8 +84,19 @@ async fn main() -> io::Result<()> {
     let policy = Arc::new(PolicyState::new());
     println!("LE_READY {{\"v\":1,\"shaping\":true,\"fairQueues\":true,\"queueTelemetry\":true}}");
     let stdin_policy = policy.clone();
-    let stdin = tokio::spawn(async move { configuration_loop(stdin_policy).await });
-    let result = run_with_policy(listener, policy, Arc::new(authentication_token)).await;
+    let mut stdin = tokio::spawn(async move { configuration_loop(stdin_policy).await });
+    let serving = run_with_policy(listener, policy, Arc::new(authentication_token));
+    let result = if std::env::var(EXIT_ON_STDIN_EOF_ENV).is_ok_and(|value| value == "1") {
+        tokio::select! {
+            result = serving => result,
+            _ = &mut stdin => {
+                eprintln!("WARN NOVORA relay: stdin closed; exiting");
+                Ok(())
+            }
+        }
+    } else {
+        serving.await
+    };
     stdin.abort();
     result
 }
@@ -148,8 +163,19 @@ async fn run_with_policy(
     loop {
         tokio::select! {
             accepted = listener.accept() => {
-                let (mut stream, _) = accepted?;
-                stream.set_nodelay(true)?;
+                // A transient accept failure (for example descriptor pressure) must not end the relay.
+                let (mut stream, _) = match accepted {
+                    Ok(accepted) => accepted,
+                    Err(error) => {
+                        eprintln!("WARN NOVORA relay accept: {error}");
+                        tokio::time::sleep(ACCEPT_RETRY).await;
+                        continue;
+                    }
+                };
+                if let Err(error) = stream.set_nodelay(true) {
+                    eprintln!("WARN NOVORA relay nodelay: {error}");
+                    continue;
+                }
                 let permit = match pending_auth.clone().try_acquire_owned() {
                     Ok(permit) => permit,
                     Err(_) => {
@@ -288,6 +314,15 @@ async fn serve(mut stream: TcpStream, policy: Arc<PolicyState>) -> io::Result<()
                 ));
             }
             reader.read_exact(&mut packet[20..length]).await?;
+            if flow_scheduler::FlowKey::parse(&packet[..length]).is_err() {
+                // The framing is intact, so only this packet is discarded; the session stays up.
+                input_telemetry.record_drop_at(
+                    Domain::DeviceLink,
+                    Direction::FromAndroid,
+                    "malformed_packet",
+                );
+                continue;
+            }
             input_queue
                 .enqueue(packet[..length].to_vec(), &input_policy, &input_telemetry)
                 .await?;
@@ -1036,6 +1071,33 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(u32::from_be_bytes(id), 1);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn malformed_transport_packet_is_dropped_without_closing_the_session() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(run(listener));
+
+        let mut session = authorized_connect(address).await;
+        let mut id = [0_u8; 4];
+        timeout(Duration::from_secs(2), session.read_exact(&mut id))
+            .await
+            .unwrap()
+            .unwrap();
+        // Valid IPv4 framing that declares TCP but leaves no room for a TCP header.
+        let mut malformed = [0_u8; 20];
+        malformed[0] = 0x45;
+        malformed[2..4].copy_from_slice(&20_u16.to_be_bytes());
+        malformed[9] = 6;
+        session.write_all(&malformed).await.unwrap();
+
+        // The session must stay open: no EOF and no error within the window.
+        let mut byte = [0_u8; 1];
+        assert!(timeout(Duration::from_millis(300), session.read(&mut byte))
+            .await
+            .is_err());
         server.abort();
     }
 }

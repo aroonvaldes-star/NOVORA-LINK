@@ -8,15 +8,8 @@ internal static class LinuxFileDiagnostics
 {
     private static readonly object Gate = new();
 
-    public static string LogPath
-    {
-        get
-        {
-            string root = Environment.GetEnvironmentVariable("XDG_STATE_HOME") is { Length: > 0 } xdg
-                ? xdg : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "state");
-            return Path.Combine(root, "novora-link-linux", "files.log");
-        }
-    }
+    public static string LogPath =>
+        Path.Combine(PlatformRuntime.GetStateDirectory(), "files.log");
 
     /// <summary>Outer message followed by each inner cause, e.g. "FILES channel failed. → FILES response has a stale id".</summary>
     public static string Describe(Exception ex)
