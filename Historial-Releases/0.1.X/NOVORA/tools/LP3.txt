@@ -1,0 +1,94 @@
+@echo off
+setlocal EnableDelayedExpansion
+title NOVORA LP3 TEST
+color 0A
+
+::=========================================
+:: RUTAS
+::=========================================
+
+set "ROOT=%~dp0"
+
+set "ADB=%ROOT%adb\adb.exe"
+set "SCRCPY=%ROOT%scrcpy\scrcpy.exe"
+set "GNIREHTET=%ROOT%gnirehtet\gnirehtet.exe"
+
+echo ==========================================
+echo NOVORA LP3 TEST
+echo ==========================================
+echo.
+
+if not exist "%ADB%" (
+    echo ERROR: No existe adb.exe
+    pause
+    exit /b
+)
+
+if not exist "%SCRCPY%" (
+    echo ERROR: No existe scrcpy.exe
+    pause
+    exit /b
+)
+
+"%ADB%" start-server >nul
+"%ADB%" wait-for-device
+
+echo Dispositivo conectado.
+timeout /t 2 >nul
+
+call :RUNTEST "20 Mbps" "--video-codec=h264 --video-bit-rate=20M --max-fps=60"
+call :RUNTEST "30 Mbps" "--video-codec=h264 --video-bit-rate=30M --max-fps=60"
+call :RUNTEST "40 Mbps" "--video-codec=h264 --video-bit-rate=40M --max-fps=60"
+call :RUNTEST "50 Mbps" "--video-codec=h264 --video-bit-rate=50M --max-fps=60"
+
+echo.
+echo ==========================================
+echo PRUEBAS TERMINADAS
+echo ==========================================
+echo.
+
+if exist "%GNIREHTET%" (
+    echo Iniciando Gnirehtet...
+    start "" "%GNIREHTET%" run
+    timeout /t 5 >nul
+)
+
+echo Iniciando Scrcpy...
+
+start "" "%SCRCPY%" ^
+--video-codec=h264 ^
+--video-bit-rate=50M ^
+--max-fps=60
+
+exit /b
+
+::=========================================
+:RUNTEST
+
+set "NAME=%~1"
+set "PARAMS=%~2"
+
+cls
+echo ==========================================
+echo Probando %NAME%
+echo ==========================================
+
+start "" "%SCRCPY%" %PARAMS%
+
+timeout /t 2 >nul
+
+for /L %%i in (10,-1,1) do (
+    cls
+    echo ==========================================
+    echo Probando %NAME%
+    echo ==========================================
+    echo.
+    echo Cerrando en %%i segundos...
+    timeout /t 1 >nul
+)
+
+taskkill /F /IM scrcpy.exe >nul 2>nul
+
+timeout /t 2 >nul
+
+exit /b

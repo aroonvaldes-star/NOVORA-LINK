@@ -2,6 +2,10 @@
 
 # NOVORA-LINK 1.4
 
+- **Portal oficial:** https://novora-link.aroonvaldes.workers.dev/
+- **Repositorio y descargas:** https://github.com/aroonvaldes-star/NOVORA-LINK
+- **Última release estable:** https://github.com/aroonvaldes-star/NOVORA-LINK/releases/latest
+
 ## Descripción técnica y acciones de la interfaz
 
 NOVORA-LINK conecta un teléfono Android con una PC Windows para mostrar su pantalla, transportar datos y permitir la interacción autorizada. VisionEngine (VE) se ocupa de video y audio, LinkEngine (LE) del enlace y de la ruta de Internet por VPN, y Experience Input Engine (ExInEngine) de las entradas. Cada resultado depende del dispositivo, el transporte, los permisos y el estado de la sesión.

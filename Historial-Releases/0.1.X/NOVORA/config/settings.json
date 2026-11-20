@@ -1,0 +1,26 @@
+{
+    "Launcher": {
+        "Version": "0.1 Alpha",
+        "Name": "AC Launcher"
+    },
+
+    "Paths": {
+
+        "ADB": "",
+
+        "SCRCPY": "",
+
+        "GNIREHTET": "",
+
+        "OBS": "",
+
+        "TIKTOK": ""
+
+    },
+
+    "Profiles": {
+
+        "Default": "Competitive"
+
+    }
+}

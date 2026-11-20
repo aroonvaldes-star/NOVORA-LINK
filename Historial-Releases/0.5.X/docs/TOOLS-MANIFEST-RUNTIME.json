@@ -1,0 +1,80 @@
+{
+  "source": "NOVORA V1.1.zip",
+  "runtime_files": [
+    {
+      "name": "AdbWinApi.dll",
+      "size": 108184,
+      "sha256": "120bef587119c6cb926b86b9be90fdfbce38937588eae28cd91a94ce63c7b965"
+    },
+    {
+      "name": "AdbWinUsbApi.dll",
+      "size": 73368,
+      "sha256": "6ca69a2ca0e31309c087d288f058977d421ad03500e4c3e1dbd981241a069c60"
+    },
+    {
+      "name": "SDL3.dll",
+      "size": 5366478,
+      "sha256": "0619eb2da6032984dc6e2098897aeacdbd66b0415bb87bc03e628159ba60b15d"
+    },
+    {
+      "name": "Scrcpy.png",
+      "size": 1447808,
+      "sha256": "2b102ff7b3282e5702fdeda37d90d584084485b86f1ea012b2829a1bf13054bc"
+    },
+    {
+      "name": "adb.exe",
+      "size": 8485016,
+      "sha256": "957e46b8615f7af5b7292a2ddabe98d2e61940c3fb2b0545756507f080613e71"
+    },
+    {
+      "name": "avcodec-62.dll",
+      "size": 8603648,
+      "sha256": "7179de2b132e78eb0a76458a0a3859dfe1edcbb6d2eeb4a456f03f7ae96d5b66"
+    },
+    {
+      "name": "avformat-62.dll",
+      "size": 723456,
+      "sha256": "7232316acce00371d89f589748b570d95885ea6bbfc1972a0a9d3b884903eee1"
+    },
+    {
+      "name": "avutil-60.dll",
+      "size": 1039360,
+      "sha256": "3d6170dd68549c6f39b8d8710a37f79d9678905df705a8b0a6bc7ea9037daddf"
+    },
+    {
+      "name": "disconnected.png",
+      "size": 1603529,
+      "sha256": "16937233c82e9cf7a0e9093e2dcd36eeefb2d7ba5f5b34857093aeafb6059be0"
+    },
+    {
+      "name": "gnirehtet.apk",
+      "size": 23904,
+      "sha256": "c1ac2b869a48e3c836046aac5a168f3ade510288f3304a87ddb671315c564b9a"
+    },
+    {
+      "name": "gnirehtet.exe",
+      "size": 2991788,
+      "sha256": "d5daefbb48143fbc2b01f24be79135fc11959fe4553b00f5a454801ed5ff720d"
+    },
+    {
+      "name": "libusb-1.0.dll",
+      "size": 227005,
+      "sha256": "8ec130918a476b0dbd114c803e71314360608ceabdd2b6f38c83f6f208c608e0"
+    },
+    {
+      "name": "scrcpy-server",
+      "size": 733706,
+      "sha256": "deacb991ed2509715160ffdc7907e47b4160eb30d1566217e9047fd5b8850cae"
+    },
+    {
+      "name": "scrcpy.exe",
+      "size": 720524,
+      "sha256": "575ca1284345c7b3975585bc61b66d564a9a4f1ecb28fbb4c599c92a124054a9"
+    },
+    {
+      "name": "swresample-6.dll",
+      "size": 139776,
+      "sha256": "4cc809d2cd822e186906fbc9d8a0acffa937e35de1282b2e2ab7346cfed96fed"
+    }
+  ]
+}

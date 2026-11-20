@@ -1,0 +1,66 @@
+Sí. **Ahora sí está claro el origen real.**
+
+El error que te aparece **no significa que hayas escrito `MB/s` en Configuración**. Lo está provocando el propio flujo al cargar el perfil.
+
+La prueba está en el stack:
+
+```text id="aor1v9"
+MainWindow.OpenSettings()
+ → RefreshOutputProfile()
+ → OutputProfileService.Calculate()
+ → CreateFallbackProfile()
+ → NormalizeBitrate()
+```
+
+Y en el código que te entregué, `NormalizeBitrate()` **intencionalmente lanza la excepción cuando encuentra `MB/s`**. Eso fue demasiado agresivo: si el valor heredado de una configuración anterior está expresado así, **NOVORA debería migrarlo o recuperarse**, no tumbar la ventana.
+
+### Lo correcto
+
+Vamos a hacer que NOVORA tenga una migración segura:
+
+```text id="naymw3"
+Configuración antigua
+       ↓
+"5 MB/s"
+       ↓
+detecta unidad antigua
+       ↓
+convierte correctamente
+       ↓
+40 Mbps
+```
+
+Pero ojo: **no debemos convertir `5 MB/s` a `5 Mbps`**.
+
+La conversión correcta es:
+
+```text id="qdieqb"
+5 MB/s × 8 = 40 Mbps
+```
+
+Así respetamos exactamente la distinción que acabamos de establecer.
+
+Y para configuraciones nuevas:
+
+```text id="9632zz"
+5 Mbps
+↓
+5,000,000 bps
+↓
+scrcpy → 5M
+```
+
+### Además, hay que evitar que vuelva a ocurrir
+
+Voy a cambiar la arquitectura para que:
+
+- `SettingsService` almacene el bitrate en una representación normalizada.
+- `OutputProfileService` reciba siempre un valor válido.
+- `MB/s` solamente se acepte **como formato legado para migración**.
+- La interfaz muestre exclusivamente **Mbps**.
+- Nunca vuelva a aparecer una excepción al simplemente abrir Configuración por un valor viejo.
+- Los valores `4.5`, `5`, `5.5`, `6`, `10`, `15`, `20` funcionen.
+
+**No quiero parchear solamente la línea 369.** El problema está en el flujo de configuración, y arreglar solamente esa excepción nos podría dejar otro valor incompatible detrás.
+
+Si quieres que haga esta corrección en el ZIP actual, lo hago sobre **`NOVORA_1.2_Benchmark_Optimized_fix_bitrate.zip`** y te entrego el siguiente ZIP corregido.

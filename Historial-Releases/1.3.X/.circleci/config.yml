@@ -1,0 +1,120 @@
+version: 2.1
+
+orbs:
+  win: circleci/windows@5.0.0
+
+jobs:
+  build-and-validate:
+    executor:
+      name: win/default
+      size: medium
+    steps:
+      - checkout
+
+      - run:
+          name: Validate repository structure
+          command: |
+            $ErrorActionPreference = 'Stop'
+
+            if (Test-Path '.vs') { throw 'No se permite .vs en el checkout.' }
+            if (Test-Path 'src/NOVORA/bin') { throw 'No se permite src/NOVORA/bin en el checkout.' }
+            if (Test-Path 'src/NOVORA/obj') { throw 'No se permite src/NOVORA/obj en el checkout.' }
+            if (Test-Path 'Tools') { throw 'La copia duplicada de Tools en la raíz no debe existir.' }
+            if (-not (Test-Path 'src/NOVORA/Tools')) { throw 'Falta src/NOVORA/Tools.' }
+
+            $required = @(
+              'adb.exe',
+              'AdbWinApi.dll',
+              'AdbWinUsbApi.dll',
+              'scrcpy.exe',
+              'scrcpy-server',
+              'gnirehtet.exe',
+              'gnirehtet.apk'
+            )
+
+            foreach ($name in $required) {
+              $path = Join-Path 'src/NOVORA/Tools' $name
+              if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+                throw "Falta herramienta: $path"
+              }
+            }
+
+            Write-Host 'Estructura del repositorio: OK'
+
+      - run:
+          name: Restore
+          command: dotnet restore src/NOVORA/NOVORA.csproj
+
+      - run:
+          name: Build Release
+          command: dotnet build src/NOVORA/NOVORA.csproj --configuration Release --no-restore
+
+      - run:
+          name: Publish win-x64
+          command: >-
+            dotnet publish src/NOVORA/NOVORA.csproj
+            --configuration Release
+            --runtime win-x64
+            --self-contained true
+            --no-restore
+            --output artifacts/publish
+
+      - run:
+          name: Validate published runtime
+          command: |
+            $ErrorActionPreference = 'Stop'
+            $runtime = 'artifacts/publish/Tools'
+
+            foreach ($name in @('adb.exe','scrcpy.exe','scrcpy-server','gnirehtet.exe','gnirehtet.apk')) {
+              $path = Join-Path $runtime $name
+              if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+                throw "Falta en publish: $path"
+              }
+            }
+
+            $csproj = [xml](Get-Content 'src/NOVORA/NOVORA.csproj')
+            $version = ($csproj.Project.PropertyGroup.Version | Select-Object -First 1).InnerText
+            $installer = Get-Content 'Installer/NOVORA.Installer.iss' -Raw
+
+            if ($installer -notmatch ('#define AppVersion "' + [regex]::Escape($version) + '"')) {
+              throw "La versión del instalador no coincide con NOVORA.csproj ($version)."
+            }
+
+            Write-Host "Versión validada: $version"
+            Write-Host 'Runtime publicado: OK'
+
+      - run:
+          name: Build installer
+          command: |
+            $ErrorActionPreference = 'Stop'
+            if (-not (Get-Command iscc.exe -ErrorAction SilentlyContinue)) {
+              choco install innosetup --yes --no-progress
+            }
+            $iscc = (Get-Command iscc.exe -ErrorAction Stop).Source
+            & $iscc 'Installer/NOVORA.Installer.iss'
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup terminó con código $LASTEXITCODE." }
+
+      - run:
+          name: Package artifact
+          command: |
+            $ErrorActionPreference = 'Stop'
+            Compress-Archive -Path 'artifacts/publish/*' -DestinationPath 'artifacts/NOVORA-win-x64.zip' -Force
+
+      - run:
+          name: Generate installer SHA-256
+          command: |
+            $ErrorActionPreference = 'Stop'
+            $installer = Get-ChildItem 'Installer/output/NOVORA-Setup-*.exe' | Select-Object -First 1
+            if (-not $installer) { throw 'No se generó el instalador.' }
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer.FullName).Hash.ToLowerInvariant()
+            Set-Content -Path 'artifacts/NOVORA-Setup-SHA256.txt' -Value "sha256:$hash  $($installer.Name)"
+            Copy-Item -LiteralPath $installer.FullName -Destination 'artifacts/' -Force
+
+      - store_artifacts:
+          path: artifacts
+          destination: NOVORA-release
+
+workflows:
+  build:
+    jobs:
+      - build-and-validate

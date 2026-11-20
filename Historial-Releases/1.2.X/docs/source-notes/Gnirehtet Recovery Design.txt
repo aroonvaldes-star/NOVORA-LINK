@@ -1,0 +1,16 @@
+Sí. Si con **“Gnirehtet Recovery”** te refieres al módulo que queríamos añadir a NOVORA para que, cuando falle Gnirehtet/VPN, **recupere automáticamente la conexión y vuelva a Wi-Fi**, vamos por ahí.
+
+La idea que ya habíamos identificado era:
+
+1. Detectar que **Gnirehtet dejó de funcionar**.
+2. Detener/limpiar la sesión anterior.
+3. Cerrar correctamente la VPN si quedó abierta.
+4. Restaurar la conectividad normal del dispositivo.
+5. Verificar que el dispositivo tenga Internet.
+6. Si no hay túnel, **volver a Wi-Fi automáticamente**.
+7. Reintentar Gnirehtet sin dejar al teléfono en un estado intermedio.
+8. Mostrar en NOVORA el estado: **Recuperando → Conectando → Conectado / Falló**.
+
+Esto encaja especialmente bien como un **Recovery Service**, separado de la interfaz, para no llenar `MainWindow` de lógica.
+
+Si quieres, podemos tomar los archivos que ya cargaste como base y **diseñar exactamente el `Gnirehtet Recovery` para NOVORA**, incluyendo qué archivos crear/modificar y el flujo de recuperación. fileciteturn0file0
