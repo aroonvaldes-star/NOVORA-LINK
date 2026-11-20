@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Text.Json;
@@ -67,7 +68,7 @@ public sealed class UpdateService
         var psi = new ProcessStartInfo
         {
             FileName = "powershell.exe",
-            Arguments = $"-NoProfile -ExecutionPolicy Bypass -File "{script}" -Source "{extractPath}" -Target "{appDir}" -ProcessId {Environment.ProcessId}",
+            Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{script}\" -Source \"{extractPath}\" -Target \"{appDir}\" -ProcessId {Environment.ProcessId}",
             UseShellExecute = false,
             CreateNoWindow = true,
             WorkingDirectory = appDir
