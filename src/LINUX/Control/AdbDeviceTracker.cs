@@ -70,7 +70,7 @@ internal sealed class AdbDeviceTracker : IAsyncDisposable
     {
         var start = new ProcessStartInfo
         {
-            FileName = "adb",
+            FileName = PlatformRuntime.ResolveTool("adb"),
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,

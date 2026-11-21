@@ -11,9 +11,9 @@ public sealed class App : Application
     public override void Initialize()
     {
         Styles.Add(new FluentTheme());
-        Styles.Add(new StyleInclude(new Uri("avares://NOVORA-LINK.Linux/"))
+        Styles.Add(new StyleInclude(PlatformRuntime.AvaresUri(""))
         {
-            Source = new Uri("avares://NOVORA-LINK.Linux/WindowsVisualStyles.axaml")
+            Source = PlatformRuntime.AvaresUri("WindowsVisualStyles.axaml")
         });
     }
 

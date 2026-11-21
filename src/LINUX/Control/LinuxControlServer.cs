@@ -1009,7 +1009,7 @@ internal sealed class LinuxControlServer : IAsyncDisposable
         return new ControlSnapshot(
         Revision: Interlocked.Read(ref _revision),
         PcName: Environment.MachineName,
-        PcVersion: "Linux preview · LINK Control protocol v1",
+        PcVersion: $"{PlatformRuntime.PlatformName} preview · LINK Control protocol v1",
         Bitrate: _bitrate,
         Profile: _profile,
         AudioOutput: _visionSettings.AudioEnabled ? "Pc" : "Disabled",
@@ -1017,7 +1017,7 @@ internal sealed class LinuxControlServer : IAsyncDisposable
         VideoRunning: videoRunning,
         Bitrates: BitrateOptions,
         Profiles: ProfileOptions,
-        AudioOutputs: [new("Pc", "Salida de Linux"), new("Disabled", "Desactivado")],
+        AudioOutputs: [new("Pc", $"Salida de {PlatformRuntime.PlatformName}"), new("Disabled", "Desactivado")],
         Engines: new ControlEngines(
             VideoCanStart: videoCanStart,
             VideoCanStop: videoCanStop,

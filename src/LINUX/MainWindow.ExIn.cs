@@ -782,6 +782,11 @@ public sealed partial class MainWindow
     private void OpenSystemControllerToolVE()
     {
         // Linux equivalent of Windows "joy.cpl": the desktop's joystick tester when installed.
+        if (PlatformRuntime.IsMacOS)
+        {
+            SetMessage("macOS detecta mandos directamente vía GameController/SDL3; la calibración de NOVORA funciona sin herramienta externa.", "#fbbf24");
+            return;
+        }
         foreach (string tool in new[] { "jstest-gtk", "gnome-control-center", "systemsettings" })
         {
             string? path = Environment.GetEnvironmentVariable("PATH")?

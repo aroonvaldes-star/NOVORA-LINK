@@ -1,4 +1,5 @@
 using System.Text.Json;
+using NOVORA.Linux.VisionEngine;
 
 namespace NOVORA.Linux.Files;
 
@@ -40,6 +41,7 @@ internal sealed class LinuxVisionFiles(string receiveDirectory) : IAsyncDisposab
             receiveAuthorization: leases.ConfirmIncomingBegin);
         _leases = leases; _engine = engine;
         engine.BeginConfirmed += leases.ConfirmLocalBegin;
+        engine.BeginSending += leases.ConfirmLocalBegin;
         engine.TerminalReceived += (id, kind) => leases.NotifyTerminal(id, kind);
         engine.TerminalSent += (id, kind) => leases.NotifyTerminal(id, kind);
         engine.Received += result =>
@@ -74,20 +76,34 @@ internal sealed class LinuxVisionFiles(string receiveDirectory) : IAsyncDisposab
         try
         {
             if (!IsConnected) throw new IOException("Inicia VE y espera el canal FILES V2 antes de enviar.");
-            if (Directory.Exists(path))
+            string normalized = LinuxSdlVideoRenderer.NormalizeDropPath(path);
+            if (Directory.Exists(normalized))
             {
-                string full = Path.GetFullPath(path);
-                var pending = new Stack<string>(); pending.Push(full);
-                while (pending.TryPop(out string? dir))
+                string full = Path.GetFullPath(normalized);
+                string rootName = global::NOVORA.Control.NLControlFileStorage.SafeName(new DirectoryInfo(full).Name);
+                var pending = new Stack<(string Path, int Depth)>(); pending.Push((full, 0));
+                while (pending.TryPop(out var current))
                 {
-                    if ((File.GetAttributes(dir) & FileAttributes.ReparsePoint) != 0) throw new IOException("No se envían enlaces de carpetas.");
-                    foreach (string file in Directory.EnumerateFiles(dir))
-                        await SendFileAsync(file, "Otros/" + Path.GetFileName(full) + "/" + Path.GetRelativePath(full, file).Replace('\\','/'), token).ConfigureAwait(false);
-                    foreach (string child in Directory.EnumerateDirectories(dir)) pending.Push(child);
+                    if (current.Depth > 30) throw new IOException("La carpeta supera la profundidad permitida.");
+                    if ((File.GetAttributes(current.Path) & FileAttributes.ReparsePoint) != 0) throw new IOException("No se envían enlaces de carpetas.");
+                    foreach (string file in Directory.EnumerateFiles(current.Path))
+                    {
+                        string relative = Path.GetRelativePath(full, file).Replace('\\', '/');
+                        string[] parts = relative.Split('/').Select(global::NOVORA.Control.NLControlFileStorage.SafeName).ToArray();
+                        await SendFileAsync(file, "Otros/" + rootName + "/" + string.Join('/', parts), token).ConfigureAwait(false);
+                    }
+                    foreach (string child in Directory.EnumerateDirectories(current.Path)) pending.Push((child, current.Depth + 1));
                 }
             }
-            else await SendFileAsync(path, null, token).ConfigureAwait(false);
-            Sent?.Invoke(path);
+            else if (File.Exists(normalized))
+            {
+                string full = Path.GetFullPath(normalized);
+                string safeName = global::NOVORA.Control.NLControlFileStorage.SafeName(Path.GetFileName(full));
+                string relativePath = global::NOVORA.Control.NLControlFileStorage.Category(safeName) + "/" + safeName;
+                await SendFileAsync(full, relativePath, token).ConfigureAwait(false);
+            }
+            else throw new FileNotFoundException("El archivo o carpeta seleccionado no existe: " + normalized);
+            Sent?.Invoke(normalized);
         }
         catch(OperationCanceledException) { Report("Envío cancelado."); throw; }
         catch(Exception ex) when(ex is IOException or InvalidOperationException or InvalidDataException)
@@ -109,10 +125,17 @@ internal sealed class LinuxVisionFiles(string receiveDirectory) : IAsyncDisposab
         await leases.AcquireLocalAsync(id, token).ConfigureAwait(false);
         try
         {
-            Report($"Enviando {Path.GetFileName(path)} ({length:N0} bytes)…");
-            var progress = new Progress<long>(bytes => Report($"Enviando {Path.GetFileName(path)}: {bytes:N0}/{length:N0} bytes"));
-            await engine.SendAsync(id, new NLFileMetadataV2(Path.GetFileName(path), length, relativePath), stream, progress, token).ConfigureAwait(false);
-            Report($"Enviado: {Path.GetFileName(path)}; SHA-256 confirmado por Android.");
+            string safeName = global::NOVORA.Control.NLControlFileStorage.SafeName(Path.GetFileName(path));
+            Report($"Enviando {safeName} ({length:N0} bytes)…");
+            var progress = new Progress<long>(bytes => Report($"Enviando {safeName}: {bytes:N0}/{length:N0} bytes"));
+            await engine.SendAsync(id, new NLFileMetadataV2(safeName, length, relativePath), stream, progress, token).ConfigureAwait(false);
+            Report($"Enviado: {safeName}; SHA-256 confirmado por Android.");
+        }
+        catch
+        {
+            if (engine.IsClosed) leases.CloseGeneration(Generation, new IOException("FILES send failed and channel closed."));
+            else leases.CancelLocalBeforeBegin(id);
+            throw;
         }
         finally { leases.CancelLocalBeforeBegin(id); }
     }

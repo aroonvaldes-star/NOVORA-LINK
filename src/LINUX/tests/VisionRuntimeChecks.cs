@@ -65,7 +65,7 @@ internal static class VisionRuntimeChecks
     }
     private static void PushWindowClose()
     {
-        IntPtr library=NativeLibrary.Load("libSDL3.so.0");
+        IntPtr library=NOVORA.Linux.PlatformRuntime.LoadSdl3("ProtocolTests");
         IntPtr buffer=Marshal.AllocHGlobal(128);
         try
         {
@@ -79,13 +79,27 @@ internal static class VisionRuntimeChecks
     private delegate bool PushEvent(IntPtr data);
     private static async Task<byte[]> SampleAsync(CancellationToken token)
     {
-        var start=new ProcessStartInfo("ffmpeg") { RedirectStandardOutput=true,RedirectStandardError=true,UseShellExecute=false };
-        foreach(var arg in new[]{"-hide_banner","-loglevel","error","-f","lavfi","-i","color=c=red:s=64x32:r=25","-frames:v","3","-c:v","libopenh264","-g","1","-f","h264","pipe:1"}) start.ArgumentList.Add(arg);
+        string ffmpeg = NOVORA.Linux.PlatformRuntime.ResolveTool("ffmpeg");
+        string encoder = await DetectEncoderAsync(ffmpeg, token);
+        var start=new ProcessStartInfo(ffmpeg) { RedirectStandardOutput=true,RedirectStandardError=true,UseShellExecute=false };
+        foreach(var arg in new[]{"-hide_banner","-loglevel","error","-f","lavfi","-i","color=c=red:s=64x32:r=25","-frames:v","3","-c:v",encoder,"-g","1","-f","h264","pipe:1"}) start.ArgumentList.Add(arg);
         using var process=Process.Start(start)!; using var bytes=new MemoryStream();
         Task copy=process.StandardOutput.BaseStream.CopyToAsync(bytes,token); Task<string> error=process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync(token); await copy;
         if(process.ExitCode!=0) throw new Exception(await error);
         return bytes.ToArray();
+    }
+    private static async Task<string> DetectEncoderAsync(string ffmpeg, CancellationToken token)
+    {
+        var start = new ProcessStartInfo(ffmpeg) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+        start.ArgumentList.Add("-hide_banner"); start.ArgumentList.Add("-encoders");
+        using var process = Process.Start(start)!;
+        Task<string> errors = process.StandardError.ReadToEndAsync(token);
+        string encoders = await process.StandardOutput.ReadToEndAsync(token);
+        await process.WaitForExitAsync(token);
+        await errors;
+        return new[] { "libx264", "libopenh264" }.FirstOrDefault(name => encoders.Contains(" " + name + " ", StringComparison.Ordinal))
+            ?? throw new Exception("FFmpeg must provide libx264 or libopenh264.");
     }
     private sealed class Pair(TcpClient server,TcpClient client) : IDisposable
     {

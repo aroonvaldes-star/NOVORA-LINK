@@ -205,7 +205,7 @@ internal static class ExInChecks
         Environment.SetEnvironmentVariable("FAKE_ADB_LOG", log);
         string fakeBin = Path.Combine(temp, "fakebin");
         Directory.CreateDirectory(fakeBin);
-        File.WriteAllText(Path.Combine(fakeBin, "adb"), FakeAdbScript);
+        File.WriteAllText(Path.Combine(fakeBin, "adb"), FakeAdbScript.Replace("\r\n", "\n"));
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(Path.Combine(fakeBin, "adb"), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         string originalPath = Environment.GetEnvironmentVariable("PATH") ?? "";
         Environment.SetEnvironmentVariable("PATH", fakeBin + ":" + originalPath);

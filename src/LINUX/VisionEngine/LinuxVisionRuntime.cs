@@ -106,6 +106,9 @@ internal sealed class LinuxVisionRuntime : IAsyncDisposable
     public void SetVSync(bool enabled) => _renderer?.SetVSync(enabled);
     /// <summary>Shows a refused drop in the VE window title (the main window shows it too).</summary>
     public void ReportFilesRejected(string text) => _renderer?.SetStatus(text);
+    public bool TrySetNativeClipboardText(string text) => _renderer?.TrySetClipboardText(text) == true;
+    public string? TryGetNativeClipboardText() => _renderer?.TryGetClipboardText();
+    public byte[]? TryGetNativeClipboardData(string mimeType) => _renderer?.TryGetClipboardData(mimeType);
 
     public void StartRecording()
     {

@@ -1,0 +1,86 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RuntimeIdentifiers>osx-arm64;osx-x64</RuntimeIdentifiers>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>NOVORA.Apple</RootNamespace>
+    <AssemblyName>NOVORA-LINK.macOS</AssemblyName>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>../LINUX/Assets/novora.ico</ApplicationIcon>
+    <Version>1.4.0</Version>
+    <RustTarget Condition="'$(RuntimeIdentifier)' == 'osx-arm64'">aarch64-apple-darwin</RustTarget>
+    <RustTarget Condition="'$(RuntimeIdentifier)' == 'osx-x64'">x86_64-apple-darwin</RustTarget>
+    <MacLinkRelayBinary Condition="'$(RustTarget)' != ''">../LINUX/LinkRelay/target/$(RustTarget)/release/novora-linkengine-relay</MacLinkRelayBinary>
+    <MacLinkRelayBinary Condition="'$(RustTarget)' == ''">../LINUX/LinkRelay/target/release/novora-linkengine-relay</MacLinkRelayBinary>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Avalonia XAML and visual styles -->
+    <AvaloniaResource Include="../LINUX/WindowsVisualStyles.axaml" Link="WindowsVisualStyles.axaml" />
+    <Content Include="../LINUX/Assets/**/*" Link="Assets/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <AvaloniaResource Include="../LINUX/Assets/Fonts/*.ttf" Link="Assets/Fonts/%(Filename)%(Extension)" />
+    <Content Include="../LINUX/LinkRelay/tcp_ip-LICENSE.txt" Link="LinkRelay/tcp_ip-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="$(MacLinkRelayBinary)"
+             Link="Tools/LinkEngine/novora-linkengine-relay"
+             Condition="Exists('$(MacLinkRelayBinary)')"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+
+    <!-- Link Cross-Platform Avalonia UI and Engines -->
+    <Compile Include="../LINUX/App.cs" Link="App.cs" />
+    <Compile Include="../LINUX/PlatformRuntime.cs" Link="PlatformRuntime.cs" />
+    <Compile Include="../LINUX/LinuxTheme.cs" Link="LinuxTheme.cs" />
+    <Compile Include="../LINUX/LinuxVisualPalette.cs" Link="LinuxVisualPalette.cs" />
+    <Compile Include="../LINUX/MainWindow.cs" Link="MainWindow.cs" />
+    <Compile Include="../LINUX/MainWindow.*.cs" Link="%(Filename)%(Extension)" />
+    <Compile Include="../LINUX/Properties/AssemblyInfo.cs" Link="Properties/AssemblyInfo.cs" />
+    <Compile Include="../LINUX/Control/**/*.cs" Link="Control/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../LINUX/LinkEngine/**/*.cs" Link="LinkEngine/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../LINUX/ExInEngine/**/*.cs" Link="ExInEngine/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../LINUX/Files/**/*.cs" Link="Files/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../LINUX/VisionEngine/**/*.cs" Link="VisionEngine/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- Shared engines from Windows/Core -->
+  <PropertyGroup>
+    <NovoraWindowsSource>$(MSBuildProjectDirectory)/../WINDOWS</NovoraWindowsSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(NovoraWindowsSource)/ExInEngine/*.cs"
+             Exclude="$(NovoraWindowsSource)/ExInEngine/ExInSdl.cs"
+             Link="ExInEngine/Shared/%(Filename)%(Extension)" />
+    <Compile Include="$(NovoraWindowsSource)/Integration/ExInHidProtocol.cs;$(NovoraWindowsSource)/Integration/ExInHidOutput.cs;$(NovoraWindowsSource)/Integration/ExInControlSession.cs;$(NovoraWindowsSource)/Integration/ExInConnectionSupervisor.cs"
+             Link="ExInEngine/Shared/%(Filename)%(Extension)" />
+    <Compile Include="$(NovoraWindowsSource)/Service/NLServiceTimerResolution.cs;$(NovoraWindowsSource)/Contracts/Input/NLInputOutput.cs"
+             Link="ExInEngine/Shared/%(Filename)%(Extension)" />
+    <Compile Include="$(NovoraWindowsSource)/LinkEngine/Metrics/LESpeedTestServer.cs;$(NovoraWindowsSource)/LinkEngine/Metrics/LESessionMeasurements.cs;$(NovoraWindowsSource)/LinkEngine/Recovery/LERecoveryPolicy.cs"
+             Link="LinkEngine/Shared/%(Filename)%(Extension)" />
+    <Compile Include="$(NovoraWindowsSource)/Control/NLControlFileStorage.cs"
+             Link="VisionEngine/Shared/%(Filename)%(Extension)" />
+    <Compile Include="$(NovoraWindowsSource)/Streaming/NLStreamingService.cs"
+             Link="Streaming/Shared/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <Target Name="BuildAppleLinkRelay" BeforeTargets="PrepareForBuild"
+          Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <PropertyGroup>
+      <_CargoTargetFlag Condition="'$(RustTarget)' != ''">--target $(RustTarget)</_CargoTargetFlag>
+    </PropertyGroup>
+    <Exec Command="cargo build --release --locked $(_CargoTargetFlag) --manifest-path &quot;$(MSBuildProjectDirectory)/../LINUX/LinkRelay/Cargo.toml&quot;"
+          Condition="!Exists('$(MacLinkRelayBinary)')" />
+    <MakeDir Directories="$(OutDir)Tools/LinkEngine" />
+    <Copy SourceFiles="$(MacLinkRelayBinary)"
+          DestinationFolder="$(OutDir)Tools/LinkEngine"
+          Condition="Exists('$(MacLinkRelayBinary)')" />
+    <Exec Command="chmod 755 &quot;$(OutDir)Tools/LinkEngine/novora-linkengine-relay&quot;"
+          Condition="Exists('$(OutDir)Tools/LinkEngine/novora-linkengine-relay')" />
+  </Target>
+</Project>

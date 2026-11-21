@@ -86,6 +86,22 @@ internal static class VisionFilesChecks
             pc.Acquire(JsonSerializer.Serialize(lease));
             await android.SendAsync(id,new("test.bin",payload.Length),new MemoryStream(payload),ct:timeout.Token);
             if (!File.Exists(Path.Combine(directory,"Otros","test (1).bin"))) throw new Exception("Existing file was overwritten");
+            // Send a file from PC to Android using file:// URI path (simulating Drag & Drop / clipboard paste).
+            string androidDir = Path.Combine(directory, "android-recv");
+            Directory.CreateDirectory(androidDir);
+            var listener2 = new TcpListener(IPAddress.Loopback, 0); listener2.Start();
+            using var client2 = new TcpClient();
+            Task connect2 = client2.ConnectAsync(IPAddress.Loopback, ((IPEndPoint)listener2.LocalEndpoint).Port);
+            using TcpClient peer2 = await listener2.AcceptTcpClientAsync(timeout.Token); await connect2; listener2.Stop();
+            await using var pc2 = new LinuxVisionFiles(directory);
+            await pc2.AttachAsync(client2.GetStream(), 18, timeout.Token);
+            await using var android2 = new NLControlFileTransferV2(peer2.GetStream(), new NLControlFileStorageV2(androidDir), 18);
+            await android2.StartAsync();
+            string localPdf = Path.Combine(directory, "documento prueba.pdf");
+            await File.WriteAllBytesAsync(localPdf, payload, timeout.Token);
+            await pc2.SendAsync(new Uri(localPdf).AbsoluteUri, timeout.Token);
+            byte[] androidDisk = await File.ReadAllBytesAsync(Path.Combine(androidDir, "Documentos", "documento prueba.pdf"), timeout.Token);
+            if (!payload.SequenceEqual(androidDisk)) throw new Exception("PC -> Android file:// URI send content mismatch");
             Console.WriteLine("VisionEngine FILES V2 transfer, SHA, generation, traversal, symlink and no-overwrite checks passed.");
             await RefusedBeginKeepsChannelAsync(timeout.Token);
         }

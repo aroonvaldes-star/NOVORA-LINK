@@ -196,7 +196,7 @@ internal sealed class LinuxLinkRelay : IAsyncDisposable
     {
         string path = Path.Combine(AppContext.BaseDirectory, "Tools", "LinkEngine", "novora-linkengine-relay");
         if (!File.Exists(path))
-            throw new FileNotFoundException("No se encontró el relay nativo Linux de LinkEngine.", path);
+            throw new FileNotFoundException($"No se encontró el relay nativo {PlatformRuntime.PlatformName} de LinkEngine.", path);
 
         var start = new ProcessStartInfo
         {

@@ -65,7 +65,7 @@ internal static class VisionInputChecks
             using var renderer = new LinuxSdlVideoRenderer(LinuxVisionSettings.Default with { VSync = false });
             renderer.UpdateSession(new VideoSession(64, 64, 0, 1024));
             renderer.Present(new byte[64 * 64 * 4], 64, 64);
-            library = NativeLibrary.Load("libSDL3.so.0");
+            library = NOVORA.Linux.PlatformRuntime.LoadSdl3("ProtocolTests");
             T Load<T>(string name) where T : Delegate => Marshal.GetDelegateForFunctionPointer<T>(NativeLibrary.GetExport(library, name));
             var windows = Load<GetWindows>("SDL_GetWindows");
             var getId = Load<GetWindowId>("SDL_GetWindowID");

@@ -47,8 +47,16 @@
              Link="Streaming/Shared/%(Filename)%(Extension)" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
   </ItemGroup>
-  <Target Name="BuildLinuxLinkRelay" BeforeTargets="PrepareForBuild">
+  <ItemGroup>
+    <LinkRelayInput Include="LinkRelay/Cargo.toml;LinkRelay/Cargo.lock;LinkRelay/src/**/*.rs" />
+  </ItemGroup>
+  <Target Name="BuildLinuxLinkRelayBinary"
+          BeforeTargets="BuildLinuxLinkRelay"
+          Inputs="@(LinkRelayInput)"
+          Outputs="$(MSBuildProjectDirectory)/LinkRelay/target/release/novora-linkengine-relay">
     <Exec Command="cargo build --release --locked --manifest-path &quot;$(MSBuildProjectDirectory)/LinkRelay/Cargo.toml&quot;" />
+  </Target>
+  <Target Name="BuildLinuxLinkRelay" BeforeTargets="PrepareForBuild">
     <MakeDir Directories="$(OutDir)Tools/LinkEngine" />
     <Copy SourceFiles="$(MSBuildProjectDirectory)/LinkRelay/target/release/novora-linkengine-relay"
           DestinationFolder="$(OutDir)Tools/LinkEngine" />

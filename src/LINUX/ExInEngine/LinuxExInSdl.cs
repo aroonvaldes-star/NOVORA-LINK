@@ -76,15 +76,11 @@ public sealed class ExInSdl : IDisposable
         ThrowIfDisposedVE();
         if (_initializedVE) return;
 
-        // Misma biblioteca del sistema que usa VisionEngine Linux; SDL3 cuenta las
+        // Misma biblioteca del sistema que usa VisionEngine; SDL3 cuenta las
         // inicializaciones por subsistema, así que GAMEPAD no interfiere con VIDEO/AUDIO.
         // La biblioteca permanece cargada durante toda la vida del proceso.
         if (_libraryVE == IntPtr.Zero)
-        {
-            if (!NativeLibrary.TryLoad(SdlLibraryNameVE, out _libraryVE))
-                throw new DllNotFoundException(
-                    "ExInEngine necesita SDL3 (libSDL3.so.0). Instala el paquete SDL3 de tu distribución.");
-        }
+            _libraryVE = NOVORA.Linux.PlatformRuntime.LoadSdl3("ExInEngine");
 
         try
         {
