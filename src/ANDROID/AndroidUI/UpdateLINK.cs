@@ -21,6 +21,12 @@ internal static class UpdateLINK
     private const string PackageId = "com.linkcontrol.novora";
     private const string ReleaseBase =
         "https://github.com/aroonvaldes-star/NOVORA-AppControl/releases/tag/v";
+    private const string LinkControlReleaseBase =
+        "https://github.com/aroonvaldes-star/LINK-CONTROL/releases/tag/v";
+
+    private static bool IsValidReleaseUrl(string? releaseUrl, string versionName) =>
+        releaseUrl == ReleaseBase + versionName ||
+        releaseUrl == LinkControlReleaseBase + versionName;
 
     internal static UpdateLINKResult Detect(Activity activity, NLControlAppUpdate? offered)
     {
@@ -30,7 +36,7 @@ internal static class UpdateLINK
             offered.VersionCode <= 0 || offered.VersionName != "1.4." + offered.VersionCode ||
             offered.Sha256.Length != 64 || !offered.Sha256.All(Uri.IsHexDigit) ||
             offered.Size is <= 0 or > 268435456 ||
-            offered.ReleaseUrl != ReleaseBase + offered.VersionName)
+            !IsValidReleaseUrl(offered.ReleaseUrl, offered.VersionName))
             return new(false, "La información de actualización de la PC no es válida.");
 
         long installed = activity.PackageManager?.GetPackageInfo(PackageId, PackageInfoFlags.MatchAll)
@@ -46,7 +52,7 @@ internal static class UpdateLINK
     internal static void OpenRelease(Activity activity, UpdateLINKResult result)
     {
         if (!result.Available || result.VersionName is null ||
-            result.ReleaseUrl != ReleaseBase + result.VersionName)
+            !IsValidReleaseUrl(result.ReleaseUrl, result.VersionName))
             return;
         var intent = new Intent(Intent.ActionView,
             Android.Net.Uri.Parse(result.ReleaseUrl));
