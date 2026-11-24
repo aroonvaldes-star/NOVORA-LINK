@@ -60,13 +60,15 @@ se modificó ni se suplantó.
   `7e5ae2e1f62fc24cab14072555ffd0a1a7e1ce27e82cc1008967b835b6d8df5b`), con el
   que el build llegó hasta `Javac`, donde se detuvo por la biblioteca x86-64.
 - Se añadió `.github/workflows/android-rebuild.yml` para recompilar Debug y
-  Release en un runner x86-64 y publicar los artefactos.
+  Release en un runner x86-64 y publicar los artefactos. El run `45367818371`
+  terminó correctamente y publicó `linkcontrol-android-rebuild` (133 MB).
 - Commit `91cf903`: documentación de compilación, cliente Linux, workflow y
-  scripts. Push a `linkcontrol-android-adaptaciones` completado.
+  scripts. Commit `f4388f6`: bitácora y resultado del relay Rust. Ambos
+  pushados a `linkcontrol-android-adaptaciones`.
 
 ## Pendiente
 
-- Confirmar el resultado del workflow de Android y, si genera paquete, republicar
-  la APK como artefacto (la APK incluida sigue siendo la pública original).
+- Descargar el artefacto de Android y decidir si la APK recompilada se publica
+  como artefacto; la incluida en `apk/` sigue siendo la pública original.
 - Validación física: GPU Intel/NVIDIA/AMD, sesión RTMP real y conexión OBS.
 - No se modificó `main` en ninguno de los dos repositorios locales.

@@ -8,6 +8,7 @@
 | Linux (copia local) | `dotnet build src/Linux/NOVORA.Linux.csproj -c Release -t:Rebuild` | 0 errores, 0 advertencias |
 | Linux (rama de origen) | `dotnet build src/LINUX/NOVORA.Linux.csproj -c {Debug,Release} -t:Rebuild` | 0 errores, 0 advertencias |
 | Android (copia local) | `dotnet build src/Android/NLProjectAndroid.csproj -c Debug -t:Rebuild` | Bloqueado por herramientas x86-64 del workload en host ARM64 |
+| Android (GitHub Actions) | `Android rebuild` run `45367818371` | Debug y Release correctos; artefacto `linkcontrol-android-rebuild` publicado |
 | Relay Rust | `cargo build --release --manifest-path src/Linux/LinkRelay/Cargo.toml` | Compilado: `novora-linkengine-relay` (2,5 MB) |
 
 Los ensamblados Linux se generaron en:
@@ -41,6 +42,11 @@ workload Android, ejecuta `Rebuild` de Debug y Release con
 `linkcontrol-android-rebuild`. Se puede lanzar manualmente con
 `workflow_dispatch` o automáticamente al hacer push a
 `linkcontrol-android-adaptaciones`.
+
+El run `45367818371`, disparado por el push del commit `91cf903`, terminó
+correctamente: instalación de .NET 10 y del workload, `Rebuild` de Debug y
+Release, y upload del artefacto `linkcontrol-android-rebuild` (133 MB). La única
+anotación fue el aviso de deprecación de Node.js 20 en las actions.
 
 ## Relay Rust
 

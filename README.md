@@ -148,9 +148,10 @@ resultados de compilación y la limitación del relay Rust están en
   terminaron con 0 errores y 0 advertencias.
 - El SDK de Android quedó instalado, pero la compilación local de Android no
   puede terminar en esta máquina ARM64: el workload de .NET trae `aapt2` y
-  `libZipSharpNative` compilados para x86-64. Se añadió el workflow
-  `.github/workflows/android-rebuild.yml` para recompilar en un runner x86-64 y
-  descargar los artefactos. El detalle está en
+  `libZipSharpNative` compilados para x86-64. El workflow
+  `.github/workflows/android-rebuild.yml` se ejecutó con éxito en un runner
+  x86-64 (run `45367818371`) y publicó el artefacto
+  `linkcontrol-android-rebuild`. El detalle está en
   `docs/informes/2026-11-24-compilacion-y-verificacion.md`.
 - **No se generó una APK nueva localmente** y no se validó una sesión RTMP/OBS
   real. La APK incluida en `apk/` sigue siendo la pública original.
