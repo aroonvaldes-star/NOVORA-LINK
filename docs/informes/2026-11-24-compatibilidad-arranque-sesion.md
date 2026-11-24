@@ -120,7 +120,30 @@ tanto, no rompen deserialización ni obligan a tocar la APK actual.
   monitor ligado al túnel real, `snapshot.Profiles` como contrato del selector y
   las versiones/framing del protocolo v1.
 
-## 6. Conclusión
+## 6. Notas finales del contraste
+
+- Migración sin ruido: `LinuxVisionSettings.Load` convierte una configuración
+  guardada con `Forced` en `Automatic`, un `Custom` sin perfil en `Automatic` y
+  recalcula `HardwareBackend`; una configuración malformada cae a `Default`. No
+  se pierde la adaptación ni se revierte el perfil del usuario.
+- La sonda hardware se ejecuta de forma síncrona (`.GetAwaiter().GetResult()`)
+  con caché y semáforo estáticos al construir el decodificador. Hoy es seguro
+  porque esa construcción ocurre dentro de una sesión autorizada y bajo petición,
+  pero una sonda lenta puede retrasar ese hilo; queda registrado como riesgo.
+- El orden WPF se verificó contra el árbol compilable original en
+  `/home/aroon61/Downloads/NOVORA-LINK-main`; los archivos WPF adaptados de
+  `src/Desktop` siguen siendo fragmentos no integrados. Al integrarlos hay que
+  preservar `OnStartup`, `Window_Loaded`, `ShellRoot_Loaded`, los constructores de
+  runtime y las compuertas de autorización.
+- Las copias duplicadas `src/Desktop/Linux/UI/MainWindow*.cs` y
+  `src/Linux/MainWindow*.cs`, y ambas copias de `NLAccelerationProfile.cs`, son
+  byte-idénticas: no hay una versión rezagada que sobrescriba el comportamiento
+  analizado.
+- El monitor del VPN (`NLLinkMonitorSample`) mide tráfico real del túnel y el
+  monitor de streaming mide salud del codificador/OBS; son independientes y no
+  deben condicionarse entre sí.
+
+## 7. Conclusión
 
 El orden de arranque, el establecimiento de sesión y el inicio de motores se
 mantienen: la conexión automática solo prepara rutas; VisionEngine decide el

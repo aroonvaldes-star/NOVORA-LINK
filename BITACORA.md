@@ -115,6 +115,12 @@ se modificó ni se suplantó.
   snapshot. Se registraron como riesgos la disposición del servicio de streaming
   al cerrar, la integración pendiente de las partials/XAML de WPF en el clon y
   los cambios preexistentes de identidad de paquete y contrato USB v2.
+- Notas finales: la configuración antigua con `Forced` migra a `Automatic` y un
+  `Custom` sin perfil migra a `Automatic` sin perder la adaptación; la sonda
+  hardware es síncrona pero solo ocurre dentro de una sesión autorizada. El
+  orden WPF se verificó contra el árbol compilable original, mientras los
+  fragmentos adaptados de `src/Desktop` siguen pendientes de integración. Las
+  copias duplicadas de Linux y del contrato de aceleración son byte-idénticas.
 - Informe completo:
   `docs/informes/2026-11-24-compatibilidad-arranque-sesion.md`.
 
