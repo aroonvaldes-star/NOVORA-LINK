@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.Platform.Storage;
+using NOVORA.Control;
 using NOVORA.Linux.VisionEngine;
 using AvaloniaControl = Avalonia.Controls.Control;
 
@@ -12,8 +13,11 @@ public sealed partial class MainWindow
 {
     private bool _veLoading;
     private bool _veBuilt;
-    private readonly ComboBox _veAcceleration = new() { ItemsSource = new[]{"Automática", "Software", "Forzada"} };
-    private readonly ComboBox _veBackend = new() { ItemsSource = LinuxVisionAcceleration.SupportedBackends };
+    private readonly ComboBox _veAcceleration = new();
+    private readonly ComboBox _veBackend = new() { IsEnabled = false };
+    private readonly StackPanel _veCustomPanel = new() { IsVisible = false, Spacing = 8 };
+    private readonly ComboBox _veCustomVendor = new();
+    private readonly ComboBox _veCustomBackend = new();
     private readonly ComboBox _vePresentation = new() { ItemsSource=new[]{"Ventana", "Pantalla completa"} };
     private readonly ComboBox _veMonitor = new();
     private readonly ComboBox _veAudio = new();
@@ -88,7 +92,36 @@ public sealed partial class MainWindow
         var diagnostics=new StackPanel { Spacing=8 };
         diagnostics.Children.Add(SectionTitle("Aceleración disponible en esta PC"));
         diagnostics.Children.Add(_veDiagnostic);
-        diagnostics.Children.Add(VeFields(("Modo",_veAcceleration),("Backend forzado",_veBackend)));
+        diagnostics.Children.Add(VeFields(("Aceleración",_veAcceleration),("Backend resuelto",_veBackend)));
+        var customize=FlatButton("PERSONALIZAR ACELERACIÓN");
+        customize.Click += (_,_)=>
+        {
+            _veCustomPanel.IsVisible=!_veCustomPanel.IsVisible;
+            if (_veCustomPanel.IsVisible) SyncCustomAccelerationUi();
+        };
+        diagnostics.Children.Add(customize);
+        _veCustomVendor.ItemsSource=NLAccelerationProfile.VendorsFor(LinuxVisionAcceleration.Platform)
+            .Select(NLAccelerationProfile.VendorName).ToArray();
+        _veCustomVendor.SelectedIndex=0;
+        _veCustomVendor.SelectionChanged += (_,_)=>PopulateCustomBackends();
+        PopulateCustomBackends();
+        _veCustomPanel.Children.Add(Caption("Solo se ofrecen proveedores y backends implementados en esta plataforma. El perfil mantiene dos opciones como máximo: la elegida y software."));
+        _veCustomPanel.Children.Add(VeFields(("Proveedor",_veCustomVendor),("Backend",_veCustomBackend)));
+        var saveCustom=FlatButton("GUARDAR PERFIL PERSONALIZADO");
+        saveCustom.Click += (_,_)=>SaveCustomAcceleration();
+        var clearCustom=FlatButton("VOLVER A AUTOMÁTICO");
+        clearCustom.Click += (_,_)=>VeAction(()=>
+        {
+            _host.ConfigureVisionSettings(_host.VisionSettings with
+            {
+                Acceleration="Automatic", CustomAcceleration=null, HardwareBackend=LinuxVisionAcceleration.DefaultBackend
+            });
+            SyncVisionUi();
+        });
+        var customActions=new WrapPanel();
+        customActions.Children.Add(saveCustom); customActions.Children.Add(clearCustom);
+        _veCustomPanel.Children.Add(customActions);
+        diagnostics.Children.Add(_veCustomPanel);
         var probe=FlatButton("Comprobar aceleración real");
         probe.Click += async (_,_)=>
         {
@@ -129,7 +162,7 @@ public sealed partial class MainWindow
             {
                 var old=_host.VisionSettings; var preset=LinuxVisionSettings.ForProfile(profile);
                 _host.ConfigureVisionSettings(old with { Profile=preset.Profile,Bitrate=preset.Bitrate,MaxSize=preset.MaxSize,Fps=preset.Fps,
-                    Acceleration=preset.Acceleration,LowLatency=preset.LowLatency,VSync=preset.VSync });
+                    Acceleration=preset.Acceleration,HardwareBackend=preset.HardwareBackend,LowLatency=preset.LowLatency,VSync=preset.VSync });
                 SyncVisionUi();
             });
         };
@@ -200,8 +233,14 @@ public sealed partial class MainWindow
             var s=_host.VisionSettings; _veDisplayed=s;
             _visionProfileSelector.SelectedItem=VisionProfiles.FirstOrDefault(p=>LinuxVisionSettings.ProfileId(p)==s.Profile);
             _visionResolutionSelector.SelectedItem=s.MaxSize.ToString(); _visionFpsSelector.SelectedItem=s.Fps.ToString(); _visionBitrateSelector.SelectedItem=s.Bitrate;
-            _veAcceleration.SelectedItem=s.Acceleration switch {"Forced"=>"Forzada","Software"=>"Software",_=>"Automática"};
-            _veBackend.SelectedItem=s.HardwareBackend; _veBackend.IsEnabled=s.Acceleration=="Forced";
+            var accelerationOptions=s.AccelerationOptions;
+            _veAcceleration.ItemsSource=accelerationOptions.Select(o=>o.Label).ToArray();
+            _veAcceleration.SelectedItem=s.Acceleration=="Software"
+                ? accelerationOptions[^1].Label
+                : accelerationOptions.Count>1 ? accelerationOptions[0].Label : accelerationOptions[^1].Label;
+            SyncCustomAccelerationUi();
+            string resolvedBackend=ResolvedBackend(s);
+            _veBackend.ItemsSource=new[]{ resolvedBackend }; _veBackend.SelectedItem=resolvedBackend;
             _vePresentation.SelectedIndex=s.Fullscreen?1:0; _veAudioEnabled.IsChecked=s.AudioEnabled; _veInput.IsChecked=s.RemoteInput;
             _veLatency.IsChecked=s.LowLatency; _veVsync.IsChecked=s.VSync;
             if (_veMonitor.ItemsSource is IEnumerable<LinuxOutputDevice> monitors) _veMonitor.SelectedItem=VeOutputSelection(monitors,s.MonitorId,s.MonitorName);
@@ -210,6 +249,73 @@ public sealed partial class MainWindow
         }
         finally { _veLoading=loading; }
     }
+    private void SyncCustomAccelerationUi()
+    {
+        var custom=_host.VisionSettings.CustomAcceleration;
+        if (custom is null)
+        {
+            _veCustomVendor.SelectedItem=NLAccelerationProfile.VendorName(LinuxVisionAcceleration.Vendor);
+            PopulateCustomBackends();
+            return;
+        }
+        _veCustomVendor.SelectedItem=NLAccelerationProfile.VendorName(custom.Vendor);
+        PopulateCustomBackends();
+        string[] backends=BackendsForCustomVendor();
+        int index=Array.FindIndex(backends,b=>string.Equals(b,custom.Backend,StringComparison.OrdinalIgnoreCase));
+        if (index>=0) _veCustomBackend.SelectedIndex=index;
+    }
+
+    private string[] BackendsForCustomVendor()
+    {
+        string vendorName=_veCustomVendor.SelectedItem as string ?? "Nvidia";
+        return NLAccelerationProfile.BackendsFor(NLAccelerationProfile.NormalizeVendor(vendorName),
+            LinuxVisionAcceleration.Platform).ToArray();
+    }
+
+    private void PopulateCustomBackends()
+    {
+        _veCustomBackend.ItemsSource=BackendsForCustomVendor().Select(BackendLabelFor).ToArray();
+        _veCustomBackend.SelectedIndex=0;
+    }
+
+    private static string BackendLabelFor(string backend) => backend switch
+    {
+        "cuda" or "nvdec" or "NvidiaNvdec" => "Hardware · NVDEC/CUDA",
+        "qsv" => "Hardware · QSV",
+        "vaapi" or "amf" => "Hardware · VAAPI/AMF",
+        "videotoolbox" => "Hardware · VideoToolbox",
+        _ => "Software"
+    };
+
+    private void SaveCustomAcceleration()
+    {
+        string vendorName=_veCustomVendor.SelectedItem as string ?? "";
+        string[] backends=BackendsForCustomVendor();
+        int index=_veCustomBackend.SelectedIndex;
+        if (index<0 || index>=backends.Length) return;
+        NLAccelerationCustomProfile? custom=NLAccelerationProfile.CreateCustom(
+            LinuxVisionAcceleration.Platform, vendorName, backends[index]);
+        if (custom is null)
+        {
+            SetMessage("Perfil personalizado no válido para esta plataforma.","#fbbf24");
+            return;
+        }
+        VeAction(()=>
+        {
+            _host.ConfigureVisionSettings(_host.VisionSettings with
+            {
+                Acceleration="Custom", CustomAcceleration=custom, HardwareBackend=custom.Backend
+            });
+            SyncVisionUi();
+        });
+    }
+
+    private static string ResolvedBackend(LinuxVisionSettings settings)
+    {
+        var options=LinuxVisionAcceleration.Options(settings);
+        return (settings.Acceleration=="Software" || options.Count==1 ? options[^1] : options[0]).Backend;
+    }
+
     private void SaveVisionFromUi()
     {
         if (_veLoading || _visionProfileSelector.SelectedItem is not string profile || _visionBitrateSelector.SelectedItem is not string bitrate ||
@@ -221,10 +327,16 @@ public sealed partial class MainWindow
             var preset=LinuxVisionSettings.ForProfile(profileId);
             bitrate=preset.Bitrate; size=preset.MaxSize; fps=preset.Fps; _veAudioEnabled.IsChecked=false;
         }
+        string selectedAcceleration=_veAcceleration.SelectedItem as string ?? "Software";
+        bool software=selectedAcceleration.StartsWith("Software", StringComparison.Ordinal);
+        bool custom=selectedAcceleration.StartsWith("Personalizado", StringComparison.Ordinal);
+        NLAccelerationCustomProfile? customProfile=custom ? _host.VisionSettings.CustomAcceleration : null;
         VeAction(()=>_host.ConfigureVisionSettings(_host.VisionSettings with {
             Profile=profileId,Bitrate=bitrate,MaxSize=size,Fps=fps,
-            Acceleration=(_veAcceleration.SelectedItem as string) switch {"Forzada"=>"Forced","Software"=>"Software",_=>"Automatic"},
-            HardwareBackend=_veBackend.SelectedItem as string ?? LinuxVisionAcceleration.DefaultBackend,MonitorId=(_veMonitor.SelectedItem as LinuxOutputDevice)?.Id ?? 0,
+            Acceleration=software ? "Software" : custom ? "Custom" : "Automatic",
+            CustomAcceleration=customProfile,
+            HardwareBackend=software ? "software" : customProfile?.Backend ?? LinuxVisionAcceleration.DefaultBackend,
+            MonitorId=(_veMonitor.SelectedItem as LinuxOutputDevice)?.Id ?? 0,
             AudioDeviceId=(_veAudio.SelectedItem as LinuxOutputDevice)?.Id ?? 0,
             MonitorName=(_veMonitor.SelectedItem as LinuxOutputDevice) is { Id: not 0 } monitor ? monitor.Name : "",
             AudioDeviceName=(_veAudio.SelectedItem as LinuxOutputDevice) is { Id: not 0 } output ? output.Name : "",Fullscreen=_vePresentation.SelectedIndex==1,

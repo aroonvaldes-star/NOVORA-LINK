@@ -11,9 +11,17 @@ public sealed partial class MainWindow
     private readonly TextBlock _homeDeviceName = new() { Text = "Sin dispositivo" };
     private readonly TextBlock _homeConnectionStatus = new() { Text = "Desconectado" };
     private readonly Button _homeVisionButton = new() { Content = "VER PANTALLA" };
+    private readonly ComboBox _linkRouteSelector = new()
+    {
+        ItemsSource = new[] { "USB · cable", "LAN · Wi-Fi" },
+        SelectedIndex = 0,
+        MinWidth = 190,
+        Height = 38
+    };
 
     private Avalonia.Controls.Control BuildHomePage()
     {
+        InitializeLinkSessionVE();
         var content = PageContent();
         content.Children.Add(Label("CENTRO DE SESIÓN", "BlueBrush", 12, true, new Thickness(0,0,0,5)));
         content.Children.Add(Label("Inicio", "TextBrush", 27, true));
@@ -53,6 +61,32 @@ public sealed partial class MainWindow
         actions.Children.Add(_homeScreenButton);
         Grid.SetColumn(actions,1); connection.Children.Add(actions);
         var connectionCard=Card(connection); connectionCard.Margin=new Thickness(0,0,0,16); content.Children.Add(connectionCard);
+
+        // La preparación/conexión de LinkEngine vive en Home; la página LinkEngine
+        // conserva el estado técnico y las mediciones de la sesión.
+        var linkConnect=new StackPanel { Spacing=8 };
+        linkConnect.Children.Add(Label("CONECTAR LINKENGINE","BlueBrush",12,true,new Thickness(0,0,0,6)));
+        linkConnect.Children.Add(SectionTitle("Prepara la ruta de esta sesión"));
+        var homeLinkStatus=Caption("",new Thickness(0,0,0,6));
+        homeLinkStatus.Bind(TextBlock.TextProperty,new Binding(nameof(TextBlock.Text)) { Source=_linkPageMessage });
+        linkConnect.Children.Add(homeLinkStatus);
+        linkConnect.Children.Add(Caption("Conecta el teléfono por USB o configura ADB inalámbrico. Después prepara la ruta y acepta los permisos de VPN en LINK Control.",new Thickness(0,0,0,10)));
+        _linkPrepareButton.IsEnabled=true; _linkPrepareButton.Height=38; _linkPrepareButton.MinWidth=170;
+        StylePrimaryButton(_linkPrepareButton);
+        _linkPrepareButton.Click += (_, _) => _ = OpenConnectionSetupAsync(_linkRouteSelector.SelectedIndex==1?"LAN":"USB");
+        var linkActions=new WrapPanel();
+        linkActions.Children.Add(_linkRouteSelector);
+        linkActions.Children.Add(_linkPrepareButton);
+        linkConnect.Children.Add(linkActions);
+        _linkPairingHint.FontWeight=Avalonia.Media.FontWeight.SemiBold;
+        _linkPairingHint.Foreground=Brush("#f1f5f9");
+        _linkPairingHint.Margin=new Thickness(0,4,0,0);
+        linkConnect.Children.Add(_linkPairingHint);
+        _linkWifiAdbButton.Height=38;
+        _linkWifiAdbButton.Margin=new Thickness(0,6,0,0);
+        linkConnect.Children.Add(_linkWifiAdbButton);
+        var linkConnectCard=Card(linkConnect); linkConnectCard.Margin=new Thickness(0,0,0,16); content.Children.Add(linkConnectCard);
+
         content.Children.Add(Label("MOTORES DISPONIBLES","BlueBrush",12,true,new Thickness(0,2,0,10)));
 
         var engines = new Grid { ColumnDefinitions=new ColumnDefinitions("*,*,*") };

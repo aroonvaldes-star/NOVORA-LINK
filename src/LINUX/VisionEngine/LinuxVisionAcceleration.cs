@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using NOVORA.Control;
 
 namespace NOVORA.Linux.VisionEngine;
 
@@ -18,7 +19,19 @@ internal static class LinuxVisionAcceleration
         ? ["videotoolbox"]
         : ["vaapi", "cuda", "qsv", "vulkan"];
 
-    public static string DefaultBackend => SupportedBackends[0];
+    /// <summary>Backend sugerido para el proveedor detectado; software si no hay hardware conocido.</summary>
+    public static string DefaultBackend
+    {
+        get
+        {
+            string backend = NLAccelerationProfile.HardwareBackend(DetectVendor(), PlatformName);
+            return string.IsNullOrEmpty(backend) ? "software" : backend;
+        }
+    }
+
+    public static string Platform => PlatformRuntime.IsMacOS ? "mac" : "linux";
+    public static NLAccelerationVendor Vendor => DetectVendor();
+    private static string PlatformName => Platform;
 
     private static readonly Dictionary<string, LinuxAccelerationBackend> Cache = new();
     private static readonly SemaphoreSlim Gate = new(1, 1);
@@ -36,26 +49,44 @@ internal static class LinuxVisionAcceleration
         return result;
     }
 
+    /// <summary>Devuelve una o dos opciones: hardware del proveedor y software.</summary>
+    public static IReadOnlyList<NLAccelerationChoice> Options(LinuxVisionSettings settings) =>
+        NLAccelerationProfile.OptionsFor(PlatformName, VendorName(), settings.Profile, settings.CustomAcceleration);
+
     public static string Select(LinuxVisionSettings settings) => SelectBackend(settings).Name;
 
     public static LinuxAccelerationBackend SelectBackend(LinuxVisionSettings settings)
     {
-        if (settings.Acceleration == "Software")
-            return new("software", true, "Decodificación por software.");
-
-        if (settings.Acceleration == "Forced")
+        IReadOnlyList<NLAccelerationChoice> options = Options(settings);
+        NLAccelerationMode mode = settings.Acceleration switch
         {
-            LinuxAccelerationBackend result = ProbeBackendAsync(settings.HardwareBackend, CancellationToken.None)
-                .GetAwaiter().GetResult();
-            if (!result.Available)
-                throw new InvalidOperationException(
-                    $"Aceleración forzada {result.Name} no disponible: {result.Diagnostic}");
-            return result;
-        }
+            "Software" => NLAccelerationMode.Software,
+            "Custom" => NLAccelerationMode.Custom,
+            _ => NLAccelerationMode.Automatic
+        };
+        NLAccelerationChoice choice = mode == NLAccelerationMode.Software
+            ? options[^1]
+            : NLAccelerationProfile.Select(PlatformName, VendorName(), settings.Profile, mode, settings.CustomAcceleration);
 
-        // Automática prefiere software: en medidas previas de Linux, NVDEC tardó el doble.
-        return new("software", true, "Modo automático usa decodificación por software.");
+        if (!choice.UsesHardware)
+            return new("software", true, choice.Reason);
+
+        LinuxAccelerationBackend result = ProbeBackendAsync(choice.Backend, CancellationToken.None)
+            .GetAwaiter().GetResult();
+        if (result.Available) return result;
+
+        // Automático sí degrada; la antigua opción Forzada desaparece de la interfaz.
+        return new("software", true,
+            $"Hardware {choice.BackendLabel} no disponible; se usa software. {result.Diagnostic}");
     }
+
+    private static NLAccelerationVendor DetectVendor()
+    {
+        if (PlatformRuntime.IsMacOS) return NLAccelerationVendor.Apple;
+        return RenderNodeVendor();
+    }
+
+    private static string VendorName() => NLAccelerationProfile.VendorName(DetectVendor());
 
     public static async Task<LinuxAccelerationBackend> ProbeBackendAsync(string backend, CancellationToken token)
     {
@@ -230,7 +261,7 @@ internal static class LinuxVisionAcceleration
         if (backend == "vaapi")
             renderNodes = renderNodes.OrderByDescending(IsIntelRenderNode).ToArray();
 
-        return renderNodes.Length == 0 ? [null] : renderNodes;
+        return renderNodes.Length == 0 ? new string?[] { null } : renderNodes;
     }
 
     private static string[] GetRenderNodes()
@@ -251,20 +282,56 @@ internal static class LinuxVisionAcceleration
         }
     }
 
-    private static bool IsIntelRenderNode(string path)
+    private static NLAccelerationVendor RenderNodeVendor()
+    {
+        foreach (string node in GetRenderNodes())
+        {
+            string vendorPath = Path.Combine("/sys/class/drm", Path.GetFileName(node), "device", "vendor");
+            try
+            {
+                string vendor = File.ReadAllText(vendorPath).Trim().ToLowerInvariant();
+                if (vendor is "0x8086") return NLAccelerationVendor.Intel;
+                if (vendor is "0x1002" or "0x1022") return NLAccelerationVendor.Amd;
+                if (vendor is "0x10de") return NLAccelerationVendor.Nvidia;
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
+        try
+        {
+            if (Directory.GetFiles("/dev", "nvidia*", SearchOption.TopDirectoryOnly).Length > 0)
+                return NLAccelerationVendor.Nvidia;
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+
+        return NLAccelerationVendor.Unknown;
+    }
+
+    private static bool IsIntelRenderNode(string path) =>
+        RenderNodeVendorOf(path) == NLAccelerationVendor.Intel;
+
+    private static NLAccelerationVendor RenderNodeVendorOf(string path)
     {
         string vendorPath = Path.Combine("/sys/class/drm", Path.GetFileName(path), "device", "vendor");
         try
         {
-            return File.ReadAllText(vendorPath).Trim().Equals("0x8086", StringComparison.OrdinalIgnoreCase);
+            return File.ReadAllText(vendorPath).Trim().ToLowerInvariant() switch
+            {
+                "0x8086" => NLAccelerationVendor.Intel,
+                "0x1002" or "0x1022" => NLAccelerationVendor.Amd,
+                "0x10de" => NLAccelerationVendor.Nvidia,
+                _ => NLAccelerationVendor.Unknown
+            };
         }
         catch (IOException)
         {
-            return false;
+            return NLAccelerationVendor.Unknown;
         }
         catch (UnauthorizedAccessException)
         {
-            return false;
+            return NLAccelerationVendor.Unknown;
         }
     }
 

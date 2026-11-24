@@ -6,13 +6,11 @@ namespace NOVORA.Linux;
 
 public sealed partial class MainWindow
 {
-    private readonly ComboBox _linkRouteSelector = new() { ItemsSource=new[]{"USB · cable","LAN · Wi-Fi"},SelectedIndex=0,MinWidth=190,Height=38 };
-
     private Avalonia.Controls.Control BuildLinkPage()
     {
         InitializeLinkSessionVE();
         var content=PageContent();
-        AddPageHeading(content,"","LinkEngine","Conecta el teléfono a esta PC por USB o Wi-Fi.");
+        AddPageHeading(content,"","LinkEngine","Estado y mediciones de la conexión de esta sesión. La preparación de la ruta está en Inicio.");
         var columns=new Grid { ColumnDefinitions=new ColumnDefinitions("1.15*,14,*") };
         var status=new StackPanel();
         status.Children.Add(SectionTitle("Conexión"));
@@ -32,13 +30,7 @@ public sealed partial class MainWindow
         };
         status.Children.Add(_linkTechnicalButton); status.Children.Add(_linkTechnicalStatus);
         columns.Children.Add(Card(status));
-        var preparation=new StackPanel();
-        preparation.Children.Add(Caption("Deja listo el transporte de LinkEngine: conexión USB por cable o ADB inalámbrico por Wi-Fi. Después prepara la ruta y autoriza Iniciar Internet desde AppControl.",new Thickness(0,0,0,12)));
-        preparation.Children.Add(Card(new StackPanel { Children={SectionTitle("Por USB"),Caption("Conecta el teléfono por cable y activa LinkEngine desde AppControl. Usa la guía si necesitas habilitar Internet USB en Android.",new Thickness(0,5,0,10))} }));
-        var wifi=_linkWifiAdbButton; wifi.Height=38;
-        preparation.Children.Add(Card(new StackPanel { Children={SectionTitle("Por Wi-Fi"),Caption("Configura ADB inalámbrico cuando el teléfono y la PC estén en la misma red; esto no inicia LinkEngine por sí solo.",new Thickness(0,5,0,10)),wifi} }));
-        var transport=new Expander { Header="Preparar el canal de conexión",IsExpanded=false,Content=preparation,VerticalAlignment=VerticalAlignment.Top };
-        Grid.SetColumn(transport,2); columns.Children.Add(transport); content.Children.Add(columns);
+        content.Children.Add(columns);
 
         var measurements=new StackPanel(); measurements.Children.Add(SectionTitle("Mediciones técnicas de esta sesión"));
         measurements.Children.Add(Caption("Valores en vivo y pruebas recibidas por este enlace; se reinician al cambiar o detener la sesión.",new Thickness(0,5,0,8)));
@@ -46,18 +38,6 @@ public sealed partial class MainWindow
         measurements.Children.Add(_linkInternetStatus);
         measurements.Children.Add(_linkTunnelStatus);
         var measurementsCard=Card(measurements); measurementsCard.Margin=new Thickness(0,14,0,0); content.Children.Add(measurementsCard);
-
-        var route=new StackPanel(); route.Children.Add(SectionTitle("Preparar ruta de LinkEngine"));
-        route.Children.Add(Caption("Elige la ruta de esta sesión. Prepara la conexión y en LINK Control acepta los permisos de VPN.",new Thickness(0,5,0,12)));
-        _linkPrepareButton.IsEnabled=true; _linkPrepareButton.Height=38; _linkPrepareButton.MinWidth=160;
-        StylePrimaryButton(_linkPrepareButton);
-        _linkPrepareButton.Click += async (_,_)=>await OpenConnectionSetupAsync(_linkRouteSelector.SelectedIndex==1?"LAN":"USB");
-        var routeActions=new WrapPanel {  };
-        _linkPrepareButton.Margin=new Thickness(10,0,0,0);
-        routeActions.Children.Add(_linkRouteSelector); routeActions.Children.Add(_linkPrepareButton); route.Children.Add(routeActions);
-        _linkPairingHint.FontWeight=Avalonia.Media.FontWeight.SemiBold; _linkPairingHint.Foreground=Brush("#f1f5f9"); _linkPairingHint.Margin=new Thickness(0,10,0,0);
-        route.Children.Add(_linkPairingHint);
-        var routeCard=Card(route); routeCard.Margin=new Thickness(0,16,0,0); content.Children.Add(routeCard);
 
         var tests=new StackPanel { Spacing=6 };
         tests.Children.Add(Caption("Tráfico y pruebas de esta sesión. El relay mide el tráfico; las pruebas se muestran por separado."));

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using NOVORA.Control;
 
 namespace NOVORA.Linux.VisionEngine;
 
@@ -8,8 +9,12 @@ internal sealed record LinuxVisionSettings
     public string Bitrate { get; init; } = "8M";
     public int MaxSize { get; init; } = 1920;
     public int Fps { get; init; } = 60;
+    /// <summary>Automático (según perfil/proveedor), Software o Personalizado.</summary>
     public string Acceleration { get; init; } = "Automatic";
+    /// <summary>Backend resuelto para el proveedor detectado; no se expone como opción manual.</summary>
     public string HardwareBackend { get; init; } = LinuxVisionAcceleration.DefaultBackend;
+    /// <summary>Perfil personalizado opcional definido por el usuario.</summary>
+    public NLAccelerationCustomProfile? CustomAcceleration { get; init; }
     public string MonitorName { get; init; } = "";
     public string AudioDeviceName { get; init; } = "";
     public uint MonitorId { get; init; }
@@ -75,7 +80,7 @@ internal sealed record LinuxVisionSettings
     public static LinuxVisionSettings ForProfile(string profile)
     {
         string id = ProfileId(profile);
-        var settings = Default with { Profile = id };
+        var settings = Default with { Profile = id, HardwareBackend = LinuxVisionAcceleration.DefaultBackend };
         settings = id switch
         {
             "Competitive" => settings with { Bitrate = "8M", MaxSize = 1280, Fps = 60, LowLatency = true, VSync = false },
@@ -83,13 +88,19 @@ internal sealed record LinuxVisionSettings
             "Smooth" => settings with { Bitrate = "10M", MaxSize = 1920, Fps = 60, VSync = true },
             "Software" => settings with { Acceleration = "Software", MaxSize = 1280, Fps = 30 },
             // Mobile data: audio off; Economy at 30 fps by user request (same bitrate, smoother motion).
-            "MobileExtreme" => settings with { Bitrate = "120K", MaxSize = 480, Fps = 5, AudioEnabled = false, LowLatency = true },
-            "MobileEconomy" => settings with { Bitrate = "250K", MaxSize = 720, Fps = 30, AudioEnabled = false, LowLatency = true },
+            "MobileExtreme" => settings with { Bitrate = "120K", MaxSize = 480, Fps = 5, AudioEnabled = false, LowLatency = true, Acceleration = "Software" },
+            "MobileEconomy" => settings with { Bitrate = "250K", MaxSize = 720, Fps = 30, AudioEnabled = false, LowLatency = true, Acceleration = "Software" },
             _ => settings
         };
         settings.Validate();
         return settings;
     }
+
+    /// <summary>Opciones visibles para el perfil actual: una o dos.</summary>
+    public IReadOnlyList<NLAccelerationChoice> AccelerationOptions => LinuxVisionAcceleration.Options(this);
+
+    public static IReadOnlyList<NLAccelerationChoice> OptionsForProfile(string profile) =>
+        LinuxVisionAcceleration.Options(ForProfile(profile));
     public void Validate()
     {
         bool mobile = IsMobile;
@@ -99,8 +110,9 @@ internal sealed record LinuxVisionSettings
             (mobile ? MaxSize is not (480 or 720) :
                 MaxSize is not (480 or 720 or 960 or 1080 or 1280 or 1440 or 1600 or 1920 or 2160)) ||
             !(mobile ? MobileFrameRates : LegacyFrameRates).Contains(Fps) ||
-            Acceleration is not ("Automatic" or "Software" or "Forced") ||
-            HardwareBackend is not ("vaapi" or "cuda" or "qsv" or "vulkan" or "videotoolbox") ||
+            Acceleration is not ("Automatic" or "Software" or "Custom") ||
+            (Acceleration == "Custom" && CustomAcceleration is null) ||
+            HardwareBackend is not ("software" or "vaapi" or "cuda" or "qsv" or "vulkan" or "videotoolbox" or "NvidiaNvdec" or "amf") ||
             string.IsNullOrWhiteSpace(RecordingDirectory) || !Path.IsPathFullyQualified(RecordingDirectory) ||
             string.IsNullOrWhiteSpace(ReceiveDirectory) || !Path.IsPathFullyQualified(ReceiveDirectory) ||
             !LinuxAudioSource.IsValid(AudioSource))
@@ -131,6 +143,15 @@ internal sealed class LinuxVisionSettingsStore
         if (!string.IsNullOrWhiteSpace(settings.ReceiveDirectory) && Path.IsPathFullyQualified(settings.ReceiveDirectory) &&
             Path.GetFullPath(settings.ReceiveDirectory) == Path.GetFullPath(LinuxVisionSettings.LegacyReceiveDirectory))
             settings = settings with { ReceiveDirectory = LinuxVisionSettings.DefaultReceiveDirectory };
+        // Migración: Forzada era un cuarto modo y HardwareBackend podía ser manual.
+        // Ahora el perfil y el proveedor resuelven el backend automáticamente.
+        if (settings.Acceleration == "Forced")
+            settings = settings with { Acceleration = "Automatic", HardwareBackend = LinuxVisionAcceleration.DefaultBackend };
+        if (settings.Acceleration == "Custom" && settings.CustomAcceleration is null)
+            settings = settings with { Acceleration = "Automatic" };
+        // El backend del perfil personalizado es una decisión explícita del usuario.
+        if (settings.Acceleration != "Custom")
+            settings = settings with { HardwareBackend = LinuxVisionAcceleration.DefaultBackend };
         settings.Validate();
         return settings;
     }

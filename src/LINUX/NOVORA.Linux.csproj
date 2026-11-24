@@ -45,6 +45,8 @@
     <!-- Streaming: RTMP (ffmpeg) and OBS WebSocket v5 backend, identical to Windows. -->
     <Compile Include="$(NovoraWindowsSource)/Streaming/NLStreamingService.cs"
              Link="Streaming/Shared/%(Filename)%(Extension)" />
+    <Compile Include="$(NovoraWindowsSource)/Control/NLAccelerationProfile.cs"
+             Link="Control/Shared/%(Filename)%(Extension)" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
   </ItemGroup>
   <ItemGroup>
