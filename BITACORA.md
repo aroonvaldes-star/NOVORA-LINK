@@ -66,9 +66,26 @@ se modificó ni se suplantó.
   scripts. Commit `f4388f6`: bitácora y resultado del relay Rust. Ambos
   pushados a `linkcontrol-android-adaptaciones`.
 
+## 2026-11-24 — Contraste con LINK-CONTROL
+
+- Se examinó `https://github.com/aroonvaldes-star/LINK-CONTROL` (rama
+  `novora-appcontrol`, HEAD `207f132`). Es el compañero Android: fuente
+  `1.4.113`, 37 archivos C#, sin proyecto de escritorio ni servicio
+  RTMP/OBS. El selector de perfiles de la Android toma las opciones de la PC.
+- Los archivos comunes divergen respecto a esta copia (por ejemplo,
+  `NLControlCapturePolicy.cs` con 491 líneas diferentes), así que no se hizo
+  cherry-pick ni se modificó ese repositorio.
+- El artefacto del run `45367818371` incluye una APK Release firmada por CI,
+  versión `1.4.128`, SHA-256
+  `a15d4999075539710d60bef33663f89386c8137a4c0f5b460328484e553c2f20`. No es
+  publicable como oficial: usa firma de depuración y la versión ya publicada;
+  harían falta `1.4.129`, la clave autorizada y los ficheros de verificación.
+- Contraste completo en
+  `docs/informes/2026-11-24-contraste-link-control.md`.
+
 ## Pendiente
 
-- Descargar el artefacto de Android y decidir si la APK recompilada se publica
-  como artefacto; la incluida en `apk/` sigue siendo la pública original.
+- Decidir si se publica la APK recompilada; la incluida en `apk/` sigue siendo
+  la pública original.
 - Validación física: GPU Intel/NVIDIA/AMD, sesión RTMP real y conexión OBS.
 - No se modificó `main` en ninguno de los dos repositorios locales.

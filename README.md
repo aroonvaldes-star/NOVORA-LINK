@@ -141,6 +141,8 @@ resultados de compilación y la limitación del relay Rust están en
   `docs/informes/2026-11-24-copia-android-linkcontrol.md`.
 - Adaptaciones de escritorio documentadas en
   `docs/informes/2026-11-24-streaming-aceleracion-home.md`.
+- Contraste con el repositorio actual `LINK-CONTROL` en
+  `docs/informes/2026-11-24-contraste-link-control.md`.
 - `src/Desktop` contiene los archivos adaptados, no un proyecto WPF/Avalonia
   completo. Los XAML y partial classes modificados deben integrarse en el árbol
   original antes de compilar.
