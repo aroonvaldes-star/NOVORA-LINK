@@ -44,21 +44,20 @@ Dentro de esta copia local:
 - `dotnet build src/Linux/NOVORA.Linux.csproj -c Debug -t:Rebuild` → 0 errores, 0 advertencias.
 - `dotnet build src/Linux/NOVORA.Linux.csproj -c Release -t:Rebuild` → 0 errores, 0 advertencias.
 
-## Limitación del relay Rust
+## Relay Rust
 
-El binario `novora-linkengine-relay` no se generó en este entorno. El primer
-obstáculo fue el caché Git de `cargo`, que guardaba referencias temporales
-inválidas (`refs/commit/.l2s.…`); se sorteó clonando `tcp_ip` por separado y
-aplicando un `patch` temporal de Cargo. Después la compilación se detuvo porque
-no hay un compilador/linker C del sistema (`cc`) para `proc-macro2`, `quote`,
-`libc` y otras dependencias.
+El binario `novora-linkengine-relay` sí se generó en este entorno. El caché Git
+de `cargo` guardaba referencias temporales inválidas (`refs/commit/.l2s.…`); se
+sorteó clonando `tcp_ip` por separado y aplicando un `patch` temporal de Cargo.
+Como tampoco había `cc`, se extrajo una cadena de herramientas mínima en
+`~/.local/toolchain` y se compiló con un `--sysroot` aislado. El script
+`build-relay.sh` reproduce el proceso.
 
-Para no bloquear la compilación administrada, el `csproj` de la copia local
-solo incluye/copia el relay cuando el binario existe. Para habilitarlo en un
-entorno completo:
+El `csproj` de la copia local solo incluye/copia el relay cuando el binario
+existe. Para recompilarlo todo:
 
 ```bash
-cargo build --release --locked --manifest-path src/Linux/LinkRelay/Cargo.toml
+./build-relay.sh
 dotnet build src/Linux/NOVORA.Linux.csproj -c Release -t:Rebuild
 ```
 

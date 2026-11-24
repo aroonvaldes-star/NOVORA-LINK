@@ -8,7 +8,7 @@
 | Linux (copia local) | `dotnet build src/Linux/NOVORA.Linux.csproj -c Release -t:Rebuild` | 0 errores, 0 advertencias |
 | Linux (rama de origen) | `dotnet build src/LINUX/NOVORA.Linux.csproj -c {Debug,Release} -t:Rebuild` | 0 errores, 0 advertencias |
 | Android (copia local) | `dotnet build src/Android/NLProjectAndroid.csproj -c Debug -t:Rebuild` | Bloqueado por herramientas x86-64 del workload en host ARM64 |
-| Relay Rust | `cargo build --release --manifest-path src/Linux/LinkRelay/Cargo.toml` | Bloqueado: falta `cc` |
+| Relay Rust | `cargo build --release --manifest-path src/Linux/LinkRelay/Cargo.toml` | Compilado: `novora-linkengine-relay` (2,5 MB) |
 
 Los ensamblados Linux se generaron en:
 
@@ -46,10 +46,20 @@ workload Android, ejecuta `Rebuild` de Debug y Release con
 
 El caché Git de Cargo guardaba referencias temporales inválidas
 (`refs/commit/.l2s.…`). Se sorteó clonando `tcp_ip` en `/tmp/opencode/tcp_ip` y
-aplicando un `patch` temporal de Cargo. Después la compilación se detuvo en
-`proc-macro2`, `quote`, `libc` y otros crates porque no hay linker C (`cc`) en
-el sistema. El `csproj` de la copia solo incluye/copia el relay cuando el
-binario existe, así que esto no bloquea la compilación administrada.
+aplicando un `patch` temporal de Cargo.
+
+Para resolver la falta de `cc` se extrajeron paquetes Debian (`gcc-15`,
+`binutils`, `libc6-dev` y dependencias) en `~/.local/toolchain`, con un
+`--sysroot` aislado y enlaces a las bibliotecas del sistema. Con ese entorno el
+relay compiló en modo Release y produjo:
+
+- `src/Linux/LinkRelay/target/release/novora-linkengine-relay`
+
+El binario está ignorado por Git (`LinkRelay/target/`), pero el `csproj` lo
+detecta y lo copia a `Tools/LinkEngine/` dentro del output de Linux. El script
+`build-relay.sh` reproduce la compilación en este entorno; en una máquina con
+`cc` instalado basta `cargo build --release --locked --manifest-path
+src/Linux/LinkRelay/Cargo.toml`.
 
 ## Sin validar
 

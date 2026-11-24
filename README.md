@@ -136,6 +136,7 @@ resultados de compilación y la limitación del relay Rust están en
 - Código fuente copiado íntegramente desde el repo de origen.
 - Rutas relativas ajustadas para que el proyecto sea independiente.
 - Bitácoras e informes del repositorio copiados en `docs/`.
+- Registro cronológico de esta copia en `BITACORA.md`.
 - Registro de esta operación en
   `docs/informes/2026-11-24-copia-android-linkcontrol.md`.
 - Adaptaciones de escritorio documentadas en
