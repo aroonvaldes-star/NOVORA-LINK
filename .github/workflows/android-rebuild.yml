@@ -1,0 +1,41 @@
+name: Android rebuild
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - linkcontrol-android-adaptaciones
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Android workload
+        run: dotnet workload install android
+
+      - name: Rebuild Debug
+        run: >-
+          dotnet build src/Android/NLProjectAndroid.csproj -c Debug -t:Rebuild
+          -p:AndroidBuildApplicationPackage=true
+
+      - name: Rebuild Release
+        run: >-
+          dotnet build src/Android/NLProjectAndroid.csproj -c Release -t:Rebuild
+          -p:AndroidBuildApplicationPackage=true
+
+      - name: Upload build outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: linkcontrol-android-rebuild
+          if-no-files-found: warn
+          path: |
+            src/Android/bin/Debug/net10.0-android/**
+            src/Android/bin/Release/net10.0-android/**

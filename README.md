@@ -1,7 +1,7 @@
-# LINKCONTROL — copia del cliente Android
+# LINKCONTROL — copia de los clientes Android y Linux
 
-Copia local y autocontenida del módulo Android de **LINK Control** extraído de
-[NOVORA-LINK](https://github.com/aroonvaldes-star/NOVORA-LINK).
+Copia local y autocontenida de los módulos Android y Linux de **LINK Control**
+extraídos de [NOVORA-LINK](https://github.com/aroonvaldes-star/NOVORA-LINK).
 
 No es una ingeniería inversa de un APK: procede del código fuente público del
 repositorio indicado. La copia incluye el proyecto Android y los archivos
@@ -39,10 +39,15 @@ LINKCONTROL-Android/
 │  │  ├─ Control/
 │  │  ├─ Network/
 │  │  └─ VisionEngine/Protocol/
-│  └─ Desktop/                 # Adaptaciones locales de escritorio (Windows/Linux)
-│     ├─ Streaming/            # Servicio compartido de RTMP y OBS WebSocket
-│     ├─ Windows/UI/           # XAML y lógica de Streaming de WPF
-│     └─ Linux/UI/             # Home, LinkEngine y Streaming de Avalonia
+│  ├─ Desktop/                 # Adaptaciones locales de escritorio (Windows/Linux)
+│  │  ├─ Streaming/            # Servicio compartido de RTMP y OBS WebSocket
+│  │  ├─ Windows/UI/           # XAML y lógica de Streaming de WPF
+│  │  └─ Linux/UI/             # Home, LinkEngine y Streaming de Avalonia
+│  ├─ Linux/                   # Aplicación NOVORA LINK Linux (Avalonia)
+│  │  ├─ LinkRelay/            # Relay Rust de LinkEngine
+│  │  ├─ tests/                # Pruebas de protocolo
+│  │  └─ NOVORA.Linux.csproj
+│  └─ LinuxShared/             # Fuentes compartidas enlazadas por el csproj Linux
 ├─ docs/                       # Bitácoras, informes y documentación del repo original
 │  ├─ informes/
 │  ├─ legal/
@@ -53,10 +58,11 @@ LINKCONTROL-Android/
 
 ## Requisitos para compilar
 
-- .NET 10 SDK
+- .NET 10 SDK y .NET 8 SDK (el cliente Linux targeta `net8.0`)
 - Workload de Android: `dotnet workload install android`
-- Android SDK con API 30 o superior
-- JDK 17 (o el que exija la versión instalada del workload)
+- Android SDK con API 30 o superior y JDK 17 o superior
+- Para Linux: Rust/Cargo y un compilador C del sistema para el relay Rust;
+  en ejecución también se necesitan `adb`, `ffmpeg` y SDL3
 
 ## Compilación
 
@@ -66,7 +72,15 @@ dotnet build src/Android/NLProjectAndroid.csproj -c Debug
 
 # Release (ARM64, teléfono físico)
 dotnet build src/Android/NLProjectAndroid.csproj -c Release
+
+# Cliente Linux (Debug y Release)
+dotnet build src/Linux/NOVORA.Linux.csproj -c Debug
+dotnet build src/Linux/NOVORA.Linux.csproj -c Release
 ```
+
+Los scripts `build.sh` y `build-linux.sh` hacen `Rebuild` de Debug y Release
+para Android y Linux respectivamente. Los `.desktop` de `~/Desktop` abren esos
+scripts o ejecutan directamente el cliente Linux.
 
 Para generar el APK firmado se necesita además una configuración de firma
 propia; el repositorio de origen no incluye material de firma privado. El
@@ -108,6 +122,15 @@ La telemetría del monitor es deliberadamente mínima. La tabla de origen de cad
 dato y los campos descartados están documentados en
 `docs/informes/2026-11-24-streaming-aceleracion-home.md`.
 
+### NOVORA LINK Linux
+
+El cliente Linux completo está en `src/Linux`; sus fuentes compartidas
+mínimas están en `src/LinuxShared`. Las mismas adaptaciones de Home,
+Streaming y aceleración se publicaron en la rama
+`linkcontrol-linux-adaptaciones` del repositorio original. El detalle, los
+resultados de compilación y la limitación del relay Rust están en
+`docs/informes/2026-11-24-novora-link-linux.md`.
+
 ## Estado de esta copia
 
 - Código fuente copiado íntegramente desde el repo de origen.
@@ -120,9 +143,16 @@ dato y los campos descartados están documentados en
 - `src/Desktop` contiene los archivos adaptados, no un proyecto WPF/Avalonia
   completo. Los XAML y partial classes modificados deben integrarse en el árbol
   original antes de compilar.
-- **No se ha compilado ni generado una APK nueva** en este entorno: aquí no
-  están instalados el SDK de .NET ni el SDK de Android. Tampoco se validó una
-  sesión RTMP/OBS real.
+- El cliente Linux (`src/Linux`) sí compila en este entorno: Debug y Release
+  terminaron con 0 errores y 0 advertencias.
+- El SDK de Android quedó instalado, pero la compilación local de Android no
+  puede terminar en esta máquina ARM64: el workload de .NET trae `aapt2` y
+  `libZipSharpNative` compilados para x86-64. Se añadió el workflow
+  `.github/workflows/android-rebuild.yml` para recompilar en un runner x86-64 y
+  descargar los artefactos. El detalle está en
+  `docs/informes/2026-11-24-compilacion-y-verificacion.md`.
+- **No se generó una APK nueva localmente** y no se validó una sesión RTMP/OBS
+  real. La APK incluida en `apk/` sigue siendo la pública original.
 
 ## Licencia
 

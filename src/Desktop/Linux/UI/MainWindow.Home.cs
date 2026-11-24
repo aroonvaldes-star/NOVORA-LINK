@@ -11,6 +11,13 @@ public sealed partial class MainWindow
     private readonly TextBlock _homeDeviceName = new() { Text = "Sin dispositivo" };
     private readonly TextBlock _homeConnectionStatus = new() { Text = "Desconectado" };
     private readonly Button _homeVisionButton = new() { Content = "VER PANTALLA" };
+    private readonly ComboBox _linkRouteSelector = new()
+    {
+        ItemsSource = new[] { "USB · cable", "LAN · Wi-Fi" },
+        SelectedIndex = 0,
+        MinWidth = 190,
+        Height = 38
+    };
 
     private Avalonia.Controls.Control BuildHomePage()
     {

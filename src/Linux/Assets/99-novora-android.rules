@@ -1,0 +1,37 @@
+# ==============================================================================
+# NOVORA-LINK: Reglas udev para dispositivos Android (USB Debugging / ADB)
+# Permite la conexión y control USB sin requerir privilegios de superusuario.
+# ==============================================================================
+
+# Google / Nexus / Pixel
+SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Samsung
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e8", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Xiaomi / Redmi / POCO
+SUBSYSTEM=="usb", ATTR{idVendor}=="2717", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Huawei / Honor
+SUBSYSTEM=="usb", ATTR{idVendor}=="12d1", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Motorola
+SUBSYSTEM=="usb", ATTR{idVendor}=="22b8", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# OnePlus / Oppo / Realme
+SUBSYSTEM=="usb", ATTR{idVendor}=="2a70", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Sony
+SUBSYSTEM=="usb", ATTR{idVendor}=="0fce", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# LG
+SUBSYSTEM=="usb", ATTR{idVendor}=="1004", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# HTC
+SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Asus
+SUBSYSTEM=="usb", ATTR{idVendor}=="0b05", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Regla universal para cualquier dispositivo con protocolo ADB estándar (Class 0xFF, SubClass 0x42, Protocol 0x01)
+SUBSYSTEM=="usb", ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceSubClass}=="42", ATTR{bInterfaceProtocol}=="01", MODE="0666", GROUP="plugdev", TAG+="uaccess"

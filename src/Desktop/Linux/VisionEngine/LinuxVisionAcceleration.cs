@@ -261,7 +261,7 @@ internal static class LinuxVisionAcceleration
         if (backend == "vaapi")
             renderNodes = renderNodes.OrderByDescending(IsIntelRenderNode).ToArray();
 
-        return renderNodes.Length == 0 ? [null] : renderNodes;
+        return renderNodes.Length == 0 ? new string?[] { null } : renderNodes;
     }
 
     private static string[] GetRenderNodes()

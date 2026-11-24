@@ -1,0 +1,145 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="Window">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+  </Style>
+  <Style Selector="Border.nv-card">
+    <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource GlassEdgeBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="18" />
+    <Setter Property="BoxShadow" Value="0 4 22 0 #38000000" />
+  </Style>
+  <Style Selector="Button">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Height" Value="44" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    <Setter Property="Background" Value="{DynamicResource PanelBrush2}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="NvButtonBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" RenderTransformOrigin="50%,50%" RenderTransform="scale(1)">
+          <Border.Transitions>
+            <Transitions><TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" /></Transitions>
+          </Border.Transitions>
+          <ContentPresenter x:Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Padding="{TemplateBinding Padding}" HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" RecognizesAccessKey="True" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Button:pointerover /template/ Border#NvButtonBorder">
+    <Setter Property="Background" Value="{DynamicResource InputHoverBackgroundBrush}" />
+    <Setter Property="RenderTransform" Value="scale(1.03)" />
+  </Style>
+  <Style Selector="Button:pressed /template/ Border#NvButtonBorder">
+    <Setter Property="Opacity" Value="0.82" />
+    <Setter Property="RenderTransform" Value="scale(0.95)" />
+  </Style>
+  <Style Selector="Button:focus-visible /template/ Border#NvButtonBorder">
+    <Setter Property="BorderBrush" Value="{DynamicResource BlueBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+  <Style Selector="Button:disabled"><Setter Property="Opacity" Value="0.72" /></Style>
+  <!-- Fluent's state brushes target this presenter; keep our Windows border visible. -->
+  <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter, Button:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+  </Style>
+  <Style Selector="Button.nv-primary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.nv-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.nv-primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+  </Style>
+  <Style Selector="Button.nv-primary">
+    <Setter Property="Height" Value="48" />
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="Background" Value="{DynamicResource BlueBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Padding" Value="18,0" />
+  </Style>
+  <Style Selector="Button.nv-primary /template/ Border#NvButtonBorder"><Setter Property="CornerRadius" Value="9" /></Style>
+  <Style Selector="Button.nv-primary:focus-visible /template/ Border#NvButtonBorder"><Setter Property="BorderBrush" Value="White" /></Style>
+  <Style Selector="Button.nv-primary:pointerover /template/ Border#NvButtonBorder">
+    <Setter Property="Background" Value="{DynamicResource BlueDarkBrush}" />
+  </Style>
+  <Style Selector="Button.nv-nav">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Opacity" Value="0.72" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="Margin" Value="0,3" />
+  </Style>
+  <Style Selector="Button.nv-nav.nv-selected">
+    <Setter Property="Background" Value="{DynamicResource InputSelectedBackgroundBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource BlueBrush}" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Button.nv-window">
+    <Setter Property="Width" Value="44" /><Setter Property="Height" Value="44" />
+    <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="ComboBox">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="MinHeight" Value="38" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource InputForegroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+  <Style Selector="TextBox">
+    <Setter Property="Foreground" Value="{DynamicResource InputForegroundBrush}" />
+    <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+  </Style>
+  <Style Selector="CheckBox">
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid ColumnDefinitions="*,Auto">
+          <ContentPresenter x:Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                            VerticalAlignment="Center" Margin="0,0,14,0">
+            <ContentPresenter.Styles><Style Selector="TextBlock"><Setter Property="TextWrapping" Value="Wrap" /></Style></ContentPresenter.Styles>
+          </ContentPresenter>
+          <Border x:Name="SwitchTrack" Grid.Column="1" Width="46" Height="26" CornerRadius="13" VerticalAlignment="Center"
+                  Background="{DynamicResource TrackBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+            <Ellipse x:Name="SwitchThumb" Width="20" Height="20" HorizontalAlignment="Left" Margin="2,0,0,0"
+                     Fill="{DynamicResource TextBrush}" RenderTransform="translate(0px,0px)">
+              <Ellipse.Transitions><Transitions><TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" /></Transitions></Ellipse.Transitions>
+            </Ellipse>
+          </Border>
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="CheckBox:checked /template/ Border#SwitchTrack">
+    <Setter Property="Background" Value="{DynamicResource BlueBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource BlueBrush}" />
+  </Style>
+  <Style Selector="CheckBox:checked /template/ Ellipse#SwitchThumb">
+    <Setter Property="Fill" Value="{DynamicResource PrimaryTextBrush}" /><Setter Property="RenderTransform" Value="translate(20px,0px)" />
+  </Style>
+  <Style Selector="CheckBox:pointerover /template/ Border#SwitchTrack"><Setter Property="BorderBrush" Value="{DynamicResource InputHoverBorderBrush}" /></Style>
+  <Style Selector="CheckBox:focus-visible /template/ Border#SwitchTrack"><Setter Property="BorderThickness" Value="2" /></Style>
+  <Style Selector="CheckBox:disabled"><Setter Property="Opacity" Value="0.55" /></Style>
+  <Style Selector="Expander">
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+  </Style>
+</Styles>

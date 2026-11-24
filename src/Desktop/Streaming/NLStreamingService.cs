@@ -251,7 +251,7 @@ public sealed class NLStreamingService : IAsyncDisposable
         return string.Join(' ', args.Select(QuoteForDisplay));
     }
 
-    private static IReadOnlyList<string> BuildFfmpegArgumentList(NLStreamSettings input)
+    private static List<string> BuildFfmpegArgumentList(NLStreamSettings input)
     {
         NLStreamSettings s = Normalize(input);
         var args = new List<string>
@@ -270,7 +270,7 @@ public sealed class NLStreamingService : IAsyncDisposable
         }
         else
         {
-            string display = Environment.GetEnvironmentVariable("DISPLAY");
+            string? display = Environment.GetEnvironmentVariable("DISPLAY");
             if (string.IsNullOrWhiteSpace(display)) display = ":0";
             if (!display.Contains('.')) display += ".0";
             args.AddRange(["-f", "x11grab", "-framerate", Fmt(s.Fps), "-i", display]);
@@ -414,7 +414,7 @@ public sealed class NLStreamingService : IAsyncDisposable
 
     private void StartFfmpeg(NLStreamSettings s)
     {
-        string executable = Environment.GetEnvironmentVariable("NOVORA_FFMPEG");
+        string? executable = Environment.GetEnvironmentVariable("NOVORA_FFMPEG");
         if (string.IsNullOrWhiteSpace(executable)) executable = "ffmpeg";
         var info = new ProcessStartInfo(executable)
         {
