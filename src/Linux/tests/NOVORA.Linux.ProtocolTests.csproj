@@ -7,11 +7,11 @@
     <AssemblyName>NOVORA.Linux.ProtocolTests</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../Android/AndroidVideo/NLAndroidKeyboardEditing.cs" Link="AndroidKeyboardEditing.cs" />
+    <Compile Include="../../Android/AndroidVideo/NLAndroidKeyboardEditing.cs" Link="AndroidKeyboardEditing.cs" />
     <!-- Shared contracts consumed by LINK Control: Linux offers must stay JSON-compatible with them. -->
-    <Compile Include="../LinuxShared/Control/NLControlMobileData.cs" Link="Shared/NLControlMobileData.cs" />
-    <Compile Include="../Android/AndroidUI/UpdateLINKGitHub.cs" Link="Shared/UpdateLINKGitHub.cs" />
-    <Compile Include="../LinuxShared/Control/NLControlNetworkPolicy.cs" Link="Shared/NLControlNetworkPolicy.cs" />
+    <Compile Include="../../LinuxShared/Control/NLControlMobileData.cs" Link="Shared/NLControlMobileData.cs" />
+    <Compile Include="../../Android/AndroidUI/UpdateLINKGitHub.cs" Link="Shared/UpdateLINKGitHub.cs" />
+    <Compile Include="../../LinuxShared/Control/NLControlNetworkPolicy.cs" Link="Shared/NLControlNetworkPolicy.cs" />
     <ProjectReference Include="../NOVORA.Linux.csproj" />
   </ItemGroup>
 </Project>

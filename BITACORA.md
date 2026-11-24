@@ -83,9 +83,39 @@ se modificó ni se suplantó.
 - Contraste completo en
   `docs/informes/2026-11-24-contraste-link-control.md`.
 
+## 2026-11-24 — Compatibilidad de arranque y sesión
+
+- Se contrastó el orden real de arranque: Avalonia crea la ventana, inicia la
+  conexión automática (solo prepara rutas USB/LAN) y los motores siguen
+  iniciándose bajo petición. VisionEngine resuelve el backend al construir el
+  decodificador dentro de una sesión autorizada; LinkEngine sigue ligado a la
+  ruta y a `LinkMeasurements`; el monitor de streaming solo arranca desde el
+  botón de Streaming.
+- En Android (`LINK-CONTROL`, HEAD `207f132`) `OnStart` enlaza el servicio y
+  suscribe sesión/estado, `OnResume` vuelve a renderizar el monitor y
+  `ApplyState` consume `snapshot.Profiles`/`snapshot.Acceleration` como texto.
+  Las formas de `NLControlAcceleration` y `NLControlSnapshot` son idénticas en
+  ambos repositorios, así que no hace falta tocar la APK actual.
+- Se reforzó el contrato compartido: `Custom` sin perfil válido devuelve
+  software en lugar de reutilizar la opción automática. Se actualizaron las dos
+  copias de `NLAccelerationProfile.cs` (`src/Shared` y `src/LinuxShared`).
+- Se reescribió `src/Linux/tests/VisionAccelerationChecks.cs` para el contrato
+  sin `Forced`: recorre 3 plataformas × 5 proveedores × 6 perfiles × 3 modos y
+  verifica que toda selección está dentro de las opciones ofrecidas. El bloque
+  de aceleración pasa; la suite seguía y fallaba después en
+  `VisionExchangeChecks.cs:214` (`Imagenes/a (1).png`), archivo no tocado por
+  esta rama: se registra como fallo preexistente del entorno, no como regresión.
+- Se corrigieron las rutas relativas de
+  `src/Linux/tests/NOVORA.Linux.ProtocolTests.csproj` (`../../Android` y
+  `../../LinuxShared`). Release del cliente Linux: 0 errores y 0 advertencias.
+- Informe completo:
+  `docs/informes/2026-11-24-compatibilidad-arranque-sesion.md`.
+
 ## Pendiente
 
 - Decidir si se publica la APK recompilada; la incluida en `apk/` sigue siendo
   la pública original.
 - Validación física: GPU Intel/NVIDIA/AMD, sesión RTMP real y conexión OBS.
+- Decidir si se aplica en `LINK-CONTROL` el cambio opcional del texto de perfil
+  y si se abre allí un issue; no se hizo sin confirmación.
 - No se modificó `main` en ninguno de los dos repositorios locales.

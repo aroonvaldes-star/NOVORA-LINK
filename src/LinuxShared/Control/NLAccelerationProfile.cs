@@ -276,6 +276,10 @@ public static class NLAccelerationProfile
     {
         IReadOnlyList<NLAccelerationChoice> options =
             OptionsFor(platform, vendor, profile, custom);
+        // Custom without a valid user profile has nothing to apply; never reuse
+        // the automatic hardware option in that case.
+        if (requestedMode == NLAccelerationMode.Custom && custom is null)
+            return options[^1];
         if (requestedMode != NLAccelerationMode.Software && options.Count == 2)
             return options[0];
         return options[^1];
