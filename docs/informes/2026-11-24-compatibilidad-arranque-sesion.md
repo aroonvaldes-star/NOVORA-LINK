@@ -35,9 +35,11 @@ detalle técnico y las mediciones.`src/Desktop/Linux/UI/MainWindow.Home.cs:65,95
 El contrato de cableado no cambió: `NLControlAcceleration` y `NLControlSnapshot`
 tienen la misma forma en la copia adaptada y en `LINK-CONTROL`
 (`src/Shared/Control/NLControlProtocol.cs:16-17,56-59` frente a
-`src/NOVORA/Control/NLControlProtocol.cs:21-22,57-62`). Por tanto, las etiquetas
-nuevas (`Automático · QSV`, `Personalizado · ...`) son solo texto mostrado y no
-rompen deserialización ni obligan a tocar la APK actual.
+`src/NOVORA/Control/NLControlProtocol.cs:21-22,57-62`). Las etiquetas nuevas
+(`Automático · QSV`, `Personalizado · ...`) se generan en la UI de aceleración de
+PC y **no** se publican dentro de `snapshot.Profiles`, que sigue siendo la lista
+canónica de la PC; Android trata esos valores como opacos y no los valida. Por
+tanto, no rompen deserialización ni obligan a tocar la APK actual.
 
 ## 3. Compatibilidad de lo añadido
 
@@ -77,7 +79,48 @@ rompen deserialización ni obligan a tocar la APK actual.
   `../LinuxShared` a `../../Android` y `../../LinuxShared`, necesarias para que
   la suite compile desde `src/Linux/tests`.
 
-## 5. Conclusión
+## 5. Hallazgos adicionales del contraste
+
+- La UI se construye **antes** de tener sesión, en las tres plataformas. En Linux
+  `CreateShell()` levanta todas las páginas y recién después
+  `App.OnFrameworkInitializationCompleted` llama a `StartAutomaticConnection()`;
+  la inicialización de la sesión de LinkEngine en Home es idempotente y la de
+  ExIn es asíncrona. En Android `OnCreate` dibuja Home y deshabilita acciones,
+  luego `OnStart` enlaza el servicio. En Windows `OnStartup` crea la ventana, el
+  constructor registra runtimes (sin iniciarlos) y `Window_Loaded` lanza ExIn en
+  paralelo con el descubrimiento ADB. Este orden se conservó.
+- Los motores siguen estrictamente bajo petición: `startLink` exige consentimiento
+  VPN y `StartInternetAsync`; `startAppVideo`/`startVideoLan` exigen el grant de
+  un solo uso de MediaProjection antes de iniciar la captura local. La PC solo
+  publica disponibilidad/solicitudes en el snapshot. El monitor VPN
+  (`NLLinkMonitorSample`) mide el túnel real y no debe mezclarse con el monitor
+  del codificador de streaming.
+- No aparecen marcadores `TODO`/`FIXME` de orden en los fuentes revisados ni
+  referencias obsoletas del monitor retirado (`StreamMonitorFrames`,
+  `outputBitsPerSec`, `sample.Live`). `FramesPerSecond` pertenece a la telemetría
+  legítima de VisionEngine.
+- Riesgos registrados, ajenos a una regresión de esta rama:
+  1. `_streaming` / `_streaming14` no se disponen explícitamente al cerrar las
+     ventanas; `NLStreamingService.DisposeAsync` existe y podría llamarse desde
+     el cierre.
+  2. En el clon original `src/WINDOWS/Control/NLAccelerationProfile.cs` no tenía
+     la guarda `Custom` sin perfil; se sincronizó en la rama Linux. Las
+     partials/XAML adaptadas de WPF siguen viviendo solo en la copia local,
+     tal como ya documentaba el README: integrarlas es una tarea pendiente.
+  3. La copia Android cambia el identificador de paquete a
+     `com.linkcontrol.novora` y usa un contrato USB v2 con token para LinkEngine;
+     ambos cambios son preexistentes en la copia, no efectos del monitor ni de
+     la aceleración.
+  4. Windows publica seis perfiles y Linux ocho; en ambos casos
+     `snapshot.Profiles` sigue siendo la única fuente del selector Android.
+- Elementos que no deben revertirse: ausencia de `Application` personalizada que
+  inicie motores, enlace/desenlace del servicio y suscripción de monitor,
+  bootstrap protegido de USB/LAN, validación TLS y de huella, disciplina de
+  generación/revisión del snapshot, consentimiento VPN y MediaProjection,
+  monitor ligado al túnel real, `snapshot.Profiles` como contrato del selector y
+  las versiones/framing del protocolo v1.
+
+## 6. Conclusión
 
 El orden de arranque, el establecimiento de sesión y el inicio de motores se
 mantienen: la conexión automática solo prepara rutas; VisionEngine decide el

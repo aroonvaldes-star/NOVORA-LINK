@@ -108,6 +108,13 @@ se modificó ni se suplantó.
 - Se corrigieron las rutas relativas de
   `src/Linux/tests/NOVORA.Linux.ProtocolTests.csproj` (`../../Android` y
   `../../LinuxShared`). Release del cliente Linux: 0 errores y 0 advertencias.
+- El contraste ampliado confirmó que la UI se construye antes de la sesión en
+  Linux, Android y Windows; que los motores siguen exigiendo consentimiento
+  VPN/MediaProjection; que no hay referencias obsoletas del monitor retirado; y
+  que las etiquetas `Automático · <backend>` no se publican como perfiles del
+  snapshot. Se registraron como riesgos la disposición del servicio de streaming
+  al cerrar, la integración pendiente de las partials/XAML de WPF en el clon y
+  los cambios preexistentes de identidad de paquete y contrato USB v2.
 - Informe completo:
   `docs/informes/2026-11-24-compatibilidad-arranque-sesion.md`.
 
