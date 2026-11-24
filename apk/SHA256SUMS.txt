@@ -1,0 +1,2 @@
+631be68de1c53cb5eca334ea8f89bd101cbb9144758b6be9e03d56d9dd4b8157  NOVORA-LINK-1.4-experimental.1-Windows-x64.zip
+e8de4485731bb35f0939bbadfecd442636f1d4076f252ae933d338cc41fe2157  NOVORA-Android-1.4.8-experimental.apk

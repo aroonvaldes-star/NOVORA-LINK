@@ -1,0 +1,316 @@
+NOVORA-LINK PROPRIETARY LICENSE (NLPL) v1.1
+
+Copyright (c) 2026 Aaron Yair Galarza Valdes.
+Todos los derechos reservados.
+
+Esta licencia sustituye a la NOVORA-LINK COMMUNITY PROPRIETARY LICENSE
+(NLCPL) v1.0. Las copias obtenidas bajo la NLCPL v1.0 conservan los
+términos con los que fueron adquiridas; las copias nuevas se rigen por
+esta versión.
+
+======================================================================
+PREÁMBULO
+======================================================================
+
+NOVORA-LINK es un proyecto privado. Su código fuente se publica para
+permitir el estudio, la evaluación y la colaboración, no para transferir
+la titularidad ni para autorizar su explotación comercial por terceros.
+
+Esta licencia concede derechos limitados y expresamente enumerados. Todo
+derecho no concedido queda reservado por el Titular.
+
+======================================================================
+1. DEFINICIONES
+======================================================================
+
+1.1 "Titular": Aaron Yair Galarza Valdes, titular de los derechos
+    patrimoniales sobre el Software.
+
+1.2 "Software": NOVORA-LINK, en sus componentes de escritorio, Android,
+    relay, instaladores, protocolos, interfaces, documentación, diseños,
+    activos gráficos y cualquier otro elemento original identificado como
+    parte del proyecto.
+
+1.3 "Código fuente": el conjunto de archivos legibles por personas que
+    componen el Software, incluidos código, configuración, scripts,
+    documentación y recursos.
+
+1.4 "Versión modificada": cualquier copia del Software en la que se
+    altere, traduzca, adapte, amplíe, reduzca o combine total o
+    parcialmente el Código fuente o los binarios.
+
+1.5 "Uso comercial": toda utilización directa o indirecta destinada a
+    obtener un beneficio económico, incluida la prestación de servicios a
+    terceros, la integración en un producto propio, la distribución como
+    parte de una oferta de pago o el uso interno por una entidad con
+    fines de lucro, salvo autorización escrita.
+
+1.6 "Distribuir": entregar, publicar, subir a un repositorio, compartir
+    por red, incluir en un instalador o poner a disposición de terceros
+    una copia del Software por cualquier medio.
+
+1.7 "Contribución": cualquier código, documentación, diseño, prueba,
+    corrección u otro material enviado al Titular mediante pull request,
+    issue, parche, correo electrónico u otro canal.
+
+1.8 "Avisos": los textos de copyright, licencia, atribución y marcas
+    incluidos en el Software.
+
+======================================================================
+2. TITULARIDAD
+======================================================================
+
+2.1 El Software es propiedad exclusiva del Titular, salvo los componentes
+    de terceros identificados en `Legal/NLLegalThirdPartyNotices.md`.
+
+2.2 La titularidad comprende, sin limitación, el código fuente y objeto,
+    la arquitectura, los protocolos, las interfaces, los textos, los
+    diseños, los logotipos y demás elementos originales.
+
+2.3 Los derechos se encuentran protegidos por la legislación mexicana
+    aplicable, en particular la Ley Federal del Derecho de Autor, así como
+    por los tratados internacionales de propiedad intelectual de los que
+    México es parte, incluido el Convenio de Berna.
+
+2.4 La publicación del Código fuente no constituye una renuncia, cesión,
+    donación ni licencia implícita sobre el Software.
+
+======================================================================
+3. DERECHOS CONCEDIDOS
+======================================================================
+
+Se concede a cualquier persona física o moral una licencia limitada,
+revocable, personal, no exclusiva e intransferible para:
+
+a) Descargar y conservar copias del Software.
+
+b) Ejecutar el Software para uso personal, educativo, de investigación o
+   de evaluación, sin fines comerciales.
+
+c) Estudiar, inspeccionar y analizar el Código fuente.
+
+d) Identificar errores, vulnerabilidades y áreas de mejora.
+
+e) Modificar localmente el Software para fines personales, educativos, de
+   investigación o de desarrollo, siempre que la Versión modificada no se
+   distribuya ni se explote comercialmente.
+
+f) Compilar el Software para uso propio en los términos anteriores.
+
+g) Distribuir copias íntegras y sin modificar del Software, conforme a la
+   sección 6.
+
+======================================================================
+4. CONDICIONES
+======================================================================
+
+4.1 Conservación de avisos. Toda copia, compilación o distribución debe
+    conservar íntegramente esta licencia y todos los Avisos.
+
+4.2 Notificación de modificaciones. Quien realice una Versión modificada
+    podrá notificarla al Titular mediante pull request, issue o correo
+    electrónico. La notificación es voluntaria y no implica cesión de
+    derechos, aceptación, incorporación ni obligación alguna para el
+    Titular.
+
+4.3 Contribuciones. Toda Contribución se rige por `CONTRIBUTING.md`. El
+    Titular no está obligado a aceptar, revisar, mantener ni distribuir
+    Contribuciones.
+
+4.4 Verificación de origen. Quien distribuya una copia íntegra no podrá
+    afirmar que se trata de una versión oficial si no fue publicada por el
+    Titular o por un canal autorizado.
+
+======================================================================
+5. RESTRICCIONES
+======================================================================
+
+Salvo autorización previa y por escrito del Titular, queda prohibido:
+
+a) Redistribuir, publicar o poner a disposición Versiones modificadas.
+
+b) Vender, alquilar, sublicenciar, ceder o comercializar el Software o el
+   acceso a él.
+
+c) Crear productos o servicios derivados con fines comerciales.
+
+d) Utilizar el Software para prestar servicios a terceros a cambio de un
+   pago.
+
+e) Eliminar, ocultar o alterar Avisos, marcas o identificadores de
+   procedencia.
+
+f) Utilizar las marcas, nombres comerciales, logotipos o identidad visual
+   de NOVORA-LINK fuera de los usos permitidos en `TRADEMARKS.md`.
+
+g) Presentar Versiones modificadas, compilaciones no oficiales o
+   servicios de terceros como versiones oficiales o patrocinadas.
+
+h) Eludir restricciones técnicas, de licencia o de facturación.
+
+i) Distribuir el Software dentro de otro producto sin autorización
+   escrita.
+
+j) Utilizar el Software para actividades ilícitas o para vulnerar
+   derechos de terceros.
+
+======================================================================
+6. DISTRIBUCIÓN DE COPIAS ÍNTEGRAS
+======================================================================
+
+Se permite compartir copias íntegras y sin modificar del Software, siempre
+que:
+
+a) Se conserve esta licencia completa y todos los Avisos.
+
+b) No se cobre por el Software ni se condicione su entrega a una
+   contraprestación.
+
+c) No se altere la identidad, el nombre ni la presentación oficial.
+
+d) Se incluya la referencia al repositorio oficial:
+   https://github.com/aroonvaldes-star/NOVORA-LINK
+
+e) La distribución no sugiera patrocinio, afiliación o respaldo del
+   Titular.
+
+======================================================================
+7. COMPONENTES DE TERCEROS
+======================================================================
+
+7.1 Los componentes de terceros conservan sus propias licencias y
+    condiciones. Esta licencia no modifica, amplía ni sustituye dichas
+    licencias.
+
+7.2 Los avisos, textos íntegros y atribuciones se encuentran en:
+
+    - `Legal/NLLegalThirdPartyNotices.md`
+    - `Legal/NLLegalAcknowledgements.md`
+    - `Legal/LICENSES/`
+
+7.3 El Titular no reclama propiedad sobre los componentes de terceros ni
+    otorga derechos sobre ellos más allá de los que sus respectivas
+    licencias permitan.
+
+======================================================================
+8. MARCAS
+======================================================================
+
+8.1 "NOVORA", "NOVORA-LINK" y "LINK Control", así como sus logotipos,
+    son signos distintivos del Titular. Su uso se rige por
+    `TRADEMARKS.md`.
+
+8.2 Esta licencia no concede derecho alguno sobre las marcas, salvo la
+    referencia nominativa razonable para identificar el Software.
+
+======================================================================
+9. AUSENCIA DE GARANTÍAS
+======================================================================
+
+EL SOFTWARE SE PROPORCIONA "TAL CUAL" ("AS IS") Y "SEGÚN DISPONIBILIDAD"
+("AS AVAILABLE"), SIN GARANTÍA DE NINGÚN TIPO, EXPRESA O IMPLÍCITA,
+INCLUIDAS, SIN LIMITACIÓN, LAS GARANTÍAS DE COMERCIABILIDAD, IDONEIDAD
+PARA UN FIN PARTICULAR, TITULARIDAD, AUSENCIA DE VIRUS, EXACTITUD,
+DISPONIBILIDAD, SEGURIDAD O NO INFRACCIÓN.
+
+EL TITULAR NO GARANTIZA QUE EL SOFTWARE FUNCIONE SIN INTERRUPCIONES, SIN
+ERRORES, CON DISPOSITIVOS O SISTEMAS CONCRETOS, NI QUE CUMPLA REQUISITOS
+DE TERCEROS O NORMATIVAS ESPECÍFICAS.
+
+======================================================================
+10. LIMITACIÓN DE RESPONSABILIDAD
+======================================================================
+
+EN LA MÁXIMA MEDIDA PERMITIDA POR LA LEY APLICABLE, EL TITULAR NO SERÁ
+RESPONSABLE DE DAÑOS DIRECTOS, INDIRECTOS, INCIDENTALES, ESPECIALES,
+PUNITIVOS, CONSECUENCIALES O DE CUALQUIER OTRA NATURALEZA, INCLUIDOS LA
+PÉRDIDA DE DATOS, DE BENEFICIOS, DE NEGOCIO O DE REPUTACIÓN, DERIVADOS
+DEL USO, MAL USO O IMPOSIBILIDAD DE USO DEL SOFTWARE, AUN CUANDO HAYA SIDO
+ADVERTIDO DE LA POSIBILIDAD DE TALES DAÑOS.
+
+NADA EN ESTA LICENCIA EXCLUYE O LIMITA RESPONSABILIDADES QUE NO PUEDAN
+EXCLUIRSE O LIMITARSE CONFORME A LA LEY IMPERATIVA APLICABLE.
+
+======================================================================
+11. TERMINACIÓN
+======================================================================
+
+11.1 Esta licencia se extingue automáticamente, sin aviso previo, ante
+     cualquier incumplimiento de sus términos.
+
+11.2 Tras la terminación, la persona incumplidora deberá cesar todo uso y
+     destruir o eliminar las copias y Versiones modificadas en su poder,
+     salvo que la ley exija conservarlas.
+
+11.3 Las secciones 2, 7, 8, 9, 10, 12, 13 y 14 sobreviven a la
+     terminación.
+
+11.4 El Titular podrá suspender o retirar el acceso al repositorio, a las
+     descargas o a los canales de soporte, sin que ello genere derecho a
+     indemnización.
+
+======================================================================
+12. DERECHOS RESERVADOS
+======================================================================
+
+Todos los derechos no concedidos expresamente en esta licencia quedan
+reservados por el Titular. No se concede ningún derecho por implicación,
+preclusión, estoppel, uso habitual o práctica comercial.
+
+======================================================================
+13. LEGISLACIÓN APLICABLE Y JURISDICCIÓN
+======================================================================
+
+13.1 Esta licencia se rige por las leyes de los Estados Unidos Mexicanos.
+
+13.2 Para la interpretación y cumplimiento de esta licencia, las partes se
+     someten a los tribunales competentes de los Estados Unidos Mexicanos,
+     sin perjuicio de las normas imperativas de protección al consumidor
+     que resulten aplicables.
+
+13.3 Las disposiciones sobre propiedad intelectual de tratados
+     internacionales aplicables prevalecerán en lo que corresponda.
+
+======================================================================
+14. DISPOSICIONES GENERALES
+======================================================================
+
+14.1 Divisibilidad. Si alguna disposición se declara inválida o
+     inexigible, las demás conservarán su validez y la disposición
+     afectada se interpretará de la forma más cercana a su propósito
+     original.
+
+14.2 Acuerdo completo. Esta licencia, junto con los documentos que
+     expresamente referencia, constituye el acuerdo completo respecto del
+     Software y sustituye cualquier entendimiento previo sobre su uso.
+
+14.3 Renuncia. La falta de ejercicio de un derecho no constituye renuncia
+     al mismo.
+
+14.4 Cesión. El Titular podrá ceder o transferir sus derechos y
+     obligaciones bajo esta licencia. La persona licenciada no podrá
+     cederlos sin autorización escrita.
+
+14.5 Idioma. Esta licencia se redacta en español. La versión en inglés
+     (`LICENSE.en.md`) se ofrece únicamente para comodidad; en caso de
+     discrepancia, prevalecerá la versión en español.
+
+14.6 Vigencia. Esta versión (NLPL v1.1) entra en vigor el 21 de octubre
+     de 2026.
+
+======================================================================
+15. CONTACTO
+======================================================================
+
+Titular: Aaron Yair Galarza Valdes
+Correo: aroonvaldes@gmail.com
+Repositorio: https://github.com/aroonvaldes-star/NOVORA-LINK
+
+Para solicitudes de licencia comercial, autorizaciones de distribución,
+uso de marcas o aclaraciones sobre esta licencia, utilice el correo
+anterior indicando en el asunto "NLPL".
+
+======================================================================
+
+Copyright (c) 2026 Aaron Yair Galarza Valdes.
+NOVORA-LINK. Todos los derechos reservados.

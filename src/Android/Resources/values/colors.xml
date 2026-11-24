@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="novora_background">#F4F6FB</color>
+  <color name="novora_surface">#FFFFFF</color>
+  <color name="novora_surface_raised">#EDF1F8</color>
+  <color name="novora_border">#D7DDE8</color>
+  <color name="novora_text">#121722</color>
+  <color name="novora_muted">#657087</color>
+  <color name="novora_accent">#304FFE</color>
+  <color name="novora_success">#16845B</color>
+  <color name="novora_error">#B3262E</color>
+  <color name="novora_brand_bar">#0A0F11</color>
+</resources>

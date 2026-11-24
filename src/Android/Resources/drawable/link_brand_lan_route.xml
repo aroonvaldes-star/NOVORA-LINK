@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp" android:height="96dp"
+    android:viewportWidth="96" android:viewportHeight="96">
+  <!-- LINK Control LAN: the same frame, with a radiating wireless link. -->
+  <path android:fillColor="@android:color/transparent"
+      android:strokeColor="#FFFFFFFF" android:strokeWidth="2.5"
+      android:strokeLineJoin="round"
+      android:pathData="M28,8 L68,8 L88,28 L88,68 L68,88 L28,88 L8,68 L8,28 Z" />
+  <path android:fillColor="@android:color/transparent"
+      android:strokeColor="#FFFFFFFF" android:strokeWidth="5"
+      android:strokeLineCap="round"
+      android:pathData="M22,39 Q48,14 74,39 M31,49 Q48,33 65,49 M40,59 Q48,52 56,59" />
+  <path android:fillColor="#FFFFFFFF"
+      android:pathData="M48,65 L58,75 L48,85 L38,75 Z" />
+</vector>

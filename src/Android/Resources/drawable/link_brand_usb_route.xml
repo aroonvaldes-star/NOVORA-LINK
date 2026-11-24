@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp" android:height="96dp"
+    android:viewportWidth="96" android:viewportHeight="96">
+  <!-- LINK Control USB: framed wired connection with three physical endpoints. -->
+  <path android:fillColor="@android:color/transparent"
+      android:strokeColor="#FFFFFFFF" android:strokeWidth="2.5"
+      android:strokeLineJoin="round"
+      android:pathData="M28,8 L68,8 L88,28 L88,68 L68,88 L28,88 L8,68 L8,28 Z" />
+  <path android:fillColor="@android:color/transparent"
+      android:strokeColor="#FFFFFFFF" android:strokeWidth="5"
+      android:strokeLineCap="round" android:strokeLineJoin="round"
+      android:pathData="M48,72 L48,25 M48,54 L29,42 L29,31 M48,43 L67,31 L67,26" />
+  <path android:fillColor="#FFFFFFFF"
+      android:pathData="M48,15 L39,29 L57,29 Z M22,24 L36,24 L36,38 L22,38 Z M67,19 A7,7 0,1 1,53 19 A7,7 0,1 1,67 19 M56,73 A8,8 0,1 1,40 73 A8,8 0,1 1,56 73" />
+</vector>
